@@ -138,7 +138,7 @@ mech_scene = ExtResource("3_aug50")
 [node name="Highlight" type="TileMap" parent="."]
 tile_set = SubResource("TileSet_3xj3m")
 format = 2
-layer_0/modulate = Color(0.09803922, 0.09803922, 0.09803922, 1)
+layer_0/modulate = Color(0.21568628, 0.21568628, 0.21568628, 1)
 
 [node name="Terrain" type="TileMap" parent="."]
 tile_set = SubResource("TileSet_a8wo8")

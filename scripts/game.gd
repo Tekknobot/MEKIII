@@ -30,6 +30,13 @@ const MOVE_TILE_SMALL_SOURCE_ID := 0     # 1x1 move tile source id
 const MOVE_TILE_BIG_SOURCE_ID := 1       # 2x2 move tile source id
 const MOVE_ATLAS := Vector2i(0, 0)
 
+# --- Attack overlay ---
+@onready var attack_range: TileMap = $AttackRange
+const LAYER_ATTACK := 0
+const ATTACK_TILE_SMALL_SOURCE_ID := 0   # set these to your attack tile sources
+const ATTACK_TILE_BIG_SOURCE_ID := 1
+const ATTACK_ATLAS := Vector2i(0, 0)
+
 enum Season { DIRT, SANDSTONE, SNOW, GRASS, ICE }
 @export var season: Season = Season.GRASS
 @export_range(0.0, 1.0, 0.05) var season_strength := 0.75
@@ -65,6 +72,7 @@ var reachable_set := {} # Dictionary used like a Set: cell -> true
 
 var move_tween: Tween = null
 var is_moving_unit := false
+var is_attacking_unit := false
 
 # --- Overlay pixel offsets (match your cursor offsets) ---
 @export var hover_offset_1x1 := Vector2(0, 0)
@@ -72,6 +80,11 @@ var is_moving_unit := false
 
 @export var move_offset_1x1 := Vector2(0, 0)
 @export var move_offset_2x2 := Vector2(0, 16)
+
+@export var attack_offset_1x1 := Vector2(0, 0)
+@export var attack_offset_2x2 := Vector2(0, 16)
+
+var attackable_set := {}  # Dictionary[Vector2i, bool]
 
 func _unit_sprite(u: Unit) -> AnimatedSprite2D:
 	if u == null:
@@ -512,9 +525,7 @@ func get_unit_origin(u: Unit) -> Vector2i:
 func _is_big_unit(u: Unit) -> bool:
 	if u == null:
 		return false
-	# footprint size > 1 means 2x2 (or bigger later)
-	return u.footprint_cells(get_unit_origin(u)).size() > 1
-
+	return u.footprint_size.x > 1 or u.footprint_size.y > 1
 
 # -----------------------
 # “8x8 feel” snapping for big units
@@ -586,33 +597,194 @@ func set_hovered_unit(u: Unit) -> void:
 	if selected_unit == null:
 		draw_unit_hover(hovered_unit)
 
-
 func select_unit(u: Unit) -> void:
 	selected_unit = u
 
 	if selected_unit != null:
 		draw_unit_hover(selected_unit)
 		draw_move_range_for_unit(selected_unit)
+		draw_attack_range_for_unit(selected_unit)
 	else:
 		clear_selection_highlight()
 		clear_move_range()
+		clear_attack_range()
 
+func clear_attack_range() -> void:
+	attack_range.clear()
+	attackable_set.clear()
+	attack_range.position = attack_offset_1x1
+
+func draw_attack_range_for_unit(u: Unit) -> void:
+	clear_attack_range()
+	if u == null:
+		return
+
+	var origin := get_unit_origin(u)
+	var big := _is_big_unit(u)
+
+	attack_range.position = (attack_offset_2x2 if big else attack_offset_1x1)
+
+	if big:
+		origin = snap_origin_for_unit(origin, u)
+
+	var self_cells := u.footprint_cells(origin)
+
+	if not big:
+		# --- small units: 1x1 tiles everywhere (unchanged) ---
+		var source_id := ATTACK_TILE_SMALL_SOURCE_ID
+		for y in range(map_height):
+			for x in range(map_width):
+				var cell := Vector2i(x, y)
+				if cell in self_cells:
+					continue
+
+				var best := 999999
+				for fc in self_cells:
+					var d = abs(cell.x - fc.x) + abs(cell.y - fc.y)
+					if d < best:
+						best = d
+
+				if best <= u.attack_range:
+					attackable_set[cell] = true
+					attack_range.set_cell(LAYER_ATTACK, cell, source_id, ATTACK_ATLAS, 0)
+		return
+
+	# --- BIG units: place 2x2 tiles on EVEN origins only ---
+	var source_id_big := ATTACK_TILE_BIG_SOURCE_ID
+
+	for y in range(0, map_height - 1, 2):
+		for x in range(0, map_width - 1, 2):
+			var block_origin := Vector2i(x, y)
+
+			# the 2x2 block cells this tile would cover
+			var block_cells := [
+				block_origin,
+				block_origin + Vector2i(1, 0),
+				block_origin + Vector2i(0, 1),
+				block_origin + Vector2i(1, 1),
+			]
+
+			# don't paint blocks that overlap the unit itself
+			var overlaps_self := false
+			for bc in block_cells:
+				if bc in self_cells:
+					overlaps_self = true
+					break
+			if overlaps_self:
+				continue
+
+			# compute min manhattan distance between ANY cell in block and ANY self footprint cell
+			var best := 999999
+			for bc in block_cells:
+				for fc in self_cells:
+					var d = abs(bc.x - fc.x) + abs(bc.y - fc.y)
+					if d < best:
+						best = d
+
+			if best <= u.attack_range:
+				attackable_set[block_origin] = true
+				attack_range.set_cell(LAYER_ATTACK, block_origin, source_id_big, ATTACK_ATLAS, 0)
 
 func _unhandled_input(event: InputEvent) -> void:
-	if is_moving_unit:
+	if is_moving_unit or is_attacking_unit:
 		return
 
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
 		_update_hovered_cell()
+		_update_hovered_unit()
 
+		# 1) If we have a selected unit and clicked another unit -> try attack first
+		if selected_unit != null and hovered_unit != null and hovered_unit != selected_unit:
+			if await try_attack_selected(hovered_unit):
+				return
+
+		# 2) If we have a selected unit and clicked ground -> try move
 		if selected_unit != null:
 			if await try_move_selected_to(hovered_cell):
 				return
 
+		# 3) Otherwise select what we're hovering
 		select_unit(hovered_unit)
 
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_RIGHT and event.pressed:
 		select_unit(null)
+
+
+func try_attack_selected(target: Unit) -> bool:
+	if selected_unit == null or target == null:
+		return false
+	if is_moving_unit or is_attacking_unit:
+		return false
+	if target == selected_unit:
+		return false
+
+	var attacker := selected_unit
+
+	# range check (uses footprint vs footprint, so 2x2 behaves properly)
+	var dist := _attack_distance(attacker, target)
+	if dist > attacker.attack_range:
+		return false
+
+	is_attacking_unit = true
+
+	# face target + attack anim
+	var from_pos := attacker.global_position
+	var to_pos := target.global_position
+	_set_facing_from_world_delta(attacker, from_pos, to_pos)
+
+	var repeats = max(attacker.attack_repeats, 1)
+	for i in range(repeats):
+		await _play_anim_and_wait(attacker, attacker.attack_anim)
+		await _flash_unit(target)
+
+	_play_idle(attacker)
+	is_attacking_unit = false
+	return true
+
+
+func _attack_distance(a: Unit, b: Unit) -> int:
+	var ao := get_unit_origin(a)
+	var bo := get_unit_origin(b)
+
+	var a_cells := a.footprint_cells(ao)
+	var b_cells := b.footprint_cells(bo)
+
+	var best := 999999
+	for ca in a_cells:
+		for cb in b_cells:
+			var d = abs(ca.x - cb.x) + abs(ca.y - cb.y)
+			if d < best:
+				best = d
+	return best
+
+
+func _play_anim_and_wait(u: Unit, anim_name: StringName) -> void:
+	var spr := _unit_sprite(u)
+	if spr == null:
+		await get_tree().create_timer(0.15).timeout
+		return
+
+	if spr.sprite_frames == null or not spr.sprite_frames.has_animation(anim_name):
+		# fallback: still wait a tiny bit so timing feels like an attack
+		await get_tree().create_timer(0.15).timeout
+		return
+
+	spr.play(anim_name)
+	await spr.animation_finished
+
+
+func _flash_unit(u: Unit) -> void:
+	var spr := _unit_sprite(u)
+	if spr == null:
+		return
+
+	# Quick bright flash, then back
+	var base := spr.modulate
+
+	var t := create_tween()
+	t.tween_property(spr, "modulate", Color(2, 2, 2, base.a), 0.05)
+	t.tween_property(spr, "modulate", base, 0.10)
+	await t.finished
 
 # -----------------------
 # Movement range drawing (small vs big tile switching)
@@ -701,6 +873,7 @@ func try_move_selected_to(dest: Vector2i) -> bool:
 	# refresh overlays AFTER arrival so they match the final spot
 	draw_unit_hover(u)
 	draw_move_range_for_unit(u)
+	draw_attack_range_for_unit(u)
 
 	return true
 

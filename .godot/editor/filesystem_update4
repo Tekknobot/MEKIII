@@ -4,3 +4,6 @@ res://scenes/mech.tscn
 res://scripts/cursor.gd
 res://scripts/grid_data.gd
 res://scripts/unit.gd
+res://scripts/mech.gd
+res://scripts/human.gd
+res://scenes/human.tscn

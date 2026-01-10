@@ -37,9 +37,9 @@ animations = [{
 "duration": 1.0,
 "texture": ExtResource("7_7o67d")
 }],
-"loop": true,
+"loop": false,
 "name": &"attack",
-"speed": 4.0
+"speed": 24.0
 }, {
 "frames": [{
 "duration": 1.0,
@@ -83,5 +83,5 @@ footprint_size = Vector2i(2, 2)
 
 [node name="AnimatedSprite2D" type="AnimatedSprite2D" parent="."]
 sprite_frames = SubResource("SpriteFrames_7uhu2")
-animation = &"move"
+animation = &"attack"
 autoplay = "idle"

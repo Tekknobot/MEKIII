@@ -3,6 +3,10 @@ class_name Unit
 
 @export var footprint_size := Vector2i(1, 1)
 @export var move_range := 3
+@export var attack_range := 1
+@export var attack_repeats := 1
+@export var attack_anim: StringName = "attack"
+
 var grid_pos := Vector2i.ZERO
 
 const Z_UNITS := 2000

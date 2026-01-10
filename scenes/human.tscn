@@ -65,7 +65,7 @@ animations = [{
 }],
 "loop": false,
 "name": &"attack",
-"speed": 5.0
+"speed": 24.0
 }, {
 "frames": [{
 "duration": 1.0,
@@ -149,5 +149,5 @@ script = ExtResource("1_swaxu")
 
 [node name="AnimatedSprite2D" type="AnimatedSprite2D" parent="."]
 sprite_frames = SubResource("SpriteFrames_1lsy6")
-animation = &"idle"
+animation = &"attack"
 autoplay = "idle"
