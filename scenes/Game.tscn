@@ -169,7 +169,6 @@ highlight_texture_2x2 = ExtResource("12_7ua8r")
 [node name="Units" type="Node2D" parent="."]
 
 [node name="Camera2D" type="Camera2D" parent="."]
-zoom = Vector2(2, 2)
 script = ExtResource("8_400sg")
 map_width = 16
 map_height = 16

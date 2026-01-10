@@ -6,3 +6,4 @@ func _ready() -> void:
 	move_range = 1
 	attack_range = 2
 	attack_repeats = 1
+	hp = 5

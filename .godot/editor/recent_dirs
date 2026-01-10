@@ -1,6 +1,7 @@
+res://sprites/Explosion
+res://sprites/Zombies/death
 res://scripts
 res://scenes
-res://sprites/Zombies/death
 res://sprites/Zombies/move
 res://sprites/Zombies/attack
 res://sprites/Zombies/idle

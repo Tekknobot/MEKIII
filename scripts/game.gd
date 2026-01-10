@@ -90,6 +90,104 @@ var is_attacking_unit := false
 @export var move_offset_1x1 := Vector2(0, 0)
 @export var move_offset_2x2 := Vector2(0, 16)
 
+# -----------------------
+# Spawning helpers (regions)
+# -----------------------
+@export var ally_spawn_size := Vector2i(6, 6)   # top-left area size
+@export var enemy_spawn_size := Vector2i(6, 6)  # bottom-right area size
+
+func _rect_top_left(size: Vector2i) -> Rect2i:
+	return Rect2i(Vector2i(0, 0), size)
+
+func _rect_bottom_right(size: Vector2i) -> Rect2i:
+	var pos := Vector2i(map_width - size.x, map_height - size.y)
+	return Rect2i(pos, size)
+
+func _rand_cell_in_rect(r: Rect2i) -> Vector2i:
+	return Vector2i(
+		rng.randi_range(r.position.x, r.position.x + r.size.x - 1),
+		rng.randi_range(r.position.y, r.position.y + r.size.y - 1)
+	)
+
+# -----------------------
+# Units: spawning (UPDATED)
+# -----------------------
+func spawn_units() -> void:
+	if human_scene == null or mech_scene == null or zombie_scene == null:
+		push_warning("Assign human_scene, mech_scene, and zombie_scene in the Inspector.")
+		return
+
+	for child in units_root.get_children():
+		child.queue_free()
+	grid.occupied.clear()
+	unit_origin.clear()
+
+	var ally_rect := _rect_top_left(ally_spawn_size)
+	var enemy_rect := _rect_bottom_right(enemy_spawn_size)
+
+	# ✅ Mechs + Humans: top-left
+	for i in range(mech_count):
+		_spawn_one(mech_scene, ally_rect)
+
+	for i in range(human_count):
+		_spawn_one(human_scene, ally_rect)
+
+	# ✅ Zombies: bottom-right
+	for i in range(zombie_count):
+		_spawn_one(zombie_scene, enemy_rect)
+
+# -----------------------
+# Spawn one (UPDATED signature)
+# -----------------------
+func _spawn_one(scene: PackedScene, region: Rect2i) -> void:
+	var tries := 500
+	while tries > 0:
+		tries -= 1
+
+		var unit := scene.instantiate() as Unit
+		if unit == null:
+			return
+
+		var origin := _rand_cell_in_rect(region)
+
+		# big units must align
+		if _is_big_unit(unit):
+			origin = snap_origin_for_unit(origin, unit)
+
+			# if snapping pushed it outside the region, try again
+			if not region.has_point(origin):
+				unit.queue_free()
+				continue
+
+		var cells := unit.footprint_cells(origin)
+
+		var ok := true
+		for c in cells:
+			if not grid.in_bounds(c):
+				ok = false
+				break
+			if grid.terrain[c.x][c.y] == T_WATER:
+				ok = false
+				break
+			if grid.is_occupied(c):
+				ok = false
+				break
+
+		if not ok:
+			unit.queue_free()
+			continue
+
+		for c in cells:
+			grid.set_occupied(c, unit)
+
+		unit.grid_pos = origin
+		unit_origin[unit] = origin
+		units_root.add_child(unit)
+
+		unit.global_position = cell_to_world_for_unit(origin, unit)
+		unit.update_layering()
+		return
+
 func _unit_sprite(u: Unit) -> AnimatedSprite2D:
 	if u == null:
 		return null
@@ -263,76 +361,6 @@ func generate_map() -> void:
 	for x in range(map_width):
 		for y in range(map_height):
 			set_tile_id(Vector2i(x, y), grid.terrain[x][y])
-
-
-# -----------------------
-# Units: spawning
-# -----------------------
-func spawn_units() -> void:
-	if human_scene == null or mech_scene == null or zombie_scene == null:
-		push_warning("Assign human_scene, mech_scene, and zombie_scene in the Inspector.")
-		return
-
-	for child in units_root.get_children():
-		child.queue_free()
-	grid.occupied.clear()
-	unit_origin.clear()
-
-	# spawn order is up to you
-	for i in range(mech_count):
-		_spawn_one(mech_scene)
-
-	for i in range(human_count):
-		_spawn_one(human_scene)
-
-	for i in range(zombie_count):
-		_spawn_one(zombie_scene)
-
-func _spawn_one(scene: PackedScene) -> void:
-	var tries := 300
-	while tries > 0:
-		tries -= 1
-
-		var unit := scene.instantiate() as Unit
-		if unit == null:
-			return
-
-		var origin := Vector2i(rng.randi_range(0, map_width - 1), rng.randi_range(0, map_height - 1))
-
-		# Big units should spawn on even origins so they always align to the 2-step grid.
-		if _is_big_unit(unit):
-			origin = snap_origin_for_unit(origin, unit)
-
-		var cells := unit.footprint_cells(origin)
-
-		var ok := true
-		for c in cells:
-			if not grid.in_bounds(c):
-				ok = false
-				break
-			if grid.terrain[c.x][c.y] == T_WATER:
-				ok = false
-				break
-			if grid.is_occupied(c):
-				ok = false
-				break
-
-		if not ok:
-			unit.queue_free()
-			continue
-
-		for c in cells:
-			grid.set_occupied(c, unit)
-
-		unit.grid_pos = origin
-		unit_origin[unit] = origin
-		units_root.add_child(unit)
-
-		# TileMap positions are already in "cell space"; tile size (32x32) is handled by TileMap.
-		unit.global_position = cell_to_world_for_unit(origin, unit)
-		unit.update_layering()
-		return
-
 
 # -----------------------
 # Connectivity + dead-end fixer (non-water walkable)
@@ -703,9 +731,13 @@ func try_attack_selected(target: Unit) -> bool:
 	var repeats = max(attacker.attack_repeats, 1)
 	for i in range(repeats):
 		await _play_anim_and_wait(attacker, anim_name)
-		await _flash_unit(target)
 
-		await _flash_unit(target)
+		# Apply damage
+		target.take_damage(1)
+
+		# Flash only if still alive
+		if target.hp > 0:
+			await _flash_unit(target)
 
 	_play_idle(attacker)
 	is_attacking_unit = false
@@ -950,3 +982,19 @@ func _get_attack_anim_name(attacker: Unit) -> StringName:
 			anim = attacker.attack_anim
 
 	return anim
+
+func _on_unit_died(u: Unit) -> void:
+	# Remove from grid occupancy
+	var origin := get_unit_origin(u)
+	for c in u.footprint_cells(origin):
+		if grid.is_occupied(c) and grid.occupied[c] == u:
+			grid.occupied.erase(c)
+
+	# Remove from tracking
+	unit_origin.erase(u)
+
+	# If selected / hovered
+	if selected_unit == u:
+		select_unit(null)
+	if hovered_unit == u:
+		set_hovered_unit(null)

@@ -1,4 +1,4 @@
-[gd_scene load_steps=17 format=3 uid="uid://bqrbab23wjpjp"]
+[gd_scene load_steps=31 format=3 uid="uid://bqrbab23wjpjp"]
 
 [ext_resource type="Script" uid="uid://bhleuow0oj7s4" path="res://scripts/mech.gd" id="1_0w1yf"]
 [ext_resource type="Texture2D" uid="uid://dpcs3qp8kvyhg" path="res://sprites/Meks/M1/m1atk_1.png" id="2_0wcai"]
@@ -8,13 +8,27 @@
 [ext_resource type="Texture2D" uid="uid://bsjtdxk1jmq46" path="res://sprites/Meks/M1/m1atk_5.png" id="6_ogfb8"]
 [ext_resource type="Texture2D" uid="uid://fw3gn5e3wao5" path="res://sprites/Meks/M1/m1atk_6.png" id="7_7o67d"]
 [ext_resource type="Texture2D" uid="uid://bedrjpys37gnq" path="res://sprites/Meks/M1/m1idle_1.png" id="8_7jaid"]
+[ext_resource type="Texture2D" uid="uid://bkylv8dfqnkcg" path="res://sprites/Explosion/explosion1.png" id="8_7uhu2"]
 [ext_resource type="Texture2D" uid="uid://cgvo5o4g8t7i7" path="res://sprites/Meks/M1/m1idle_2.png" id="9_66obp"]
+[ext_resource type="Texture2D" uid="uid://5rowb55gcpdo" path="res://sprites/Explosion/explosion2.png" id="9_fsrag"]
+[ext_resource type="Texture2D" uid="uid://bd7brxhvng8x2" path="res://sprites/Explosion/explosion3.png" id="10_2ixgk"]
 [ext_resource type="Texture2D" uid="uid://bf0om5jfkhhdw" path="res://sprites/Meks/M1/m1idle_3.png" id="10_rhygc"]
 [ext_resource type="Texture2D" uid="uid://dsuegaaab5s07" path="res://sprites/Meks/M1/m1idle_4.png" id="11_4j4l1"]
+[ext_resource type="Texture2D" uid="uid://dba6mxmkieou5" path="res://sprites/Explosion/explosion4.png" id="11_6kuh8"]
+[ext_resource type="Texture2D" uid="uid://7vhtauytorjm" path="res://sprites/Explosion/explosion5.png" id="12_3lxh2"]
 [ext_resource type="Texture2D" uid="uid://dfukoee0luo5y" path="res://sprites/Meks/M1/m1move_1.png" id="12_n4quh"]
 [ext_resource type="Texture2D" uid="uid://b3jrtotkeeelh" path="res://sprites/Meks/M1/m1move_2.png" id="13_2pyf4"]
+[ext_resource type="Texture2D" uid="uid://cx563mikd8xgq" path="res://sprites/Explosion/explosion6.png" id="13_6rjkc"]
+[ext_resource type="Texture2D" uid="uid://colhte0st8rgu" path="res://sprites/Explosion/explosion7.png" id="14_2ot5l"]
 [ext_resource type="Texture2D" uid="uid://c8ku360hp3ei1" path="res://sprites/Meks/M1/m1move_3.png" id="14_73gji"]
+[ext_resource type="Texture2D" uid="uid://duocys137b0ff" path="res://sprites/Explosion/explosion8.png" id="15_2878o"]
 [ext_resource type="Texture2D" uid="uid://c7w2d5pgml0xc" path="res://sprites/Meks/M1/m1move_4.png" id="15_ike3p"]
+[ext_resource type="Texture2D" uid="uid://12yes4vjuccq" path="res://sprites/Explosion/explosion9.png" id="16_g0wc0"]
+[ext_resource type="Texture2D" uid="uid://d0b35fj4u2wvh" path="res://sprites/Explosion/explosion10.png" id="17_wialk"]
+[ext_resource type="Texture2D" uid="uid://b0cc4uuasjv8a" path="res://sprites/Explosion/explosion11.png" id="18_hrvhe"]
+[ext_resource type="Texture2D" uid="uid://btqqeif8wuqwt" path="res://sprites/Explosion/explosion12.png" id="19_pw1bu"]
+[ext_resource type="Texture2D" uid="uid://ohqnd0ucje5w" path="res://sprites/Explosion/explosion13.png" id="20_05v5e"]
+[ext_resource type="Texture2D" uid="uid://bevk2t4jsk0ry" path="res://sprites/Explosion/explosion14.png" id="21_i2l4c"]
 
 [sub_resource type="SpriteFrames" id="SpriteFrames_7uhu2"]
 animations = [{
@@ -40,6 +54,53 @@ animations = [{
 "loop": false,
 "name": &"attack",
 "speed": 24.0
+}, {
+"frames": [{
+"duration": 1.0,
+"texture": ExtResource("8_7uhu2")
+}, {
+"duration": 1.0,
+"texture": ExtResource("9_fsrag")
+}, {
+"duration": 1.0,
+"texture": ExtResource("10_2ixgk")
+}, {
+"duration": 1.0,
+"texture": ExtResource("11_6kuh8")
+}, {
+"duration": 1.0,
+"texture": ExtResource("12_3lxh2")
+}, {
+"duration": 1.0,
+"texture": ExtResource("13_6rjkc")
+}, {
+"duration": 1.0,
+"texture": ExtResource("14_2ot5l")
+}, {
+"duration": 1.0,
+"texture": ExtResource("15_2878o")
+}, {
+"duration": 1.0,
+"texture": ExtResource("16_g0wc0")
+}, {
+"duration": 1.0,
+"texture": ExtResource("17_wialk")
+}, {
+"duration": 1.0,
+"texture": ExtResource("18_hrvhe")
+}, {
+"duration": 1.0,
+"texture": ExtResource("19_pw1bu")
+}, {
+"duration": 1.0,
+"texture": ExtResource("20_05v5e")
+}, {
+"duration": 1.0,
+"texture": ExtResource("21_i2l4c")
+}],
+"loop": false,
+"name": &"explode",
+"speed": 12.0
 }, {
 "frames": [{
 "duration": 1.0,
@@ -80,8 +141,9 @@ animations = [{
 scale = Vector2(2, 2)
 script = ExtResource("1_0w1yf")
 footprint_size = Vector2i(2, 2)
+death_offset = Vector2(0, -16)
 
 [node name="AnimatedSprite2D" type="AnimatedSprite2D" parent="."]
 sprite_frames = SubResource("SpriteFrames_7uhu2")
-animation = &"attack"
+animation = &"explode"
 autoplay = "idle"
