@@ -998,3 +998,115 @@ func _on_unit_died(u: Unit) -> void:
 		select_unit(null)
 	if hovered_unit == u:
 		set_hovered_unit(null)
+
+func get_units(team_id: int) -> Array[Unit]:
+	var out: Array[Unit] = []
+	for child in units_root.get_children():
+		var u := child as Unit
+		if u != null and u.team == team_id:
+			out.append(u)
+	return out
+
+func get_enemies_of(u: Unit) -> Array[Unit]:
+	return get_units(Unit.Team.ENEMY if u.team == Unit.Team.ALLY else Unit.Team.ALLY)
+
+func nearest_enemy(u: Unit) -> Unit:
+	var enemies := get_enemies_of(u)
+	if enemies.is_empty():
+		return null
+
+	var best: Unit = null
+	var best_d := 999999
+	for e in enemies:
+		var d := _attack_distance(u, e)
+		if d < best_d:
+			best_d = d
+			best = e
+	return best
+
+func perform_attack(attacker: Unit, target: Unit) -> void:
+	if attacker == null or target == null:
+		return
+	if is_moving_unit or is_attacking_unit:
+		return
+	if not is_instance_valid(attacker) or not is_instance_valid(target):
+		return
+
+	# range check (footprint vs footprint)
+	if _attack_distance(attacker, target) > attacker.attack_range:
+		return
+
+	is_attacking_unit = true
+	_set_facing_from_world_delta(attacker, attacker.global_position, target.global_position)
+
+	var anim_name := _get_attack_anim_name(attacker)
+	var repeats = max(attacker.attack_repeats, 1)
+
+	for i in range(repeats):
+		if not is_instance_valid(target):
+			break
+
+		await _play_anim_and_wait(attacker, anim_name)
+
+		# IMPORTANT: await so death animation can play safely
+		await target.take_damage(1)
+
+		# if it died, stop
+		if not is_instance_valid(target):
+			break
+
+		await _flash_unit(target)
+
+	_play_idle(attacker)
+	is_attacking_unit = false
+
+func perform_move(u: Unit, dest: Vector2i) -> void:
+	if u == null:
+		return
+	if is_moving_unit or is_attacking_unit:
+		return
+	if not is_instance_valid(u):
+		return
+
+	var from_origin := get_unit_origin(u)
+
+	if _is_big_unit(u):
+		dest = snap_origin_for_unit(dest, u)
+
+	if not _can_stand(u, dest):
+		return
+
+	# update occupancy
+	for c in u.footprint_cells(from_origin):
+		if grid.is_occupied(c) and grid.occupied[c] == u:
+			grid.occupied.erase(c)
+
+	for c in u.footprint_cells(dest):
+		grid.set_occupied(c, u)
+
+	u.grid_pos = dest
+	unit_origin[u] = dest
+
+	# animate
+	var target_pos := cell_to_world_for_unit(dest, u)
+	is_moving_unit = true
+
+	var from_pos := u.global_position
+	_set_facing_from_world_delta(u, from_pos, target_pos)
+	_play_anim(u, "move")
+
+	if move_tween != null and move_tween.is_valid():
+		move_tween.kill()
+
+	move_tween = create_tween()
+	move_tween.set_trans(Tween.TRANS_SINE)
+	move_tween.set_ease(Tween.EASE_IN_OUT)
+	move_tween.tween_property(u, "global_position", target_pos, 0.6)
+
+	await move_tween.finished
+
+	u.global_position = target_pos
+	u.update_layering()
+	_play_idle(u)
+
+	is_moving_unit = false

@@ -4,3 +4,5 @@ res://scripts/mech.gd
 res://scenes/zombie.tscn
 res://scenes/human.tscn
 res://scenes/Game.tscn
+res://scripts/game.gd
+res://scripts/turnmanager.gd

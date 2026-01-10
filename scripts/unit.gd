@@ -16,6 +16,9 @@ var _sprite_base_pos := Vector2.ZERO
 var grid_pos := Vector2i.ZERO
 const Z_UNITS := 2000
 
+enum Team { ALLY, ENEMY }
+@export var team: Team = Team.ALLY
+
 func _ready():
 	hp = max_hp
 	var spr := _unit_sprite()

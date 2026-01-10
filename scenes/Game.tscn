@@ -1,4 +1,4 @@
-[gd_scene load_steps=35 format=3 uid="uid://bmtwqbsx674eo"]
+[gd_scene load_steps=36 format=3 uid="uid://bmtwqbsx674eo"]
 
 [ext_resource type="Script" uid="uid://bn08mhcoceqg" path="res://scripts/game.gd" id="1_400sg"]
 [ext_resource type="PackedScene" uid="uid://b8etqvuw07mhc" path="res://scenes/human.tscn" id="2_s0nni"]
@@ -18,6 +18,7 @@
 [ext_resource type="Texture2D" uid="uid://b2b8iier8i5b7" path="res://sprites/Tiles_UI/mek3/2x2_cursor.png" id="12_7ua8r"]
 [ext_resource type="Texture2D" uid="uid://cchkas5ebl2h5" path="res://sprites/Tiles_UI/mek3/1x1_attack.png" id="14_vjgi4"]
 [ext_resource type="Texture2D" uid="uid://ck7ob82qmu1po" path="res://sprites/Tiles_UI/mek3/2x2_attack.png" id="15_kyk2p"]
+[ext_resource type="Script" uid="uid://c5qxy87uee84f" path="res://scripts/turnmanager.gd" id="19_45i86"]
 
 [sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_g4kob"]
 texture = ExtResource("11_2rd6h")
@@ -133,6 +134,7 @@ sources/1 = SubResource("TileSetAtlasSource_attvq")
 [node name="Game" type="Node2D"]
 script = ExtResource("1_400sg")
 mech_count = 1
+zombie_count = 18
 human_scene = ExtResource("2_s0nni")
 mech_scene = ExtResource("3_aug50")
 zombie_scene = ExtResource("4_kyk2p")
@@ -172,3 +174,7 @@ highlight_texture_2x2 = ExtResource("12_7ua8r")
 script = ExtResource("8_400sg")
 map_width = 16
 map_height = 16
+
+[node name="TurnManager" type="Node2D" parent="."]
+script = ExtResource("19_45i86")
+map = NodePath("..")
