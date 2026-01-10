@@ -66,6 +66,13 @@ var reachable_set := {} # Dictionary used like a Set: cell -> true
 var move_tween: Tween = null
 var is_moving_unit := false
 
+# --- Overlay pixel offsets (match your cursor offsets) ---
+@export var hover_offset_1x1 := Vector2(0, 0)
+@export var hover_offset_2x2 := Vector2(0, 16)
+
+@export var move_offset_1x1 := Vector2(0, 0)
+@export var move_offset_2x2 := Vector2(0, 16)
+
 func _unit_sprite(u: Unit) -> AnimatedSprite2D:
 	if u == null:
 		return null
@@ -545,27 +552,32 @@ func _neighbors4_for_unit(c: Vector2i, u: Unit) -> Array[Vector2i]:
 # -----------------------
 func clear_selection_highlight() -> void:
 	highlight.clear()
-
+	highlight.position = hover_offset_1x1
 
 func clear_move_range() -> void:
 	move_range.clear()
 	reachable_set.clear()
-
+	move_range.position = move_offset_1x1
 
 func draw_unit_hover(u: Unit) -> void:
 	highlight.clear()
+
 	if u == null:
+		highlight.position = hover_offset_1x1
 		return
 
 	var origin := get_unit_origin(u)
 	var big := _is_big_unit(u)
 
+	# ✅ offset the hover overlay TileMap itself
+	highlight.position = (hover_offset_2x2 if big else hover_offset_1x1)
+
 	if big:
+		# big hover tile is a single 2x2 tile placed at the origin cell
 		highlight.set_cell(LAYER_HIGHLIGHT, origin, HOVER_TILE_BIG_SOURCE_ID, HOVER_ATLAS, 0)
 	else:
 		for c in u.footprint_cells(origin):
 			highlight.set_cell(LAYER_HIGHLIGHT, c, HOVER_TILE_SMALL_SOURCE_ID, HOVER_ATLAS, 0)
-
 
 func set_hovered_unit(u: Unit) -> void:
 	if hovered_unit == u:
@@ -611,17 +623,20 @@ func draw_move_range_for_unit(u: Unit) -> void:
 		return
 
 	var origin := get_unit_origin(u)
-	if _is_big_unit(u):
+	var big := _is_big_unit(u)
+
+	# ✅ offset the move overlay TileMap itself
+	move_range.position = (move_offset_2x2 if big else move_offset_1x1)
+
+	if big:
 		origin = snap_origin_for_unit(origin, u)
 
 	var reachable := compute_reachable_origins(u, origin, u.move_range)
-	var big := _is_big_unit(u)
 	var source_id := (MOVE_TILE_BIG_SOURCE_ID if big else MOVE_TILE_SMALL_SOURCE_ID)
 
 	for cell in reachable:
 		reachable_set[cell] = true
 		move_range.set_cell(LAYER_MOVE, cell, source_id, MOVE_ATLAS, 0)
-
 
 # -----------------------
 # Moving selected unit on click
