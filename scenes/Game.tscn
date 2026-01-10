@@ -134,6 +134,7 @@ map_width = 16
 map_height = 16
 
 [node name="Cursor" type="Sprite2D" parent="." node_paths=PackedStringArray("tilemap", "map_controller")]
+texture = ExtResource("11_2rd6h")
 script = ExtResource("10_3xj3m")
 tilemap = NodePath("../Terrain")
 map_controller = NodePath("..")

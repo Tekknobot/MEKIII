@@ -97,9 +97,77 @@ func pick_tile_for_season_no_water() -> int:
 	var main := season_main_tile()
 	if rng.randf() < season_strength:
 		return main
-	var options: Array[int] = [T_DIRT, T_SANDSTONE, T_SNOW, T_GRASS, T_ICE]
-	options.erase(main)
-	return options[rng.randi_range(0, options.size() - 1)]
+
+	# less random: bias toward "similar" tiles instead of any tile
+	match main:
+		T_GRASS:
+			return (T_DIRT if rng.randf() < 0.7 else T_SANDSTONE)
+		T_DIRT:
+			return (T_GRASS if rng.randf() < 0.6 else T_SANDSTONE)
+		T_SANDSTONE:
+			return (T_DIRT if rng.randf() < 0.7 else T_GRASS)
+		T_SNOW:
+			return (T_ICE if rng.randf() < 0.7 else T_GRASS)
+		T_ICE:
+			return (T_SNOW if rng.randf() < 0.7 else T_WATER) # note: you later add water anyway
+	return main
+
+func _neighbors8(c: Vector2i) -> Array[Vector2i]:
+	return [
+		c + Vector2i(1, 0),  c + Vector2i(-1, 0),
+		c + Vector2i(0, 1),  c + Vector2i(0, -1),
+		c + Vector2i(1, 1),  c + Vector2i(1, -1),
+		c + Vector2i(-1, 1), c + Vector2i(-1, -1),
+	]
+
+func _smooth_terrain(passes: int, keep_main_bias := true) -> void:
+	var main := season_main_tile()
+
+	for _p in range(passes):
+		var next := []
+		next.resize(map_width)
+		for x in range(map_width):
+			next[x] = []
+			next[x].resize(map_height)
+
+		for x in range(map_width):
+			for y in range(map_height):
+				var c := Vector2i(x, y)
+
+				# don't smooth water here; your water system already handles it
+				if grid.terrain[x][y] == T_WATER:
+					next[x][y] = T_WATER
+					continue
+
+				var counts := {}
+				for nb in _neighbors8(c):
+					if not _in_bounds(nb):
+						continue
+					var tid = grid.terrain[nb.x][nb.y]
+					if tid == T_WATER:
+						continue
+					counts[tid] = (counts.get(tid, 0) + 1)
+
+				# pick majority neighbor tile
+				var best_tid = grid.terrain[x][y]
+				var best_n := -1
+				for tid in counts.keys():
+					var n = counts[tid]
+					if n > best_n:
+						best_n = n
+						best_tid = tid
+
+				# optional: gently bias back toward the season main tile
+				if keep_main_bias and rng.randf() < 0.08:
+					best_tid = main
+
+				next[x][y] = best_tid
+
+		# commit
+		for x in range(map_width):
+			for y in range(map_height):
+				grid.terrain[x][y] = next[x][y]
+
 
 func generate_map() -> void:
 	_seed_rng()
@@ -108,6 +176,7 @@ func generate_map() -> void:
 		for y in range(map_height):
 			grid.terrain[x][y] = pick_tile_for_season_no_water()
 
+	_smooth_terrain(3)
 	_add_water_blobs()
 	_ensure_walkable_connected()
 	_remove_dead_ends()
@@ -456,13 +525,7 @@ func draw_move_range_for_unit(u: Unit) -> void:
 	if _is_big_unit(u):
 		origin = snap_origin_for_unit(origin, u)
 
-	var mp := 5
-	if u.has_method("get_move_points"):
-		mp = u.get_move_points()
-	elif u.has_meta("move_range"):
-		mp = u.move_points
-
-	var reachable := compute_reachable_origins(u, origin, mp)
+	var reachable := compute_reachable_origins(u, origin, u.move_range)
 	var big := _is_big_unit(u)
 	var source_id := (MOVE_TILE_BIG_SOURCE_ID if big else MOVE_TILE_SMALL_SOURCE_ID)
 
