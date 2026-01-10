@@ -81,8 +81,8 @@ var is_attacking_unit := false
 @export var move_offset_1x1 := Vector2(0, 0)
 @export var move_offset_2x2 := Vector2(0, 16)
 
-@export var attack_offset_1x1 := Vector2(0, 0)
-@export var attack_offset_2x2 := Vector2(0, 16)
+@export var attack_offset_1x1 := Vector2(0, 16)
+@export var attack_offset_2x2 := Vector2(0, 0)
 
 var attackable_set := {}  # Dictionary[Vector2i, bool]
 
@@ -619,71 +619,33 @@ func draw_attack_range_for_unit(u: Unit) -> void:
 	if u == null:
 		return
 
-	var origin := get_unit_origin(u)
-	var big := _is_big_unit(u)
+	# Position the overlay TileMap (purely visual)
+	attack_range.position = (attack_offset_2x2 if _is_big_unit(u) else attack_offset_1x1)
 
-	attack_range.position = (attack_offset_2x2 if big else attack_offset_1x1)
+	# Mark ONLY units that can be attacked
+	for child in units_root.get_children():
+		var target := child as Unit
+		if target == null:
+			continue
+		if target == u:
+			continue
 
-	if big:
-		origin = snap_origin_for_unit(origin, u)
+		# If within attack range, paint under the TARGET
+		var dist := _attack_distance(u, target)
+		if dist > u.attack_range:
+			continue
 
-	var self_cells := u.footprint_cells(origin)
+		var target_origin := get_unit_origin(target)
+		var target_big := _is_big_unit(target)
 
-	if not big:
-		# --- small units: 1x1 tiles everywhere (unchanged) ---
-		var source_id := ATTACK_TILE_SMALL_SOURCE_ID
-		for y in range(map_height):
-			for x in range(map_width):
-				var cell := Vector2i(x, y)
-				if cell in self_cells:
-					continue
+		# big targets must be on even origins so the 2x2 overlay aligns
+		if target_big:
+			target_origin = snap_origin_for_unit(target_origin, target)
 
-				var best := 999999
-				for fc in self_cells:
-					var d = abs(cell.x - fc.x) + abs(cell.y - fc.y)
-					if d < best:
-						best = d
+		var source_id := (ATTACK_TILE_BIG_SOURCE_ID if target_big else ATTACK_TILE_SMALL_SOURCE_ID)
 
-				if best <= u.attack_range:
-					attackable_set[cell] = true
-					attack_range.set_cell(LAYER_ATTACK, cell, source_id, ATTACK_ATLAS, 0)
-		return
-
-	# --- BIG units: place 2x2 tiles on EVEN origins only ---
-	var source_id_big := ATTACK_TILE_BIG_SOURCE_ID
-
-	for y in range(0, map_height - 1, 2):
-		for x in range(0, map_width - 1, 2):
-			var block_origin := Vector2i(x, y)
-
-			# the 2x2 block cells this tile would cover
-			var block_cells := [
-				block_origin,
-				block_origin + Vector2i(1, 0),
-				block_origin + Vector2i(0, 1),
-				block_origin + Vector2i(1, 1),
-			]
-
-			# don't paint blocks that overlap the unit itself
-			var overlaps_self := false
-			for bc in block_cells:
-				if bc in self_cells:
-					overlaps_self = true
-					break
-			if overlaps_self:
-				continue
-
-			# compute min manhattan distance between ANY cell in block and ANY self footprint cell
-			var best := 999999
-			for bc in block_cells:
-				for fc in self_cells:
-					var d = abs(bc.x - fc.x) + abs(bc.y - fc.y)
-					if d < best:
-						best = d
-
-			if best <= u.attack_range:
-				attackable_set[block_origin] = true
-				attack_range.set_cell(LAYER_ATTACK, block_origin, source_id_big, ATTACK_ATLAS, 0)
+		attackable_set[target_origin] = true
+		attack_range.set_cell(LAYER_ATTACK, target_origin, source_id, ATTACK_ATLAS, 0)
 
 func _unhandled_input(event: InputEvent) -> void:
 	if is_moving_unit or is_attacking_unit:
@@ -719,6 +681,13 @@ func try_attack_selected(target: Unit) -> bool:
 		return false
 
 	var attacker := selected_unit
+
+	var t_origin := get_unit_origin(target)
+	if _is_big_unit(target):
+		t_origin = snap_origin_for_unit(t_origin, target)
+
+	if not attackable_set.has(t_origin):
+		return false
 
 	# range check (uses footprint vs footprint, so 2x2 behaves properly)
 	var dist := _attack_distance(attacker, target)
