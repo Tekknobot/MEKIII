@@ -7,3 +7,5 @@ res://scripts/unit.gd
 res://scripts/mech.gd
 res://scripts/human.gd
 res://scenes/human.tscn
+res://scenes/zombie.tscn
+res://scripts/zombie.gd

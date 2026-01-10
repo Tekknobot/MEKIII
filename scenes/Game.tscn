@@ -1,8 +1,9 @@
-[gd_scene load_steps=34 format=3 uid="uid://bmtwqbsx674eo"]
+[gd_scene load_steps=35 format=3 uid="uid://bmtwqbsx674eo"]
 
 [ext_resource type="Script" uid="uid://bn08mhcoceqg" path="res://scripts/game.gd" id="1_400sg"]
 [ext_resource type="PackedScene" uid="uid://b8etqvuw07mhc" path="res://scenes/human.tscn" id="2_s0nni"]
 [ext_resource type="PackedScene" uid="uid://bqrbab23wjpjp" path="res://scenes/mech.tscn" id="3_aug50"]
+[ext_resource type="PackedScene" uid="uid://dmujwxtnheagi" path="res://scenes/zombie.tscn" id="4_kyk2p"]
 [ext_resource type="Texture2D" uid="uid://by1nnygq8fbib" path="res://sprites/Terrain/dirt.png" id="6_mcffj"]
 [ext_resource type="Texture2D" uid="uid://bvs7gpxakq282" path="res://sprites/Terrain/sandstone.png" id="7_2rd6h"]
 [ext_resource type="Texture2D" uid="uid://d3dw1g0jasso3" path="res://sprites/Tiles_UI/mek3/1x1_move.png" id="7_g4kob"]
@@ -134,6 +135,7 @@ script = ExtResource("1_400sg")
 mech_count = 1
 human_scene = ExtResource("2_s0nni")
 mech_scene = ExtResource("3_aug50")
+zombie_scene = ExtResource("4_kyk2p")
 
 [node name="Highlight" type="TileMap" parent="."]
 tile_set = SubResource("TileSet_3xj3m")
@@ -149,7 +151,11 @@ tile_set = SubResource("TileSet_kyk2p")
 format = 2
 layer_0/modulate = Color(0.09803922, 0.09803922, 0.09803922, 1)
 
-[node name="AttackRange" type="TileMap" parent="."]
+[node name="AttackRangeSmall" type="TileMap" parent="."]
+tile_set = SubResource("TileSet_bneo8")
+format = 2
+
+[node name="AttackRangeBig" type="TileMap" parent="."]
 tile_set = SubResource("TileSet_bneo8")
 format = 2
 

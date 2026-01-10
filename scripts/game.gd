@@ -30,12 +30,19 @@ const MOVE_TILE_SMALL_SOURCE_ID := 0     # 1x1 move tile source id
 const MOVE_TILE_BIG_SOURCE_ID := 1       # 2x2 move tile source id
 const MOVE_ATLAS := Vector2i(0, 0)
 
-# --- Attack overlay ---
-@onready var attack_range: TileMap = $AttackRange
+# --- Attack overlays (split) ---
+@onready var attack_range_small: TileMap = $AttackRangeSmall
+@onready var attack_range_big: TileMap = $AttackRangeBig
 const LAYER_ATTACK := 0
-const ATTACK_TILE_SMALL_SOURCE_ID := 0   # set these to your attack tile sources
+const ATTACK_TILE_SMALL_SOURCE_ID := 0
 const ATTACK_TILE_BIG_SOURCE_ID := 1
 const ATTACK_ATLAS := Vector2i(0, 0)
+
+@export var attack_offset_small := Vector2(0, 0) # small 1x1 offset
+@export var attack_offset_big := Vector2(0, 16)   # big 2x2 offset
+
+# store Units instead of origins (avoids origin/offset problems)
+var attackable_units := {} # Dictionary[Unit, bool]
 
 enum Season { DIRT, SANDSTONE, SNOW, GRASS, ICE }
 @export var season: Season = Season.GRASS
@@ -51,8 +58,10 @@ enum Season { DIRT, SANDSTONE, SNOW, GRASS, ICE }
 # Spawning
 @export var human_count := 3
 @export var mech_count := 2
+@export var zombie_count := 9
 @export var human_scene: PackedScene
 @export var mech_scene: PackedScene
+@export var zombie_scene: PackedScene
 
 @onready var terrain: TileMap = $Terrain
 @onready var units_root: Node2D = $Units
@@ -80,11 +89,6 @@ var is_attacking_unit := false
 
 @export var move_offset_1x1 := Vector2(0, 0)
 @export var move_offset_2x2 := Vector2(0, 16)
-
-@export var attack_offset_1x1 := Vector2(0, 0)
-@export var attack_offset_2x2 := Vector2(0, 0)
-
-var attackable_set := {}  # Dictionary[Vector2i, bool]
 
 func _unit_sprite(u: Unit) -> AnimatedSprite2D:
 	if u == null:
@@ -265,8 +269,8 @@ func generate_map() -> void:
 # Units: spawning
 # -----------------------
 func spawn_units() -> void:
-	if human_scene == null or mech_scene == null:
-		push_warning("Assign human_scene and mech_scene in the Inspector.")
+	if human_scene == null or mech_scene == null or zombie_scene == null:
+		push_warning("Assign human_scene, mech_scene, and zombie_scene in the Inspector.")
 		return
 
 	for child in units_root.get_children():
@@ -274,12 +278,15 @@ func spawn_units() -> void:
 	grid.occupied.clear()
 	unit_origin.clear()
 
+	# spawn order is up to you
 	for i in range(mech_count):
 		_spawn_one(mech_scene)
 
 	for i in range(human_count):
 		_spawn_one(human_scene)
 
+	for i in range(zombie_count):
+		_spawn_one(zombie_scene)
 
 func _spawn_one(scene: PackedScene) -> void:
 	var tries := 300
@@ -610,41 +617,37 @@ func select_unit(u: Unit) -> void:
 		clear_attack_range()
 
 func clear_attack_range() -> void:
-	attack_range.clear()
-	attackable_set.clear()
-	attack_range.position = attack_offset_1x1
+	attack_range_small.clear()
+	attack_range_big.clear()
+	attackable_units.clear()
 
-func draw_attack_range_for_unit(u: Unit) -> void:
+	attack_range_small.position = attack_offset_small
+	attack_range_big.position = attack_offset_big
+
+func draw_attack_range_for_unit(attacker: Unit) -> void:
 	clear_attack_range()
-	if u == null:
+	if attacker == null:
 		return
 
-	# ✅ Keep AttackRange TileMap in ONE consistent offset (small)
-	attack_range.position = attack_offset_1x1
-
-	# Mark ONLY units that can be attacked
 	for child in units_root.get_children():
 		var target := child as Unit
 		if target == null:
 			continue
-		if target == u:
+		if target == attacker:
 			continue
 
-		if _attack_distance(u, target) > u.attack_range:
+		if _attack_distance(attacker, target) > attacker.attack_range:
 			continue
+
+		attackable_units[target] = true
 
 		var target_origin := get_unit_origin(target)
-		var target_big := _is_big_unit(target)
 
-		if target_big:
-			# draw big tile at even origin
+		if _is_big_unit(target):
 			target_origin = snap_origin_for_unit(target_origin, target)
-			attackable_set[target_origin] = true
-			attack_range.set_cell(LAYER_ATTACK, target_origin, ATTACK_TILE_BIG_SOURCE_ID, ATTACK_ATLAS, 0)
+			attack_range_big.set_cell(LAYER_ATTACK, target_origin, ATTACK_TILE_BIG_SOURCE_ID, ATTACK_ATLAS, 0)
 		else:
-			# ✅ small tile written normally (TileMap is already in small offset)
-			attackable_set[target_origin] = true
-			attack_range.set_cell(LAYER_ATTACK, target_origin, ATTACK_TILE_SMALL_SOURCE_ID, ATTACK_ATLAS, 0)
+			attack_range_small.set_cell(LAYER_ATTACK, target_origin, ATTACK_TILE_SMALL_SOURCE_ID, ATTACK_ATLAS, 0)
 
 func _unhandled_input(event: InputEvent) -> void:
 	if is_moving_unit or is_attacking_unit:
@@ -670,7 +673,6 @@ func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_RIGHT and event.pressed:
 		select_unit(null)
 
-
 func try_attack_selected(target: Unit) -> bool:
 	if selected_unit == null or target == null:
 		return false
@@ -679,36 +681,41 @@ func try_attack_selected(target: Unit) -> bool:
 	if target == selected_unit:
 		return false
 
-	var attacker := selected_unit
-
-	var t_origin := get_unit_origin(target)
-	if _is_big_unit(target):
-		t_origin = snap_origin_for_unit(t_origin, target)
-
-	if not attackable_set.has(t_origin):
+	# must be highlighted as attackable this frame
+	if not attackable_units.has(target):
 		return false
 
-	# range check (uses footprint vs footprint, so 2x2 behaves properly)
+	var attacker := selected_unit
+
+	# safety: also confirm range using footprint-vs-footprint distance
 	var dist := _attack_distance(attacker, target)
 	if dist > attacker.attack_range:
 		return false
 
 	is_attacking_unit = true
 
-	# face target + attack anim
-	var from_pos := attacker.global_position
-	var to_pos := target.global_position
-	_set_facing_from_world_delta(attacker, from_pos, to_pos)
+	# face target
+	_set_facing_from_world_delta(attacker, attacker.global_position, target.global_position)
+
+	# play attack anim repeats + flash target
+	var anim_name := _get_attack_anim_name(attacker)
 
 	var repeats = max(attacker.attack_repeats, 1)
 	for i in range(repeats):
-		await _play_anim_and_wait(attacker, attacker.attack_anim)
+		await _play_anim_and_wait(attacker, anim_name)
+		await _flash_unit(target)
+
 		await _flash_unit(target)
 
 	_play_idle(attacker)
 	is_attacking_unit = false
-	return true
 
+	# redraw overlays so the highlighted attack tiles stay correct
+	draw_unit_hover(attacker)
+	draw_move_range_for_unit(attacker)
+	draw_attack_range_for_unit(attacker)
+
+	return true
 
 func _attack_distance(a: Unit, b: Unit) -> int:
 	var ao := get_unit_origin(a)
@@ -926,3 +933,20 @@ func _set_facing_from_world_delta(u: Unit, from_pos: Vector2, to_pos: Vector2) -
 	# default facing LEFT => flip_h=false
 	# moving RIGHT => flip_h=true
 	spr.flip_h = (dx > 0.0)
+
+func _get_attack_anim_name(attacker: Unit) -> StringName:
+	# Default for all Units
+	var anim: StringName = attacker.attack_anim
+
+	# ✅ If this unit is a Zombie, use its zombie-specific anim if it exists
+	# (You can name it whatever you want in Zombie.gd — this handles both common options)
+	if attacker is Zombie:
+		if attacker.has_meta("zombie_attack_anim"):
+			anim = attacker.zombie_attack_anim
+		elif attacker.has_meta("bite_anim"):
+			anim = attacker.bite_anim
+		elif attacker.has_meta("attack"):
+			# fallback: if Zombie just uses the same attack_anim, keep it
+			anim = attacker.attack_anim
+
+	return anim

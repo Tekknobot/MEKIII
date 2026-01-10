@@ -1,8 +1,12 @@
+res://scripts
+res://scenes
+res://sprites/Zombies/death
+res://sprites/Zombies/move
+res://sprites/Zombies/attack
+res://sprites/Zombies/idle
 res://sprites/Tiles_UI/mek3
 res://sprites/Terrain
 res://sprites/Terrain/mek3
-res://scripts
-res://scenes
 res://sprites/Tiles_UI
 res://sprites/Meks/M1
 res://sprites/Humans/soldier/attack
