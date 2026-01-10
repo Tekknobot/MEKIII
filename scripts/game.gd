@@ -81,7 +81,7 @@ var is_attacking_unit := false
 @export var move_offset_1x1 := Vector2(0, 0)
 @export var move_offset_2x2 := Vector2(0, 16)
 
-@export var attack_offset_1x1 := Vector2(0, 16)
+@export var attack_offset_1x1 := Vector2(0, 0)
 @export var attack_offset_2x2 := Vector2(0, 0)
 
 var attackable_set := {}  # Dictionary[Vector2i, bool]
@@ -619,8 +619,8 @@ func draw_attack_range_for_unit(u: Unit) -> void:
 	if u == null:
 		return
 
-	# Position the overlay TileMap (purely visual)
-	attack_range.position = (attack_offset_2x2 if _is_big_unit(u) else attack_offset_1x1)
+	# ✅ Keep AttackRange TileMap in ONE consistent offset (small)
+	attack_range.position = attack_offset_1x1
 
 	# Mark ONLY units that can be attacked
 	for child in units_root.get_children():
@@ -630,22 +630,21 @@ func draw_attack_range_for_unit(u: Unit) -> void:
 		if target == u:
 			continue
 
-		# If within attack range, paint under the TARGET
-		var dist := _attack_distance(u, target)
-		if dist > u.attack_range:
+		if _attack_distance(u, target) > u.attack_range:
 			continue
 
 		var target_origin := get_unit_origin(target)
 		var target_big := _is_big_unit(target)
 
-		# big targets must be on even origins so the 2x2 overlay aligns
 		if target_big:
+			# draw big tile at even origin
 			target_origin = snap_origin_for_unit(target_origin, target)
-
-		var source_id := (ATTACK_TILE_BIG_SOURCE_ID if target_big else ATTACK_TILE_SMALL_SOURCE_ID)
-
-		attackable_set[target_origin] = true
-		attack_range.set_cell(LAYER_ATTACK, target_origin, source_id, ATTACK_ATLAS, 0)
+			attackable_set[target_origin] = true
+			attack_range.set_cell(LAYER_ATTACK, target_origin, ATTACK_TILE_BIG_SOURCE_ID, ATTACK_ATLAS, 0)
+		else:
+			# ✅ small tile written normally (TileMap is already in small offset)
+			attackable_set[target_origin] = true
+			attack_range.set_cell(LAYER_ATTACK, target_origin, ATTACK_TILE_SMALL_SOURCE_ID, ATTACK_ATLAS, 0)
 
 func _unhandled_input(event: InputEvent) -> void:
 	if is_moving_unit or is_attacking_unit:
