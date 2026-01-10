@@ -59,6 +59,37 @@ var unit_origin := {} # Dictionary: Unit -> Vector2i
 var selected_unit: Unit = null
 var hovered_unit: Unit = null
 
+# Mouse / move helpers
+var hovered_cell: Vector2i = Vector2i(-1, -1)
+var reachable_set := {} # Dictionary used like a Set: cell -> true
+
+var move_tween: Tween = null
+var is_moving_unit := false
+
+func _unit_sprite(u: Unit) -> AnimatedSprite2D:
+	if u == null:
+		return null
+	# Change this path if your sprite is named differently
+	if u.has_node("AnimatedSprite2D"):
+		return u.get_node("AnimatedSprite2D") as AnimatedSprite2D
+	return null
+
+func _play_anim(u: Unit, anim_name: StringName) -> void:
+	var spr := _unit_sprite(u)
+	if spr == null:
+		return
+	if spr.sprite_frames != null and spr.sprite_frames.has_animation(anim_name):
+		spr.play(anim_name)
+
+func _play_idle(u: Unit) -> void:
+	var spr := _unit_sprite(u)
+	if spr == null:
+		return
+	if spr.sprite_frames != null and spr.sprite_frames.has_animation("idle"):
+		spr.play("idle")
+	else:
+		spr.stop()
+
 func _ready() -> void:
 	_seed_rng()
 
@@ -69,11 +100,31 @@ func _ready() -> void:
 	terrain.update_internals()
 	spawn_units()
 
+
+func _process(_delta: float) -> void:
+	_update_hovered_cell()
+	_update_hovered_unit()
+
+
 func _seed_rng() -> void:
 	if map_seed == 0:
 		rng.randomize()
 	else:
 		rng.seed = map_seed
+
+
+# -----------------------
+# Mouse -> map helpers
+# -----------------------
+func _update_hovered_cell() -> void:
+	var mouse_global := get_global_mouse_position()
+	var local_in_terrain := terrain.to_local(mouse_global)
+	hovered_cell = terrain.local_to_map(local_in_terrain)
+
+func _update_hovered_unit() -> void:
+	var u := unit_at_cell(hovered_cell)
+	set_hovered_unit(u)
+
 
 # -----------------------
 # Terrain placement (ID-only)
@@ -84,6 +135,7 @@ func set_tile_id(cell: Vector2i, tile_id: int) -> void:
 		return
 	terrain.set_cell(LAYER_TERRAIN, cell, tile_id, Vector2i(0, 0), 0)
 
+
 func season_main_tile() -> int:
 	match season:
 		Season.DIRT: return T_DIRT
@@ -92,6 +144,7 @@ func season_main_tile() -> int:
 		Season.GRASS: return T_GRASS
 		Season.ICE: return T_ICE
 	return T_GRASS
+
 
 func pick_tile_for_season_no_water() -> int:
 	var main := season_main_tile()
@@ -112,6 +165,7 @@ func pick_tile_for_season_no_water() -> int:
 			return (T_SNOW if rng.randf() < 0.7 else T_WATER) # note: you later add water anyway
 	return main
 
+
 func _neighbors8(c: Vector2i) -> Array[Vector2i]:
 	return [
 		c + Vector2i(1, 0),  c + Vector2i(-1, 0),
@@ -119,6 +173,7 @@ func _neighbors8(c: Vector2i) -> Array[Vector2i]:
 		c + Vector2i(1, 1),  c + Vector2i(1, -1),
 		c + Vector2i(-1, 1), c + Vector2i(-1, -1),
 	]
+
 
 func _smooth_terrain(passes: int, keep_main_bias := true) -> void:
 	var main := season_main_tile()
@@ -185,6 +240,7 @@ func generate_map() -> void:
 		for y in range(map_height):
 			set_tile_id(Vector2i(x, y), grid.terrain[x][y])
 
+
 # -----------------------
 # Units: spawning
 # -----------------------
@@ -203,6 +259,7 @@ func spawn_units() -> void:
 
 	for i in range(human_count):
 		_spawn_one(human_scene)
+
 
 func _spawn_one(scene: PackedScene) -> void:
 	var tries := 300
@@ -245,15 +302,17 @@ func _spawn_one(scene: PackedScene) -> void:
 		units_root.add_child(unit)
 
 		# TileMap positions are already in "cell space"; tile size (32x32) is handled by TileMap.
-		unit.global_position = terrain.to_global(terrain.map_to_local(origin))
+		unit.global_position = cell_to_world_for_unit(origin, unit)
 		unit.update_layering()
 		return
+
 
 # -----------------------
 # Connectivity + dead-end fixer (non-water walkable)
 # -----------------------
 func _in_bounds(c: Vector2i) -> bool:
 	return c.x >= 0 and c.y >= 0 and c.x < map_width and c.y < map_height
+
 
 func _neighbors4(c: Vector2i) -> Array[Vector2i]:
 	return [
@@ -263,8 +322,10 @@ func _neighbors4(c: Vector2i) -> Array[Vector2i]:
 		c + Vector2i(0, -1),
 	]
 
+
 func _is_walkable_tile_id(tid: int) -> bool:
 	return tid != T_WATER
+
 
 func _count_walkable_neighbors(c: Vector2i) -> int:
 	var n := 0
@@ -272,6 +333,7 @@ func _count_walkable_neighbors(c: Vector2i) -> int:
 		if _in_bounds(nb) and _is_walkable_tile_id(grid.terrain[nb.x][nb.y]):
 			n += 1
 	return n
+
 
 func _flood_walkable(start: Vector2i) -> Dictionary:
 	var visited := {}
@@ -297,6 +359,7 @@ func _flood_walkable(start: Vector2i) -> Dictionary:
 
 	return visited
 
+
 func _walkable_components() -> Array[Dictionary]:
 	var seen := {}
 	var comps: Array[Dictionary] = []
@@ -315,6 +378,7 @@ func _walkable_components() -> Array[Dictionary]:
 			comps.append(comp)
 
 	return comps
+
 
 func _ensure_walkable_connected() -> void:
 	var iter := 0
@@ -340,6 +404,7 @@ func _ensure_walkable_connected() -> void:
 
 		_carve_bridge(best_a, best_b)
 
+
 func _carve_bridge(from: Vector2i, to: Vector2i) -> void:
 	var main := season_main_tile()
 	var c := from
@@ -353,6 +418,7 @@ func _carve_bridge(from: Vector2i, to: Vector2i) -> void:
 		c.y += (1 if to.y > c.y else -1)
 		if _in_bounds(c) and grid.terrain[c.x][c.y] == T_WATER:
 			grid.terrain[c.x][c.y] = main
+
 
 func _add_water_blobs() -> void:
 	var total := map_width * map_height
@@ -383,6 +449,7 @@ func _add_water_blobs() -> void:
 			for y in range(map_height):
 				if grid.terrain[x][y] == T_WATER and rng.randf() < freeze_water_chance:
 					grid.terrain[x][y] = T_ICE
+
 
 func _remove_dead_ends() -> void:
 	var iter := 0
@@ -417,6 +484,7 @@ func _remove_dead_ends() -> void:
 
 	_ensure_walkable_connected()
 
+
 # -----------------------
 # Unit lookup / origins
 # -----------------------
@@ -425,6 +493,7 @@ func unit_at_cell(cell: Vector2i) -> Unit:
 		return grid.occupied[cell] as Unit
 	return null
 
+
 func get_unit_origin(u: Unit) -> Vector2i:
 	if u == null:
 		return Vector2i(-1, -1)
@@ -432,11 +501,13 @@ func get_unit_origin(u: Unit) -> Vector2i:
 		return unit_origin[u]
 	return u.grid_pos
 
+
 func _is_big_unit(u: Unit) -> bool:
 	if u == null:
 		return false
 	# footprint size > 1 means 2x2 (or bigger later)
 	return u.footprint_cells(get_unit_origin(u)).size() > 1
+
 
 # -----------------------
 # “8x8 feel” snapping for big units
@@ -458,6 +529,7 @@ func snap_origin_for_unit(cell: Vector2i, u: Unit) -> Vector2i:
 
 	return cell
 
+
 func _neighbors4_for_unit(c: Vector2i, u: Unit) -> Array[Vector2i]:
 	var step := 2 if _is_big_unit(u) else 1
 	return [
@@ -467,14 +539,18 @@ func _neighbors4_for_unit(c: Vector2i, u: Unit) -> Array[Vector2i]:
 		c + Vector2i(0, -step),
 	]
 
+
 # -----------------------
 # Hover / Selection overlays (small vs big tile switching)
 # -----------------------
 func clear_selection_highlight() -> void:
 	highlight.clear()
 
+
 func clear_move_range() -> void:
 	move_range.clear()
+	reachable_set.clear()
+
 
 func draw_unit_hover(u: Unit) -> void:
 	highlight.clear()
@@ -490,12 +566,14 @@ func draw_unit_hover(u: Unit) -> void:
 		for c in u.footprint_cells(origin):
 			highlight.set_cell(LAYER_HIGHLIGHT, c, HOVER_TILE_SMALL_SOURCE_ID, HOVER_ATLAS, 0)
 
+
 func set_hovered_unit(u: Unit) -> void:
 	if hovered_unit == u:
 		return
 	hovered_unit = u
 	if selected_unit == null:
 		draw_unit_hover(hovered_unit)
+
 
 func select_unit(u: Unit) -> void:
 	selected_unit = u
@@ -507,9 +585,20 @@ func select_unit(u: Unit) -> void:
 		clear_selection_highlight()
 		clear_move_range()
 
+
 func _unhandled_input(event: InputEvent) -> void:
+	if is_moving_unit:
+		return
+
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
+		_update_hovered_cell()
+
+		if selected_unit != null:
+			if await try_move_selected_to(hovered_cell):
+				return
+
 		select_unit(hovered_unit)
+
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_RIGHT and event.pressed:
 		select_unit(null)
 
@@ -530,13 +619,82 @@ func draw_move_range_for_unit(u: Unit) -> void:
 	var source_id := (MOVE_TILE_BIG_SOURCE_ID if big else MOVE_TILE_SMALL_SOURCE_ID)
 
 	for cell in reachable:
+		reachable_set[cell] = true
 		move_range.set_cell(LAYER_MOVE, cell, source_id, MOVE_ATLAS, 0)
+
+
+# -----------------------
+# Moving selected unit on click
+# -----------------------
+func try_move_selected_to(dest: Vector2i) -> bool:
+	if selected_unit == null:
+		return false
+	if is_moving_unit:
+		return false
+
+	var u := selected_unit
+	var from_origin := get_unit_origin(u)
+
+	# big units must align to even coords (LOGIC)
+	if _is_big_unit(u):
+		dest = snap_origin_for_unit(dest, u)
+
+	if not reachable_set.has(dest):
+		return false
+	if not _can_stand(u, dest):
+		return false
+
+	# --- update grid occupancy immediately (LOGIC commits now) ---
+	for c in u.footprint_cells(from_origin):
+		if grid.is_occupied(c) and grid.occupied[c] == u:
+			grid.occupied.erase(c)
+
+	for c in u.footprint_cells(dest):
+		grid.set_occupied(c, u)
+
+	u.grid_pos = dest
+	unit_origin[u] = dest
+
+	# --- smooth visual move ---
+	var target_pos := cell_to_world_for_unit(dest, u)
+
+	is_moving_unit = true
+	var from_pos := u.global_position
+
+	_set_facing_from_world_delta(u, from_pos, target_pos)
+	_play_anim(u, "move")
+
+	if move_tween != null and move_tween.is_valid():
+		move_tween.kill()
+
+	move_tween = create_tween()
+	move_tween.set_trans(Tween.TRANS_SINE)
+	move_tween.set_ease(Tween.EASE_IN_OUT)
+
+	# tune this: either constant duration, or scale by distance
+	var duration := 0.8
+	move_tween.tween_property(u, "global_position", target_pos, duration)
+
+	await move_tween.finished
+
+	u.global_position = target_pos
+	u.update_layering()
+
+	_play_idle(u)
+	is_moving_unit = false
+
+	# refresh overlays AFTER arrival so they match the final spot
+	draw_unit_hover(u)
+	draw_move_range_for_unit(u)
+
+	return true
 
 # -----------------------
 # Pathing helpers
 # -----------------------
 func _is_cell_walkable(c: Vector2i) -> bool:
 	return grid.in_bounds(c) and grid.terrain[c.x][c.y] != T_WATER
+
 
 func _can_stand(u: Unit, origin: Vector2i) -> bool:
 	for c in u.footprint_cells(origin):
@@ -545,6 +703,7 @@ func _can_stand(u: Unit, origin: Vector2i) -> bool:
 		if grid.is_occupied(c) and grid.occupied[c] != u:
 			return false
 	return true
+
 
 func compute_reachable_origins(u: Unit, start: Vector2i, max_cost: int) -> Array[Vector2i]:
 	var dist := {}
@@ -587,3 +746,27 @@ func compute_reachable_origins(u: Unit, start: Vector2i, max_cost: int) -> Array
 	for k in dist.keys():
 		out.append(k)
 	return out
+
+func cell_to_world_for_unit(origin: Vector2i, u: Unit) -> Vector2:
+	var p00 := terrain.map_to_local(origin) # center of origin cell (in terrain local space)
+
+	if _is_big_unit(u):
+		# center of 2x2 footprint = midpoint between origin cell and (origin+1, origin+1)
+		var p11 := terrain.map_to_local(origin + Vector2i(1, 1))
+		var mid := (p00 + p11) * 0.5
+		return terrain.to_global(mid)
+
+	return terrain.to_global(p00)
+
+func _set_facing_from_world_delta(u: Unit, from_pos: Vector2, to_pos: Vector2) -> void:
+	var spr := _unit_sprite(u)
+	if spr == null:
+		return
+
+	var dx := to_pos.x - from_pos.x
+	if abs(dx) < 0.01:
+		return # don't change facing if basically no horizontal movement
+
+	# default facing LEFT => flip_h=false
+	# moving RIGHT => flip_h=true
+	spr.flip_h = (dx > 0.0)
