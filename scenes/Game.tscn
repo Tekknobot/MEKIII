@@ -1,4 +1,4 @@
-[gd_scene load_steps=36 format=3 uid="uid://bmtwqbsx674eo"]
+[gd_scene load_steps=37 format=3 uid="uid://bmtwqbsx674eo"]
 
 [ext_resource type="Script" uid="uid://bn08mhcoceqg" path="res://scripts/game.gd" id="1_400sg"]
 [ext_resource type="PackedScene" uid="uid://b8etqvuw07mhc" path="res://scenes/human.tscn" id="2_s0nni"]
@@ -19,6 +19,7 @@
 [ext_resource type="Texture2D" uid="uid://cchkas5ebl2h5" path="res://sprites/Tiles_UI/mek3/1x1_attack.png" id="14_vjgi4"]
 [ext_resource type="Texture2D" uid="uid://ck7ob82qmu1po" path="res://sprites/Tiles_UI/mek3/2x2_attack.png" id="15_kyk2p"]
 [ext_resource type="Script" uid="uid://c5qxy87uee84f" path="res://scripts/turnmanager.gd" id="19_45i86"]
+[ext_resource type="PackedScene" path="res://scenes/StarNight.tscn" id="20_sv1m6"]
 
 [sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_g4kob"]
 texture = ExtResource("11_2rd6h")
@@ -139,6 +140,8 @@ human_scene = ExtResource("2_s0nni")
 mech_scene = ExtResource("3_aug50")
 zombie_scene = ExtResource("4_kyk2p")
 
+[node name="StarryNight" parent="." instance=ExtResource("20_sv1m6")]
+
 [node name="Highlight" type="TileMap" parent="."]
 tile_set = SubResource("TileSet_3xj3m")
 format = 2
@@ -147,6 +150,7 @@ layer_0/modulate = Color(0.09803922, 0.09803922, 0.09803922, 1)
 [node name="Terrain" type="TileMap" parent="."]
 tile_set = SubResource("TileSet_a8wo8")
 format = 2
+layer_0/modulate = Color(0.60784316, 0.60784316, 0.60784316, 1)
 
 [node name="MoveRange" type="TileMap" parent="."]
 tile_set = SubResource("TileSet_kyk2p")
@@ -171,6 +175,7 @@ highlight_texture_2x2 = ExtResource("12_7ua8r")
 [node name="Units" type="Node2D" parent="."]
 
 [node name="Camera2D" type="Camera2D" parent="."]
+zoom = Vector2(2, 2)
 script = ExtResource("8_400sg")
 map_width = 16
 map_height = 16
@@ -178,3 +183,4 @@ map_height = 16
 [node name="TurnManager" type="Node2D" parent="."]
 script = ExtResource("19_45i86")
 map = NodePath("..")
+start_on_ready = false

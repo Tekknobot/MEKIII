@@ -708,6 +708,8 @@ func try_attack_selected(target: Unit) -> bool:
 		return false
 	if target == selected_unit:
 		return false
+	if not is_instance_valid(target):
+		return false
 
 	# must be highlighted as attackable this frame
 	if not attackable_units.has(target):
@@ -725,15 +727,27 @@ func try_attack_selected(target: Unit) -> bool:
 	# face target
 	_set_facing_from_world_delta(attacker, attacker.global_position, target.global_position)
 
-	# play attack anim repeats + flash target
+	# play attack anim repeats + apply damage safely
 	var anim_name := _get_attack_anim_name(attacker)
-
 	var repeats = max(attacker.attack_repeats, 1)
+
 	for i in range(repeats):
+		# target might have died earlier (or been freed by something else)
+		if not is_instance_valid(target):
+			break
+
 		await _play_anim_and_wait(attacker, anim_name)
 
-		# Apply damage
-		target.take_damage(1)
+		# target could still get freed between anim end and damage call
+		if not is_instance_valid(target):
+			break
+
+		# ✅ IMPORTANT: await so take_damage can safely animate + free
+		await target.take_damage(1)
+
+		# if it died and freed itself, stop immediately
+		if not is_instance_valid(target):
+			break
 
 		# Flash only if still alive
 		if target.hp > 0:
@@ -743,9 +757,11 @@ func try_attack_selected(target: Unit) -> bool:
 	is_attacking_unit = false
 
 	# redraw overlays so the highlighted attack tiles stay correct
-	draw_unit_hover(attacker)
-	draw_move_range_for_unit(attacker)
-	draw_attack_range_for_unit(attacker)
+	# (target may be gone now, but attacker still exists)
+	if is_instance_valid(attacker):
+		draw_unit_hover(attacker)
+		draw_move_range_for_unit(attacker)
+		draw_attack_range_for_unit(attacker)
 
 	return true
 
@@ -766,13 +782,16 @@ func _attack_distance(a: Unit, b: Unit) -> int:
 
 
 func _play_anim_and_wait(u: Unit, anim_name: StringName) -> void:
+	if u == null or not is_instance_valid(u):
+		await get_tree().create_timer(0.05).timeout
+		return
+
 	var spr := _unit_sprite(u)
-	if spr == null:
-		await get_tree().create_timer(0.15).timeout
+	if spr == null or not is_instance_valid(spr):
+		await get_tree().create_timer(0.05).timeout
 		return
 
 	if spr.sprite_frames == null or not spr.sprite_frames.has_animation(anim_name):
-		# fallback: still wait a tiny bit so timing feels like an attack
 		await get_tree().create_timer(0.15).timeout
 		return
 
