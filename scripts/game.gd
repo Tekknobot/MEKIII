@@ -96,6 +96,10 @@ var is_attacking_unit := false
 @export var ally_spawn_size := Vector2i(6, 6)   # top-left area size
 @export var enemy_spawn_size := Vector2i(6, 6)  # bottom-right area size
 
+@export var turn_manager: NodePath
+var TM: TurnManager = null
+var is_player_mode := false
+
 func _rect_top_left(size: Vector2i) -> Rect2i:
 	return Rect2i(Vector2i(0, 0), size)
 
@@ -222,6 +226,8 @@ func _ready() -> void:
 	terrain.update_internals()
 	spawn_units()
 
+	if turn_manager != NodePath():
+		TM = get_node(turn_manager) as TurnManager
 
 func _process(_delta: float) -> void:
 	_update_hovered_cell()
@@ -763,6 +769,9 @@ func try_attack_selected(target: Unit) -> bool:
 		draw_move_range_for_unit(attacker)
 		draw_attack_range_for_unit(attacker)
 
+	if is_player_mode and TM != null:
+		TM.notify_player_action_complete()
+
 	return true
 
 func _attack_distance(a: Unit, b: Unit) -> int:
@@ -857,6 +866,11 @@ func try_move_selected_to(dest: Vector2i) -> bool:
 	if not _can_stand(u, dest):
 		return false
 
+	# ✅ Find a path (this is what gives you L-shape turns)
+	var path := find_path_origins(u, from_origin, dest, u.move_range)
+	if path.is_empty():
+		return false
+
 	# --- update grid occupancy immediately (LOGIC commits now) ---
 	for c in u.footprint_cells(from_origin):
 		if grid.is_occupied(c) and grid.occupied[c] == u:
@@ -868,38 +882,49 @@ func try_move_selected_to(dest: Vector2i) -> bool:
 	u.grid_pos = dest
 	unit_origin[u] = dest
 
-	# --- smooth visual move ---
-	var target_pos := cell_to_world_for_unit(dest, u)
-
 	is_moving_unit = true
-	var from_pos := u.global_position
-
-	_set_facing_from_world_delta(u, from_pos, target_pos)
 	_play_anim(u, "move")
 
+	# If a previous tween exists, kill it
 	if move_tween != null and move_tween.is_valid():
 		move_tween.kill()
 
-	move_tween = create_tween()
-	move_tween.set_trans(Tween.TRANS_SINE)
-	move_tween.set_ease(Tween.EASE_IN_OUT)
+	# Move step-by-step so you can see turns
+	# path includes start, so skip index 0
+	for i in range(1, path.size()):
+		var step_origin := path[i]
+		var step_pos := cell_to_world_for_unit(step_origin, u)
 
-	# tune this: either constant duration, or scale by distance
-	var duration := 0.8
-	move_tween.tween_property(u, "global_position", target_pos, duration)
+		var from_pos := u.global_position
+		_set_facing_from_world_delta(u, from_pos, step_pos)
 
-	await move_tween.finished
+		move_tween = create_tween()
+		move_tween.set_trans(Tween.TRANS_SINE)
+		move_tween.set_ease(Tween.EASE_IN_OUT)
 
-	u.global_position = target_pos
+		# Per-step duration (tweak this)
+		var step_duration := 0.18
+		move_tween.tween_property(u, "global_position", step_pos, step_duration)
+
+		await move_tween.finished
+
+		# keep layering correct mid-walk (optional but helps in iso)
+		u.update_layering()
+
+	# Ensure final is exact
+	u.global_position = cell_to_world_for_unit(dest, u)
 	u.update_layering()
 
 	_play_idle(u)
 	is_moving_unit = false
 
-	# refresh overlays AFTER arrival so they match the final spot
+	# refresh overlays AFTER arrival
 	draw_unit_hover(u)
 	draw_move_range_for_unit(u)
 	draw_attack_range_for_unit(u)
+
+	if is_player_mode and TM != null:
+		TM.notify_player_action_complete()
 
 	return true
 
@@ -1095,7 +1120,12 @@ func perform_move(u: Unit, dest: Vector2i) -> void:
 	if not _can_stand(u, dest):
 		return
 
-	# update occupancy
+	# ✅ PATH: use the same BFS path
+	var path := find_path_origins(u, from_origin, dest, u.move_range)
+	if path.is_empty():
+		return
+
+	# LOGIC commit to final destination immediately
 	for c in u.footprint_cells(from_origin):
 		if grid.is_occupied(c) and grid.occupied[c] == u:
 			grid.occupied.erase(c)
@@ -1106,26 +1136,184 @@ func perform_move(u: Unit, dest: Vector2i) -> void:
 	u.grid_pos = dest
 	unit_origin[u] = dest
 
-	# animate
-	var target_pos := cell_to_world_for_unit(dest, u)
-	is_moving_unit = true
+	# VISUAL: follow the path (shows corners)
+	await move_unit_along_path(u, path, 0.18)
 
-	var from_pos := u.global_position
-	_set_facing_from_world_delta(u, from_pos, target_pos)
+func find_path_origins(u: Unit, start: Vector2i, goal: Vector2i, max_cost: int) -> Array[Vector2i]:
+	# Returns a list of origins INCLUDING start and goal.
+	# If no path, returns [].
+
+	if u == null:
+		return []
+
+	# Big units: force aligned origins
+	if _is_big_unit(u):
+		start = snap_origin_for_unit(start, u)
+		goal = snap_origin_for_unit(goal, u)
+
+	if start == goal:
+		return [start]
+
+	# Standard BFS (uniform cost) within max_cost
+	var came_from := {}      # Dictionary: Vector2i -> Vector2i
+	var dist := {}           # Dictionary: Vector2i -> int
+	var q: Array[Vector2i] = []
+
+	# start must be standable
+	if not _can_stand(u, start):
+		return []
+	# goal must be standable too
+	if not _can_stand(u, goal):
+		return []
+
+	dist[start] = 0
+	q.append(start)
+
+	while not q.is_empty():
+		var cur = q.pop_front()
+		var cur_d: int = dist[cur]
+
+		if cur == goal:
+			break
+
+		if cur_d >= max_cost:
+			continue
+
+		for nb in _neighbors4_for_unit(cur, u):
+			var nd := cur_d + 1
+			if nd > max_cost:
+				continue
+
+			if _is_big_unit(u):
+				nb = snap_origin_for_unit(nb, u)
+
+			if dist.has(nb):
+				continue
+
+			if not _can_stand(u, nb):
+				continue
+
+			dist[nb] = nd
+			came_from[nb] = cur
+			q.append(nb)
+
+	if not dist.has(goal):
+		return []
+
+	# Reconstruct path
+	var path: Array[Vector2i] = []
+	var cur := goal
+	path.append(cur)
+	while cur != start:
+		cur = came_from[cur]
+		path.append(cur)
+	path.reverse()
+	return path
+
+func move_unit_along_path(u: Unit, path: Array[Vector2i], step_duration := 0.18) -> void:
+	if u == null or path.is_empty():
+		return
+	if is_moving_unit or is_attacking_unit:
+		return
+	if not is_instance_valid(u):
+		return
+
+	is_moving_unit = true
 	_play_anim(u, "move")
 
+	# kill any previous tween
 	if move_tween != null and move_tween.is_valid():
 		move_tween.kill()
 
-	move_tween = create_tween()
-	move_tween.set_trans(Tween.TRANS_SINE)
-	move_tween.set_ease(Tween.EASE_IN_OUT)
-	move_tween.tween_property(u, "global_position", target_pos, 0.6)
+	# path includes start, so skip 0
+	for i in range(1, path.size()):
+		var step_origin := path[i]
+		var step_pos := cell_to_world_for_unit(step_origin, u)
 
-	await move_tween.finished
+		var from_pos := u.global_position
+		_set_facing_from_world_delta(u, from_pos, step_pos)
 
-	u.global_position = target_pos
+		move_tween = create_tween()
+		move_tween.set_trans(Tween.TRANS_SINE)
+		move_tween.set_ease(Tween.EASE_IN_OUT)
+		move_tween.tween_property(u, "global_position", step_pos, step_duration)
+
+		await move_tween.finished
+		u.update_layering()
+
+	# snap exact
+	u.global_position = cell_to_world_for_unit(path[path.size() - 1], u)
 	u.update_layering()
 	_play_idle(u)
 
 	is_moving_unit = false
+
+func best_reachable_toward_enemy(u: Unit, enemy: Unit) -> Vector2i:
+	# Choose a reachable origin (within move_range) that minimizes distance to enemy footprint.
+	var start := get_unit_origin(u)
+	if _is_big_unit(u):
+		start = snap_origin_for_unit(start, u)
+
+	var reachable := compute_reachable_origins(u, start, u.move_range)
+	if reachable.is_empty():
+		return start
+
+	var best := start
+	var best_d := 999999
+
+	for r in reachable:
+		# Skip illegal stand tiles (reachable should already be standable, but keep safe)
+		if not _can_stand(u, r):
+			continue
+
+		# Measure distance from this hypothetical origin to enemy footprint
+		var d := _attack_distance_from_origin(u, r, enemy)
+		if d < best_d:
+			best_d = d
+			best = r
+
+	return best
+
+
+func _attack_distance_from_origin(a: Unit, a_origin: Vector2i, b: Unit) -> int:
+	var bo := get_unit_origin(b)
+	var a_cells := a.footprint_cells(a_origin)
+	var b_cells := b.footprint_cells(bo)
+
+	var best := 999999
+	for ca in a_cells:
+		for cb in b_cells:
+			var d = abs(ca.x - cb.x) + abs(ca.y - cb.y)
+			if d < best:
+				best = d
+	return best
+
+func ai_take_turn(u: Unit) -> void:
+	if u == null or not is_instance_valid(u):
+		return
+	if is_moving_unit or is_attacking_unit:
+		return
+
+	var enemy := nearest_enemy(u)
+	if enemy == null:
+		return
+
+	# 1) Attack if already in range
+	if _attack_distance(u, enemy) <= u.attack_range:
+		await perform_attack(u, enemy)
+		return
+
+	# 2) Otherwise move toward the enemy using pathfinding
+	var goal := best_reachable_toward_enemy(u, enemy)
+	if goal == get_unit_origin(u):
+		return
+
+	await perform_move(u, goal)
+
+	# 3) After moving, try attack again (common tactics-game feel)
+	if enemy != null and is_instance_valid(enemy):
+		if _attack_distance(u, enemy) <= u.attack_range:
+			await perform_attack(u, enemy)
+
+func set_player_mode(enabled: bool) -> void:
+	is_player_mode = enabled
