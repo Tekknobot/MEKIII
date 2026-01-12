@@ -135,8 +135,8 @@ sources/1 = SubResource("TileSetAtlasSource_attvq")
 [node name="Game" type="Node2D"]
 script = ExtResource("1_400sg")
 water_blobs = 2
-mech_count = 1
-zombie_count = 18
+mech_count = 0
+zombie_count = 16
 human_scene = ExtResource("2_s0nni")
 mech_scene = ExtResource("3_aug50")
 zombie_scene = ExtResource("4_kyk2p")
@@ -177,6 +177,7 @@ highlight_texture_2x2 = ExtResource("12_7ua8r")
 [node name="Units" type="Node2D" parent="."]
 
 [node name="Camera2D" type="Camera2D" parent="."]
+zoom = Vector2(2, 2)
 script = ExtResource("8_400sg")
 map_width = 16
 map_height = 16
@@ -184,3 +185,4 @@ map_height = 16
 [node name="TurnManager" type="Node2D" parent="."]
 script = ExtResource("19_45i86")
 map = NodePath("..")
+start_on_ready = false
