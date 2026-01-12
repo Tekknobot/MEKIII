@@ -185,4 +185,3 @@ map_height = 16
 [node name="TurnManager" type="Node2D" parent="."]
 script = ExtResource("19_45i86")
 map = NodePath("..")
-start_on_ready = false
