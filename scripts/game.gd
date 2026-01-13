@@ -22,6 +22,15 @@ const T_WATER := 5
 
 const LAYER_TERRAIN := 0
 
+# --- Roads (drawn on a separate TileMap layer) ---
+const LAYER_ROADS := 1
+
+const ROAD_INTERSECTION := 6   # your tile ID 6
+const ROAD_DOWN_LEFT := 7      # your tile ID 7
+const ROAD_DOWN_RIGHT := 8     # your tile ID 8
+
+const ROAD_ATLAS := Vector2i(0, 0)
+
 # --- Highlight overlay (hover/selection) ---
 @onready var highlight: TileMap = $Highlight
 const LAYER_HIGHLIGHT := 0
@@ -83,6 +92,11 @@ enum Season { DIRT, SANDSTONE, SNOW, GRASS, ICE }
 @onready var terrain: TileMap = $Terrain
 @onready var units_root: Node2D = $Units
 @onready var pickups_root: Node2D = $Pickups
+# --- Roads TileMap (MUST be a separate TileMap with 64x64 TileSet) ---
+@onready var roads: TileMap = $Roads
+
+@export var road_pixel_offset := Vector2(-32, 0) # tweak if needed
+const ROAD_SIZE := 2 # 64x64 road tile covers 2x2 of your 16x16 grid
 
 var grid := GridData.new()
 var rng := RandomNumberGenerator.new()
@@ -200,6 +214,14 @@ var ui_font: FontFile
 @export var sfx_orbital_zap: AudioStream            # optional zap
 
 var pickups := {} # Dictionary[Vector2i, Node2D]  # cell -> pickup instance
+
+@onready var roads_dl: TileMap = $RoadsDL
+@onready var roads_dr: TileMap = $RoadsDR
+@onready var roads_x: TileMap = $RoadsX
+@export var road_pixel_offset_x := Vector2(0, 0) # neutral (center)
+
+@export var road_pixel_offset_dl := Vector2(-32, 0)
+@export var road_pixel_offset_dr := Vector2(32, 0) # <-- this is the “other direction” offset
 
 func _rect_top_left(size: Vector2i) -> Rect2i:
 	return Rect2i(Vector2i(0, 0), size)
@@ -406,6 +428,7 @@ func _ready() -> void:
 
 	generate_map()
 	terrain.update_internals()
+	_sync_roads_transform()
 	spawn_units()
 	ally_rect_cache = _rect_top_left(ally_spawn_size)
 
@@ -419,6 +442,23 @@ func _ready() -> void:
 
 	# Start in SETUP so the player can reposition allies, then press Start.
 	_enter_setup()
+
+func _sync_roads_transform() -> void:
+	_sync_one_roads_transform(roads_dl, road_pixel_offset_dl)
+	_sync_one_roads_transform(roads_dr, road_pixel_offset_dr)
+	_sync_one_roads_transform(roads_x,  road_pixel_offset_x)
+
+func _sync_one_roads_transform(rmap: TileMap, px_off: Vector2) -> void:
+	if rmap == null:
+		return
+
+	var terrain_origin_local := terrain.map_to_local(Vector2i.ZERO)
+	var roads_origin_local := rmap.map_to_local(Vector2i.ZERO)
+
+	rmap.position = terrain.position + (terrain_origin_local - roads_origin_local) + px_off
+
+	rmap.z_as_relative = false
+	rmap.z_index = 1000
 
 func _process(_delta: float) -> void:
 	# Only update hover/aim previews when we allow player input.
@@ -710,6 +750,220 @@ func generate_map() -> void:
 	for x in range(map_width):
 		for y in range(map_height):
 			set_tile_id(Vector2i(x, y), grid.terrain[x][y])
+			
+	# --- paint roads on separate 64x64 TileMap ---
+	if roads != null:
+		roads.clear()
+	_add_roads()
+
+func _to_road_cell(grid_cell: Vector2i) -> Vector2i:
+	# 16x16 grid -> 8x8 road tiles (2x2 grid cells per road tile)
+	return Vector2i(grid_cell.x / ROAD_SIZE, grid_cell.y / ROAD_SIZE)
+
+func _snap_grid_to_road_anchor(c: Vector2i) -> Vector2i:
+	# road tiles sit on even coords (0,2,4,...)
+	return Vector2i((c.x / ROAD_SIZE) * ROAD_SIZE, (c.y / ROAD_SIZE) * ROAD_SIZE)
+
+func _add_roads() -> void:
+	if roads_dl == null or roads_dr == null or roads_x == null:
+		return
+
+	roads_dl.clear()
+	roads_dr.clear()
+	roads_x.clear()
+	_sync_roads_transform()
+
+	var cols := int(map_width / ROAD_SIZE)
+	var rows := int(map_height / ROAD_SIZE)
+
+	# If you want the cross in the middle, use cols/2 and rows/2.
+	var road_col := clampi(1, 0, cols - 1)
+	var road_row := clampi(1, 0, rows - 1)
+
+	# --- padding for half-tile offsets ---
+	# DL is shifted LEFT (-32) => needs +1 column on the RIGHT (x = cols)
+	var dl_pad_left := (1 if road_pixel_offset_dl.x > 0 else 0)
+	var dl_pad_right := (1 if road_pixel_offset_dl.x < 0 else 0)
+
+	# DR is shifted RIGHT (+32) => needs +1 column on the LEFT (x = -1)
+	var dr_pad_left := (1 if road_pixel_offset_dr.x > 0 else 0)
+	var dr_pad_right := (1 if road_pixel_offset_dr.x < 0 else 0)
+
+	# rc -> bitmask (1=DL, 2=DR)
+	var conn := {}
+
+	# vertical lane (DL): rows ok, but we keep normal range
+	for ry in range(rows):
+		var rc := Vector2i(road_col, ry)
+		conn[rc] = int(conn.get(rc, 0)) | 1
+
+	# horizontal lane (DR): extend by 1 tile on the side needed by the offset
+	for rx in range(-dr_pad_left, cols + dr_pad_right):
+		var rc := Vector2i(rx, road_row)
+		conn[rc] = int(conn.get(rc, 0)) | 2
+
+	# ALSO extend DL’s horizontal reach by 1 tile so its shifted map doesn’t look short
+	# (this fills the “one more tile” you’re noticing on the DL side)
+	for rx in range(-dl_pad_left, cols + dl_pad_right):
+		var rc := Vector2i(rx, road_row)
+		conn[rc] = int(conn.get(rc, 0)) | int(conn.get(rc, 0)) # no-op, ensures key exists if needed
+
+	# paint
+	for rc in conn.keys():
+		var mask := int(conn[rc])
+
+		if mask == 3:
+			roads_x.set_cell(0, rc, ROAD_INTERSECTION, ROAD_ATLAS, 0)
+		elif mask == 1:
+			roads_dl.set_cell(0, rc, ROAD_DOWN_LEFT, ROAD_ATLAS, 0)
+		elif mask == 2:
+			roads_dr.set_cell(0, rc, ROAD_DOWN_RIGHT, ROAD_ATLAS, 0)
+	
+func _build_road_path_2x2(start: Vector2i, goal: Vector2i) -> Array[Vector2i]:
+	# Like your old road path, but steps by 2 so it matches 64x64 tiles.
+	if not grid.in_bounds(start) or not grid.in_bounds(goal):
+		return []
+
+	start = _snap_grid_to_road_anchor(start)
+	goal = _snap_grid_to_road_anchor(goal)
+
+	var path: Array[Vector2i] = []
+	var cur := start
+	path.append(cur)
+
+	var max_steps := (map_width + map_height) + 50
+	while cur != goal and max_steps > 0:
+		max_steps -= 1
+
+		var dx := goal.x - cur.x
+		var dy := goal.y - cur.y
+
+		var can_x := (dx > 0 and cur.x + ROAD_SIZE <= map_width - ROAD_SIZE)
+		var can_y := (dy > 0 and cur.y + ROAD_SIZE <= map_height - ROAD_SIZE)
+
+		if not can_x and not can_y:
+			break
+
+		var pick_x := false
+		if can_x and can_y:
+			var w_x := float(dx) / float(max(dx + dy, 1))
+			pick_x = (rng.randf() < w_x)
+		elif can_x:
+			pick_x = true
+		else:
+			pick_x = false
+
+		if pick_x:
+			cur = Vector2i(cur.x + ROAD_SIZE, cur.y)
+		else:
+			cur = Vector2i(cur.x, cur.y + ROAD_SIZE)
+
+		path.append(cur)
+
+	return path
+
+func _register_lane_connections(path: Array[Vector2i], conn: Dictionary) -> void:
+	if path.is_empty():
+		return
+
+	for i in range(path.size() - 1):
+		var a := _snap_grid_to_road_anchor(path[i])
+		var b := _snap_grid_to_road_anchor(path[i + 1])
+
+		if not conn.has(a):
+			conn[a] = {"dl": false, "dr": false}
+		if not conn.has(b):
+			conn[b] = {"dl": false, "dr": false}
+
+		# a -> b determines lane direction
+		if b.x == a.x + ROAD_SIZE and b.y == a.y:
+			conn[a]["dr"] = true
+			conn[b]["dr"] = true # also mark b so intersections happen naturally
+		elif b.y == a.y + ROAD_SIZE and b.x == a.x:
+			conn[a]["dl"] = true
+			conn[b]["dl"] = true
+
+func _build_road_path(start: Vector2i, goal: Vector2i) -> Array[Vector2i]:
+	# Creates an "iso-feeling" path by only stepping:
+	#  - +x (down-right visually) or
+	#  - +y (down-left visually)
+	# This matches your two road piece directions (7/8).
+	#
+	# It also avoids going out of bounds. If we hit water, we still allow it
+	# (we'll convert water to land under the road in _add_roads).
+
+	if not grid.in_bounds(start) or not grid.in_bounds(goal):
+		return []
+
+	var path: Array[Vector2i] = []
+	var cur := start
+	path.append(cur)
+
+	# Safety cap so we never infinite loop
+	var max_steps := map_width + map_height + 50
+	while cur != goal and max_steps > 0:
+		max_steps -= 1
+
+		var dx := goal.x - cur.x
+		var dy := goal.y - cur.y
+
+		# If one axis is already matched, we must move on the other
+		var can_x := (dx > 0 and cur.x + 1 < map_width)
+		var can_y := (dy > 0 and cur.y + 1 < map_height)
+
+		if not can_x and not can_y:
+			break
+
+		# Bias step choice toward whichever axis is "more behind"
+		var pick_x := false
+		if can_x and can_y:
+			var w_x := float(dx) / float(max(dx + dy, 1))
+			pick_x = (rng.randf() < w_x)
+		elif can_x:
+			pick_x = true
+		else:
+			pick_x = false
+
+		if pick_x:
+			cur = Vector2i(cur.x + 1, cur.y)
+		else:
+			cur = Vector2i(cur.x, cur.y + 1)
+
+		path.append(cur)
+
+	return path
+
+
+func _register_road_exits_from_path(path: Array[Vector2i], exits: Dictionary) -> void:
+	if path.is_empty():
+		return
+
+	# For each cell, look at the NEXT step to decide if this cell "exits" down-left or down-right.
+	# Down-right = +x, Down-left = +y
+	for i in range(path.size() - 1):
+		var a := path[i]
+		var b := path[i + 1]
+
+		if not exits.has(a):
+			exits[a] = {"dl": false, "dr": false}
+
+		if b.x == a.x + 1 and b.y == a.y:
+			exits[a]["dr"] = true
+		elif b.y == a.y + 1 and b.x == a.x:
+			exits[a]["dl"] = true
+
+	# Also mark the last cell so it gets a tile too (use incoming direction)
+	var last := path[path.size() - 1]
+	if not exits.has(last):
+		exits[last] = {"dl": false, "dr": false}
+
+	if path.size() >= 2:
+		var prev := path[path.size() - 2]
+		# If we arrived from left, the last piece can be down-right-ish, etc.
+		if last.x == prev.x + 1 and last.y == prev.y:
+			exits[last]["dr"] = true
+		elif last.y == prev.y + 1 and last.x == prev.x:
+			exits[last]["dl"] = true
 
 # -----------------------
 # Connectivity + dead-end fixer (non-water walkable)

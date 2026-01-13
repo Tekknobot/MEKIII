@@ -1,3 +1,4 @@
+res://sprites/Terrain/roads
 res://sprites/Dog
 res://sprites/Dog/attack
 res://sprites/Dog/default
@@ -19,4 +20,3 @@ res://sprites/Tiles_UI
 res://sprites/Meks/M1
 res://sprites/Humans/soldier/attack
 res://sprites/Humans/soldier
-res://sprites/Humans/soldier/idle
