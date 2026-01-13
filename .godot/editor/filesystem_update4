@@ -3,3 +3,4 @@ res://scripts/game.gd
 res://scripts/turnmanager.gd
 res://scripts/mech.gd
 res://scenes/mech.tscn
+res://scenes/tnt.tscn

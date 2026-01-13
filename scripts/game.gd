@@ -220,8 +220,8 @@ var pickups := {} # Dictionary[Vector2i, Node2D]  # cell -> pickup instance
 @onready var roads_x: TileMap = $RoadsX
 @export var road_pixel_offset_x := Vector2(0, 0) # neutral (center)
 
-@export var road_pixel_offset_dl := Vector2(-32, 0)
-@export var road_pixel_offset_dr := Vector2(32, 0) # <-- this is the “other direction” offset
+@export var road_pixel_offset_dl := Vector2(0, 0)
+@export var road_pixel_offset_dr := Vector2(0, 0) # <-- this is the “other direction” offset
 
 func _rect_top_left(size: Vector2i) -> Rect2i:
 	return Rect2i(Vector2i(0, 0), size)
@@ -422,6 +422,8 @@ func _play_idle(u: Unit) -> void:
 
 func _ready() -> void:
 	_seed_rng()
+	
+	rng.randomize()
 
 	# GridData should be 16x16 here
 	grid.setup(map_width, map_height)
@@ -658,21 +660,32 @@ func _on_battle_ended(winner_team: int) -> void:
 		ui_reward_label.text = "Defeat. Choose an upgrade and try again"
 	_refresh_ui_status()
 
-
 func _pick_reward(choice: int) -> void:
 	match choice:
 		0: bonus_max_hp += 1
 		1: bonus_attack_range += 1
 		2: bonus_tnt_damage += 1
 
-	# Simple difficulty ramp
+	# Difficulty ramp
 	round_index += 1
 	zombie_count += 2
 
-	# Respawn a new skirmish using the same map rules
+	# ✅ RANDOMIZE SEASON EACH ROUND
+	season = Season.values()[rng.randi_range(0, Season.values().size() - 1)]
+
+	# (Optional) also slightly randomize season strength for variety
+	season_strength = rng.randf_range(0.55, 0.9)
+
+	# ✅ Rebuild map with new season
+	rng.randomize()   # ensures new layout each round
+	grid.setup(map_width, map_height)
+	generate_map()
+	terrain.update_internals()
+	_sync_roads_transform()
+
+	# Respawn units on new map
 	spawn_units()
 	_enter_setup()
-
 
 # -----------------------
 # Mouse -> map helpers
@@ -764,6 +777,27 @@ func _snap_grid_to_road_anchor(c: Vector2i) -> Vector2i:
 	# road tiles sit on even coords (0,2,4,...)
 	return Vector2i((c.x / ROAD_SIZE) * ROAD_SIZE, (c.y / ROAD_SIZE) * ROAD_SIZE)
 
+func _road_extras_from_offset(px_off: Vector2) -> Dictionary:
+	var extra_left := 0
+	var extra_right := 0
+	var extra_top := 0
+	var extra_bottom := 0
+
+	# If you offset a TileMap RIGHT (+x), its LEFT edge looks short -> add 1 cell on LEFT.
+	# If you offset a TileMap LEFT (-x), its RIGHT edge looks short -> add 1 cell on RIGHT.
+	if px_off.x > 0.0:
+		extra_left = 1
+	elif px_off.x < 0.0:
+		extra_right = 1
+
+	# Same idea if you ever offset vertically
+	if px_off.y > 0.0:
+		extra_top = 1
+	elif px_off.y < 0.0:
+		extra_bottom = 1
+
+	return {"l": extra_left, "r": extra_right, "t": extra_top, "b": extra_bottom}
+
 func _add_roads() -> void:
 	if roads_dl == null or roads_dr == null or roads_x == null:
 		return
@@ -773,42 +807,61 @@ func _add_roads() -> void:
 	roads_x.clear()
 	_sync_roads_transform()
 
-	var cols := int(map_width / ROAD_SIZE)
-	var rows := int(map_height / ROAD_SIZE)
+	var cols := int(map_width / ROAD_SIZE)   # 16/2 = 8
+	var rows := int(map_height / ROAD_SIZE)  # 16/2 = 8
 
-	# If you want the cross in the middle, use cols/2 and rows/2.
-	var road_col := clampi(1, 0, cols - 1)
-	var road_row := clampi(1, 0, rows - 1)
+	# ---- RANDOMIZE WHICH COLUMN/ROW THE LANES USE ----
+	# margin keeps it away from the very edge; set to 0 if you want edge lanes too
+	var margin := 0
 
-	# --- padding for half-tile offsets ---
-	# DL is shifted LEFT (-32) => needs +1 column on the RIGHT (x = cols)
-	var dl_pad_left := (1 if road_pixel_offset_dl.x > 0 else 0)
-	var dl_pad_right := (1 if road_pixel_offset_dl.x < 0 else 0)
+	var col_min := clampi(margin, 0, cols - 1)
+	var col_max := clampi(cols - 1 - margin, 0, cols - 1)
 
-	# DR is shifted RIGHT (+32) => needs +1 column on the LEFT (x = -1)
-	var dr_pad_left := (1 if road_pixel_offset_dr.x > 0 else 0)
-	var dr_pad_right := (1 if road_pixel_offset_dr.x < 0 else 0)
+	var row_min := clampi(margin, 0, rows - 1)
+	var row_max := clampi(rows - 1 - margin, 0, rows - 1)
 
-	# rc -> bitmask (1=DL, 2=DR)
+	# DL (vertical) picks a random column
+	var road_col := rng.randi_range(col_min, col_max)
+
+	# DR (horizontal) picks a random row
+	var road_row := rng.randi_range(row_min, row_max)
+
+	# (optional) avoid boring same-ish near-center every time by re-rolling once if you want
+	# if road_col == int(cols / 2) and cols > 2:
+	# 	road_col = rng.randi_range(col_min, col_max)
+	# if road_row == int(rows / 2) and rows > 2:
+	# 	road_row = rng.randi_range(row_min, row_max)
+
+	# compute how many extra cells we must paint to reach the visible edges after offsets
+	var ex_dl := _road_extras_from_offset(road_pixel_offset_dl)
+	var ex_dr := _road_extras_from_offset(road_pixel_offset_dr)
+
+	# rc -> bitmask (1=DL lane, 2=DR lane)
 	var conn := {}
 
-	# vertical lane (DL): rows ok, but we keep normal range
-	for ry in range(rows):
+	# -------------------------
+	# Vertical lane (DL tiles)
+	# -------------------------
+	var y0_dl := -int(ex_dl["t"])
+	var y1_dl := (rows - 1) + int(ex_dl["b"])
+	for ry in range(y0_dl, y1_dl + 1 + 9):
 		var rc := Vector2i(road_col, ry)
 		conn[rc] = int(conn.get(rc, 0)) | 1
 
-	# horizontal lane (DR): extend by 1 tile on the side needed by the offset
-	for rx in range(-dr_pad_left, cols + dr_pad_right):
+	# -------------------------
+	# Horizontal lane (DR tiles)
+	# -------------------------
+	var x0_dr := -int(ex_dr["l"])
+	var x1_dr := (cols - 1) + int(ex_dr["r"])
+	for rx in range(x0_dr, x1_dr + 1 + 9):
 		var rc := Vector2i(rx, road_row)
 		conn[rc] = int(conn.get(rc, 0)) | 2
 
-	# ALSO extend DL’s horizontal reach by 1 tile so its shifted map doesn’t look short
-	# (this fills the “one more tile” you’re noticing on the DL side)
-	for rx in range(-dl_pad_left, cols + dl_pad_right):
-		var rc := Vector2i(rx, road_row)
-		conn[rc] = int(conn.get(rc, 0)) | int(conn.get(rc, 0)) # no-op, ensures key exists if needed
+	# Ensure the intersection exists
+	var cross := Vector2i(road_col, road_row)
+	conn[cross] = int(conn.get(cross, 0)) | 3
 
-	# paint
+	# Paint tiles into the three TileMaps
 	for rc in conn.keys():
 		var mask := int(conn[rc])
 
