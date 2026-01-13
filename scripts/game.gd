@@ -2736,6 +2736,7 @@ func _zombie_hp_bonus_for_round(r: int) -> int:
 	return int(floor(max(r - 1, 0) / 3.0))
 
 func _zombie_repeats_bonus_for_round(r: int) -> int:
-	# Bonus repeats only on rounds right before the HP tier rounds (3,6,9...)
-	# i.e. 2,5,8,11...
-	return 1 if (r % 3 == 2) else 0
+	# 2 => 1, 5 => 2, 8 => 3, ...
+	if r % 3 != 2:
+		return 0
+	return int(floor(r / 3.0)) + 1
