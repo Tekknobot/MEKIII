@@ -146,7 +146,7 @@ var tnt_aim_cell: Vector2i = Vector2i(-1, -1)
 # --- Minimal UI (created in code so you don't have to wire a scene) ---
 var ui_layer: CanvasLayer
 var ui_root: Control
-var ui_status_label: Label
+var ui_status_label: RichTextLabel
 var ui_start_button: Button
 var ui_reward_panel: PanelContainer
 var ui_reward_label: Label
@@ -420,17 +420,26 @@ func _build_ui() -> void:
 	ui_layer.add_child(ui_root)
 
 	var v := VBoxContainer.new()
-	v.custom_minimum_size = Vector2(240, 0) 
+	v.custom_minimum_size = Vector2(380, 0) 
 
 	v.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	v.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	ui_root.add_child(v)
 
-	ui_status_label = Label.new()
+	ui_status_label = RichTextLabel.new()
 	ui_status_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	ui_status_label.bbcode_enabled = true
+	ui_status_label.fit_content = true
+	ui_status_label.scroll_active = false
+
 	if ui_font:
-		ui_status_label.add_theme_font_override("font", ui_font)
-		ui_status_label.add_theme_font_size_override("font_size", ui_font_size)
+		ui_status_label.add_theme_font_override("normal_font", ui_font)
+		ui_status_label.add_theme_font_size_override("normal_font_size", ui_font_size)
+
+		# optional (only matters if you ever use [b] or [i] tags)
+		ui_status_label.add_theme_font_override("bold_font", ui_font)
+		ui_status_label.add_theme_font_override("italics_font", ui_font)
+		ui_status_label.add_theme_font_override("bold_italics_font", ui_font)
 	v.add_child(ui_status_label)
 
 	ui_start_button = Button.new()
@@ -495,12 +504,16 @@ func _refresh_ui_status() -> void:
 	)
 
 	if state == GameState.SETUP:
-		lines.append("Setup: Click an ally, then click a cell in the top-left zone to reposition. Then press Start Battle.")
-	elif state == GameState.BATTLE and has_method("_is_assist_mode") and _is_assist_mode():
-		lines.append("Assist: Select a Human, right-click to aim TNT, left-click to throw.")
-		lines.append("TNT throws left this battle: %d" % assist_tnt_charges_left)
-	elif state == GameState.BATTLE and is_player_mode:
-		lines.append("Player mode: Move and attack as normal. Human TNT: right-click to aim, left-click to throw.")
+		lines.append("[color=#ffd966]BATTLE RULES[/color]: Units move and attack automatically.")
+		lines.append("[color=#ff9966]Humans[/color] use [color=#ff4444]TNT[/color] when available.")
+
+	elif state == GameState.BATTLE:
+		lines.append("[color=#66ccff]BATTLE IN PROGRESS[/color]")
+		lines.append("Units act automatically.")
+
+	elif state == GameState.REWARD:
+		lines.append("[color=#66ff66]ROUND COMPLETE[/color]")
+		lines.append("Choose an upgrade to continue.")
 
 	ui_status_label.text = "\n".join(lines)
 
@@ -1882,7 +1895,7 @@ func _draw_tnt_curve(from_pos: Vector2, to_pos: Vector2, arc_height: float) -> v
 		var t := float(i) / float(n - 1)
 		line.add_point(_arc_point(from_pos, to_pos, t, arc_height))
 
-	line.visible = true
+	line.visible = false
 
 func _hide_tnt_curve() -> void:
 	if _tnt_curve_line != null and is_instance_valid(_tnt_curve_line):
