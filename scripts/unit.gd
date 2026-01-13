@@ -139,3 +139,12 @@ func apply_run_bonuses(bonus_hp: int, bonus_range: int, bonus_move: int, bonus_r
 	attack_range = max(1, int(attack_range) + int(bonus_range))
 	move_range = max(0, int(move_range) + int(bonus_move))
 	attack_repeats = max(1, int(attack_repeats) + int(bonus_repeats))
+
+func _apply_hp_bonus_safe(hp_bonus: int) -> void:
+	if hp_bonus <= 0:
+		return
+	max_hp = int(max_hp) + hp_bonus
+	hp = int(max_hp) # keep them full when they spawn
+
+func _apply_repeats_bonus_safe(bonus: int) -> void:
+	attack_repeats = max(1, int(attack_repeats) + int(bonus))

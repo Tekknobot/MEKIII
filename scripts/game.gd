@@ -400,10 +400,20 @@ func _spawn_one(scene: PackedScene, region: Rect2i) -> void:
 		# ✅ Now apply run bonuses AFTER the unit's own _ready() finishes
 		if unit.team == Unit.Team.ALLY:
 			unit.call_deferred("apply_run_bonuses", bonus_max_hp, bonus_attack_range, bonus_move_range, bonus_attack_repeats)
+
+		# ✅ Enemy scaling (zombies only)
+		if unit is Zombie:
+			var hp_bonus := _zombie_hp_bonus_for_round(round_index)
+			unit.call_deferred("_apply_hp_bonus_safe", hp_bonus)
+
+			var rep_bonus := _zombie_repeats_bonus_for_round(round_index)
+			unit.call_deferred("_apply_repeats_bonus_safe", rep_bonus)
+
 			
 		unit.global_position = cell_to_world_for_unit(origin, unit)
 		unit.update_layering()
 		return
+
 
 func _unit_sprite(u: Unit) -> AnimatedSprite2D:
 	if u == null:
@@ -2720,3 +2730,11 @@ func _pick_ai_tnt_target_cell(thrower: Unit) -> Vector2i:
 			best_cell = cell
 
 	return best_cell
+
+func _zombie_hp_bonus_for_round(r: int) -> int:
+	# +1 at round 3, 6, 9, ...
+	return int(floor(max(r - 1, 0) / 3.0))
+
+func _zombie_repeats_bonus_for_round(r: int) -> int:
+	# +1 at round 3, 6, 9, ...
+	return int(floor(max(r - 1, 0) / 3.0))
