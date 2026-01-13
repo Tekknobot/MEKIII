@@ -1931,6 +1931,11 @@ func _orbital_laser_strike() -> void:
 		if is_instance_valid(z):
 			await z.take_damage(orbital_damage)
 
+			# ✅ flash on hit (only if still alive)
+			if is_instance_valid(z) and z.hp > 0:
+				play_sfx_poly(_sfx_hurt_for(z), z.global_position, -5.0)
+				await _flash_unit(z)
+
 		await get_tree().create_timer(orbital_delay).timeout
 
 func _spawn_orbital_beam(hit_pos: Vector2) -> void:
@@ -1943,7 +1948,7 @@ func _spawn_orbital_beam(hit_pos: Vector2) -> void:
 
 	# tall vertical line centered on hit_pos
 	line.add_point(Vector2(hit_pos.x, hit_pos.y - orbital_beam_height_px))
-	line.add_point(Vector2(hit_pos.x, hit_pos.y + 16))
+	line.add_point(Vector2(hit_pos.x, hit_pos.y - 16))
 
 	add_child(line)
 
@@ -2271,11 +2276,19 @@ func perform_human_tnt_throw(thrower: Unit, target_cell: Vector2i, target_unit: 
 	for v in victims:
 		if v == null or not is_instance_valid(v):
 			continue
+
 		var vref = weakref(v)
 		await v.take_damage(_get_tnt_damage())
+
 		var still := vref.get_ref() as Unit
 		if still == null or not is_instance_valid(still):
 			continue
+
+		# ✅ flash on hit (only if still alive)
+		if still.hp > 0:
+			play_sfx_poly(_sfx_hurt_for(still), still.global_position, -5.0)
+			await _flash_unit(still)
+
 
 	is_attacking_unit = false
 

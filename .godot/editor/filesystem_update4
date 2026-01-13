@@ -2,3 +2,7 @@ res://scenes/zombie.tscn
 res://scripts/zombie.gd
 res://scripts/game.gd
 res://scenes/Game.tscn
+res://scenes/human.tscn
+res://scripts/human.gd
+res://scripts/humantwo.gd
+res://scenes/laser_drop.tscn

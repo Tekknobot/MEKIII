@@ -246,13 +246,14 @@ target_water = 0.0
 water_blobs = 1
 blob_steps = 2
 mech_count = 1
-zombie_count = 16
+zombie_count = 8
 human_scene = ExtResource("2_s0nni")
 human2_scene = ExtResource("3_1gdd5")
 mech_scene = ExtResource("3_aug50")
 zombie_scene = ExtResource("4_kyk2p")
 tnt_projectile_scene = ExtResource("5_attvq")
 tnt_explosion_scene = ExtResource("6_bneo8")
+tnt_damage = 1
 turn_manager = NodePath("TurnManager")
 sfx_human_attack = ExtResource("7_jbgew")
 sfx_zombie_attack = ExtResource("9_0bq3a")
@@ -269,6 +270,7 @@ sfx_dog_hurt = ExtResource("17_cxum0")
 sfx_humantwo_die = ExtResource("10_jhsr3")
 sfx_dog_die = ExtResource("8_a85ww")
 laser_drop_scene = ExtResource("14_i4jil")
+orbital_hits = 1
 sfx_orbital_zap = ExtResource("15_jai3c")
 
 [node name="StarryNight" parent="." instance=ExtResource("20_sv1m6")]
