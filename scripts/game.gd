@@ -173,6 +173,8 @@ var ui_font: FontFile
 @export var sfx_explosion: AudioStream
 @export var sfx_move: AudioStream # optional
 
+@export var sfx_tnt_throw: AudioStream
+
 func _rect_top_left(size: Vector2i) -> Rect2i:
 	return Rect2i(Vector2i(0, 0), size)
 
@@ -1729,6 +1731,8 @@ func perform_human_tnt_throw(human: Human, target_cell: Vector2i, target_unit: U
 	add_child(proj)
 	proj.global_position = from_pos
 	proj.z_index = 999999
+	
+	play_sfx_poly(sfx_tnt_throw, from_pos, -6.0, 0.95, 1.05)
 
 	# Tween projectile along the exact same arc
 	var flight := create_tween()

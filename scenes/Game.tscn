@@ -1,4 +1,4 @@
-[gd_scene load_steps=45 format=3 uid="uid://bmtwqbsx674eo"]
+[gd_scene load_steps=46 format=3 uid="uid://bmtwqbsx674eo"]
 
 [ext_resource type="Script" uid="uid://bn08mhcoceqg" path="res://scripts/game.gd" id="1_400sg"]
 [ext_resource type="PackedScene" uid="uid://b8etqvuw07mhc" path="res://scenes/human.tscn" id="2_s0nni"]
@@ -24,6 +24,7 @@
 [ext_resource type="Texture2D" uid="uid://eh6ocjhc4lti" path="res://sprites/Terrain/water.png" id="11_vjgi4"]
 [ext_resource type="AudioStream" uid="uid://dbjuep5ctjt4q" path="res://audio/SFX/step_tile.wav" id="12_0bq3a"]
 [ext_resource type="Texture2D" uid="uid://b2b8iier8i5b7" path="res://sprites/Tiles_UI/mek3/2x2_cursor.png" id="12_7ua8r"]
+[ext_resource type="AudioStream" uid="uid://dwl65r38tuneh" path="res://audio/SFX/pizza-toss-forsaken-loud.wav" id="13_754j2"]
 [ext_resource type="Texture2D" uid="uid://cchkas5ebl2h5" path="res://sprites/Tiles_UI/mek3/1x1_attack.png" id="14_vjgi4"]
 [ext_resource type="Texture2D" uid="uid://ck7ob82qmu1po" path="res://sprites/Tiles_UI/mek3/2x2_attack.png" id="15_kyk2p"]
 [ext_resource type="Script" uid="uid://c5qxy87uee84f" path="res://scripts/turnmanager.gd" id="19_45i86"]
@@ -159,6 +160,7 @@ sfx_human_die = ExtResource("10_jhsr3")
 sfx_zombie_die = ExtResource("9_0bq3a")
 sfx_explosion = ExtResource("8_a85ww")
 sfx_move = ExtResource("12_0bq3a")
+sfx_tnt_throw = ExtResource("13_754j2")
 
 [node name="StarryNight" parent="." instance=ExtResource("20_sv1m6")]
 
