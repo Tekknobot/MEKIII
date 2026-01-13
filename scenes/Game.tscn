@@ -2,7 +2,7 @@
 
 [ext_resource type="Script" uid="uid://bn08mhcoceqg" path="res://scripts/game.gd" id="1_400sg"]
 [ext_resource type="PackedScene" uid="uid://b8etqvuw07mhc" path="res://scenes/human.tscn" id="2_s0nni"]
-[ext_resource type="PackedScene" uid="uid://cv6mfkhtkvxij" path="res://scenes/human2.tscn" id="3_1gdd5"]
+[ext_resource type="PackedScene" uid="uid://cv6mfkhtkvxij" path="res://scenes/humantwo.tscn" id="3_1gdd5"]
 [ext_resource type="PackedScene" uid="uid://bqrbab23wjpjp" path="res://scenes/mech.tscn" id="3_aug50"]
 [ext_resource type="PackedScene" uid="uid://dmujwxtnheagi" path="res://scenes/zombie.tscn" id="4_kyk2p"]
 [ext_resource type="PackedScene" uid="uid://bcn8tdg6qkk31" path="res://scenes/tnt.tscn" id="5_attvq"]
@@ -166,6 +166,7 @@ tnt_curve_points = 16
 tnt_curve_line_width = 1.0
 sfx_human_attack = ExtResource("7_jbgew")
 sfx_zombie_attack = ExtResource("8_jhsr3")
+sfx_human_hurt = ExtResource("17_cxum0")
 sfx_zombie_hurt = ExtResource("9_0bq3a")
 sfx_human_die = ExtResource("10_jhsr3")
 sfx_zombie_die = ExtResource("9_0bq3a")
@@ -177,6 +178,7 @@ sfx_dog_attack = ExtResource("16_7f8l2")
 sfx_humantwo_hurt = ExtResource("17_cxum0")
 sfx_dog_hurt = ExtResource("18_1fiys")
 sfx_humantwo_die = ExtResource("10_jhsr3")
+sfx_dog_die = ExtResource("8_a85ww")
 laser_drop_scene = ExtResource("14_i4jil")
 laser_drop_chance = 0.25
 orbital_hits = 1
