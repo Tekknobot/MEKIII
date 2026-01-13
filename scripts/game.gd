@@ -680,11 +680,16 @@ func _on_battle_ended(winner_team: int) -> void:
 	ui_reward_panel.visible = true
 	ui_start_button.visible = false
 	select_unit(null)
+
 	if winner_team == Unit.Team.ALLY:
 		ui_reward_label.text = "Win! Choose an upgrade for next round"
+		ui_reward_label.add_theme_color_override("font_color", Color(0.3, 1.0, 0.3)) # green
 	else:
 		ui_reward_label.text = "Defeat. Choose an upgrade and try again"
+		ui_reward_label.add_theme_color_override("font_color", Color(1.0, 0.3, 0.3)) # red
+
 	_refresh_ui_status()
+
 
 func _pick_reward(choice: int) -> void:
 	match choice:
