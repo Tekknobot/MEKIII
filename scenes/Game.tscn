@@ -1,4 +1,4 @@
-[gd_scene load_steps=49 format=3 uid="uid://bmtwqbsx674eo"]
+[gd_scene load_steps=53 format=3 uid="uid://bmtwqbsx674eo"]
 
 [ext_resource type="Script" uid="uid://bn08mhcoceqg" path="res://scripts/game.gd" id="1_400sg"]
 [ext_resource type="PackedScene" uid="uid://b8etqvuw07mhc" path="res://scenes/human.tscn" id="2_s0nni"]
@@ -29,7 +29,11 @@
 [ext_resource type="PackedScene" uid="uid://dxb10d4hi3u5m" path="res://scenes/laser_drop.tscn" id="14_i4jil"]
 [ext_resource type="Texture2D" uid="uid://cchkas5ebl2h5" path="res://sprites/Tiles_UI/mek3/1x1_attack.png" id="14_vjgi4"]
 [ext_resource type="AudioStream" uid="uid://dd1oh3lohb5yo" path="res://audio/SFX/laser-312360.mp3" id="15_jai3c"]
+[ext_resource type="AudioStream" uid="uid://b7n22ud1fbmt5" path="res://audio/SFX/slash.wav" id="15_kbe8o"]
 [ext_resource type="Texture2D" uid="uid://ck7ob82qmu1po" path="res://sprites/Tiles_UI/mek3/2x2_attack.png" id="15_kyk2p"]
+[ext_resource type="AudioStream" uid="uid://b4lp2xohi5ktg" path="res://audio/SFX/robo_bark.wav" id="16_7f8l2"]
+[ext_resource type="AudioStream" uid="uid://cvmadfryrn0ar" path="res://audio/SFX/Hit8.wav" id="17_cxum0"]
+[ext_resource type="AudioStream" uid="uid://bot4ie1fmgl8a" path="res://audio/SFX/dog_hurt.wav" id="18_1fiys"]
 [ext_resource type="Script" uid="uid://c5qxy87uee84f" path="res://scripts/turnmanager.gd" id="19_45i86"]
 [ext_resource type="PackedScene" uid="uid://bm1g128j70kea" path="res://scenes/StarNight.tscn" id="20_sv1m6"]
 
@@ -147,7 +151,7 @@ sources/1 = SubResource("TileSetAtlasSource_attvq")
 [node name="Game" type="Node2D" groups=["GameMap"]]
 script = ExtResource("1_400sg")
 water_blobs = 2
-mech_count = 0
+mech_count = 1
 zombie_count = 16
 human_scene = ExtResource("2_s0nni")
 human2_scene = ExtResource("3_1gdd5")
@@ -168,6 +172,11 @@ sfx_zombie_die = ExtResource("9_0bq3a")
 sfx_explosion = ExtResource("8_a85ww")
 sfx_move = ExtResource("12_0bq3a")
 sfx_tnt_throw = ExtResource("13_754j2")
+sfx_humantwo_attack = ExtResource("15_kbe8o")
+sfx_dog_attack = ExtResource("16_7f8l2")
+sfx_humantwo_hurt = ExtResource("17_cxum0")
+sfx_dog_hurt = ExtResource("18_1fiys")
+sfx_humantwo_die = ExtResource("10_jhsr3")
 laser_drop_scene = ExtResource("14_i4jil")
 laser_drop_chance = 0.25
 orbital_hits = 1

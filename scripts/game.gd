@@ -178,6 +178,15 @@ var ui_font: FontFile
 
 @export var sfx_tnt_throw: AudioStream
 
+@export var sfx_humantwo_attack: AudioStream
+@export var sfx_dog_attack: AudioStream
+
+@export var sfx_humantwo_hurt: AudioStream
+@export var sfx_dog_hurt: AudioStream
+
+@export var sfx_humantwo_die: AudioStream
+@export var sfx_dog_die: AudioStream
+
 # --- Loot drop: Orbital Laser pickup ---
 @export var laser_drop_scene: PackedScene          # your prefab
 @export_range(0.0, 1.0, 0.05) var laser_drop_chance := 0.35
@@ -2217,6 +2226,10 @@ func play_sfx_poly(stream: AudioStream, world_pos: Vector2, vol_db := -6.0, pitc
 func _sfx_attack_for(u: Unit) -> AudioStream:
 	if u is Human:
 		return sfx_human_attack
+	if u is HumanTwo:
+		return sfx_humantwo_attack
+	if u is Mech:
+		return sfx_dog_attack
 	if u is Zombie:
 		return sfx_zombie_attack
 	return null
@@ -2224,6 +2237,10 @@ func _sfx_attack_for(u: Unit) -> AudioStream:
 func _sfx_hurt_for(u: Unit) -> AudioStream:
 	if u is Human:
 		return sfx_human_hurt
+	if u is HumanTwo:
+		return sfx_humantwo_hurt
+	if u is Mech:
+		return sfx_dog_hurt
 	if u is Zombie:
 		return sfx_zombie_hurt
 	return null
@@ -2231,9 +2248,14 @@ func _sfx_hurt_for(u: Unit) -> AudioStream:
 func _sfx_die_for(u: Unit) -> AudioStream:
 	if u is Human:
 		return sfx_human_die
+	if u is HumanTwo:
+		return sfx_humantwo_die
+	if u is Mech:
+		return sfx_dog_die
 	if u is Zombie:
 		return sfx_zombie_die
 	return null
+
 
 func _can_unit_aim_tnt(u: Unit) -> bool:
 	return u != null and (u is Human or u is HumanTwo)
