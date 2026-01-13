@@ -138,7 +138,6 @@ sources/1 = SubResource("TileSetAtlasSource_attvq")
 script = ExtResource("1_400sg")
 water_blobs = 2
 mech_count = 0
-zombie_count = 8
 human_scene = ExtResource("2_s0nni")
 mech_scene = ExtResource("3_aug50")
 zombie_scene = ExtResource("4_kyk2p")
@@ -191,4 +190,5 @@ map_height = 16
 [node name="TurnManager" type="Node2D" parent="."]
 script = ExtResource("19_45i86")
 map = NodePath("..")
+start_on_ready = false
 human_tnt_throw_range = 5

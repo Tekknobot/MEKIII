@@ -1,6 +1,9 @@
 extends Node
 class_name TurnManager
 
+signal battle_started
+signal battle_ended(winner_team: int)
+
 @export var map: NodePath              # drag Map node
 @export var start_on_ready := true
 @export var think_delay := 0.15
@@ -25,6 +28,7 @@ func _ready() -> void:
 		start_battle()
 
 func start_battle() -> void:
+	emit_signal("battle_started")
 	match mode:
 		Mode.AUTO_BATTLE:
 			_battle_loop_auto()
@@ -104,9 +108,11 @@ func _check_end() -> bool:
 
 	if allies.is_empty():
 		print("ZOMBIES WIN")
+		emit_signal("battle_ended", Unit.Team.ENEMY)
 		return true
 	if enemies.is_empty():
 		print("ALLIES WIN")
+		emit_signal("battle_ended", Unit.Team.ALLY)
 		return true
 	return false
 

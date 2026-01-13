@@ -1,5 +1,11 @@
 extends Node2D
 
+# ----------------------------------
+# Game flow (adds player engagement)
+# ----------------------------------
+enum GameState { SETUP, BATTLE, REWARD }
+var state: GameState = GameState.SETUP
+
 # IMPORTANT:
 # - map_width/map_height are in GRID CELLS (your 16x16 logical map)
 # - each cell is one tile in the TileMap (your tiles are 32x32 pixels in the TileSet)
@@ -109,6 +115,23 @@ var is_attacking_unit := false
 var TM: TurnManager = null
 var is_player_mode := false
 
+# --- Player engagement (works even in AUTO_BATTLE) ---
+@export var allow_player_assist_in_auto := true
+@export_range(0, 9, 1) var assist_tnt_charges_per_battle := 1
+
+# Persistent run progression (simple "one more round" loop)
+var round_index := 1
+var bonus_max_hp := 0
+var bonus_attack_range := 0
+var bonus_move_range := 0
+var bonus_tnt_damage := 0
+
+# Per-battle assist charges
+var assist_tnt_charges_left := 0
+
+# Cached placement zone (computed from ally_spawn_size)
+var ally_rect_cache: Rect2i
+
 @export var tnt_curve_points := 24          # more = smoother line
 @export var tnt_curve_line_width := 3.0
 @export var tnt_curve_show_time := 0.60     # seconds (usually == flight time)
@@ -120,6 +143,21 @@ var tnt_aiming := false
 var tnt_aim_human: Human = null
 var tnt_aim_cell: Vector2i = Vector2i(-1, -1)
 
+# --- Minimal UI (created in code so you don't have to wire a scene) ---
+var ui_layer: CanvasLayer
+var ui_root: Control
+var ui_status_label: Label
+var ui_start_button: Button
+var ui_reward_panel: PanelContainer
+var ui_reward_label: Label
+var ui_reward_buttons: Array[Button] = []
+
+# Put this near the top of game.gd (or wherever _build_ui lives)
+@export var ui_font_path: String = "res://fonts/magofonts/mago1.ttf"
+@export var ui_font_size: int = 18
+@export var ui_title_font_size: int = 20
+
+var ui_font: FontFile
 
 func _rect_top_left(size: Vector2i) -> Rect2i:
 	return Rect2i(Vector2i(0, 0), size)
@@ -161,6 +199,65 @@ func spawn_units() -> void:
 	for i in range(zombie_count):
 		_spawn_one(zombie_scene, enemy_rect)
 
+	# Ensure UI + setup zone cache stays correct
+	ally_rect_cache = _rect_top_left(ally_spawn_size)
+	_refresh_ui_status()
+
+
+# -----------------------
+# SETUP: reposition allies before starting the battle
+# -----------------------
+func _setup_place_selected(cell: Vector2i) -> bool:
+	if selected_unit == null or not is_instance_valid(selected_unit):
+		return false
+	if selected_unit.team != Unit.Team.ALLY:
+		return false
+	if not grid.in_bounds(cell):
+		return false
+	if not ally_rect_cache.has_point(cell):
+		return false
+	if grid.terrain[cell.x][cell.y] == T_WATER:
+		return false
+
+	var u := selected_unit
+	var new_origin := cell
+	if _is_big_unit(u):
+		new_origin = snap_origin_for_unit(cell, u)
+
+	# All footprint cells must be inside the ally zone, on land, and unoccupied (except by itself)
+	var old_origin := get_unit_origin(u)
+	# Temporarily clear own occupancy
+	for c in u.footprint_cells(old_origin):
+		if grid.is_occupied(c) and grid.get_occupied(c) == u:
+			grid.set_occupied(c, null)
+
+	var ok := true
+	for c in u.footprint_cells(new_origin):
+		if not grid.in_bounds(c) or not ally_rect_cache.has_point(c):
+			ok = false
+			break
+		if grid.terrain[c.x][c.y] == T_WATER:
+			ok = false
+			break
+		if grid.is_occupied(c):
+			ok = false
+			break
+
+	# Restore / apply occupancy
+	if not ok:
+		for c in u.footprint_cells(old_origin):
+			grid.set_occupied(c, u)
+		return false
+
+	for c in u.footprint_cells(new_origin):
+		grid.set_occupied(c, u)
+	unit_origin[u] = new_origin
+	u.grid_pos = new_origin
+	u.global_position = cell_to_world_for_unit(new_origin, u)
+	u.update_layering()
+	_refresh_ui_status()
+	return true
+
 # -----------------------
 # Spawn one (UPDATED signature)
 # -----------------------
@@ -174,6 +271,13 @@ func _spawn_one(scene: PackedScene, region: Rect2i) -> void:
 			return
 
 		var origin := _rand_cell_in_rect(region)
+
+		# Apply persistent run upgrades BEFORE checking footprint/occupancy
+		if unit.team == Unit.Team.ALLY:
+			unit.max_hp += bonus_max_hp
+			unit.hp = unit.max_hp
+			unit.attack_range += bonus_attack_range
+			unit.move_range += bonus_move_range
 
 		# big units must align
 		if _is_big_unit(unit):
@@ -246,14 +350,22 @@ func _ready() -> void:
 	generate_map()
 	terrain.update_internals()
 	spawn_units()
+	ally_rect_cache = _rect_top_left(ally_spawn_size)
+
+	_build_ui()
 
 	if turn_manager != NodePath():
 		TM = get_node(turn_manager) as TurnManager
+		if TM != null:
+			TM.battle_started.connect(_on_battle_started)
+			TM.battle_ended.connect(_on_battle_ended)
+
+	# Start in SETUP so the player can reposition allies, then press Start.
+	_enter_setup()
 
 func _process(_delta: float) -> void:
-	# ✅ No hover/aim previews during auto-battle
-	if not is_player_mode:
-		# If some TNT aim state was left on, force it off
+	# Only update hover/aim previews when we allow player input.
+	if not _can_handle_player_input():
 		if tnt_aiming:
 			tnt_aiming = false
 			tnt_aim_human = null
@@ -269,6 +381,187 @@ func _seed_rng() -> void:
 		rng.randomize()
 	else:
 		rng.seed = map_seed
+
+func _get_tnt_damage() -> int:
+	return int(tnt_damage + bonus_tnt_damage)
+
+func _is_assist_mode() -> bool:
+	# Assist mode = AUTO_BATTLE but player can aim/throw TNT a limited number of times.
+	return allow_player_assist_in_auto and state == GameState.BATTLE and not is_player_mode
+
+func _can_handle_player_input() -> bool:
+	if state == GameState.SETUP:
+		return true
+	if state == GameState.BATTLE:
+		return is_player_mode or _is_assist_mode()
+	return false
+
+
+func _build_ui() -> void:
+	# --- load font once ---
+	if ui_font == null:
+		if ResourceLoader.exists(ui_font_path):
+			ui_font = load(ui_font_path) as FontFile
+		else:
+			push_warning("UI font not found at: %s (using default)" % ui_font_path)
+
+	ui_layer = CanvasLayer.new()
+	ui_layer.name = "UI"
+	add_child(ui_layer)
+
+	ui_root = Control.new()
+	ui_root.name = "Root"
+	ui_root.anchor_right = 1.0
+	ui_root.anchor_bottom = 1.0
+	ui_root.offset_left = 16
+	ui_root.offset_top = 16
+	ui_root.offset_right = -16
+	ui_root.offset_bottom = -16
+	ui_layer.add_child(ui_root)
+
+	var v := VBoxContainer.new()
+	v.custom_minimum_size = Vector2(240, 0) 
+
+	v.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	v.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	ui_root.add_child(v)
+
+	ui_status_label = Label.new()
+	ui_status_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	if ui_font:
+		ui_status_label.add_theme_font_override("font", ui_font)
+		ui_status_label.add_theme_font_size_override("font_size", ui_font_size)
+	v.add_child(ui_status_label)
+
+	ui_start_button = Button.new()
+	ui_start_button.text = "Start Battle"
+	ui_start_button.pressed.connect(_on_start_pressed)
+	if ui_font:
+		ui_start_button.add_theme_font_override("font", ui_font)
+		ui_start_button.add_theme_font_size_override("font_size", ui_font_size)
+	v.add_child(ui_start_button)
+
+	ui_reward_panel = PanelContainer.new()
+	ui_reward_panel.visible = false
+	v.add_child(ui_reward_panel)
+
+	var rv := VBoxContainer.new()
+	ui_reward_panel.add_child(rv)
+
+	ui_reward_label = Label.new()
+	ui_reward_label.text = "Choose an upgrade"
+	if ui_font:
+		ui_reward_label.add_theme_font_override("font", ui_font)
+		ui_reward_label.add_theme_font_size_override("font_size", ui_title_font_size)
+	rv.add_child(ui_reward_label)
+
+	ui_reward_buttons.clear()
+	var b1 := Button.new(); b1.text = "+1 Max HP"; b1.pressed.connect(func(): _pick_reward(0))
+	var b2 := Button.new(); b2.text = "+1 Attack Range"; b2.pressed.connect(func(): _pick_reward(1))
+	var b3 := Button.new(); b3.text = "+1 TNT Damage"; b3.pressed.connect(func(): _pick_reward(2))
+	ui_reward_buttons = [b1, b2, b3]
+
+	for b in ui_reward_buttons:
+		if ui_font:
+			b.add_theme_font_override("font", ui_font)
+			b.add_theme_font_size_override("font_size", ui_font_size)
+		rv.add_child(b)
+
+	_refresh_ui_status()
+
+func _refresh_ui_status() -> void:
+	if ui_status_label == null:
+		return
+
+	var phase := "SETUP"
+	if state == GameState.BATTLE:
+		phase = "BATTLE"
+	elif state == GameState.REWARD:
+		phase = "REWARD"
+
+	var lines: Array[String] = []
+	lines.append("Round %d , Phase: %s" % [round_index, phase])
+	lines.append("Allies: %d  Enemies: %d" % [get_units(Unit.Team.ALLY).size(), get_units(Unit.Team.ENEMY).size()])
+
+	# Avoid special characters and arrow glyphs; keep it plain ASCII.
+	# Also avoid calling _get_tnt_damage() if it doesn't exist for some reason.
+	var cur_tnt := tnt_damage
+	if has_method("_get_tnt_damage"):
+		cur_tnt = _get_tnt_damage()
+
+	lines.append(
+		"Upgrades: HP +%d, Range +%d, Move +%d, TNT +%d (base %d to %d)" %
+		[bonus_max_hp, bonus_attack_range, bonus_move_range, bonus_tnt_damage, tnt_damage, cur_tnt]
+	)
+
+	if state == GameState.SETUP:
+		lines.append("Setup: Click an ally, then click a cell in the top-left zone to reposition. Then press Start Battle.")
+	elif state == GameState.BATTLE and has_method("_is_assist_mode") and _is_assist_mode():
+		lines.append("Assist: Select a Human, right-click to aim TNT, left-click to throw.")
+		lines.append("TNT throws left this battle: %d" % assist_tnt_charges_left)
+	elif state == GameState.BATTLE and is_player_mode:
+		lines.append("Player mode: Move and attack as normal. Human TNT: right-click to aim, left-click to throw.")
+
+	ui_status_label.text = "\n".join(lines)
+
+
+func _enter_setup() -> void:
+	state = GameState.SETUP
+	set_player_mode(false)
+	assist_tnt_charges_left = 0
+	ui_start_button.visible = true
+	ui_reward_panel.visible = false
+	select_unit(null)
+	_refresh_ui_status()
+
+
+func _on_start_pressed() -> void:
+	_start_battle()
+
+
+func _start_battle() -> void:
+	state = GameState.BATTLE
+	ui_start_button.visible = false
+	ui_reward_panel.visible = false
+	assist_tnt_charges_left = assist_tnt_charges_per_battle
+	select_unit(null)
+	set_player_mode(false) # we stay in AUTO_BATTLE, but assist mode can still allow TNT
+	_refresh_ui_status()
+	if TM != null:
+		TM.start_battle()
+
+
+func _on_battle_started() -> void:
+	# Reset per-battle resources
+	assist_tnt_charges_left = assist_tnt_charges_per_battle
+	_refresh_ui_status()
+
+
+func _on_battle_ended(winner_team: int) -> void:
+	state = GameState.REWARD
+	ui_reward_panel.visible = true
+	ui_start_button.visible = false
+	select_unit(null)
+	if winner_team == Unit.Team.ALLY:
+		ui_reward_label.text = "Win! Choose an upgrade for next round"
+	else:
+		ui_reward_label.text = "Defeat. Choose an upgrade and try again"
+	_refresh_ui_status()
+
+
+func _pick_reward(choice: int) -> void:
+	match choice:
+		0: bonus_max_hp += 1
+		1: bonus_attack_range += 1
+		2: bonus_tnt_damage += 1
+
+	# Simple difficulty ramp
+	round_index += 1
+	zombie_count += 2
+
+	# Respawn a new skirmish using the same map rules
+	spawn_units()
+	_enter_setup()
 
 
 # -----------------------
@@ -673,8 +966,13 @@ func select_unit(u: Unit) -> void:
 
 	if selected_unit != null:
 		draw_unit_hover(selected_unit)
-		draw_move_range_for_unit(selected_unit)
-		draw_attack_range_for_unit(selected_unit)
+		# In assist mode we only need selection for TNT aiming; keep overlays clean.
+		if not _is_assist_mode():
+			draw_move_range_for_unit(selected_unit)
+			draw_attack_range_for_unit(selected_unit)
+		else:
+			clear_move_range()
+			clear_attack_range()
 	else:
 		clear_selection_highlight()
 		clear_move_range()
@@ -714,12 +1012,39 @@ func draw_attack_range_for_unit(attacker: Unit) -> void:
 			attack_range_small.set_cell(LAYER_ATTACK, target_origin, ATTACK_TILE_SMALL_SOURCE_ID, ATTACK_ATLAS, 0)
 
 func _unhandled_input(event: InputEvent) -> void:
-	# ✅ Ignore all player overlay/input logic during auto-battle
-	if not is_player_mode:
+	if not _can_handle_player_input():
 		return
-
 	if is_moving_unit or is_attacking_unit:
 		return
+
+	# -------------------------
+	# SETUP PHASE: reposition allies in the top-left zone, then press Start
+	# -------------------------
+	if state == GameState.SETUP:
+		if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
+			_update_hovered_cell()
+			_update_hovered_unit()
+
+			# If an ally is selected and we clicked a valid placement cell, teleport it there.
+			if selected_unit != null and selected_unit.team == Unit.Team.ALLY:
+				if _setup_place_selected(hovered_cell):
+					return
+
+			# Otherwise select the hovered unit (ally only feels nicer in setup)
+			if hovered_unit != null and hovered_unit.team == Unit.Team.ALLY:
+				select_unit(hovered_unit)
+			else:
+				select_unit(null)
+			return
+
+		if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_RIGHT and event.pressed:
+			select_unit(null)
+			return
+
+		return
+
+	var full_player_control := (state == GameState.BATTLE and is_player_mode)
+	var allow_tnt_input := (state == GameState.BATTLE and (full_player_control or _is_assist_mode()))
 
 	# -------------------------
 	# LEFT CLICK
@@ -737,6 +1062,9 @@ func _unhandled_input(event: InputEvent) -> void:
 
 				var target_u := unit_at_cell(fire_cell) # can be null, that’s fine
 				await perform_human_tnt_throw(h, fire_cell, target_u)
+				if _is_assist_mode():
+					assist_tnt_charges_left = max(0, assist_tnt_charges_left - 1)
+					_refresh_ui_status()
 				return
 			else:
 				# clicked off-grid: just cancel aim
@@ -745,19 +1073,21 @@ func _unhandled_input(event: InputEvent) -> void:
 				_hide_tnt_curve()
 				return
 
-		# --- normal left-click behavior (your existing) ---
+		# --- normal left-click behavior ---
 		_update_hovered_cell()
 		_update_hovered_unit()
 
-		# 1) If we have a selected unit and clicked another unit -> try attack first
-		if selected_unit != null and hovered_unit != null and hovered_unit != selected_unit:
-			if await try_attack_selected(hovered_unit):
-				return
+		# In assist mode, you can select units to aim TNT but you can't move/attack normally.
+		if full_player_control:
+			# 1) If we have a selected unit and clicked another unit -> try attack first
+			if selected_unit != null and hovered_unit != null and hovered_unit != selected_unit:
+				if await try_attack_selected(hovered_unit):
+					return
 
-		# 2) If we have a selected unit and clicked ground -> try move
-		if selected_unit != null:
-			if await try_move_selected_to(hovered_cell):
-				return
+			# 2) If we have a selected unit and clicked ground -> try move
+			if selected_unit != null:
+				if await try_move_selected_to(hovered_cell):
+					return
 
 		# 3) Otherwise select what we're hovering
 		select_unit(hovered_unit)
@@ -768,7 +1098,10 @@ func _unhandled_input(event: InputEvent) -> void:
 	# -------------------------
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_RIGHT and event.pressed:
 		# ✅ Right click toggles TNT "aim mode" when a Human is selected
-		if selected_unit != null and selected_unit is Human:
+		if allow_tnt_input and selected_unit != null and selected_unit is Human:
+			# Assist mode: limited charges
+			if _is_assist_mode() and assist_tnt_charges_left <= 0:
+				return
 			if not tnt_aiming:
 				tnt_aiming = true
 				tnt_aim_human = selected_unit as Human
@@ -1438,7 +1771,7 @@ func perform_human_tnt_throw(human: Human, target_cell: Vector2i, target_unit: U
 		if d <= tnt_splash_radius:
 			if u == human:
 				continue
-			await u.take_damage(tnt_damage)
+			await u.take_damage(_get_tnt_damage())
 
 	is_attacking_unit = false
 
