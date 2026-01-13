@@ -1,8 +1,11 @@
 res://scenes
+res://scripts
+res://sprites/Humans/merc
+res://sprites/Humans/merc/idle
+res://sprites/Humans/merc/attack
 res://sprites/Projectiles/default/tnt
 res://sprites/Explosion
 res://sprites/Zombies/death
-res://scripts
 res://sprites/Zombies/move
 res://sprites/Zombies/attack
 res://sprites/Zombies/idle

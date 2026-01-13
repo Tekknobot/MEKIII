@@ -1,4 +1,4 @@
-[gd_scene load_steps=42 format=3 uid="uid://dmujwxtnheagi"]
+[gd_scene load_steps=43 format=3 uid="uid://dmujwxtnheagi"]
 
 [ext_resource type="Script" uid="uid://cuhaf2noht7l2" path="res://scripts/zombie.gd" id="1_o6twh"]
 [ext_resource type="Texture2D" uid="uid://cwttiy82qxf31" path="res://sprites/Zombies/attack/zomb_atk1.png" id="2_o6twh"]
@@ -40,6 +40,9 @@
 [ext_resource type="Texture2D" uid="uid://y1tu1n80rvks" path="res://sprites/Zombies/move/zomb4.png" id="38_i12k7"]
 [ext_resource type="Texture2D" uid="uid://bdnwlnsu56wes" path="res://sprites/Zombies/move/zomb5.png" id="39_a3vf8"]
 [ext_resource type="Texture2D" uid="uid://d265fi2e6of11" path="res://sprites/Zombies/move/zomb6.png" id="40_j2sop"]
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_o6twh"]
+size = Vector2(20, 30)
 
 [sub_resource type="SpriteFrames" id="SpriteFrames_0pyg8"]
 animations = [{
@@ -184,11 +187,16 @@ animations = [{
 "speed": 8.0
 }]
 
-[node name="Unit" type="Node2D"]
+[node name="Unit" type="CharacterBody2D"]
 script = ExtResource("1_o6twh")
 team = 1
 
+[node name="CollisionShape2D" type="CollisionShape2D" parent="."]
+position = Vector2(0, -21)
+shape = SubResource("RectangleShape2D_o6twh")
+disabled = true
+
 [node name="AnimatedSprite2D" type="AnimatedSprite2D" parent="."]
 sprite_frames = SubResource("SpriteFrames_0pyg8")
-animation = &"death"
+animation = &"move"
 autoplay = "idle"

@@ -1,0 +1,17 @@
+[gd_scene load_steps=4 format=3 uid="uid://dxb10d4hi3u5m"]
+
+[ext_resource type="Script" uid="uid://cmv17dy204kgr" path="res://scripts/laser_drop.gd" id="1_alfcu"]
+[ext_resource type="Texture2D" uid="uid://dg1tao3x22ih2" path="res://sprites/Drops/orbital_drop.png" id="1_idqe7"]
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_alfcu"]
+size = Vector2(14, 14)
+
+[node name="LaserDrop" type="Area2D"]
+script = ExtResource("1_alfcu")
+rot_degrees = 6.0
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="."]
+shape = SubResource("RectangleShape2D_alfcu")
+
+[node name="Visual" type="Sprite2D" parent="."]
+texture = ExtResource("1_idqe7")

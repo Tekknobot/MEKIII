@@ -62,10 +62,12 @@ enum Season { DIRT, SANDSTONE, SNOW, GRASS, ICE }
 @export_range(0, 999999, 1) var map_seed := 0
 
 # Spawning
-@export var human_count := 3
+@export var human_count := 1
+@export var human2_count := 1
 @export var mech_count := 2
 @export var zombie_count := 9
 @export var human_scene: PackedScene
+@export var human2_scene: PackedScene
 @export var mech_scene: PackedScene
 @export var zombie_scene: PackedScene
 
@@ -80,6 +82,7 @@ enum Season { DIRT, SANDSTONE, SNOW, GRASS, ICE }
 
 @onready var terrain: TileMap = $Terrain
 @onready var units_root: Node2D = $Units
+@onready var pickups_root: Node2D = $Pickups
 
 var grid := GridData.new()
 var rng := RandomNumberGenerator.new()
@@ -140,7 +143,7 @@ var _tnt_curve_line: Line2D = null
 
 # --- TNT AIM MODE (right-click to arm, left-click to fire) ---
 var tnt_aiming := false
-var tnt_aim_human: Human = null
+var tnt_aim_unit: Unit = null
 var tnt_aim_cell: Vector2i = Vector2i(-1, -1)
 
 # --- Minimal UI (created in code so you don't have to wire a scene) ---
@@ -175,6 +178,20 @@ var ui_font: FontFile
 
 @export var sfx_tnt_throw: AudioStream
 
+# --- Loot drop: Orbital Laser pickup ---
+@export var laser_drop_scene: PackedScene          # your prefab
+@export_range(0.0, 1.0, 0.05) var laser_drop_chance := 0.35
+
+# Orbital laser effect
+@export var orbital_beam_width := 1.0
+@export var orbital_hits := 4                       # how many zombies get zapped
+@export var orbital_delay := 0.12                   # time between hits
+@export var orbital_damage := 999                   # basically guaranteed kill
+@export var orbital_beam_height_px := 1400.0        # tall beam line
+@export var sfx_orbital_zap: AudioStream            # optional zap
+
+var pickups := {} # Dictionary[Vector2i, Node2D]  # cell -> pickup instance
+
 func _rect_top_left(size: Vector2i) -> Rect2i:
 	return Rect2i(Vector2i(0, 0), size)
 
@@ -192,9 +209,19 @@ func _rand_cell_in_rect(r: Rect2i) -> Vector2i:
 # Units: spawning (UPDATED)
 # -----------------------
 func spawn_units() -> void:
+	# ✅ clear old pickups between battles
+	for c in pickups.keys():
+		var p = pickups[c]
+		if p != null and is_instance_valid(p):
+			p.queue_free()
+	pickups.clear()
+
 	if human_scene == null or mech_scene == null or zombie_scene == null:
 		push_warning("Assign human_scene, mech_scene, and zombie_scene in the Inspector.")
 		return
+
+	# human2 is optional, but if it's missing we’ll just use human_scene
+	var has_h2 := (human2_scene != null)
 
 	for child in units_root.get_children():
 		child.queue_free()
@@ -204,12 +231,18 @@ func spawn_units() -> void:
 	var ally_rect := _rect_top_left(ally_spawn_size)
 	var enemy_rect := _rect_bottom_right(enemy_spawn_size)
 
-	# ✅ Mechs + Humans: top-left
+	# ✅ Mechs: top-left
 	for i in range(mech_count):
 		_spawn_one(mech_scene, ally_rect)
 
+	# ✅ Humans: top-left
 	for i in range(human_count):
 		_spawn_one(human_scene, ally_rect)
+
+	# ✅ Human2: top-left (only if scene assigned)
+	if human2_scene != null:
+		for i in range(human2_count):
+			_spawn_one(human2_scene, ally_rect)
 
 	# ✅ Zombies: bottom-right
 	for i in range(zombie_count):
@@ -218,7 +251,6 @@ func spawn_units() -> void:
 	# Ensure UI + setup zone cache stays correct
 	ally_rect_cache = _rect_top_left(ally_spawn_size)
 	_refresh_ui_status()
-
 
 # -----------------------
 # SETUP: reposition allies before starting the battle
@@ -384,7 +416,7 @@ func _process(_delta: float) -> void:
 	if not _can_handle_player_input():
 		if tnt_aiming:
 			tnt_aiming = false
-			tnt_aim_human = null
+			tnt_aim_unit = null
 			_hide_tnt_curve()
 		return
 
@@ -436,7 +468,7 @@ func _build_ui() -> void:
 	ui_layer.add_child(ui_root)
 
 	var v := VBoxContainer.new()
-	v.custom_minimum_size = Vector2(380, 0) 
+	v.custom_minimum_size = Vector2(240, 0) 
 
 	v.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	v.size_flags_vertical = Control.SIZE_EXPAND_FILL
@@ -1030,17 +1062,16 @@ func _unhandled_input(event: InputEvent) -> void:
 	# -------------------------
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
 		# ✅ If TNT aim mode is active, LEFT CLICK FIRES at current aimed cell
-		if tnt_aiming and tnt_aim_human != null and is_instance_valid(tnt_aim_human):
+		if tnt_aiming and tnt_aim_unit != null and is_instance_valid(tnt_aim_unit):
 			_update_hovered_cell()
 			if grid.in_bounds(hovered_cell):
 				var fire_cell := hovered_cell
 				tnt_aiming = false
-				var h := tnt_aim_human
-				tnt_aim_human = null
+				var thrower := tnt_aim_unit
 				_hide_tnt_curve()
 
 				var target_u := unit_at_cell(fire_cell) # can be null, that’s fine
-				await perform_human_tnt_throw(h, fire_cell, target_u)
+				await perform_human_tnt_throw(thrower, fire_cell, target_u)
 				if _is_assist_mode():
 					assist_tnt_charges_left = max(0, assist_tnt_charges_left - 1)
 					_refresh_ui_status()
@@ -1048,7 +1079,7 @@ func _unhandled_input(event: InputEvent) -> void:
 			else:
 				# clicked off-grid: just cancel aim
 				tnt_aiming = false
-				tnt_aim_human = null
+				tnt_aim_unit = null
 				_hide_tnt_curve()
 				return
 
@@ -1077,13 +1108,13 @@ func _unhandled_input(event: InputEvent) -> void:
 	# -------------------------
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_RIGHT and event.pressed:
 		# ✅ Right click toggles TNT "aim mode" when a Human is selected
-		if allow_tnt_input and selected_unit != null and selected_unit is Human:
+		if allow_tnt_input and _can_unit_aim_tnt(selected_unit):
 			# Assist mode: limited charges
 			if _is_assist_mode() and assist_tnt_charges_left <= 0:
 				return
 			if not tnt_aiming:
 				tnt_aiming = true
-				tnt_aim_human = selected_unit as Human
+				tnt_aim_unit = selected_unit
 				tnt_aim_cell = Vector2i(-1, -1)
 
 				# draw immediately
@@ -1093,7 +1124,7 @@ func _unhandled_input(event: InputEvent) -> void:
 			else:
 				# toggle off
 				tnt_aiming = false
-				tnt_aim_human = null
+				tnt_aim_unit = null
 				_hide_tnt_curve()
 			return
 
@@ -1420,8 +1451,17 @@ func _get_attack_anim_name(attacker: Unit) -> StringName:
 	return anim
 
 func _on_unit_died(u: Unit) -> void:
-	# Remove from grid occupancy
+	if u == null:
+		return
+
+	# play death sfx at the unit position (before it disappears)
+	if is_instance_valid(u):
+		play_sfx_poly(_sfx_die_for(u), u.global_position, -4.0)
+
+	# cache origin BEFORE we erase tracking
 	var origin := get_unit_origin(u)
+
+	# Remove from grid occupancy
 	for c in u.footprint_cells(origin):
 		if grid.is_occupied(c) and grid.occupied[c] == u:
 			grid.occupied.erase(c)
@@ -1434,6 +1474,89 @@ func _on_unit_died(u: Unit) -> void:
 		select_unit(null)
 	if hovered_unit == u:
 		set_hovered_unit(null)
+
+	# ✅ Zombie drops laser pickup
+	if u is Zombie:
+		_try_spawn_laser_drop(origin)
+
+func _try_spawn_laser_drop(zombie_cell: Vector2i) -> void:
+	if laser_drop_scene == null:
+		return
+	if rng.randf() > laser_drop_chance:
+		return
+
+	# ✅ Prefer exact death cell, otherwise find a nearby free cell
+	var spawn_cell := Vector2i(-1, -1)
+
+	if _is_pickup_cell_ok(zombie_cell) and not pickups.has(zombie_cell):
+		spawn_cell = zombie_cell
+	else:
+		spawn_cell = _find_free_adjacent_cell(zombie_cell)
+
+	if spawn_cell.x < 0:
+		return
+
+	# Don't stack pickups
+	if pickups.has(spawn_cell):
+		return
+
+	var drop := laser_drop_scene.instantiate()
+	var d2 := drop as Node2D
+	if d2 == null:
+		push_warning("laser_drop_scene root is not Node2D/Area2D; can't render.")
+		return
+
+	pickups_root.add_child(d2)
+
+	var world_pos := terrain.to_global(terrain.map_to_local(spawn_cell))
+	d2.global_position = world_pos
+
+	# ✅ Above tilemaps, still y-sorted
+	d2.z_as_relative = false
+	d2.z_index = 300000 + int(world_pos.y)
+
+	d2.visible = true
+	d2.modulate = Color(1, 1, 1, 1)
+
+	pickups[spawn_cell] = d2
+
+	# quick pop-in
+	d2.scale = Vector2.ONE * 0.85
+	var t := create_tween()
+	t.tween_property(d2, "scale", Vector2.ONE, 0.12)
+
+func _is_pickup_cell_ok(c: Vector2i) -> bool:
+	if not grid.in_bounds(c):
+		return false
+	if grid.terrain[c.x][c.y] == T_WATER:
+		return false
+	# don't spawn on an occupied tile (unit standing there)
+	if grid.is_occupied(c):
+		return false
+	return true
+
+func _find_free_adjacent_cell(center: Vector2i) -> Vector2i:
+	# 4-neighbors first, then diagonals (so it feels "adjacent")
+	var candidates := [
+		center + Vector2i(1, 0),
+		center + Vector2i(-1, 0),
+		center + Vector2i(0, 1),
+		center + Vector2i(0, -1),
+
+		center + Vector2i(1, 1),
+		center + Vector2i(1, -1),
+		center + Vector2i(-1, 1),
+		center + Vector2i(-1, -1),
+	]
+
+	# randomize so it doesn’t always go to the same side
+	candidates.shuffle()
+
+	for c in candidates:
+		if _is_pickup_cell_ok(c) and not pickups.has(c):
+			return c
+
+	return Vector2i(-1, -1)
 
 func get_units(team_id: int) -> Array[Unit]:
 	var out: Array[Unit] = []
@@ -1459,6 +1582,169 @@ func nearest_enemy(u: Unit) -> Unit:
 			best_d = d
 			best = e
 	return best
+
+func ai_take_turn(u: Unit) -> void:
+	if u == null or not is_instance_valid(u):
+		return
+	if is_moving_unit or is_attacking_unit:
+		return
+
+	# -----------------------
+	# ✅ Humans: prioritize pickups
+	# -----------------------
+	if (u is Human) or (u is HumanTwo):
+		var pc := _nearest_pickup_cell(u)
+		if pc.x >= 0:
+			if get_unit_origin(u) == pc:
+				await _collect_pickup_at(pc, u)
+				return
+
+			var goal := best_reachable_toward_cell(u, pc)
+			if goal != get_unit_origin(u):
+				await perform_move(u, goal)
+
+			if is_instance_valid(u) and get_unit_origin(u) == pc:
+				await _collect_pickup_at(pc, u)
+			return
+
+
+	# -----------------------
+	# Normal enemy targeting
+	# -----------------------
+	var enemy := nearest_enemy(u)
+	if enemy == null:
+		return
+
+	# 1) Attack if already in range
+	if _attack_distance(u, enemy) <= u.attack_range:
+		await perform_attack(u, enemy)
+		return
+
+	# 2) Otherwise move toward the enemy
+	var goal2 := best_reachable_toward_enemy(u, enemy)
+	if goal2 == get_unit_origin(u):
+		return
+
+	await perform_move(u, goal2)
+
+	# 3) After moving, try attack again
+	if enemy != null and is_instance_valid(enemy):
+		if _attack_distance(u, enemy) <= u.attack_range:
+			await perform_attack(u, enemy)
+
+func _nearest_pickup_cell(u: Unit) -> Vector2i:
+	if pickups.is_empty():
+		return Vector2i(-1, -1)
+
+	var from := get_unit_origin(u)
+	var best := Vector2i(-1, -1)
+	var best_d := 999999
+
+	for cell in pickups.keys():
+		var d = abs(cell.x - from.x) + abs(cell.y - from.y)
+		if d < best_d:
+			best_d = d
+			best = cell
+
+	return best
+
+func best_reachable_toward_cell(u: Unit, target_cell: Vector2i) -> Vector2i:
+	var start := get_unit_origin(u)
+	if _is_big_unit(u):
+		start = snap_origin_for_unit(start, u)
+
+	var reachable := compute_reachable_origins(u, start, u.move_range)
+	if reachable.is_empty():
+		return start
+
+	var best := start
+	var best_d := 999999
+	for r in reachable:
+		if not _can_stand(u, r):
+			continue
+		var d = abs(r.x - target_cell.x) + abs(r.y - target_cell.y)
+		if d < best_d:
+			best_d = d
+			best = r
+	return best
+
+func _collect_pickup_at(cell: Vector2i, collector: Unit) -> void:
+	if not pickups.has(cell):
+		return
+
+	var drop = pickups[cell]
+	pickups.erase(cell)
+
+	# fade out and remove
+	if drop != null and is_instance_valid(drop):
+		var t := create_tween()
+		t.tween_property(drop, "modulate:a", 0.0, 0.18)
+		await t.finished
+		if is_instance_valid(drop):
+			drop.queue_free()
+
+	# ✅ orbital strike
+	await _orbital_laser_strike()
+
+func _orbital_laser_strike() -> void:
+	var zombies := get_units(Unit.Team.ENEMY)
+	if zombies.is_empty():
+		return
+
+	# pick up to N random zombies (unique)
+	zombies.shuffle()
+	var count = min(orbital_hits, zombies.size())
+
+	for i in range(count):
+		var z := zombies[i]
+		if z == null or not is_instance_valid(z):
+			continue
+
+		var hit_pos := z.global_position
+
+		# 1px beam flash
+		_spawn_orbital_beam(hit_pos)
+
+		# optional zap sfx
+		if sfx_orbital_zap != null:
+			play_sfx_poly(sfx_orbital_zap, hit_pos, -4.0, 0.95, 1.05)
+
+		# explosion visual + sfx
+		if tnt_explosion_scene != null:
+			var boom := tnt_explosion_scene.instantiate() as Node2D
+			if boom != null:
+				add_child(boom)
+				boom.global_position = hit_pos
+				boom.z_index = int(hit_pos.y) + 999
+				play_sfx_poly(sfx_explosion, hit_pos, -2.0, 0.9, 1.1)
+
+		# kill the zombie
+		if is_instance_valid(z):
+			await z.take_damage(orbital_damage)
+
+		await get_tree().create_timer(orbital_delay).timeout
+
+func _spawn_orbital_beam(hit_pos: Vector2) -> void:
+	var line := Line2D.new()
+	line.top_level = true
+	line.z_as_relative = false
+	line.width = orbital_beam_width
+	line.z_index = int(hit_pos.y) + 1000
+	line.default_color = Color(1, 0, 0, 1) # red
+
+	# tall vertical line centered on hit_pos
+	line.add_point(Vector2(hit_pos.x, hit_pos.y - orbital_beam_height_px))
+	line.add_point(Vector2(hit_pos.x, hit_pos.y + 16))
+
+	add_child(line)
+
+	# flash super quick then remove
+	var t := create_tween()
+	t.tween_property(line, "modulate:a", 0.0, 0.08)
+	t.finished.connect(func():
+		if is_instance_valid(line):
+			line.queue_free()
+	)
 
 func perform_attack(attacker: Unit, target: Unit) -> void:
 	if attacker == null or target == null:
@@ -1699,8 +1985,8 @@ func _attack_distance_from_origin(a: Unit, a_origin: Vector2i, b: Unit) -> int:
 				best = d
 	return best
 
-func perform_human_tnt_throw(human: Human, target_cell: Vector2i, target_unit: Unit) -> void:
-	if human == null or not is_instance_valid(human):
+func perform_human_tnt_throw(thrower: Unit, target_cell: Vector2i, target_unit: Unit) -> void:
+	if thrower == null or not is_instance_valid(thrower):
 		return
 	if is_moving_unit or is_attacking_unit:
 		return
@@ -1710,14 +1996,14 @@ func perform_human_tnt_throw(human: Human, target_cell: Vector2i, target_unit: U
 
 	is_attacking_unit = true
 
-	# Start at the human's current world position (slightly above so it doesn't clip the feet)
-	var from_pos := human.global_position + Vector2(0, -12)
+	# Start at the thrower's current world position (slightly above so it doesn't clip the feet)
+	var from_pos := thrower.global_position + Vector2(0, -12)
 
 	# Land at the center of the clicked cell
 	var to_pos := terrain.to_global(terrain.map_to_local(target_cell))
 
 	# Face the throw direction
-	_set_facing_from_world_delta(human, from_pos, to_pos)
+	_set_facing_from_world_delta(thrower, from_pos, to_pos)
 
 	# ✅ Draw the preview arc line NOW
 	_draw_tnt_curve(from_pos, to_pos, tnt_arc_height)
@@ -1731,7 +2017,7 @@ func perform_human_tnt_throw(human: Human, target_cell: Vector2i, target_unit: U
 	add_child(proj)
 	proj.global_position = from_pos
 	proj.z_index = 999999
-	
+
 	play_sfx_poly(sfx_tnt_throw, from_pos, -6.0, 0.95, 1.05)
 
 	# Tween projectile along the exact same arc
@@ -1742,8 +2028,6 @@ func perform_human_tnt_throw(human: Human, target_cell: Vector2i, target_unit: U
 	var cb := Callable(self, "_tnt_throw_update").bind(proj, from_pos, to_pos, tnt_arc_height, tnt_spin_turns)
 	flight.tween_method(cb, 0.0, 1.0, tnt_flight_time)
 
-	# Optionally hide the line after a moment (or keep it until impact)
-	# Here: keep it visible during flight, then hide on impact.
 	await flight.finished
 
 	_hide_tnt_curve()
@@ -1760,48 +2044,34 @@ func perform_human_tnt_throw(human: Human, target_cell: Vector2i, target_unit: U
 		play_sfx_poly(sfx_explosion, to_pos, -2.0, 0.9, 1.1)
 
 	# Damage units in splash radius (grid distance)
+	var victims: Array[Unit] = []
 	for child in units_root.get_children():
 		var u := child as Unit
-		if u == null or not is_instance_valid(u):
+		if u == null:
 			continue
+		if not is_instance_valid(u):
+			continue
+		if u == thrower:
+			continue
+
 		var u_cell := get_unit_origin(u)
 		var d = abs(u_cell.x - target_cell.x) + abs(u_cell.y - target_cell.y)
 		if d <= tnt_splash_radius:
-			if u == human:
-				continue
-			await u.take_damage(_get_tnt_damage())
+			victims.append(u)
+
+	for v in victims:
+		if v == null or not is_instance_valid(v):
+			continue
+		var vref = weakref(v)
+		await v.take_damage(_get_tnt_damage())
+		var still := vref.get_ref() as Unit
+		if still == null or not is_instance_valid(still):
+			continue
 
 	is_attacking_unit = false
 
 	if is_player_mode and TM != null:
 		TM.notify_player_action_complete()
-
-func ai_take_turn(u: Unit) -> void:
-	if u == null or not is_instance_valid(u):
-		return
-	if is_moving_unit or is_attacking_unit:
-		return
-
-	var enemy := nearest_enemy(u)
-	if enemy == null:
-		return
-
-	# 1) Attack if already in range
-	if _attack_distance(u, enemy) <= u.attack_range:
-		await perform_attack(u, enemy)
-		return
-
-	# 2) Otherwise move toward the enemy using pathfinding
-	var goal := best_reachable_toward_enemy(u, enemy)
-	if goal == get_unit_origin(u):
-		return
-
-	await perform_move(u, goal)
-
-	# 3) After moving, try attack again (common tactics-game feel)
-	if enemy != null and is_instance_valid(enemy):
-		if _attack_distance(u, enemy) <= u.attack_range:
-			await perform_attack(u, enemy)
 
 func set_player_mode(enabled: bool) -> void:
 	is_player_mode = enabled
@@ -1817,7 +2087,7 @@ func set_player_mode(enabled: bool) -> void:
 		clear_attack_range()
 
 		tnt_aiming = false
-		tnt_aim_human = null
+		tnt_aim_unit = null
 		_hide_tnt_curve()
 
 func _tnt_throw_update(t: float, proj: Node2D, from_pos: Vector2, to_pos: Vector2, arc_height: float, spin_turns: float) -> void:
@@ -1890,9 +2160,9 @@ func _hide_tnt_curve() -> void:
 func _update_tnt_aim_preview() -> void:
 	if not tnt_aiming:
 		return
-	if tnt_aim_human == null or not is_instance_valid(tnt_aim_human):
+	if tnt_aim_unit == null or not is_instance_valid(tnt_aim_unit):
 		tnt_aiming = false
-		tnt_aim_human = null
+		tnt_aim_unit = null
 		_hide_tnt_curve()
 		return
 
@@ -1908,10 +2178,10 @@ func _update_tnt_aim_preview() -> void:
 
 	tnt_aim_cell = hovered_cell
 
-	var from_pos := tnt_aim_human.global_position + Vector2(0, -12)
+	var from_pos := tnt_aim_unit.global_position + Vector2(0, -12)
 	var to_pos := terrain.to_global(terrain.map_to_local(tnt_aim_cell))
 
-	_set_facing_from_world_delta(tnt_aim_human, from_pos, to_pos)
+	_set_facing_from_world_delta(tnt_aim_unit, from_pos, to_pos)
 	_draw_tnt_curve(from_pos, to_pos, tnt_arc_height)
 
 func play_sfx(stream: AudioStream, world_pos: Vector2, vol_db := -6.0, pitch_min := 0.95, pitch_max := 1.05) -> void:
@@ -1964,3 +2234,6 @@ func _sfx_die_for(u: Unit) -> AudioStream:
 	if u is Zombie:
 		return sfx_zombie_die
 	return null
+
+func _can_unit_aim_tnt(u: Unit) -> bool:
+	return u != null and (u is Human or u is HumanTwo)

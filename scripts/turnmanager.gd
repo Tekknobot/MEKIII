@@ -39,24 +39,81 @@ func start_battle() -> void:
 # AUTO BATTLE (your existing)
 # ----------------------------
 func _battle_loop_auto() -> void:
+	# AUTO mode: no player control
 	if M.has_method("set_player_mode"):
 		M.set_player_mode(false)
-			
+
+	# Alternate teams each action
+	var side := Unit.Team.ALLY
+	var ally_i := 0
+	var enemy_i := 0
+
 	while true:
 		if _check_end():
 			return
 
-		var allies = M.get_units(Unit.Team.ALLY)
-		for u in allies:
-			if not is_instance_valid(u): continue
-			await _unit_take_ai_turn(u)
-			await get_tree().create_timer(think_delay).timeout
+		# refresh lists each step (units can die / be freed)
+		var allies: Array[Unit] = M.get_units(Unit.Team.ALLY)
+		var enemies: Array[Unit] = M.get_units(Unit.Team.ENEMY)
 
-		var enemies = M.get_units(Unit.Team.ENEMY)
-		for u in enemies:
-			if not is_instance_valid(u): continue
-			await _unit_take_ai_turn(u)
-			await get_tree().create_timer(think_delay).timeout
+		# If a side has no one, end check will catch it next loop,
+		# but we can early-flip to avoid index errors.
+		if side == Unit.Team.ALLY and allies.is_empty():
+			side = Unit.Team.ENEMY
+			ally_i = 0
+			continue
+		if side == Unit.Team.ENEMY and enemies.is_empty():
+			side = Unit.Team.ALLY
+			enemy_i = 0
+			continue
+
+		# Pick next unit on the current side (skip invalids safely)
+		var u: Unit = null
+
+		if side == Unit.Team.ALLY:
+			# wrap index if needed
+			if ally_i >= allies.size():
+				ally_i = 0
+
+			# find next valid ally this step
+			var tries := allies.size()
+			while tries > 0:
+				tries -= 1
+				u = allies[ally_i]
+				ally_i += 1
+				if ally_i >= allies.size():
+					ally_i = 0
+				if u != null and is_instance_valid(u):
+					break
+				u = null
+
+		else:
+			if enemy_i >= enemies.size():
+				enemy_i = 0
+
+			var tries2 := enemies.size()
+			while tries2 > 0:
+				tries2 -= 1
+				u = enemies[enemy_i]
+				enemy_i += 1
+				if enemy_i >= enemies.size():
+					enemy_i = 0
+				if u != null and is_instance_valid(u):
+					break
+				u = null
+
+		# If we couldn't find a valid unit on that side (all freed), just flip and continue
+		if u == null:
+			side = (Unit.Team.ENEMY if side == Unit.Team.ALLY else Unit.Team.ALLY)
+			await get_tree().process_frame
+			continue
+
+		# Take the action
+		await _unit_take_ai_turn(u)
+		await get_tree().create_timer(think_delay).timeout
+
+		# Flip side after every single action (this is the key)
+		side = (Unit.Team.ENEMY if side == Unit.Team.ALLY else Unit.Team.ALLY)
 
 # ----------------------------
 # ONE PLAYER (player = ALLY, AI = ENEMY)
@@ -120,16 +177,14 @@ func _unit_take_ai_turn(u: Unit) -> void:
 	if u == null or not is_instance_valid(u):
 		return
 
-	# ✅ Humans: try TNT first
-	if u is Human:
-		var h := u as Human
-		var pick = _pick_best_tnt_target_for_human(h)
+	# ✅ Humans (both types): try TNT first
+	if (u is Human) or (u is HumanTwo):
+		var pick = _pick_best_tnt_target_for_thrower(u)
 
-		# pick = {"cell": Vector2i, "enemy_hits": int}
 		if pick.size() > 0:
 			var cell: Vector2i = pick["cell"]
 			var target_u: Unit = M.unit_at_cell(cell) # can be null
-			await M.perform_human_tnt_throw(h, cell, target_u)
+			await M.perform_human_tnt_throw(u, cell, target_u)
 			return
 
 	# ---- default behavior (attack / move / attack) ----
@@ -172,6 +227,94 @@ func _unit_take_ai_turn(u: Unit) -> void:
 
 	if M._attack_distance(u, target) <= u.attack_range:
 		await M.perform_attack(u, target)
+
+func _pick_best_tnt_target_for_thrower(h: Unit) -> Dictionary:
+	if h == null or not is_instance_valid(h):
+		return {}
+	if M == null:
+		return {}
+
+	# Needs TNT setup on Map
+	if M.tnt_projectile_scene == null or M.tnt_explosion_scene == null:
+		return {}
+	if human_tnt_throw_range <= 0:
+		return {}
+
+	var h_origin = M.get_unit_origin(h)
+	if M._is_big_unit(h):
+		h_origin = M.snap_origin_for_unit(h_origin, h)
+
+	# Collect units
+	var enemies: Array[Unit] = []
+	var allies: Array[Unit] = []
+	for child in M.units_root.get_children():
+		var u := child as Unit
+		if u == null or not is_instance_valid(u):
+			continue
+		if u.team == h.team:
+			allies.append(u)
+		else:
+			enemies.append(u)
+
+	if enemies.is_empty():
+		return {}
+
+	# Candidate cells: enemy origins + their 4-neighbors
+	var candidates := {}
+	for e in enemies:
+		var eo = M.get_unit_origin(e)
+		if M._is_big_unit(e):
+			eo = M.snap_origin_for_unit(eo, e)
+
+		candidates[eo] = true
+		for nb in M._neighbors4(eo):
+			if M.grid.in_bounds(nb):
+				candidates[nb] = true
+
+	var best_cell := Vector2i(-1, -1)
+	var best_enemy_hits := -1
+	var best_ally_hits := 999999
+	var best_throw_dist := 999999
+
+	for cell in candidates.keys():
+		if not M.grid.in_bounds(cell):
+			continue
+
+		# throw range (origin -> landing cell)
+		var d_throw = abs(cell.x - h_origin.x) + abs(cell.y - h_origin.y)
+		if d_throw > human_tnt_throw_range:
+			continue
+
+		var enemy_hits := _count_team_hits_in_splash(cell, enemies, M.tnt_splash_radius)
+		if enemy_hits < human_tnt_min_enemy_hits:
+			continue
+
+		var ally_hits := _count_team_hits_in_splash(cell, allies, M.tnt_splash_radius)
+
+		# avoid friendly fire if desired
+		if human_tnt_ally_avoid and ally_hits > 0:
+			continue
+
+		# Pick best:
+		var better := false
+		if enemy_hits > best_enemy_hits:
+			better = true
+		elif enemy_hits == best_enemy_hits:
+			if ally_hits < best_ally_hits:
+				better = true
+			elif ally_hits == best_ally_hits and d_throw < best_throw_dist:
+				better = true
+
+		if better:
+			best_enemy_hits = enemy_hits
+			best_ally_hits = ally_hits
+			best_throw_dist = d_throw
+			best_cell = cell
+
+	if best_enemy_hits >= human_tnt_min_enemy_hits and best_cell.x >= 0:
+		return {"cell": best_cell, "enemy_hits": best_enemy_hits}
+
+	return {}
 
 func _pick_best_tnt_target_for_human(h: Human) -> Dictionary:
 	if h == null or not is_instance_valid(h):

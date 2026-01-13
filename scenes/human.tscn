@@ -1,4 +1,4 @@
-[gd_scene load_steps=42 format=3 uid="uid://b8etqvuw07mhc"]
+[gd_scene load_steps=43 format=3 uid="uid://b8etqvuw07mhc"]
 
 [ext_resource type="Script" uid="uid://cjdgky6qni5ps" path="res://scripts/human.gd" id="1_swaxu"]
 [ext_resource type="Texture2D" uid="uid://dqpk7esw80vhx" path="res://sprites/Humans/soldier/attack/soldier_atk1.png" id="2_3nvx0"]
@@ -40,6 +40,9 @@
 [ext_resource type="Texture2D" uid="uid://fg06rf821n7y" path="res://sprites/Humans/soldier4.png" id="30_kpg8i"]
 [ext_resource type="Texture2D" uid="uid://wm8nrbekb2d0" path="res://sprites/Humans/soldier5.png" id="31_p7m8c"]
 [ext_resource type="Texture2D" uid="uid://bwj8fwjcwdohd" path="res://sprites/Humans/soldier6.png" id="32_sn7yr"]
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_jwu2t"]
+size = Vector2(20, 30)
 
 [sub_resource type="SpriteFrames" id="SpriteFrames_1lsy6"]
 animations = [{
@@ -184,10 +187,14 @@ animations = [{
 "speed": 8.0
 }]
 
-[node name="Unit" type="Node2D"]
+[node name="Unit" type="CharacterBody2D"]
 script = ExtResource("1_swaxu")
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="."]
+position = Vector2(0, -21)
+shape = SubResource("RectangleShape2D_jwu2t")
 
 [node name="AnimatedSprite2D" type="AnimatedSprite2D" parent="."]
 sprite_frames = SubResource("SpriteFrames_1lsy6")
-animation = &"death"
+animation = &"attack"
 autoplay = "idle"
