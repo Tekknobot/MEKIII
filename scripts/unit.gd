@@ -122,8 +122,20 @@ func _play_death_sfx(map: Node) -> void:
 		if stream != null:
 			map.play_sfx_poly(stream, global_position, -4.0, 0.95, 1.05)
 
-func apply_run_bonuses(hp_bonus: int, range_bonus: int, move_bonus: int) -> void:
-	max_hp += hp_bonus
-	hp = max_hp  # or: hp = min(hp + hp_bonus, max_hp) if you prefer
-	attack_range += range_bonus
-	move_range += move_bonus
+func apply_run_bonuses(bonus_hp: int, bonus_range: int, bonus_move: int, bonus_repeats: int) -> void:
+	# Make sure we start from whatever the unit's scene/_ready configured.
+	# Then apply run bonuses on top.
+
+	# --- Max HP ---
+	var old_max := int(max_hp)
+	max_hp = max(1, old_max + int(bonus_hp))
+
+	# Keep current HP sensible:
+	# Option A (recommended): heal by the amount max increased (feels like a reward)
+	var delta := int(max_hp) - old_max
+	hp = clampi(int(hp) + delta, 0, int(max_hp))
+
+	# --- Range / Move / Repeats ---
+	attack_range = max(1, int(attack_range) + int(bonus_range))
+	move_range = max(0, int(move_range) + int(bonus_move))
+	attack_repeats = max(1, int(attack_repeats) + int(bonus_repeats))

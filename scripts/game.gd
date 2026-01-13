@@ -146,6 +146,7 @@ var bonus_max_hp := 0
 var bonus_attack_range := 0
 var bonus_move_range := 0
 var bonus_tnt_damage := 0
+var bonus_attack_repeats := 0
 
 # Per-battle assist charges
 var assist_tnt_charges_left := 0
@@ -398,7 +399,7 @@ func _spawn_one(scene: PackedScene, region: Rect2i) -> void:
 
 		# ✅ Now apply run bonuses AFTER the unit's own _ready() finishes
 		if unit.team == Unit.Team.ALLY:
-			unit.call_deferred("apply_run_bonuses", bonus_max_hp, bonus_attack_range, bonus_move_range)
+			unit.call_deferred("apply_run_bonuses", bonus_max_hp, bonus_attack_range, bonus_move_range, bonus_attack_repeats)
 			
 		unit.global_position = cell_to_world_for_unit(origin, unit)
 		unit.update_layering()
@@ -580,7 +581,9 @@ func _build_ui() -> void:
 	var b1 := Button.new(); b1.text = "+1 Max HP"; b1.pressed.connect(func(): _pick_reward(0))
 	var b2 := Button.new(); b2.text = "+1 Attack Range"; b2.pressed.connect(func(): _pick_reward(1))
 	var b3 := Button.new(); b3.text = "+1 TNT Damage"; b3.pressed.connect(func(): _pick_reward(2))
-	ui_reward_buttons = [b1, b2, b3]
+	var b4 := Button.new(); b4.text = "+1 Attack Repeat";  b4.pressed.connect(func(): _pick_reward(3)) # ✅ NEW
+
+	ui_reward_buttons = [b1, b2, b3, b4]
 
 	for b in ui_reward_buttons:
 		if ui_font:
@@ -611,8 +614,8 @@ func _refresh_ui_status() -> void:
 		cur_tnt = _get_tnt_damage()
 
 	lines.append(
-		"Upgrades: HP +%d, Range +%d, Move +%d, TNT +%d (base %d to %d)" %
-		[bonus_max_hp, bonus_attack_range, bonus_move_range, bonus_tnt_damage, tnt_damage, cur_tnt]
+		"Upgrades: HP +%d, Range +%d, Move +%d, Repeats +%d, TNT +%d (base %d to %d)" %
+		[bonus_max_hp, bonus_attack_range, bonus_move_range, bonus_attack_repeats, bonus_tnt_damage, tnt_damage, cur_tnt]
 	)
 
 	if state == GameState.SETUP:
@@ -678,6 +681,7 @@ func _pick_reward(choice: int) -> void:
 		0: bonus_max_hp += 1
 		1: bonus_attack_range += 1
 		2: bonus_tnt_damage += 1
+		3: bonus_attack_repeats += 1   
 
 	# Difficulty ramp
 	round_index += 1
@@ -757,7 +761,7 @@ func pick_tile_for_season_no_water() -> int:
 		T_SNOW:
 			return (T_ICE if rng.randf() < 0.7 else T_GRASS)
 		T_ICE:
-			return (T_SNOW if rng.randf() < 0.7 else T_WATER) # note: you later add water anyway
+			return (T_SNOW if rng.randf() < 0.7 else T_DIRT) # note: you later add water anyway
 	return main
 
 
