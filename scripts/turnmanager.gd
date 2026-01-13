@@ -21,6 +21,15 @@ var waiting_for_player_action := false
 @export var human_tnt_min_enemy_hits := 2       # only throw if it will hit at least this many enemies
 @export var human_tnt_ally_avoid := true        # don't throw if it would hit any ally
 
+# --- Anti-stall / teamwork tuning ---
+@export var endgame_aggression_units_left := 3        # when total alive <= this, stop evasion loops
+@export var low_hp_evade_min_enemies := 2             # only "evade" if there are at least this many enemies
+@export var focus_fire_bonus := 120                   # bonus to move/attack toward team focus target
+@export var protect_ally_bonus := 70                  # bonus for helping threatened ally
+@export var protect_ally_low_hp_threshold := 0.40     # allies at/below this HP% get "protection"
+
+var team_focus_target := { Unit.Team.ALLY: null, Unit.Team.ENEMY: null } # stores WeakRef or null
+
 func _ready() -> void:
 	M = get_node(map)
 	if start_on_ready:
@@ -176,20 +185,21 @@ func _check_end() -> bool:
 func _unit_take_ai_turn(u: Unit) -> void:
 	if u == null or not is_instance_valid(u):
 		return
+	if M == null:
+		return
 
 	# ✅ Humans (both types): try TNT first
 	if (u is Human) or (u is HumanTwo):
-		var pick = _pick_best_tnt_target_for_thrower(u)
-
+		var pick := _pick_best_tnt_target_for_thrower(u)
 		if pick.size() > 0:
 			var cell: Vector2i = pick["cell"]
 			var target_u: Unit = M.unit_at_cell(cell) # can be null
 			await M.perform_human_tnt_throw(u, cell, target_u)
 			return
 
-	# ---- default behavior (attack / move / attack) ----
-	var target: Unit = M.nearest_enemy(u)
-	if target == null:
+	# ✅ Smarter target selection
+	var target: Unit = _best_enemy_target(u)
+	if target == null or not is_instance_valid(target):
 		return
 
 	# 1) If already in range -> attack
@@ -197,33 +207,28 @@ func _unit_take_ai_turn(u: Unit) -> void:
 		await M.perform_attack(u, target)
 		return
 
-	# 2) Otherwise move toward target
+	# 2) Otherwise move (smarter)
 	var start = M.get_unit_origin(u)
 	if M._is_big_unit(u):
 		start = M.snap_origin_for_unit(start, u)
 
-	var reachable = M.compute_reachable_origins(u, start, u.move_range)
+	var reachable: Array[Vector2i] = M.compute_reachable_origins(u, start, u.move_range)
 	if reachable.is_empty():
 		return
 
-	var goal = M.get_unit_origin(target)
-	if M._is_big_unit(target):
-		goal = M.snap_origin_for_unit(goal, target)
-
-	var best = start
-	var best_d := 999999
-	for cell in reachable:
-		var d = abs(cell.x - goal.x) + abs(cell.y - goal.y)
-		if d < best_d:
-			best_d = d
-			best = cell
+	var best: Vector2i = _best_move_tile_toward_target(u, target, reachable)
 
 	if best != start:
 		await M.perform_move(u, best)
 
-	# 3) After moving, try attack
-	if not is_instance_valid(u): return
-	if not is_instance_valid(target): return
+	# 3) After moving, try attack again
+	if not is_instance_valid(u):
+		return
+	if not is_instance_valid(target):
+		# reacquire if target died
+		target = _best_enemy_target(u)
+		if target == null or not is_instance_valid(target):
+			return
 
 	if M._attack_distance(u, target) <= u.attack_range:
 		await M.perform_attack(u, target)
@@ -340,3 +345,270 @@ func _tnt_range_for(u: Unit) -> int:
 		return 0
 	# If you added @export var tnt_throw_range on Unit:
 	return int(u.tnt_throw_range)
+
+func _is_low_hp(u: Unit) -> bool:
+	if u == null:
+		return false
+	# "low" = 1 HP OR <= 33% max (tweak if you want)
+	return int(u.hp) <= 1 or (int(u.max_hp) > 0 and float(u.hp) / float(u.max_hp) <= 0.34)
+
+func _is_ranged(u: Unit) -> bool:
+	# Simple heuristic: range 2+ acts ranged (tweak if you want)
+	return u != null and int(u.attack_range) >= 2
+
+func _best_enemy_target(u: Unit) -> Unit:
+	var enemies: Array[Unit] = M.get_units(Unit.Team.ENEMY if u.team == Unit.Team.ALLY else Unit.Team.ALLY)
+	if enemies.is_empty():
+		return null
+
+	var uo = M.get_unit_origin(u)
+	if M._is_big_unit(u):
+		uo = M.snap_origin_for_unit(uo, u)
+
+	var best: Unit = null
+	var best_score := -99999999
+
+	for e in enemies:
+		if e == null or not is_instance_valid(e):
+			continue
+
+		# Distance (closer = better)
+		var d = M._attack_distance(u, e)
+
+		# Prefer low HP enemies (finishes)
+		var hp_frac := 1.0
+		if int(e.max_hp) > 0:
+			hp_frac = float(e.hp) / float(e.max_hp)
+
+		# Prefer "killable soon"
+		var score := 0
+		score += int((10 - min(d, 10)) * 25)          # closeness
+		score += int((1.0 - hp_frac) * 60.0)          # low hp bonus
+		if d <= u.attack_range:
+			score += 80                                # already in range
+
+		# Tiny tie-breaker: prefer non-big units slightly (easier to focus down)
+		if not M._is_big_unit(e):
+			score += 5
+
+		if score > best_score:
+			best_score = score
+			best = e
+
+	_set_team_focus(u.team, best)
+
+	return best
+
+func _best_move_tile_toward_target(u: Unit, target: Unit, reachable: Array[Vector2i]) -> Vector2i:
+	var start = M.get_unit_origin(u)
+	if M._is_big_unit(u):
+		start = M.snap_origin_for_unit(start, u)
+
+	var ranged := _is_ranged(u)
+
+	# Precompute enemy list
+	var enemies: Array[Unit] = M.get_units(Unit.Team.ENEMY if u.team == Unit.Team.ALLY else Unit.Team.ALLY)
+
+	# ✅ Anti-stall: only evade when it makes sense
+	var do_evade := _should_evade(u, enemies)
+
+	# --- Teamwork: focus fire target (if valid) ---
+	var focus := _get_team_focus(u.team)
+	if focus != null and is_instance_valid(focus) and focus.team != u.team:
+		target = focus
+
+	# --- Teamwork: protect low HP ally (optional bias) ---
+	var ally_to_protect := _lowest_hp_ally(u.team)
+	var threat_to_ally: Unit = null
+	if ally_to_protect != null and ally_to_protect != u:
+		threat_to_ally = _enemy_threatening_ally(ally_to_protect)
+
+	# Target origin for "move toward"
+	var goal = M.get_unit_origin(target)
+	if M._is_big_unit(target):
+		goal = M.snap_origin_for_unit(goal, target)
+
+	# If protecting, create a "secondary goal" near the threatening enemy
+	var protect_goal := Vector2i(-1, -1)
+	if threat_to_ally != null and is_instance_valid(threat_to_ally):
+		protect_goal = M.get_unit_origin(threat_to_ally)
+		if M._is_big_unit(threat_to_ally):
+			protect_goal = M.snap_origin_for_unit(protect_goal, threat_to_ally)
+
+	var best = start
+	var best_score := -99999999
+
+	for cell in reachable:
+		if not M.grid.in_bounds(cell):
+			continue
+		if not M._can_stand(u, cell):
+			continue
+
+		var score := 0
+
+		# A) HUGE: can we attack the target from this tile?
+		var can_attack = (M._attack_distance_from_origin(u, cell, target) <= u.attack_range)
+		if can_attack:
+			score += 420
+
+		# B) Move toward the goal (progress guarantee)
+		var d_goal = abs(cell.x - goal.x) + abs(cell.y - goal.y)
+		score += int((30 - min(d_goal, 30)) * 11)
+
+		# C) Danger (light unless evading)
+		var danger := _danger_score_at_cell(cell, enemies)
+		if do_evade:
+			score -= danger * 35
+		else:
+			score -= danger * (12 if ranged else 7)
+
+		# D) Evade only when do_evade is true (and keep it bounded)
+		if do_evade:
+			var d_near := _dist_to_nearest_enemy(cell, enemies)
+			score += int(min(d_near, 12) * 14)  # bounded so it doesn't beat "progress" forever
+
+		# E) Teamwork: focus fire cohesion (bias toward the team focus target)
+		# (i.e., closing distance / getting into attack range on the focus is rewarded)
+		if focus != null and is_instance_valid(focus):
+			var fo = M.get_unit_origin(focus)
+			if M._is_big_unit(focus):
+				fo = M.snap_origin_for_unit(fo, focus)
+			var d_focus = abs(cell.x - fo.x) + abs(cell.y - fo.y)
+			score += int((25 - min(d_focus, 25)) * 5)
+			if M._attack_distance_from_origin(u, cell, focus) <= u.attack_range:
+				score += focus_fire_bonus
+
+		# F) Teamwork: protect low HP ally (move to threaten the threat / intercept)
+		if protect_goal.x >= 0:
+			var d_protect = abs(cell.x - protect_goal.x) + abs(cell.y - protect_goal.y)
+			score += int((25 - min(d_protect, 25)) * 3)
+			# bonus if from here we can attack the threatening enemy
+			if threat_to_ally != null and is_instance_valid(threat_to_ally):
+				if M._attack_distance_from_origin(u, cell, threat_to_ally) <= u.attack_range:
+					score += protect_ally_bonus
+
+		# G) Small "don't clump" penalty
+		score -= _ally_clump_penalty(cell, u.team)
+
+		# H) Tie-breakers: prefer not moving; prefer attack-ready tiles
+		if cell == start:
+			score += 3
+		if can_attack:
+			score += 2
+
+		if score > best_score:
+			best_score = score
+			best = cell
+
+	return best
+
+func _danger_score_at_cell(cell: Vector2i, enemies: Array[Unit]) -> int:
+	# counts enemies within 1 tile (Manhattan) of this cell
+	var danger := 0
+	for e in enemies:
+		if e == null or not is_instance_valid(e):
+			continue
+		var eo = M.get_unit_origin(e)
+		if M._is_big_unit(e):
+			eo = M.snap_origin_for_unit(eo, e)
+		var d = abs(eo.x - cell.x) + abs(eo.y - cell.y)
+		if d <= 1:
+			danger += 1
+	return danger
+
+func _dist_to_nearest_enemy(cell: Vector2i, enemies: Array[Unit]) -> int:
+	var best := 999999
+	for e in enemies:
+		if e == null or not is_instance_valid(e):
+			continue
+		var eo = M.get_unit_origin(e)
+		if M._is_big_unit(e):
+			eo = M.snap_origin_for_unit(eo, e)
+		var d = abs(eo.x - cell.x) + abs(eo.y - cell.y)
+		if d < best:
+			best = d
+	if best == 999999:
+		return 0
+	return best
+
+func _ally_clump_penalty(cell: Vector2i, team_id: int) -> int:
+	# very small penalty if allies are right next to you (prevents pile-ups)
+	var allies: Array[Unit] = M.get_units(team_id)
+	var p := 0
+	for a in allies:
+		if a == null or not is_instance_valid(a):
+			continue
+		var ao = M.get_unit_origin(a)
+		if M._is_big_unit(a):
+			ao = M.snap_origin_for_unit(ao, a)
+		if abs(ao.x - cell.x) + abs(ao.y - cell.y) <= 1:
+			p += 1
+	return p
+
+func _alive_units_count() -> int:
+	if M == null: return 0
+	return M.get_units(Unit.Team.ALLY).size() + M.get_units(Unit.Team.ENEMY).size()
+
+func _should_evade(u: Unit, enemies: Array[Unit]) -> bool:
+	# ✅ Prevent endgame stalemates:
+	# - if only a few units left total, NO evasion
+	# - if enemies are few (1v1-ish), NO evasion
+	if _alive_units_count() <= endgame_aggression_units_left:
+		return false
+	if enemies.size() < low_hp_evade_min_enemies:
+		return false
+	# otherwise only evade when actually low HP
+	return _is_low_hp(u)
+
+func _set_team_focus(team_id: int, target: Unit) -> void:
+	if target == null or not is_instance_valid(target):
+		team_focus_target[team_id] = null
+		return
+	team_focus_target[team_id] = weakref(target)
+
+func _get_team_focus(team_id: int) -> Unit:
+	if not team_focus_target.has(team_id):
+		return null
+	var wr = team_focus_target[team_id]
+	if wr == null:
+		return null
+	var t := wr.get_ref() as Unit
+	if t == null or not is_instance_valid(t):
+		team_focus_target[team_id] = null
+		return null
+	return t
+
+func _lowest_hp_ally(team_id: int) -> Unit:
+	var allies: Array[Unit] = M.get_units(team_id)
+	var best: Unit = null
+	var best_frac := 999.0
+	for a in allies:
+		if a == null or not is_instance_valid(a): continue
+		if int(a.max_hp) <= 0: continue
+		var frac := float(a.hp) / float(a.max_hp)
+		if frac < best_frac:
+			best_frac = frac
+			best = a
+	# only return if ally is actually "in danger"
+	if best != null and int(best.max_hp) > 0:
+		var f := float(best.hp) / float(best.max_hp)
+		if f <= protect_ally_low_hp_threshold:
+			return best
+	return null
+
+func _enemy_threatening_ally(ally: Unit) -> Unit:
+	if ally == null or not is_instance_valid(ally):
+		return null
+	var enemies: Array[Unit] = M.get_units(Unit.Team.ENEMY if ally.team == Unit.Team.ALLY else Unit.Team.ALLY)
+	var best: Unit = null
+	var best_d := 999999
+	for e in enemies:
+		if e == null or not is_instance_valid(e): continue
+		var d = M._attack_distance(e, ally)
+		# enemies that are already in range are the biggest threat
+		if d <= e.attack_range:
+			return e
+		if d < best_d:
+			best_d = d
+			best = e
+	return best
