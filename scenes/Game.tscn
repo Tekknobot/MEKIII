@@ -246,6 +246,7 @@ target_water = 0.0
 water_blobs = 1
 blob_steps = 2
 mech_count = 1
+zombie_count = 16
 human_scene = ExtResource("2_s0nni")
 human2_scene = ExtResource("3_1gdd5")
 mech_scene = ExtResource("3_aug50")
