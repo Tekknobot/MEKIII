@@ -1,0 +1,24 @@
+[remap]
+
+importer="wav"
+type="AudioStreamWAV"
+uid="uid://bbttj3mk2c2mp"
+path="res://.godot/imported/Retro Beeep 20.wav-dea4e1b170082d6fe018c7fc29496e98.sample"
+
+[deps]
+
+source_file="res://audio/SFX/Retro Beeep 20.wav"
+dest_files=["res://.godot/imported/Retro Beeep 20.wav-dea4e1b170082d6fe018c7fc29496e98.sample"]
+
+[params]
+
+force/8_bit=false
+force/mono=false
+force/max_rate=false
+force/max_rate_hz=44100
+edit/trim=false
+edit/normalize=false
+edit/loop_mode=0
+edit/loop_begin=0
+edit/loop_end=-1
+compress/mode=0

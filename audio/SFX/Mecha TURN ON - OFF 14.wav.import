@@ -1,0 +1,24 @@
+[remap]
+
+importer="wav"
+type="AudioStreamWAV"
+uid="uid://dpnk3b7wyew7q"
+path="res://.godot/imported/Mecha TURN ON - OFF 14.wav-f188eb9b4a0630ee3e3d3c6494d25135.sample"
+
+[deps]
+
+source_file="res://audio/SFX/Mecha TURN ON - OFF 14.wav"
+dest_files=["res://.godot/imported/Mecha TURN ON - OFF 14.wav-f188eb9b4a0630ee3e3d3c6494d25135.sample"]
+
+[params]
+
+force/8_bit=false
+force/mono=false
+force/max_rate=false
+force/max_rate_hz=44100
+edit/trim=false
+edit/normalize=false
+edit/loop_mode=0
+edit/loop_begin=0
+edit/loop_end=-1
+compress/mode=0

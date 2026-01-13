@@ -1,3 +1,5 @@
 res://scenes/Game.tscn
 res://scripts/turnmanager.gd
 res://scripts/game.gd
+res://scenes/zombie.tscn
+res://scripts/unit.gd

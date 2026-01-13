@@ -159,6 +159,20 @@ var ui_reward_buttons: Array[Button] = []
 
 var ui_font: FontFile
 
+@onready var sfx: AudioStreamPlayer2D = $SFX
+
+@export var sfx_human_attack: AudioStream
+@export var sfx_zombie_attack: AudioStream
+
+@export var sfx_human_hurt: AudioStream
+@export var sfx_zombie_hurt: AudioStream
+
+@export var sfx_human_die: AudioStream
+@export var sfx_zombie_die: AudioStream
+
+@export var sfx_explosion: AudioStream
+@export var sfx_move: AudioStream # optional
+
 func _rect_top_left(size: Vector2i) -> Rect2i:
 	return Rect2i(Vector2i(0, 0), size)
 
@@ -639,55 +653,6 @@ func _neighbors8(c: Vector2i) -> Array[Vector2i]:
 	]
 
 
-func _smooth_terrain(passes: int, keep_main_bias := true) -> void:
-	var main := season_main_tile()
-
-	for _p in range(passes):
-		var next := []
-		next.resize(map_width)
-		for x in range(map_width):
-			next[x] = []
-			next[x].resize(map_height)
-
-		for x in range(map_width):
-			for y in range(map_height):
-				var c := Vector2i(x, y)
-
-				# don't smooth water here; your water system already handles it
-				if grid.terrain[x][y] == T_WATER:
-					next[x][y] = T_WATER
-					continue
-
-				var counts := {}
-				for nb in _neighbors8(c):
-					if not _in_bounds(nb):
-						continue
-					var tid = grid.terrain[nb.x][nb.y]
-					if tid == T_WATER:
-						continue
-					counts[tid] = (counts.get(tid, 0) + 1)
-
-				# pick majority neighbor tile
-				var best_tid = grid.terrain[x][y]
-				var best_n := -1
-				for tid in counts.keys():
-					var n = counts[tid]
-					if n > best_n:
-						best_n = n
-						best_tid = tid
-
-				# optional: gently bias back toward the season main tile
-				if keep_main_bias and rng.randf() < 0.08:
-					best_tid = main
-
-				next[x][y] = best_tid
-
-		# commit
-		for x in range(map_width):
-			for y in range(map_height):
-				grid.terrain[x][y] = next[x][y]
-
-
 func generate_map() -> void:
 	_seed_rng()
 
@@ -695,7 +660,6 @@ func generate_map() -> void:
 		for y in range(map_height):
 			grid.terrain[x][y] = pick_tile_for_season_no_water()
 
-	_smooth_terrain(3)
 	_add_water_blobs()
 	_ensure_walkable_connected()
 	_remove_dead_ends()
@@ -1167,25 +1131,22 @@ func try_attack_selected(target: Unit) -> bool:
 	var repeats = max(attacker.attack_repeats, 1)
 
 	for i in range(repeats):
-		# target might have died earlier (or been freed by something else)
 		if not is_instance_valid(target):
 			break
+
+		# play the attacker sound BEFORE anything can free the target
+		play_sfx_poly(_sfx_attack_for(attacker), attacker.global_position, -6.0)
 
 		await _play_anim_and_wait(attacker, anim_name)
 
-		# target could still get freed between anim end and damage call
 		if not is_instance_valid(target):
 			break
 
-		# ✅ IMPORTANT: await so take_damage can safely animate + free
 		await target.take_damage(1)
 
-		# if it died and freed itself, stop immediately
-		if not is_instance_valid(target):
-			break
-
-		# Flash only if still alive
-		if target.hp > 0:
+		# hurt sound only if target still exists + is still alive
+		if is_instance_valid(target) and target.hp > 0:
+			play_sfx_poly(_sfx_hurt_for(target), target.global_position, -5.0)
 			await _flash_unit(target)
 
 	_play_idle(attacker)
@@ -1515,22 +1476,41 @@ func perform_attack(attacker: Unit, target: Unit) -> void:
 	var anim_name := _get_attack_anim_name(attacker)
 	var repeats = max(attacker.attack_repeats, 1)
 
+	# Use a weakref so we can safely re-fetch the object after awaits
+	var target_ref = weakref(target)
+
 	for i in range(repeats):
-		if not is_instance_valid(target):
+		# attacker could also die mid-chain
+		if not is_instance_valid(attacker):
 			break
+
+		var t := target_ref.get_ref() as Unit
+		if t == null or not is_instance_valid(t):
+			break
+
+		# Attack SFX before anything can free the target
+		play_sfx_poly(_sfx_attack_for(attacker), attacker.global_position, -6.0)
 
 		await _play_anim_and_wait(attacker, anim_name)
 
-		# IMPORTANT: await so death animation can play safely
-		await target.take_damage(1)
-
-		# if it died, stop
-		if not is_instance_valid(target):
+		# Re-fetch target AFTER await (it may have been freed)
+		t = target_ref.get_ref() as Unit
+		if t == null or not is_instance_valid(t):
 			break
 
-		await _flash_unit(target)
+		await t.take_damage(1)
 
-	_play_idle(attacker)
+		# Re-fetch again (take_damage might free it)
+		t = target_ref.get_ref() as Unit
+		if t == null or not is_instance_valid(t):
+			break
+
+		if t.hp > 0:
+			play_sfx_poly(_sfx_hurt_for(t), t.global_position, -5.0)
+			await _flash_unit(t)
+
+	if is_instance_valid(attacker):
+		_play_idle(attacker)
 	is_attacking_unit = false
 
 func perform_move(u: Unit, dest: Vector2i) -> void:
@@ -1773,6 +1753,7 @@ func perform_human_tnt_throw(human: Human, target_cell: Vector2i, target_unit: U
 		add_child(boom)
 		boom.global_position = to_pos
 		boom.z_index = 999999
+		play_sfx_poly(sfx_explosion, to_pos, -2.0, 0.9, 1.1)
 
 	# Damage units in splash radius (grid distance)
 	for child in units_root.get_children():
@@ -1928,3 +1909,54 @@ func _update_tnt_aim_preview() -> void:
 
 	_set_facing_from_world_delta(tnt_aim_human, from_pos, to_pos)
 	_draw_tnt_curve(from_pos, to_pos, tnt_arc_height)
+
+func play_sfx(stream: AudioStream, world_pos: Vector2, vol_db := -6.0, pitch_min := 0.95, pitch_max := 1.05) -> void:
+	if stream == null:
+		return
+	if sfx == null or not is_instance_valid(sfx):
+		return
+	sfx.stream = stream
+	sfx.global_position = world_pos
+	sfx.volume_db = vol_db
+	sfx.pitch_scale = randf_range(pitch_min, pitch_max) # tiny variation feels nicer
+	sfx.play()
+
+func play_sfx_poly(stream: AudioStream, world_pos: Vector2, vol_db := -6.0, pitch_min := 0.95, pitch_max := 1.05) -> void:
+	if stream == null:
+		return
+
+	var p := AudioStreamPlayer2D.new()
+	p.stream = stream
+	p.global_position = world_pos
+	p.volume_db = vol_db
+	p.pitch_scale = randf_range(pitch_min, pitch_max)
+
+	add_child(p)
+	p.play()
+
+	# cleanup when finished
+	p.finished.connect(func():
+		if is_instance_valid(p):
+			p.queue_free()
+	)
+
+func _sfx_attack_for(u: Unit) -> AudioStream:
+	if u is Human:
+		return sfx_human_attack
+	if u is Zombie:
+		return sfx_zombie_attack
+	return null
+
+func _sfx_hurt_for(u: Unit) -> AudioStream:
+	if u is Human:
+		return sfx_human_hurt
+	if u is Zombie:
+		return sfx_zombie_hurt
+	return null
+
+func _sfx_die_for(u: Unit) -> AudioStream:
+	if u is Human:
+		return sfx_human_die
+	if u is Zombie:
+		return sfx_zombie_die
+	return null

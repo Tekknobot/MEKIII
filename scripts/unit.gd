@@ -19,6 +19,8 @@ const Z_UNITS := 2000
 enum Team { ALLY, ENEMY }
 @export var team: Team = Team.ALLY
 
+var _death_sfx_played := false
+
 func _ready():
 	hp = max_hp
 	var spr := _unit_sprite()
@@ -54,40 +56,40 @@ func die() -> void:
 	if is_queued_for_deletion():
 		return
 
+	var map := _get_map_controller()
+
+	# ✅ Play death SFX immediately (before waiting on animation)
+	_play_death_sfx(map)
+
 	# Try play death animation
 	var spr := _unit_sprite()
 	var played := false
 
 	if spr != null and spr.sprite_frames != null:
 		if spr.sprite_frames.has_animation("explode"):
-			self.scale = Vector2(1,1)
-			
+			self.scale = Vector2(1, 1)
+
 			# Apply per-unit death offset
 			spr.position = _sprite_base_pos + death_offset
-			
+
 			spr.play("explode")
 			played = true
 
 		elif spr.sprite_frames.has_animation("death"):
-			
 			spr.play("death")
 			played = true
 
 	# Tell the map to clear occupancy / selection immediately
-	# (so dead units stop blocking tiles right away)
-	var map := _get_map_controller()
 	if map != null and map.has_method("_on_unit_died"):
 		map._on_unit_died(self)
 
 	# If we played a death anim, wait for it to finish
-	if played:
+	if played and spr != null:
 		await spr.animation_finished
 	else:
-		# tiny fallback pause so it doesn't feel instant
 		await get_tree().create_timer(0.05).timeout
 
 	queue_free()
-
 
 # ---- helpers (Unit-local) ----
 func _unit_sprite() -> AnimatedSprite2D:
@@ -101,3 +103,19 @@ func _get_map_controller() -> Node:
 	if get_parent() != null and get_parent().get_parent() != null:
 		return get_parent().get_parent()
 	return null
+
+func _play_death_sfx(map: Node) -> void:
+	if _death_sfx_played:
+		return
+	_death_sfx_played = true
+
+	if map == null:
+		return
+
+	# expects your Map script to have:
+	# - play_sfx_poly(stream, pos, vol_db, pitch_min, pitch_max)
+	# - _sfx_die_for(unit)
+	if map.has_method("_sfx_die_for") and map.has_method("play_sfx_poly"):
+		var stream: AudioStream = map._sfx_die_for(self)
+		if stream != null:
+			map.play_sfx_poly(stream, global_position, -4.0, 0.95, 1.05)
