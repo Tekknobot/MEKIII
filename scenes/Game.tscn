@@ -242,6 +242,8 @@ sources/1 = SubResource("TileSetAtlasSource_attvq")
 
 [node name="Game" type="Node2D" groups=["GameMap"]]
 script = ExtResource("1_400sg")
+target_water = 0.0
+water_blobs = 1
 blob_steps = 2
 mech_count = 1
 human_scene = ExtResource("2_s0nni")
@@ -269,6 +271,7 @@ laser_drop_scene = ExtResource("14_i4jil")
 sfx_orbital_zap = ExtResource("15_jai3c")
 
 [node name="StarryNight" parent="." instance=ExtResource("20_sv1m6")]
+z_index = -4096
 
 [node name="Units" type="Node2D" parent="."]
 

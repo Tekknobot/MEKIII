@@ -1,15 +1,4 @@
 res://scenes/Game.tscn
 res://scripts/game.gd
-res://scripts/turnmanager.gd
-res://scripts/mech.gd
-res://scenes/mech.tscn
-res://scenes/tnt.tscn
-res://scripts/unit.gd
-res://scenes/human.tscn
-res://scenes/zombie.tscn
-res://scenes/humantwo.tscn
-res://scripts/human.gd
-res://scripts/humantwo.gd
-res://scripts/zombie.gd
-res://scripts/cursor.gd
 res://scenes/laser_drop.tscn
+res://scripts/laser_drop.gd

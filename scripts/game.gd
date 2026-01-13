@@ -95,6 +95,12 @@ enum Season { DIRT, SANDSTONE, SNOW, GRASS, ICE }
 # --- Roads TileMap (MUST be a separate TileMap with 64x64 TileSet) ---
 @onready var roads: TileMap = $Roads
 
+@onready var bake_vp: SubViewport = get_node_or_null("MapBakeViewport")
+@onready var bake_root: Node2D = (bake_vp.get_node_or_null("MapBakeRoot") as Node2D) if bake_vp else null
+@onready var baked_sprite: Sprite2D = get_node_or_null("MapBakedSprite") as Sprite2D
+
+@export var bake_map_visuals := true
+
 @export var road_pixel_offset := Vector2(-32, 0) # tweak if needed
 const ROAD_SIZE := 2 # 64x64 road tile covers 2x2 of your 16x16 grid
 
@@ -431,6 +437,10 @@ func _ready() -> void:
 	generate_map()
 	terrain.update_internals()
 	_sync_roads_transform()
+
+	if bake_map_visuals:
+		await bake_map_to_sprite()
+			
 	spawn_units()
 	ally_rect_cache = _rect_top_left(ally_spawn_size)
 
@@ -683,6 +693,14 @@ func _pick_reward(choice: int) -> void:
 	generate_map()
 	terrain.update_internals()
 	_sync_roads_transform()
+
+	if bake_map_visuals:
+		# if you already baked before, you may want to re-show tilemaps briefly or just bake again
+		terrain.visible = true
+		if roads_dl: roads_dl.visible = true
+		if roads_dr: roads_dr.visible = true
+		if roads_x:  roads_x.visible = true
+		await bake_map_to_sprite()
 
 	# Respawn units on new map
 	spawn_units()
@@ -2440,3 +2458,141 @@ func _sfx_die_for(u: Unit) -> AudioStream:
 
 func _can_unit_aim_tnt(u: Unit) -> bool:
 	return u != null and (u is Human or u is HumanTwo)
+
+func _map_pixel_size() -> Vector2i:
+	var cell_px := terrain.tile_set.tile_size # should be 32x32
+	return Vector2i(map_width * cell_px.x, map_height * cell_px.y)
+
+func _tilemap_local_bounds_px(tm: TileMap) -> Rect2:
+	# Pixel bounds of the used cells, in *that TileMap's local space*
+	if tm == null:
+		return Rect2(Vector2.ZERO, Vector2.ZERO)
+
+	var used: Rect2i = tm.get_used_rect()
+	if used.size == Vector2i.ZERO:
+		return Rect2(Vector2.ZERO, Vector2.ZERO)
+
+	# Convert the 4 corners of the used rect to local pixel coords
+	var p0 := tm.map_to_local(used.position)
+	var p1 := tm.map_to_local(used.position + Vector2i(used.size.x, 0))
+	var p2 := tm.map_to_local(used.position + Vector2i(0, used.size.y))
+	var p3 := tm.map_to_local(used.position + used.size)
+
+	var minx = min(p0.x, p1.x, p2.x, p3.x)
+	var maxx = max(p0.x, p1.x, p2.x, p3.x)
+	var miny = min(p0.y, p1.y, p2.y, p3.y)
+	var maxy = max(p0.y, p1.y, p2.y, p3.y)
+
+	return Rect2(Vector2(minx, miny), Vector2(maxx - minx, maxy - miny))
+
+
+func _union_rect(a: Rect2, b: Rect2) -> Rect2:
+	if a.size == Vector2.ZERO:
+		return b
+	if b.size == Vector2.ZERO:
+		return a
+	var pos := Vector2(min(a.position.x, b.position.x), min(a.position.y, b.position.y))
+	var end := Vector2(max(a.end.x, b.end.x), max(a.end.y, b.end.y))
+	return Rect2(pos, end - pos)
+
+
+func bake_map_to_sprite() -> void:
+	if not bake_map_visuals:
+		return
+	if terrain == null:
+		return
+
+	# --- ensure nodes exist ---
+	if bake_vp == null:
+		bake_vp = SubViewport.new()
+		bake_vp.name = "MapBakeViewport"
+		add_child(bake_vp)
+
+	if bake_root == null:
+		bake_root = Node2D.new()
+		bake_root.name = "MapBakeRoot"
+		bake_vp.add_child(bake_root)
+
+	if baked_sprite == null:
+		baked_sprite = Sprite2D.new()
+		baked_sprite.name = "MapBakedSprite"
+		add_child(baked_sprite)
+		# ✅ ensure baked map is drawn FIRST (behind units/pickups)
+		move_child(baked_sprite, 0)
+
+	# Clear previous bake children
+	for ch in bake_root.get_children():
+		ch.queue_free()
+
+	# --- compute union bounds (in TERRAIN local pixels) ---
+	var bounds := _tilemap_local_bounds_px(terrain)
+	if roads_dl: bounds = _union_rect(bounds, _tilemap_local_bounds_px(roads_dl))
+	if roads_dr: bounds = _union_rect(bounds, _tilemap_local_bounds_px(roads_dr))
+	if roads_x:  bounds = _union_rect(bounds, _tilemap_local_bounds_px(roads_x))
+
+	# Add padding so edges don’t clip (important for isometric / big tiles)
+	var pad := Vector2(128, 128)
+	bounds.position -= pad
+	bounds.size += pad * 2.0
+
+	var vp_size := Vector2i(ceil(bounds.size.x), ceil(bounds.size.y))
+	vp_size.x = max(vp_size.x, 4)
+	vp_size.y = max(vp_size.y, 4)
+
+	# --- configure viewport ---
+	bake_vp.size = vp_size
+	bake_vp.transparent_bg = true
+	bake_vp.disable_3d = true
+	bake_vp.render_target_update_mode = SubViewport.UPDATE_ONCE
+
+	# Shift everything so bounds.position becomes (0,0) in the viewport
+	bake_root.position = -bounds.position
+
+	# --- duplicate visuals into viewport ---
+	var t_copy := terrain.duplicate(Node.DUPLICATE_USE_INSTANTIATION) as TileMap
+	bake_root.add_child(t_copy)
+	t_copy.position = terrain.position  # LOCAL position, not global
+	t_copy.rotation = terrain.rotation
+	t_copy.scale = terrain.scale
+
+	if roads_dl:
+		var dl_copy := roads_dl.duplicate(Node.DUPLICATE_USE_INSTANTIATION) as TileMap
+		bake_root.add_child(dl_copy)
+		dl_copy.position = roads_dl.position
+		dl_copy.rotation = roads_dl.rotation
+		dl_copy.scale = roads_dl.scale
+
+	if roads_dr:
+		var dr_copy := roads_dr.duplicate(Node.DUPLICATE_USE_INSTANTIATION) as TileMap
+		bake_root.add_child(dr_copy)
+		dr_copy.position = roads_dr.position
+		dr_copy.rotation = roads_dr.rotation
+		dr_copy.scale = roads_dr.scale
+
+	if roads_x:
+		var x_copy := roads_x.duplicate(Node.DUPLICATE_USE_INSTANTIATION) as TileMap
+		bake_root.add_child(x_copy)
+		x_copy.position = roads_x.position
+		x_copy.rotation = roads_x.rotation
+		x_copy.scale = roads_x.scale
+
+	# Let viewport render
+	await get_tree().process_frame
+	await get_tree().process_frame
+
+	# Assign baked texture
+	baked_sprite.texture = bake_vp.get_texture()
+	baked_sprite.centered = false
+	baked_sprite.z_as_relative = false
+	baked_sprite.z_index = -1000000
+
+	# Place the sprite so it matches the original world position of bounds.position
+	# bounds.position is in TERRAIN LOCAL pixels → convert to world
+	var world_top_left := terrain.to_global(bounds.position)
+	baked_sprite.global_position = world_top_left
+
+	# Hide originals
+	terrain.visible = false
+	if roads_dl: roads_dl.visible = false
+	if roads_dr: roads_dr.visible = false
+	if roads_x:  roads_x.visible = false
