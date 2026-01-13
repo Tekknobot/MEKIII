@@ -63,6 +63,15 @@ enum Season { DIRT, SANDSTONE, SNOW, GRASS, ICE }
 @export var mech_scene: PackedScene
 @export var zombie_scene: PackedScene
 
+# --- Human right-click TNT throw ---
+@export var tnt_projectile_scene: PackedScene
+@export var tnt_explosion_scene: PackedScene
+@export var tnt_arc_height := 80.0   # pixels (higher = more 'in the air')
+@export var tnt_flight_time := 1.85   # seconds
+@export var tnt_spin_turns := 3.0     # full rotations during flight
+@export var tnt_splash_radius := 1    # in grid cells (1 = 3x3 area)
+@export var tnt_damage := 2
+
 @onready var terrain: TileMap = $Terrain
 @onready var units_root: Node2D = $Units
 
@@ -99,6 +108,19 @@ var is_attacking_unit := false
 @export var turn_manager: NodePath
 var TM: TurnManager = null
 var is_player_mode := false
+
+@export var tnt_curve_points := 24          # more = smoother line
+@export var tnt_curve_line_width := 3.0
+@export var tnt_curve_z := 999998           # under projectile (999999)
+@export var tnt_curve_show_time := 0.60     # seconds (usually == flight time)
+
+var _tnt_curve_line: Line2D = null
+
+# --- TNT AIM MODE (right-click to arm, left-click to fire) ---
+var tnt_aiming := false
+var tnt_aim_human: Human = null
+var tnt_aim_cell: Vector2i = Vector2i(-1, -1)
+
 
 func _rect_top_left(size: Vector2i) -> Rect2i:
 	return Rect2i(Vector2i(0, 0), size)
@@ -232,7 +254,7 @@ func _ready() -> void:
 func _process(_delta: float) -> void:
 	_update_hovered_cell()
 	_update_hovered_unit()
-
+	_update_tnt_aim_preview() # ✅ keep curve alive and tracking the cursor
 
 func _seed_rng() -> void:
 	if map_seed == 0:
@@ -687,7 +709,31 @@ func _unhandled_input(event: InputEvent) -> void:
 	if is_moving_unit or is_attacking_unit:
 		return
 
+	# -------------------------
+	# LEFT CLICK
+	# -------------------------
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
+		# ✅ If TNT aim mode is active, LEFT CLICK FIRES at current aimed cell
+		if tnt_aiming and tnt_aim_human != null and is_instance_valid(tnt_aim_human):
+			_update_hovered_cell()
+			if grid.in_bounds(hovered_cell):
+				var fire_cell := hovered_cell
+				tnt_aiming = false
+				var h := tnt_aim_human
+				tnt_aim_human = null
+				_hide_tnt_curve()
+
+				var target_u := unit_at_cell(fire_cell) # can be null, that’s fine
+				await perform_human_tnt_throw(h, fire_cell, target_u)
+				return
+			else:
+				# clicked off-grid: just cancel aim
+				tnt_aiming = false
+				tnt_aim_human = null
+				_hide_tnt_curve()
+				return
+
+		# --- normal left-click behavior (your existing) ---
 		_update_hovered_cell()
 		_update_hovered_unit()
 
@@ -703,9 +749,34 @@ func _unhandled_input(event: InputEvent) -> void:
 
 		# 3) Otherwise select what we're hovering
 		select_unit(hovered_unit)
+		return
 
+	# -------------------------
+	# RIGHT CLICK
+	# -------------------------
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_RIGHT and event.pressed:
+		# ✅ Right click toggles TNT "aim mode" when a Human is selected
+		if selected_unit != null and selected_unit is Human:
+			if not tnt_aiming:
+				tnt_aiming = true
+				tnt_aim_human = selected_unit as Human
+				tnt_aim_cell = Vector2i(-1, -1)
+
+				# draw immediately
+				_update_hovered_cell()
+				tnt_aim_cell = Vector2i(-1, -1) # force redraw
+				_update_tnt_aim_preview()
+			else:
+				# toggle off
+				tnt_aiming = false
+				tnt_aim_human = null
+				_hide_tnt_curve()
+			return
+
+		# Otherwise: right click deselect
 		select_unit(null)
+		return
+
 
 func try_attack_selected(target: Unit) -> bool:
 	if selected_unit == null or target == null:
@@ -1288,6 +1359,86 @@ func _attack_distance_from_origin(a: Unit, a_origin: Vector2i, b: Unit) -> int:
 				best = d
 	return best
 
+func perform_human_tnt_throw(human: Human, target_cell: Vector2i, target_unit: Unit) -> void:
+	if human == null or not is_instance_valid(human):
+		return
+	if is_moving_unit or is_attacking_unit:
+		return
+	if tnt_projectile_scene == null or tnt_explosion_scene == null:
+		push_warning("Assign tnt_projectile_scene and tnt_explosion_scene on the Map/Game node.")
+		return
+
+	is_attacking_unit = true
+
+	# Start at the human's current world position (slightly above so it doesn't clip the feet)
+	var from_pos := human.global_position + Vector2(0, -12)
+
+	# Land at the center of the clicked cell
+	var to_pos := terrain.to_global(terrain.map_to_local(target_cell))
+
+	# Face the throw direction
+	_set_facing_from_world_delta(human, from_pos, to_pos)
+
+	# ✅ Draw the preview arc line NOW
+	_draw_tnt_curve(from_pos, to_pos, tnt_arc_height)
+
+	# Spawn the TNT projectile
+	var proj := tnt_projectile_scene.instantiate() as Node2D
+	if proj == null:
+		_hide_tnt_curve()
+		is_attacking_unit = false
+		return
+	add_child(proj)
+	proj.global_position = from_pos
+	proj.z_index = 999999
+
+	# Tween projectile along the exact same arc
+	var flight := create_tween()
+	flight.set_trans(Tween.TRANS_SINE)
+	flight.set_ease(Tween.EASE_IN_OUT)
+
+	var cb := Callable(self, "_tnt_throw_update").bind(proj, from_pos, to_pos, tnt_arc_height, tnt_spin_turns)
+	flight.tween_method(cb, 0.0, 1.0, tnt_flight_time)
+
+	# Optionally hide the line after a moment (or keep it until impact)
+	# Here: keep it visible during flight, then hide on impact.
+	await flight.finished
+
+	_hide_tnt_curve()
+
+	if is_instance_valid(proj):
+		proj.queue_free()
+
+	# Spawn explosion at landing point
+	var boom := tnt_explosion_scene.instantiate() as Node2D
+	if boom != null:
+		add_child(boom)
+		boom.global_position = to_pos
+		boom.z_index = 999999
+
+	# Damage units in splash radius (grid distance)
+	for child in units_root.get_children():
+		var u := child as Unit
+		if u == null or not is_instance_valid(u):
+			continue
+		var u_cell := get_unit_origin(u)
+		var d = abs(u_cell.x - target_cell.x) + abs(u_cell.y - target_cell.y)
+		if d <= tnt_splash_radius:
+			if u == human:
+				continue
+			await u.take_damage(tnt_damage)
+
+	# Clean up overlays / state
+	if is_instance_valid(human):
+		draw_unit_hover(human)
+		draw_move_range_for_unit(human)
+		draw_attack_range_for_unit(human)
+
+	is_attacking_unit = false
+
+	if is_player_mode and TM != null:
+		TM.notify_player_action_complete()
+
 func ai_take_turn(u: Unit) -> void:
 	if u == null or not is_instance_valid(u):
 		return
@@ -1317,3 +1468,85 @@ func ai_take_turn(u: Unit) -> void:
 
 func set_player_mode(enabled: bool) -> void:
 	is_player_mode = enabled
+
+func _tnt_throw_update(t: float, proj: Node2D, from_pos: Vector2, to_pos: Vector2, arc_height: float, spin_turns: float) -> void:
+	if proj == null or not is_instance_valid(proj):
+		return
+
+	# position along straight line
+	var p := from_pos.lerp(to_pos, t)
+
+	# parabolic "up" bump that peaks at t=0.5
+	var bump := 4.0 * t * (1.0 - t) * arc_height
+	p.y -= bump
+
+	proj.global_position = p
+	proj.rotation = t * TAU * spin_turns
+
+func _ensure_tnt_curve_line() -> Line2D:
+	if _tnt_curve_line != null and is_instance_valid(_tnt_curve_line):
+		return _tnt_curve_line
+
+	var line := Line2D.new()
+	line.name = "TNTArcLine"
+	line.width = tnt_curve_line_width
+	line.top_level = true
+	line.z_as_relative = false
+	line.z_index = 9999999
+	line.visible = false
+
+	add_child(line)
+
+	_tnt_curve_line = line
+	return line
+	
+func _arc_point(from_pos: Vector2, to_pos: Vector2, t: float, arc_height: float) -> Vector2:
+	var p := from_pos.lerp(to_pos, t)
+	var bump := 4.0 * t * (1.0 - t) * arc_height
+	p.y -= bump
+	return p
+
+
+func _draw_tnt_curve(from_pos: Vector2, to_pos: Vector2, arc_height: float) -> void:
+	var line := _ensure_tnt_curve_line()
+	line.clear_points()
+
+	var n = max(4, tnt_curve_points)
+	for i in range(n):
+		var t := float(i) / float(n - 1)
+		line.add_point(_arc_point(from_pos, to_pos, t, arc_height))
+
+	line.visible = true
+
+
+func _hide_tnt_curve() -> void:
+	if _tnt_curve_line != null and is_instance_valid(_tnt_curve_line):
+		_tnt_curve_line.visible = false
+		_tnt_curve_line.clear_points()
+
+func _update_tnt_aim_preview() -> void:
+	if not tnt_aiming:
+		return
+	if tnt_aim_human == null or not is_instance_valid(tnt_aim_human):
+		tnt_aiming = false
+		tnt_aim_human = null
+		_hide_tnt_curve()
+		return
+
+	_update_hovered_cell()
+	if not grid.in_bounds(hovered_cell):
+		_hide_tnt_curve()
+		tnt_aim_cell = Vector2i(-1, -1)
+		return
+
+	# Only redraw when the target cell changes (prevents constant point churn)
+	if hovered_cell == tnt_aim_cell:
+		return
+
+	tnt_aim_cell = hovered_cell
+
+	var from_pos := tnt_aim_human.global_position + Vector2(0, -12)
+	var to_pos := terrain.to_global(terrain.map_to_local(tnt_aim_cell))
+
+	_set_facing_from_world_delta(tnt_aim_human, from_pos, to_pos)
+	_draw_tnt_curve(from_pos, to_pos, tnt_arc_height)

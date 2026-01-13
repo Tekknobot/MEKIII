@@ -1,9 +1,11 @@
-[gd_scene load_steps=37 format=3 uid="uid://bmtwqbsx674eo"]
+[gd_scene load_steps=39 format=3 uid="uid://bmtwqbsx674eo"]
 
 [ext_resource type="Script" uid="uid://bn08mhcoceqg" path="res://scripts/game.gd" id="1_400sg"]
 [ext_resource type="PackedScene" uid="uid://b8etqvuw07mhc" path="res://scenes/human.tscn" id="2_s0nni"]
 [ext_resource type="PackedScene" uid="uid://bqrbab23wjpjp" path="res://scenes/mech.tscn" id="3_aug50"]
 [ext_resource type="PackedScene" uid="uid://dmujwxtnheagi" path="res://scenes/zombie.tscn" id="4_kyk2p"]
+[ext_resource type="PackedScene" uid="uid://bcn8tdg6qkk31" path="res://scenes/tnt.tscn" id="5_attvq"]
+[ext_resource type="PackedScene" uid="uid://bulgypadw5war" path="res://scenes/explosion.tscn" id="6_bneo8"]
 [ext_resource type="Texture2D" uid="uid://by1nnygq8fbib" path="res://sprites/Terrain/dirt.png" id="6_mcffj"]
 [ext_resource type="Texture2D" uid="uid://bvs7gpxakq282" path="res://sprites/Terrain/sandstone.png" id="7_2rd6h"]
 [ext_resource type="Texture2D" uid="uid://d3dw1g0jasso3" path="res://sprites/Tiles_UI/mek3/1x1_move.png" id="7_g4kob"]
@@ -136,11 +138,14 @@ sources/1 = SubResource("TileSetAtlasSource_attvq")
 script = ExtResource("1_400sg")
 water_blobs = 2
 mech_count = 0
-zombie_count = 16
+zombie_count = 8
 human_scene = ExtResource("2_s0nni")
 mech_scene = ExtResource("3_aug50")
 zombie_scene = ExtResource("4_kyk2p")
+tnt_projectile_scene = ExtResource("5_attvq")
+tnt_explosion_scene = ExtResource("6_bneo8")
 turn_manager = NodePath("TurnManager")
+tnt_curve_line_width = 1.0
 
 [node name="StarryNight" parent="." instance=ExtResource("20_sv1m6")]
 
@@ -185,3 +190,4 @@ map_height = 16
 [node name="TurnManager" type="Node2D" parent="."]
 script = ExtResource("19_45i86")
 map = NodePath("..")
+start_on_ready = false

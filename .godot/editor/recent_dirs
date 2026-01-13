@@ -1,7 +1,8 @@
+res://scenes
+res://sprites/Projectiles/default/tnt
 res://sprites/Explosion
 res://sprites/Zombies/death
 res://scripts
-res://scenes
 res://sprites/Zombies/move
 res://sprites/Zombies/attack
 res://sprites/Zombies/idle
