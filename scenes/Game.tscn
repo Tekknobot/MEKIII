@@ -1,4 +1,4 @@
-[gd_scene load_steps=66 format=3 uid="uid://bmtwqbsx674eo"]
+[gd_scene load_steps=65 format=3 uid="uid://bmtwqbsx674eo"]
 
 [ext_resource type="Script" uid="uid://bn08mhcoceqg" path="res://scripts/game.gd" id="1_400sg"]
 [ext_resource type="PackedScene" uid="uid://b8etqvuw07mhc" path="res://scenes/human.tscn" id="2_s0nni"]
@@ -17,7 +17,6 @@
 [ext_resource type="Texture2D" uid="uid://bo43jxw78vpg7" path="res://sprites/Tiles_UI/mek3/2x2_move.png" id="8_qy1jj"]
 [ext_resource type="AudioStream" uid="uid://dpslt5sraa3ko" path="res://audio/Zombie/zombie_massacre_vocal_impact_pain_hurt_01.wav" id="9_0bq3a"]
 [ext_resource type="Texture2D" uid="uid://usc687xtdcac" path="res://sprites/Terrain/grass_default.png" id="9_r7sob"]
-[ext_resource type="Script" uid="uid://wc6v1t13xa2b" path="res://scripts/cursor.gd" id="10_3xj3m"]
 [ext_resource type="AudioStream" uid="uid://8c083clar0gj" path="res://audio/Zombie/human_death.wav" id="10_jhsr3"]
 [ext_resource type="Texture2D" uid="uid://bsdcosxsddrot" path="res://sprites/Terrain/ice.png" id="10_y5y3l"]
 [ext_resource type="Texture2D" uid="uid://bysc7op7qquei" path="res://sprites/Tiles_UI/mek3/1x1_cursor.png" id="11_2rd6h"]
@@ -243,8 +242,7 @@ sources/1 = SubResource("TileSetAtlasSource_attvq")
 
 [node name="Game" type="Node2D" groups=["GameMap"]]
 script = ExtResource("1_400sg")
-target_water = 0.0
-water_blobs = 1
+blob_steps = 2
 mech_count = 1
 human_scene = ExtResource("2_s0nni")
 human2_scene = ExtResource("3_1gdd5")
@@ -318,13 +316,6 @@ format = 2
 [node name="AttackRangeBig" type="TileMap" parent="."]
 tile_set = SubResource("TileSet_bneo8")
 format = 2
-
-[node name="Cursor" type="Sprite2D" parent="." node_paths=PackedStringArray("tilemap", "map_controller")]
-script = ExtResource("10_3xj3m")
-tilemap = NodePath("../Terrain")
-map_controller = NodePath("..")
-highlight_texture_1x1 = ExtResource("11_2rd6h")
-highlight_texture_2x2 = ExtResource("12_7ua8r")
 
 [node name="Camera2D" type="Camera2D" parent="."]
 zoom = Vector2(2, 2)

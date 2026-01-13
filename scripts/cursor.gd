@@ -7,15 +7,24 @@ class_name GridCursor
 @export var highlight_texture_2x2: Texture2D
 @export var mouse_offset := Vector2(0, 0)
 
-# Cursor art-specific offsets (tweak in inspector)
 @export var cursor_offset_1x1 := Vector2(0, 0)
 @export var cursor_offset_2x2 := Vector2(0, 16)
+
+# Roads are 1000. Cursor must be > 1000.
+@export var cursor_z_base := 50000      # comfortably above roads
+@export var cursor_z_cap := 299000      # safely below drops (~300000 + y)
 
 var hovered_cell: Vector2i = Vector2i(-1, -1)
 
 func _ready() -> void:
 	top_level = true
+	z_as_relative = false
+	z_index = cursor_z_base
 
+	# ✅ make sure Roads can't "win" via z_layer
+	z_as_relative = false
+	show_behind_parent = false
+	
 func _process(_delta: float) -> void:
 	if tilemap == null or map_controller == null:
 		return
@@ -41,7 +50,6 @@ func _process(_delta: float) -> void:
 	if u != null:
 		anchor_cell = map_controller.get_unit_origin(u)
 
-	# Decide footprint + texture
 	var is_big := false
 	if u != null:
 		var fp := u.footprint_cells(anchor_cell)
@@ -49,10 +57,11 @@ func _process(_delta: float) -> void:
 
 	texture = (highlight_texture_2x2 if is_big else highlight_texture_1x1)
 
-	# Base position at anchor cell
 	var base_world := tilemap.to_global(tilemap.map_to_local(anchor_cell))
-
-	# Apply pixel offset based on footprint
 	global_position = base_world + (cursor_offset_2x2 if is_big else cursor_offset_1x1)
+
+	# ✅ Force cursor above roads (1000), below drops (300000+)
+	var desired := cursor_z_base + int(global_position.y)
+	z_index = clampi(desired, 2000, cursor_z_cap)
 
 	map_controller.set_hovered_unit(u)

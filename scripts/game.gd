@@ -218,10 +218,10 @@ var pickups := {} # Dictionary[Vector2i, Node2D]  # cell -> pickup instance
 @onready var roads_dl: TileMap = $RoadsDL
 @onready var roads_dr: TileMap = $RoadsDR
 @onready var roads_x: TileMap = $RoadsX
-@export var road_pixel_offset_x := Vector2(0, 0) # neutral (center)
+@export var road_pixel_offset_x := Vector2(0, 16) # neutral (center)
 
-@export var road_pixel_offset_dl := Vector2(0, 0)
-@export var road_pixel_offset_dr := Vector2(0, 0) # <-- this is the “other direction” offset
+@export var road_pixel_offset_dl := Vector2(0, 16)
+@export var road_pixel_offset_dr := Vector2(0, 16) # <-- this is the “other direction” offset
 
 func _rect_top_left(size: Vector2i) -> Rect2i:
 	return Rect2i(Vector2i(0, 0), size)
@@ -459,6 +459,7 @@ func _sync_one_roads_transform(rmap: TileMap, px_off: Vector2) -> void:
 
 	rmap.position = terrain.position + (terrain_origin_local - roads_origin_local) + px_off
 
+	# ✅ FORCE same z_layer as everything else
 	rmap.z_as_relative = false
 	rmap.z_index = 1000
 
@@ -807,64 +808,35 @@ func _add_roads() -> void:
 	roads_x.clear()
 	_sync_roads_transform()
 
-	var cols := int(map_width / ROAD_SIZE)   # 16/2 = 8
-	var rows := int(map_height / ROAD_SIZE)  # 16/2 = 8
+	# 16x16 terrain, ROAD_SIZE=2 => 8x8 road grid
+	var cols := int(map_width / ROAD_SIZE) * 2 - 1  # 15
+	var rows := int(map_height / ROAD_SIZE) * 2 - 1 # 15
 
-	# ---- RANDOMIZE WHICH COLUMN/ROW THE LANES USE ----
-	# margin keeps it away from the very edge; set to 0 if you want edge lanes too
+	# pick lane column/row within the road grid
 	var margin := 0
+	var road_col := rng.randi_range(margin, cols - 1 - margin)
+	var road_row := rng.randi_range(margin, rows - 1 - margin)
 
-	var col_min := clampi(margin, 0, cols - 1)
-	var col_max := clampi(cols - 1 - margin, 0, cols - 1)
-
-	var row_min := clampi(margin, 0, rows - 1)
-	var row_max := clampi(rows - 1 - margin, 0, rows - 1)
-
-	# DL (vertical) picks a random column
-	var road_col := rng.randi_range(col_min, col_max)
-
-	# DR (horizontal) picks a random row
-	var road_row := rng.randi_range(row_min, row_max)
-
-	# (optional) avoid boring same-ish near-center every time by re-rolling once if you want
-	# if road_col == int(cols / 2) and cols > 2:
-	# 	road_col = rng.randi_range(col_min, col_max)
-	# if road_row == int(rows / 2) and rows > 2:
-	# 	road_row = rng.randi_range(row_min, row_max)
-
-	# compute how many extra cells we must paint to reach the visible edges after offsets
-	var ex_dl := _road_extras_from_offset(road_pixel_offset_dl)
-	var ex_dr := _road_extras_from_offset(road_pixel_offset_dr)
-
-	# rc -> bitmask (1=DL lane, 2=DR lane)
+	# rc -> bitmask (1=DL, 2=DR, 3=intersection)
 	var conn := {}
 
-	# -------------------------
-	# Vertical lane (DL tiles)
-	# -------------------------
-	var y0_dl := -int(ex_dl["t"])
-	var y1_dl := (rows - 1) + int(ex_dl["b"])
-	for ry in range(y0_dl, y1_dl + 1 + 9):
+	# vertical lane (DL) within [0, rows-1]
+	for ry in range(0, rows):
 		var rc := Vector2i(road_col, ry)
 		conn[rc] = int(conn.get(rc, 0)) | 1
 
-	# -------------------------
-	# Horizontal lane (DR tiles)
-	# -------------------------
-	var x0_dr := -int(ex_dr["l"])
-	var x1_dr := (cols - 1) + int(ex_dr["r"])
-	for rx in range(x0_dr, x1_dr + 1 + 9):
+	# horizontal lane (DR) within [0, cols-1]
+	for rx in range(0, cols):
 		var rc := Vector2i(rx, road_row)
 		conn[rc] = int(conn.get(rc, 0)) | 2
 
-	# Ensure the intersection exists
+	# force intersection
 	var cross := Vector2i(road_col, road_row)
-	conn[cross] = int(conn.get(cross, 0)) | 3
+	conn[cross] = 3
 
-	# Paint tiles into the three TileMaps
+	# paint (all rc are guaranteed in-bounds)
 	for rc in conn.keys():
 		var mask := int(conn[rc])
-
 		if mask == 3:
 			roads_x.set_cell(0, rc, ROAD_INTERSECTION, ROAD_ATLAS, 0)
 		elif mask == 1:
@@ -1339,116 +1311,18 @@ func draw_attack_range_for_unit(attacker: Unit) -> void:
 			attack_range_small.set_cell(LAYER_ATTACK, target_origin, ATTACK_TILE_SMALL_SOURCE_ID, ATTACK_ATLAS, 0)
 
 func _unhandled_input(event: InputEvent) -> void:
+	# ✅ Press R to hard reset (reload scene)
+	if event is InputEventKey and event.pressed and not event.echo:
+		var k := event as InputEventKey
+		if k.keycode == KEY_R:
+			get_tree().reload_current_scene()
+			return
+
 	if not _can_handle_player_input():
 		return
 	if is_moving_unit or is_attacking_unit:
 		return
-
-	# -------------------------
-	# SETUP PHASE: reposition allies in the top-left zone, then press Start
-	# -------------------------
-	if state == GameState.SETUP:
-		if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
-			_update_hovered_cell()
-			_update_hovered_unit()
-
-			# If an ally is selected and we clicked a valid placement cell, teleport it there.
-			if selected_unit != null and selected_unit.team == Unit.Team.ALLY:
-				if _setup_place_selected(hovered_cell):
-					return
-
-			# Otherwise select the hovered unit (ally only feels nicer in setup)
-			if hovered_unit != null and hovered_unit.team == Unit.Team.ALLY:
-				select_unit(hovered_unit)
-			else:
-				select_unit(null)
-			return
-
-		if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_RIGHT and event.pressed:
-			select_unit(null)
-			return
-
-		return
-
-	var full_player_control := (state == GameState.BATTLE and is_player_mode)
-	var allow_tnt_input := (state == GameState.BATTLE and (full_player_control or _is_assist_mode()))
-
-	# -------------------------
-	# LEFT CLICK
-	# -------------------------
-	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
-		# ✅ If TNT aim mode is active, LEFT CLICK FIRES at current aimed cell
-		if tnt_aiming and tnt_aim_unit != null and is_instance_valid(tnt_aim_unit):
-			_update_hovered_cell()
-			if grid.in_bounds(hovered_cell):
-				var fire_cell := hovered_cell
-				tnt_aiming = false
-				var thrower := tnt_aim_unit
-				_hide_tnt_curve()
-
-				var target_u := unit_at_cell(fire_cell) # can be null, that’s fine
-				await perform_human_tnt_throw(thrower, fire_cell, target_u)
-				if _is_assist_mode():
-					assist_tnt_charges_left = max(0, assist_tnt_charges_left - 1)
-					_refresh_ui_status()
-				return
-			else:
-				# clicked off-grid: just cancel aim
-				tnt_aiming = false
-				tnt_aim_unit = null
-				_hide_tnt_curve()
-				return
-
-		# --- normal left-click behavior ---
-		_update_hovered_cell()
-		_update_hovered_unit()
-
-		# In assist mode, you can select units to aim TNT but you can't move/attack normally.
-		if full_player_control:
-			# 1) If we have a selected unit and clicked another unit -> try attack first
-			if selected_unit != null and hovered_unit != null and hovered_unit != selected_unit:
-				if await try_attack_selected(hovered_unit):
-					return
-
-			# 2) If we have a selected unit and clicked ground -> try move
-			if selected_unit != null:
-				if await try_move_selected_to(hovered_cell):
-					return
-
-		# 3) Otherwise select what we're hovering
-		select_unit(hovered_unit)
-		return
-
-	# -------------------------
-	# RIGHT CLICK
-	# -------------------------
-	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_RIGHT and event.pressed:
-		# ✅ Right click toggles TNT "aim mode" when a Human is selected
-		if allow_tnt_input and _can_unit_aim_tnt(selected_unit):
-			# Assist mode: limited charges
-			if _is_assist_mode() and assist_tnt_charges_left <= 0:
-				return
-			if not tnt_aiming:
-				tnt_aiming = true
-				tnt_aim_unit = selected_unit
-				tnt_aim_cell = Vector2i(-1, -1)
-
-				# draw immediately
-				_update_hovered_cell()
-				tnt_aim_cell = Vector2i(-1, -1) # force redraw
-				_update_tnt_aim_preview()
-			else:
-				# toggle off
-				tnt_aiming = false
-				tnt_aim_unit = null
-				_hide_tnt_curve()
-			return
-
-		# Otherwise: right click deselect
-		select_unit(null)
-		return
-
-
+		
 func try_attack_selected(target: Unit) -> bool:
 	if selected_unit == null or target == null:
 		return false

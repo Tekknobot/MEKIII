@@ -12,3 +12,4 @@ res://scripts/human.gd
 res://scripts/humantwo.gd
 res://scripts/zombie.gd
 res://scripts/cursor.gd
+res://scenes/laser_drop.tscn
