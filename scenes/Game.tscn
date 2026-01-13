@@ -1,4 +1,4 @@
-[gd_scene load_steps=67 format=3 uid="uid://bmtwqbsx674eo"]
+[gd_scene load_steps=68 format=3 uid="uid://bmtwqbsx674eo"]
 
 [ext_resource type="Script" uid="uid://bn08mhcoceqg" path="res://scripts/game.gd" id="1_400sg"]
 [ext_resource type="PackedScene" uid="uid://b8etqvuw07mhc" path="res://scenes/human.tscn" id="2_s0nni"]
@@ -16,6 +16,7 @@
 [ext_resource type="AudioStream" uid="uid://dogvi6q7030pk" path="res://audio/SFX/explosion_8bit.wav" id="8_a85ww"]
 [ext_resource type="Texture2D" uid="uid://bo43jxw78vpg7" path="res://sprites/Tiles_UI/mek3/2x2_move.png" id="8_qy1jj"]
 [ext_resource type="AudioStream" uid="uid://dpslt5sraa3ko" path="res://audio/Zombie/zombie_massacre_vocal_impact_pain_hurt_01.wav" id="9_0bq3a"]
+[ext_resource type="AudioStream" uid="uid://dg6i58j3chf0p" path="res://audio/Zombie/zombie_massacre_vocal_attack_short_02.wav" id="9_cxum0"]
 [ext_resource type="Texture2D" uid="uid://usc687xtdcac" path="res://sprites/Terrain/grass_default.png" id="9_r7sob"]
 [ext_resource type="AudioStream" uid="uid://8c083clar0gj" path="res://audio/Zombie/human_death.wav" id="10_jhsr3"]
 [ext_resource type="Texture2D" uid="uid://bsdcosxsddrot" path="res://sprites/Terrain/ice.png" id="10_y5y3l"]
@@ -257,7 +258,7 @@ tnt_explosion_scene = ExtResource("6_bneo8")
 tnt_damage = 1
 turn_manager = NodePath("TurnManager")
 sfx_human_attack = ExtResource("7_jbgew")
-sfx_zombie_attack = ExtResource("9_0bq3a")
+sfx_zombie_attack = ExtResource("9_cxum0")
 sfx_human_hurt = ExtResource("17_cxum0")
 sfx_zombie_hurt = ExtResource("17_cxum0")
 sfx_human_die = ExtResource("10_jhsr3")

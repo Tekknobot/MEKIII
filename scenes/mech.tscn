@@ -50,7 +50,7 @@
 [ext_resource type="Script" uid="uid://lmsma3lhwhb8" path="res://scripts/hp_label.gd" id="48_hm8jv"]
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_7tcnj"]
-size = Vector2(20, 1)
+size = Vector2(20, 6)
 
 [sub_resource type="SpriteFrames" id="SpriteFrames_7uhu2"]
 animations = [{
@@ -215,7 +215,7 @@ script = ExtResource("1_0w1yf")
 death_offset = Vector2(0, -16)
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="."]
-position = Vector2(0, -6.5)
+position = Vector2(0, -9)
 shape = SubResource("RectangleShape2D_7tcnj")
 
 [node name="AnimatedSprite2D" type="AnimatedSprite2D" parent="."]

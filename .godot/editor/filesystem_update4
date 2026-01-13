@@ -1,9 +1,5 @@
-res://scripts/mech.gd
 res://scenes/Game.tscn
-res://scripts/game.gd
-res://scenes/human.tscn
-res://scripts/human.gd
-res://scripts/unit.gd
 res://scenes/humantwo.tscn
-res://scripts/humantwo.gd
-res://scripts/turnmanager.gd
+res://scenes/human.tscn
+res://scenes/zombie.tscn
+res://scenes/mech.tscn

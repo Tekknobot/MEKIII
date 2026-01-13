@@ -44,7 +44,7 @@
 [ext_resource type="Script" uid="uid://lmsma3lhwhb8" path="res://scripts/hp_label.gd" id="42_nsheb"]
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_jwu2t"]
-size = Vector2(20, 1)
+size = Vector2(20, 6)
 
 [sub_resource type="SpriteFrames" id="SpriteFrames_1lsy6"]
 animations = [{
@@ -193,7 +193,7 @@ animations = [{
 script = ExtResource("1_swaxu")
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="."]
-position = Vector2(0, -6.5)
+position = Vector2(0, -9)
 shape = SubResource("RectangleShape2D_jwu2t")
 
 [node name="AnimatedSprite2D" type="AnimatedSprite2D" parent="."]

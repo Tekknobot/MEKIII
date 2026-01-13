@@ -44,7 +44,7 @@
 [ext_resource type="Script" uid="uid://lmsma3lhwhb8" path="res://scripts/hp_label.gd" id="42_turgy"]
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_o6twh"]
-size = Vector2(20, 1)
+size = Vector2(20, 6)
 
 [sub_resource type="SpriteFrames" id="SpriteFrames_0pyg8"]
 animations = [{
@@ -194,7 +194,7 @@ script = ExtResource("1_o6twh")
 team = 1
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="."]
-position = Vector2(0, -6.5)
+position = Vector2(0, -9)
 shape = SubResource("RectangleShape2D_o6twh")
 disabled = true
 
