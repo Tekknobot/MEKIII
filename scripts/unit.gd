@@ -7,6 +7,8 @@ class_name Unit
 @export var attack_repeats := 1
 @export var attack_anim: StringName = "attack"
 
+@export var tnt_throw_range := 3  # default (can override per unit)
+
 @export var max_hp := 3   # NEW
 var hp := 3               # NEW
 
@@ -119,3 +121,9 @@ func _play_death_sfx(map: Node) -> void:
 		var stream: AudioStream = map._sfx_die_for(self)
 		if stream != null:
 			map.play_sfx_poly(stream, global_position, -4.0, 0.95, 1.05)
+
+func apply_run_bonuses(hp_bonus: int, range_bonus: int, move_bonus: int) -> void:
+	max_hp += hp_bonus
+	hp = max_hp  # or: hp = min(hp + hp_bonus, max_hp) if you prefer
+	attack_range += range_bonus
+	move_range += move_bonus

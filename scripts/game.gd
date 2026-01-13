@@ -64,8 +64,6 @@ enum Season { DIRT, SANDSTONE, SNOW, GRASS, ICE }
 @export_range(0.0, 1.0, 0.05) var season_strength := 0.75
 
 @export_range(0.0, 0.6, 0.01) var target_water := 0.15
-@export_range(1, 20, 1) var water_blobs := 3
-@export_range(2, 40, 1) var blob_steps := 10
 @export_range(0.0, 1.0, 0.05) var freeze_water_chance := 0.65
 @export_range(0, 2000, 1) var max_fix_iterations := 500
 @export_range(0, 999999, 1) var map_seed := 0
@@ -364,13 +362,6 @@ func _spawn_one(scene: PackedScene, region: Rect2i) -> void:
 
 		var origin := _rand_cell_in_rect(region)
 
-		# Apply persistent run upgrades BEFORE checking footprint/occupancy
-		if unit.team == Unit.Team.ALLY:
-			unit.max_hp += bonus_max_hp
-			unit.hp = unit.max_hp
-			unit.attack_range += bonus_attack_range
-			unit.move_range += bonus_move_range
-
 		# big units must align
 		if _is_big_unit(unit):
 			origin = snap_origin_for_unit(origin, unit)
@@ -405,6 +396,10 @@ func _spawn_one(scene: PackedScene, region: Rect2i) -> void:
 		unit_origin[unit] = origin
 		units_root.add_child(unit)
 
+		# ✅ Now apply run bonuses AFTER the unit's own _ready() finishes
+		if unit.team == Unit.Team.ALLY:
+			unit.call_deferred("apply_run_bonuses", bonus_max_hp, bonus_attack_range, bonus_move_range)
+			
 		unit.global_position = cell_to_world_for_unit(origin, unit)
 		unit.update_layering()
 		return
@@ -782,7 +777,6 @@ func generate_map() -> void:
 		for y in range(map_height):
 			grid.terrain[x][y] = pick_tile_for_season_no_water()
 
-	_add_water_blobs()
 	_ensure_walkable_connected()
 	_remove_dead_ends()
 
@@ -1126,38 +1120,6 @@ func _carve_bridge(from: Vector2i, to: Vector2i) -> void:
 		c.y += (1 if to.y > c.y else -1)
 		if _in_bounds(c) and grid.terrain[c.x][c.y] == T_WATER:
 			grid.terrain[c.x][c.y] = main
-
-
-func _add_water_blobs() -> void:
-	var total := map_width * map_height
-	var desired := int(round(total * target_water))
-	if desired <= 0:
-		return
-
-	var placed := 0
-	for i in range(water_blobs):
-		if placed >= desired:
-			break
-
-		var c := Vector2i(rng.randi_range(0, map_width - 1), rng.randi_range(0, map_height - 1))
-		for s in range(blob_steps):
-			if placed >= desired:
-				break
-			if grid.terrain[c.x][c.y] != T_WATER:
-				grid.terrain[c.x][c.y] = T_WATER
-				placed += 1
-
-			var nbs := _neighbors4(c)
-			var next := nbs[rng.randi_range(0, nbs.size() - 1)]
-			if _in_bounds(next):
-				c = next
-
-	if season == Season.ICE:
-		for x in range(map_width):
-			for y in range(map_height):
-				if grid.terrain[x][y] == T_WATER and rng.randf() < freeze_water_chance:
-					grid.terrain[x][y] = T_ICE
-
 
 func _remove_dead_ends() -> void:
 	var iter := 0
@@ -2272,6 +2234,12 @@ func _attack_distance_from_origin(a: Unit, a_origin: Vector2i, b: Unit) -> int:
 	return best
 
 func perform_human_tnt_throw(thrower: Unit, target_cell: Vector2i, target_unit: Unit) -> void:
+	# Safety: prevent firing out of range
+	if not _in_tnt_range(thrower, target_cell):
+		is_attacking_unit = false
+		_hide_tnt_curve()
+		return
+	
 	if thrower == null or not is_instance_valid(thrower):
 		return
 	if is_moving_unit or is_attacking_unit:
@@ -2464,6 +2432,11 @@ func _update_tnt_aim_preview() -> void:
 	if not grid.in_bounds(hovered_cell):
 		_hide_tnt_curve()
 		tnt_aim_cell = Vector2i(-1, -1)
+		return
+
+	# NEW: block aiming if out of range
+	if not _in_tnt_range(tnt_aim_unit, hovered_cell):
+		_hide_tnt_curve()
 		return
 
 	# Only redraw when the target cell changes (prevents constant point churn)
@@ -2682,3 +2655,64 @@ func bake_map_to_sprite() -> void:
 	if roads_dl: roads_dl.visible = false
 	if roads_dr: roads_dr.visible = false
 	if roads_x:  roads_x.visible = false
+
+func _in_tnt_range(thrower: Unit, cell: Vector2i) -> bool:
+	if thrower == null or not is_instance_valid(thrower):
+		return false
+
+	var from := get_unit_origin(thrower)
+	var best := 999999
+
+	# measure from any footprint cell (works for big units too)
+	for fc in thrower.footprint_cells(from):
+		var d = abs(fc.x - cell.x) + abs(fc.y - cell.y)
+		best = min(best, d)
+
+	return best <= int(thrower.tnt_throw_range)
+
+func _pick_ai_tnt_target_cell(thrower: Unit) -> Vector2i:
+	if thrower == null or not is_instance_valid(thrower):
+		return Vector2i(-1, -1)
+
+	# Prefer hitting enemies; choose the one that would splash the most units
+	var enemies := get_enemies_of(thrower)
+	if enemies.is_empty():
+		return Vector2i(-1, -1)
+
+	var best_cell := Vector2i(-1, -1)
+	var best_score := -999999
+
+	for e in enemies:
+		if e == null or not is_instance_valid(e):
+			continue
+
+		var cell := get_unit_origin(e)
+
+		# ✅ range gating (this is the important part)
+		if not _in_tnt_range(thrower, cell):
+			continue
+
+		# optional: don’t throw on water / invalid
+		if not grid.in_bounds(cell):
+			continue
+
+		# Score: how many victims would get hit (splash)
+		var score := 0
+		for other in units_root.get_children():
+			var ou := other as Unit
+			if ou == null or not is_instance_valid(ou):
+				continue
+			if ou == thrower:
+				continue
+
+			var ou_cell := get_unit_origin(ou)
+			var d = abs(ou_cell.x - cell.x) + abs(ou_cell.y - cell.y)
+			if d <= tnt_splash_radius:
+				# prefer hitting enemies, avoid allies
+				score += (3 if ou.team != thrower.team else -4)
+
+		if score > best_score:
+			best_score = score
+			best_cell = cell
+
+	return best_cell

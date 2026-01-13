@@ -10,6 +10,11 @@ class_name MedkitDrop
 var _t := 0.0
 var visual: Node2D
 
+@export var pickup_sfx: AudioStream
+@export var pickup_vol_db := -6.0
+@export var pickup_pitch_min := 0.95
+@export var pickup_pitch_max := 1.05
+
 func _ready() -> void:
 	visual = get_node_or_null("Visual") as Node2D
 
@@ -48,12 +53,28 @@ func _try_collect(obj: Node) -> void:
 	# prevent double trigger
 	set_deferred("monitoring", false)
 
-	# ✅ heal (works with your Unit.hp / Unit.max_hp)
-	var before := u.hp
-	u.hp = min(u.max_hp, u.hp + heal_amount)
+	# ✅ heal
+	var before := int(u.hp)
+	u.hp = min(int(u.max_hp), int(u.hp) + int(heal_amount))
 
-	# optional flash via Map's existing helper (if present)
-	if also_flash and u.hp > before:
+	# ✅ play pickup sfx only if it actually healed
+	if int(u.hp) > before and pickup_sfx != null:
+		# Prefer Map helper if available (keeps your game's audio style consistent)
+		if map.has_method("play_sfx_poly"):
+			map.play_sfx_poly(pickup_sfx, u.global_position, pickup_vol_db, pickup_pitch_min, pickup_pitch_max)
+		else:
+			# Fallback: play locally
+			var p := AudioStreamPlayer2D.new()
+			p.stream = pickup_sfx
+			p.global_position = u.global_position
+			p.volume_db = pickup_vol_db
+			p.pitch_scale = randf_range(pickup_pitch_min, pickup_pitch_max)
+			get_tree().current_scene.add_child(p)
+			p.play()
+			p.finished.connect(func(): if is_instance_valid(p): p.queue_free())
+
+	# optional flash
+	if also_flash and int(u.hp) > before:
 		if map.has_method("_flash_unit"):
 			await map._flash_unit(u)
 
