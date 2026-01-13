@@ -6,5 +6,5 @@ func _ready() -> void:
 	move_range = 8
 	attack_range = 1
 	attack_repeats = 1
-	hp = 5
-	max_hp = 5
+	hp = 8
+	max_hp = 8

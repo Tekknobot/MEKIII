@@ -207,6 +207,8 @@ var ui_font: FontFile
 @export var sfx_humantwo_die: AudioStream
 @export var sfx_dog_die: AudioStream
 
+@export var sfx_medkit_pickup: AudioStream
+
 # --- Loot drop: Orbital Laser pickup ---
 @export var laser_drop_scene: PackedScene          # your prefab
 @export_range(0.0, 1.0, 0.05) var laser_drop_chance := 0.35
@@ -1952,9 +1954,13 @@ func _collect_pickup_at(cell: Vector2i, collector: Unit) -> void:
 	# ✅ apply effect
 	if kind == "medkit":
 		if collector != null and is_instance_valid(collector):
-			var before := collector.hp
-			collector.hp = min(collector.max_hp, collector.hp + medkit_heal_amount)
-			if collector.hp > before:
+			var before := int(collector.hp)
+			collector.hp = min(int(collector.max_hp), int(collector.hp) + int(medkit_heal_amount))
+
+			# ✅ only play if it actually healed (prevents pickup spam at full HP)
+			if int(collector.hp) > before:
+				if sfx_medkit_pickup != null:
+					play_sfx_poly(sfx_medkit_pickup, collector.global_position, -6.0, 0.95, 1.05)
 				await _flash_unit(collector)
 		return
 

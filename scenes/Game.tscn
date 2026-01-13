@@ -1,4 +1,4 @@
-[gd_scene load_steps=66 format=3 uid="uid://bmtwqbsx674eo"]
+[gd_scene load_steps=67 format=3 uid="uid://bmtwqbsx674eo"]
 
 [ext_resource type="Script" uid="uid://bn08mhcoceqg" path="res://scripts/game.gd" id="1_400sg"]
 [ext_resource type="PackedScene" uid="uid://b8etqvuw07mhc" path="res://scenes/human.tscn" id="2_s0nni"]
@@ -29,6 +29,7 @@
 [ext_resource type="AudioStream" uid="uid://b7n22ud1fbmt5" path="res://audio/SFX/slash.wav" id="15_kbe8o"]
 [ext_resource type="Texture2D" uid="uid://ck7ob82qmu1po" path="res://sprites/Tiles_UI/mek3/2x2_attack.png" id="15_kyk2p"]
 [ext_resource type="AudioStream" uid="uid://b4lp2xohi5ktg" path="res://audio/SFX/robo_bark.wav" id="16_7f8l2"]
+[ext_resource type="AudioStream" uid="uid://bcjbc1m7ri1vm" path="res://audio/SFX/Retro PowerUP StereoUP 05.wav" id="16_cxum0"]
 [ext_resource type="AudioStream" uid="uid://cvmadfryrn0ar" path="res://audio/SFX/Hit8.wav" id="17_cxum0"]
 [ext_resource type="PackedScene" uid="uid://cq3upgp7cxwld" path="res://scenes/medkit_drop.tscn" id="17_kbe8o"]
 [ext_resource type="Script" uid="uid://c5qxy87uee84f" path="res://scripts/turnmanager.gd" id="19_45i86"]
@@ -270,6 +271,7 @@ sfx_humantwo_hurt = ExtResource("17_cxum0")
 sfx_dog_hurt = ExtResource("17_cxum0")
 sfx_humantwo_die = ExtResource("10_jhsr3")
 sfx_dog_die = ExtResource("8_a85ww")
+sfx_medkit_pickup = ExtResource("16_cxum0")
 laser_drop_scene = ExtResource("14_i4jil")
 medkit_drop_scene = ExtResource("17_kbe8o")
 orbital_hits = 1

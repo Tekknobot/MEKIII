@@ -68,7 +68,7 @@ func _refresh() -> void:
 		add_theme_color_override("font_color", Color(1, 1, 1, 1))
 		return
 
-	var cur := int(unit.hp)
+	var cur = max(0, int(unit.hp))
 	var maxv = max(1, int(unit.max_hp))
 
 	if show_as_fraction:
