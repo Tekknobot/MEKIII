@@ -211,6 +211,11 @@ var ui_font: FontFile
 @export var laser_drop_scene: PackedScene          # your prefab
 @export_range(0.0, 1.0, 0.05) var laser_drop_chance := 0.35
 
+# --- Loot drop: Medkit pickup ---
+@export var medkit_drop_scene: PackedScene
+@export_range(0.0, 1.0, 0.05) var medkit_drop_chance := 0.45
+@export_range(1, 10, 1) var medkit_heal_amount := 2
+
 # Orbital laser effect
 @export var orbital_beam_width := 1.0
 @export var orbital_hits := 4                       # how many zombies get zapped
@@ -1683,9 +1688,56 @@ func _on_unit_died(u: Unit) -> void:
 	if hovered_unit == u:
 		set_hovered_unit(null)
 
-	# ✅ Zombie drops laser pickup
+	# ✅ Zombie drops (choose one)
 	if u is Zombie:
-		_try_spawn_laser_drop(origin)
+		_try_spawn_medkit_drop(origin) # try medkit first
+		_try_spawn_laser_drop(origin)  # then laser
+
+func _try_spawn_medkit_drop(zombie_cell: Vector2i) -> void:
+	if medkit_drop_scene == null:
+		return
+	if rng.randf() > medkit_drop_chance:
+		return
+
+	var spawn_cell := Vector2i(-1, -1)
+
+	if _is_pickup_cell_ok(zombie_cell) and not pickups.has(zombie_cell):
+		spawn_cell = zombie_cell
+	else:
+		spawn_cell = _find_free_adjacent_cell(zombie_cell)
+
+	if spawn_cell.x < 0:
+		return
+	if pickups.has(spawn_cell):
+		return
+
+	var drop := medkit_drop_scene.instantiate()
+	var d2 := drop as Node2D
+	if d2 == null:
+		push_warning("medkit_drop_scene root is not Node2D/Area2D; can't render.")
+		return
+
+	# tag it so _collect_pickup_at knows what it is
+	d2.set_meta("pickup_kind", "medkit")
+
+	pickups_root.add_child(d2)
+
+	var world_pos := terrain.to_global(terrain.map_to_local(spawn_cell))
+	world_pos += Vector2(0, -16)
+	d2.global_position = world_pos
+
+	d2.z_as_relative = false
+	d2.z_index = 300000 + int(world_pos.y)
+
+	d2.visible = true
+	d2.modulate = Color(1, 1, 1, 1)
+
+	pickups[spawn_cell] = d2
+
+	# quick pop-in
+	d2.scale = Vector2.ONE * 0.85
+	var t := create_tween()
+	t.tween_property(d2, "scale", Vector2.ONE, 0.12)
 
 func _try_spawn_laser_drop(zombie_cell: Vector2i) -> void:
 	if laser_drop_scene == null:
@@ -1884,6 +1936,11 @@ func _collect_pickup_at(cell: Vector2i, collector: Unit) -> void:
 	var drop = pickups[cell]
 	pickups.erase(cell)
 
+	# figure out what it is BEFORE we free it
+	var kind := ""
+	if drop != null and is_instance_valid(drop) and drop.has_meta("pickup_kind"):
+		kind = str(drop.get_meta("pickup_kind"))
+
 	# fade out and remove
 	if drop != null and is_instance_valid(drop):
 		var t := create_tween()
@@ -1892,7 +1949,16 @@ func _collect_pickup_at(cell: Vector2i, collector: Unit) -> void:
 		if is_instance_valid(drop):
 			drop.queue_free()
 
-	# ✅ orbital strike
+	# ✅ apply effect
+	if kind == "medkit":
+		if collector != null and is_instance_valid(collector):
+			var before := collector.hp
+			collector.hp = min(collector.max_hp, collector.hp + medkit_heal_amount)
+			if collector.hp > before:
+				await _flash_unit(collector)
+		return
+
+	# default = laser (your existing behavior)
 	await _orbital_laser_strike()
 
 func _orbital_laser_strike() -> void:

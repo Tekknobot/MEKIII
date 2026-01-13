@@ -1,4 +1,4 @@
-[gd_scene load_steps=42 format=3 uid="uid://cv6mfkhtkvxij"]
+[gd_scene load_steps=44 format=3 uid="uid://cv6mfkhtkvxij"]
 
 [ext_resource type="Script" uid="uid://dx4185brwpn1m" path="res://scripts/humantwo.gd" id="1_ttoxp"]
 [ext_resource type="Texture2D" uid="uid://dm3325xgagtql" path="res://sprites/Humans/merc/attack/rambo_attack1.png" id="2_ttoxp"]
@@ -39,9 +39,11 @@
 [ext_resource type="Texture2D" uid="uid://cfegin6ajshld" path="res://sprites/Humans/merc/rambo3.png" id="37_3ua76"]
 [ext_resource type="Texture2D" uid="uid://dmq3p3kwp5ijv" path="res://sprites/Humans/merc/rambo4.png" id="38_eajvc"]
 [ext_resource type="Texture2D" uid="uid://dvxjdj64f0qc4" path="res://sprites/Humans/merc/rambo5.png" id="39_klbvv"]
+[ext_resource type="FontFile" uid="uid://buw362wjb8o8d" path="res://fonts/magofonts/mago2.ttf" id="40_rj2tn"]
+[ext_resource type="Script" uid="uid://lmsma3lhwhb8" path="res://scripts/hp_label.gd" id="41_t1h4y"]
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_jwu2t"]
-size = Vector2(20, 30)
+size = Vector2(20, 1)
 
 [sub_resource type="SpriteFrames" id="SpriteFrames_v1h0r"]
 animations = [{
@@ -187,10 +189,21 @@ animations = [{
 script = ExtResource("1_ttoxp")
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="."]
-position = Vector2(0, -21)
+position = Vector2(0, -6.5)
 shape = SubResource("RectangleShape2D_jwu2t")
 
 [node name="AnimatedSprite2D" type="AnimatedSprite2D" parent="."]
 sprite_frames = SubResource("SpriteFrames_v1h0r")
-animation = &"move"
+animation = &"idle"
 autoplay = "idle"
+
+[node name="HPLabel" type="Label" parent="."]
+offset_top = -50.0
+offset_right = 40.0
+offset_bottom = -37.0
+theme_override_fonts/font = ExtResource("40_rj2tn")
+text = "3"
+script = ExtResource("41_t1h4y")
+unit_path = NodePath("..")
+show_as_fraction = false
+prefix = ""

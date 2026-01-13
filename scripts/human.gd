@@ -7,3 +7,4 @@ func _ready() -> void:
 	attack_range = 4
 	attack_repeats = 1
 	hp = 3
+	max_hp = 3

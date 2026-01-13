@@ -1,4 +1,4 @@
-[gd_scene load_steps=43 format=3 uid="uid://dmujwxtnheagi"]
+[gd_scene load_steps=45 format=3 uid="uid://dmujwxtnheagi"]
 
 [ext_resource type="Script" uid="uid://cuhaf2noht7l2" path="res://scripts/zombie.gd" id="1_o6twh"]
 [ext_resource type="Texture2D" uid="uid://cwttiy82qxf31" path="res://sprites/Zombies/attack/zomb_atk1.png" id="2_o6twh"]
@@ -40,9 +40,11 @@
 [ext_resource type="Texture2D" uid="uid://y1tu1n80rvks" path="res://sprites/Zombies/move/zomb4.png" id="38_i12k7"]
 [ext_resource type="Texture2D" uid="uid://bdnwlnsu56wes" path="res://sprites/Zombies/move/zomb5.png" id="39_a3vf8"]
 [ext_resource type="Texture2D" uid="uid://d265fi2e6of11" path="res://sprites/Zombies/move/zomb6.png" id="40_j2sop"]
+[ext_resource type="FontFile" uid="uid://buw362wjb8o8d" path="res://fonts/magofonts/mago2.ttf" id="41_ln2kq"]
+[ext_resource type="Script" uid="uid://lmsma3lhwhb8" path="res://scripts/hp_label.gd" id="42_turgy"]
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_o6twh"]
-size = Vector2(20, 30)
+size = Vector2(20, 1)
 
 [sub_resource type="SpriteFrames" id="SpriteFrames_0pyg8"]
 animations = [{
@@ -192,7 +194,7 @@ script = ExtResource("1_o6twh")
 team = 1
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="."]
-position = Vector2(0, -21)
+position = Vector2(0, -6.5)
 shape = SubResource("RectangleShape2D_o6twh")
 disabled = true
 
@@ -200,3 +202,14 @@ disabled = true
 sprite_frames = SubResource("SpriteFrames_0pyg8")
 animation = &"move"
 autoplay = "idle"
+
+[node name="HPLabel" type="Label" parent="."]
+offset_top = -50.0
+offset_right = 40.0
+offset_bottom = -37.0
+theme_override_fonts/font = ExtResource("41_ln2kq")
+text = "3"
+script = ExtResource("42_turgy")
+unit_path = NodePath("..")
+show_as_fraction = false
+prefix = ""

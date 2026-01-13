@@ -1,4 +1,4 @@
-[gd_scene load_steps=48 format=3 uid="uid://bqrbab23wjpjp"]
+[gd_scene load_steps=51 format=3 uid="uid://bqrbab23wjpjp"]
 
 [ext_resource type="Script" uid="uid://bhleuow0oj7s4" path="res://scripts/mech.gd" id="1_0w1yf"]
 [ext_resource type="Texture2D" uid="uid://boeoiearg2d4c" path="res://sprites/Dog/attack/dog_atk1.png" id="2_nvw8n"]
@@ -46,6 +46,11 @@
 [ext_resource type="Texture2D" uid="uid://b6xc2lxc2xcbp" path="res://sprites/Dog/dog4.png" id="44_td0mw"]
 [ext_resource type="Texture2D" uid="uid://drwojs0xkl8pl" path="res://sprites/Dog/dog5.png" id="45_to4eo"]
 [ext_resource type="Texture2D" uid="uid://gwjqv0y3yqov" path="res://sprites/Dog/dog6.png" id="46_ldk4d"]
+[ext_resource type="FontFile" uid="uid://buw362wjb8o8d" path="res://fonts/magofonts/mago2.ttf" id="47_7tcnj"]
+[ext_resource type="Script" uid="uid://lmsma3lhwhb8" path="res://scripts/hp_label.gd" id="48_hm8jv"]
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_7tcnj"]
+size = Vector2(20, 1)
 
 [sub_resource type="SpriteFrames" id="SpriteFrames_7uhu2"]
 animations = [{
@@ -205,11 +210,26 @@ animations = [{
 "speed": 12.0
 }]
 
-[node name="Unit" type="Node2D"]
+[node name="Unit" type="CharacterBody2D"]
 script = ExtResource("1_0w1yf")
 death_offset = Vector2(0, -16)
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="."]
+position = Vector2(0, -6.5)
+shape = SubResource("RectangleShape2D_7tcnj")
 
 [node name="AnimatedSprite2D" type="AnimatedSprite2D" parent="."]
 sprite_frames = SubResource("SpriteFrames_7uhu2")
 animation = &"move"
 autoplay = "idle"
+
+[node name="HPLabel" type="Label" parent="."]
+offset_top = -40.0
+offset_right = 40.0
+offset_bottom = -27.0
+theme_override_fonts/font = ExtResource("47_7tcnj")
+text = "3"
+script = ExtResource("48_hm8jv")
+unit_path = NodePath("..")
+show_as_fraction = false
+prefix = ""

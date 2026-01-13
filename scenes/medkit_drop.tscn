@@ -1,0 +1,18 @@
+[gd_scene load_steps=4 format=3 uid="uid://cq3upgp7cxwld"]
+
+[ext_resource type="Script" uid="uid://cgw34uwk1dcd" path="res://scripts/medkit_drop.gd" id="1_0yib5"]
+[ext_resource type="Texture2D" uid="uid://dlbicachyet3k" path="res://sprites/Drops/health_drop.png" id="1_8w31k"]
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_alfcu"]
+size = Vector2(6, 1)
+
+[node name="MedkitDrop" type="Area2D"]
+script = ExtResource("1_0yib5")
+rot_degrees = 6.0
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="."]
+position = Vector2(0, 7.5)
+shape = SubResource("RectangleShape2D_alfcu")
+
+[node name="Visual" type="Sprite2D" parent="."]
+texture = ExtResource("1_8w31k")

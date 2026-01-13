@@ -1,4 +1,4 @@
-[gd_scene load_steps=65 format=3 uid="uid://bmtwqbsx674eo"]
+[gd_scene load_steps=66 format=3 uid="uid://bmtwqbsx674eo"]
 
 [ext_resource type="Script" uid="uid://bn08mhcoceqg" path="res://scripts/game.gd" id="1_400sg"]
 [ext_resource type="PackedScene" uid="uid://b8etqvuw07mhc" path="res://scenes/human.tscn" id="2_s0nni"]
@@ -30,6 +30,7 @@
 [ext_resource type="Texture2D" uid="uid://ck7ob82qmu1po" path="res://sprites/Tiles_UI/mek3/2x2_attack.png" id="15_kyk2p"]
 [ext_resource type="AudioStream" uid="uid://b4lp2xohi5ktg" path="res://audio/SFX/robo_bark.wav" id="16_7f8l2"]
 [ext_resource type="AudioStream" uid="uid://cvmadfryrn0ar" path="res://audio/SFX/Hit8.wav" id="17_cxum0"]
+[ext_resource type="PackedScene" uid="uid://cq3upgp7cxwld" path="res://scenes/medkit_drop.tscn" id="17_kbe8o"]
 [ext_resource type="Script" uid="uid://c5qxy87uee84f" path="res://scripts/turnmanager.gd" id="19_45i86"]
 [ext_resource type="PackedScene" uid="uid://bm1g128j70kea" path="res://scenes/StarNight.tscn" id="20_sv1m6"]
 [ext_resource type="Texture2D" uid="uid://c1pruacv3xra5" path="res://sprites/Terrain/roads/16.png" id="30_1fiys"]
@@ -246,7 +247,7 @@ target_water = 0.0
 water_blobs = 1
 blob_steps = 2
 mech_count = 1
-zombie_count = 8
+zombie_count = 16
 human_scene = ExtResource("2_s0nni")
 human2_scene = ExtResource("3_1gdd5")
 mech_scene = ExtResource("3_aug50")
@@ -270,6 +271,7 @@ sfx_dog_hurt = ExtResource("17_cxum0")
 sfx_humantwo_die = ExtResource("10_jhsr3")
 sfx_dog_die = ExtResource("8_a85ww")
 laser_drop_scene = ExtResource("14_i4jil")
+medkit_drop_scene = ExtResource("17_kbe8o")
 orbital_hits = 1
 sfx_orbital_zap = ExtResource("15_jai3c")
 
