@@ -14,6 +14,10 @@ var M
 var current_side := Unit.Team.ALLY
 var waiting_for_player_action := false
 
+@export var human_tnt_throw_range := 8          # Manhattan cells from human origin to landing cell
+@export var human_tnt_min_enemy_hits := 2       # only throw if it will hit at least this many enemies
+@export var human_tnt_ally_avoid := true        # don't throw if it would hit any ally
+
 func _ready() -> void:
 	M = get_node(map)
 	if start_on_ready:
@@ -31,6 +35,9 @@ func start_battle() -> void:
 # AUTO BATTLE (your existing)
 # ----------------------------
 func _battle_loop_auto() -> void:
+	if M.has_method("set_player_mode"):
+		M.set_player_mode(false)
+			
 	while true:
 		if _check_end():
 			return
@@ -104,6 +111,22 @@ func _check_end() -> bool:
 	return false
 
 func _unit_take_ai_turn(u: Unit) -> void:
+	if u == null or not is_instance_valid(u):
+		return
+
+	# ✅ Humans: try TNT first
+	if u is Human:
+		var h := u as Human
+		var pick = _pick_best_tnt_target_for_human(h)
+
+		# pick = {"cell": Vector2i, "enemy_hits": int}
+		if pick.size() > 0:
+			var cell: Vector2i = pick["cell"]
+			var target_u: Unit = M.unit_at_cell(cell) # can be null
+			await M.perform_human_tnt_throw(h, cell, target_u)
+			return
+
+	# ---- default behavior (attack / move / attack) ----
 	var target: Unit = M.nearest_enemy(u)
 	if target == null:
 		return
@@ -113,7 +136,7 @@ func _unit_take_ai_turn(u: Unit) -> void:
 		await M.perform_attack(u, target)
 		return
 
-	# 2) Otherwise move toward target (your current logic)
+	# 2) Otherwise move toward target
 	var start = M.get_unit_origin(u)
 	if M._is_big_unit(u):
 		start = M.snap_origin_for_unit(start, u)
@@ -143,3 +166,110 @@ func _unit_take_ai_turn(u: Unit) -> void:
 
 	if M._attack_distance(u, target) <= u.attack_range:
 		await M.perform_attack(u, target)
+
+func _pick_best_tnt_target_for_human(h: Human) -> Dictionary:
+	if h == null or not is_instance_valid(h):
+		return {}
+	if M == null:
+		return {}
+
+	# Needs TNT setup on Map
+	if M.tnt_projectile_scene == null or M.tnt_explosion_scene == null:
+		return {}
+	if human_tnt_throw_range <= 0:
+		return {}
+
+	var h_origin = M.get_unit_origin(h)
+	if M._is_big_unit(h):
+		h_origin = M.snap_origin_for_unit(h_origin, h)
+
+	# Collect units
+	var enemies: Array[Unit] = []
+	var allies: Array[Unit] = []
+	for child in M.units_root.get_children():
+		var u := child as Unit
+		if u == null or not is_instance_valid(u):
+			continue
+		if u.team == h.team:
+			allies.append(u)
+		else:
+			enemies.append(u)
+
+	if enemies.is_empty():
+		return {}
+
+	# Candidate cells: enemy origins + their 4-neighbors
+	var candidates := {}
+	for e in enemies:
+		var eo = M.get_unit_origin(e)
+		if M._is_big_unit(e):
+			eo = M.snap_origin_for_unit(eo, e)
+
+		candidates[eo] = true
+		for nb in M._neighbors4(eo):
+			if M.grid.in_bounds(nb):
+				candidates[nb] = true
+
+	var best_cell := Vector2i(-1, -1)
+	var best_enemy_hits := -1
+	var best_ally_hits := 999999
+	var best_throw_dist := 999999
+
+	for cell in candidates.keys():
+		if not M.grid.in_bounds(cell):
+			continue
+
+		# throw range (origin -> landing cell)
+		var d_throw = abs(cell.x - h_origin.x) + abs(cell.y - h_origin.y)
+		if d_throw > human_tnt_throw_range:
+			continue
+
+		var enemy_hits := _count_team_hits_in_splash(cell, enemies, M.tnt_splash_radius)
+		if enemy_hits < human_tnt_min_enemy_hits:
+			continue
+
+		var ally_hits := _count_team_hits_in_splash(cell, allies, M.tnt_splash_radius)
+
+		# avoid friendly fire if desired
+		if human_tnt_ally_avoid and ally_hits > 0:
+			continue
+
+		# Pick best:
+		# 1) more enemies hit
+		# 2) fewer allies hit (if not avoiding)
+		# 3) shorter throw distance (feels snappier)
+		var better := false
+		if enemy_hits > best_enemy_hits:
+			better = true
+		elif enemy_hits == best_enemy_hits:
+			if ally_hits < best_ally_hits:
+				better = true
+			elif ally_hits == best_ally_hits and d_throw < best_throw_dist:
+				better = true
+
+		if better:
+			best_enemy_hits = enemy_hits
+			best_ally_hits = ally_hits
+			best_throw_dist = d_throw
+			best_cell = cell
+
+	if best_enemy_hits >= human_tnt_min_enemy_hits and best_cell.x >= 0:
+		return {"cell": best_cell, "enemy_hits": best_enemy_hits}
+
+	return {}
+
+func _count_team_hits_in_splash(center: Vector2i, team_units: Array[Unit], radius: int) -> int:
+	var hits := 0
+	for u in team_units:
+		if u == null or not is_instance_valid(u):
+			continue
+
+		# Use origin cell; big units count from their origin (consistent with your damage logic)
+		var uc = M.get_unit_origin(u)
+		if M._is_big_unit(u):
+			uc = M.snap_origin_for_unit(uc, u)
+
+		var d = abs(uc.x - center.x) + abs(uc.y - center.y)
+		if d <= radius:
+			hits += 1
+	return hits

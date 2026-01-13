@@ -145,6 +145,7 @@ zombie_scene = ExtResource("4_kyk2p")
 tnt_projectile_scene = ExtResource("5_attvq")
 tnt_explosion_scene = ExtResource("6_bneo8")
 turn_manager = NodePath("TurnManager")
+tnt_curve_points = 16
 tnt_curve_line_width = 1.0
 
 [node name="StarryNight" parent="." instance=ExtResource("20_sv1m6")]
@@ -190,4 +191,4 @@ map_height = 16
 [node name="TurnManager" type="Node2D" parent="."]
 script = ExtResource("19_45i86")
 map = NodePath("..")
-start_on_ready = false
+human_tnt_throw_range = 5

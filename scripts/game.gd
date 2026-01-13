@@ -111,7 +111,6 @@ var is_player_mode := false
 
 @export var tnt_curve_points := 24          # more = smoother line
 @export var tnt_curve_line_width := 3.0
-@export var tnt_curve_z := 999998           # under projectile (999999)
 @export var tnt_curve_show_time := 0.60     # seconds (usually == flight time)
 
 var _tnt_curve_line: Line2D = null
@@ -252,9 +251,18 @@ func _ready() -> void:
 		TM = get_node(turn_manager) as TurnManager
 
 func _process(_delta: float) -> void:
+	# ✅ No hover/aim previews during auto-battle
+	if not is_player_mode:
+		# If some TNT aim state was left on, force it off
+		if tnt_aiming:
+			tnt_aiming = false
+			tnt_aim_human = null
+			_hide_tnt_curve()
+		return
+
 	_update_hovered_cell()
 	_update_hovered_unit()
-	_update_tnt_aim_preview() # ✅ keep curve alive and tracking the cursor
+	_update_tnt_aim_preview()
 
 func _seed_rng() -> void:
 	if map_seed == 0:
@@ -706,6 +714,10 @@ func draw_attack_range_for_unit(attacker: Unit) -> void:
 			attack_range_small.set_cell(LAYER_ATTACK, target_origin, ATTACK_TILE_SMALL_SOURCE_ID, ATTACK_ATLAS, 0)
 
 func _unhandled_input(event: InputEvent) -> void:
+	# ✅ Ignore all player overlay/input logic during auto-battle
+	if not is_player_mode:
+		return
+
 	if is_moving_unit or is_attacking_unit:
 		return
 
@@ -1428,12 +1440,6 @@ func perform_human_tnt_throw(human: Human, target_cell: Vector2i, target_unit: U
 				continue
 			await u.take_damage(tnt_damage)
 
-	# Clean up overlays / state
-	if is_instance_valid(human):
-		draw_unit_hover(human)
-		draw_move_range_for_unit(human)
-		draw_attack_range_for_unit(human)
-
 	is_attacking_unit = false
 
 	if is_player_mode and TM != null:
@@ -1469,6 +1475,20 @@ func ai_take_turn(u: Unit) -> void:
 func set_player_mode(enabled: bool) -> void:
 	is_player_mode = enabled
 
+	# ✅ Hard reset overlays + TNT preview when leaving player mode
+	if not enabled:
+		selected_unit = null
+		hovered_unit = null
+		hovered_cell = Vector2i(-1, -1)
+
+		clear_selection_highlight()
+		clear_move_range()
+		clear_attack_range()
+
+		tnt_aiming = false
+		tnt_aim_human = null
+		_hide_tnt_curve()
+
 func _tnt_throw_update(t: float, proj: Node2D, from_pos: Vector2, to_pos: Vector2, arc_height: float, spin_turns: float) -> void:
 	if proj == null or not is_instance_valid(proj):
 		return
@@ -1483,6 +1503,15 @@ func _tnt_throw_update(t: float, proj: Node2D, from_pos: Vector2, to_pos: Vector
 	proj.global_position = p
 	proj.rotation = t * TAU * spin_turns
 
+	# ✅ Keep TNT always ABOVE the curve using same target-cell depth + 1
+	# (uses tnt_aim_cell during aim OR falls back to impact position near end)
+	if tnt_aim_cell.x >= 0 and grid.in_bounds(tnt_aim_cell):
+		var cell_world := terrain.to_global(terrain.map_to_local(tnt_aim_cell))
+		proj.z_index = int(cell_world.y) + 1
+	else:
+		# fallback: use current world y so it still sorts reasonably
+		proj.z_index = int(proj.global_position.y) + 1
+
 func _ensure_tnt_curve_line() -> Line2D:
 	if _tnt_curve_line != null and is_instance_valid(_tnt_curve_line):
 		return _tnt_curve_line
@@ -1492,7 +1521,6 @@ func _ensure_tnt_curve_line() -> Line2D:
 	line.width = tnt_curve_line_width
 	line.top_level = true
 	line.z_as_relative = false
-	line.z_index = 9999999
 	line.visible = false
 
 	add_child(line)
@@ -1506,9 +1534,14 @@ func _arc_point(from_pos: Vector2, to_pos: Vector2, t: float, arc_height: float)
 	p.y -= bump
 	return p
 
-
 func _draw_tnt_curve(from_pos: Vector2, to_pos: Vector2, arc_height: float) -> void:
 	var line := _ensure_tnt_curve_line()
+
+	# ✅ Depth based on TARGET CELL world-y (iso-friendly, no sort_stride needed)
+	if tnt_aim_cell.x >= 0 and grid.in_bounds(tnt_aim_cell):
+		var cell_world := terrain.to_global(terrain.map_to_local(tnt_aim_cell))
+		line.z_index = int(cell_world.y) # curve depth = target cell depth
+
 	line.clear_points()
 
 	var n = max(4, tnt_curve_points)
@@ -1517,7 +1550,6 @@ func _draw_tnt_curve(from_pos: Vector2, to_pos: Vector2, arc_height: float) -> v
 		line.add_point(_arc_point(from_pos, to_pos, t, arc_height))
 
 	line.visible = true
-
 
 func _hide_tnt_curve() -> void:
 	if _tnt_curve_line != null and is_instance_valid(_tnt_curve_line):

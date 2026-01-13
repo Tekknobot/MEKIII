@@ -1,2 +1,4 @@
 res://scenes/Game.tscn
 res://scripts/game.gd
+res://scenes/tnt.tscn
+res://scripts/turnmanager.gd
