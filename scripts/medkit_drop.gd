@@ -7,6 +7,9 @@ class_name MedkitDrop
 @export_range(1, 10, 1) var heal_amount := 2
 @export var also_flash := true
 
+# keeps pickups above terrain/roads/structures but still x+y sorted
+@export var z_base := 1
+
 var _t := 0.0
 var visual: Node2D
 
@@ -21,6 +24,9 @@ func _ready() -> void:
 	# connect overlap signals
 	body_entered.connect(_on_body_entered)
 	area_entered.connect(_on_area_entered)
+
+	# ✅ depth sort once at spawn
+	_apply_xy_sum_layering()
 
 func _process(delta: float) -> void:
 	if visual == null:
@@ -59,11 +65,9 @@ func _try_collect(obj: Node) -> void:
 
 	# ✅ play pickup sfx only if it actually healed
 	if int(u.hp) > before and pickup_sfx != null:
-		# Prefer Map helper if available (keeps your game's audio style consistent)
 		if map.has_method("play_sfx_poly"):
 			map.play_sfx_poly(pickup_sfx, u.global_position, pickup_vol_db, pickup_pitch_min, pickup_pitch_max)
 		else:
-			# Fallback: play locally
 			var p := AudioStreamPlayer2D.new()
 			p.stream = pickup_sfx
 			p.global_position = u.global_position
@@ -78,5 +82,22 @@ func _try_collect(obj: Node) -> void:
 		if map.has_method("_flash_unit"):
 			await map._flash_unit(u)
 
-	# small vanish
 	queue_free()
+
+func _apply_xy_sum_layering() -> void:
+	var map := get_tree().get_first_node_in_group("GameMap")
+	if map == null:
+		return
+	if not map.has_node("Terrain"):
+		return
+
+	var terrain := map.get_node("Terrain") as TileMap
+	if terrain == null or not is_instance_valid(terrain):
+		return
+
+	var local_in_terrain := terrain.to_local(global_position)
+	var cell := terrain.local_to_map(local_in_terrain)
+
+	# ✅ x+y sum layering
+	z_as_relative = false
+	z_index = int(z_base + cell.x + cell.y)

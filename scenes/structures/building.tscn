@@ -9,7 +9,7 @@
 [ext_resource type="Texture2D" uid="uid://cnr15roctyks" path="res://sprites/Structures/building_c/demolished/building_demolished6.png" id="7_13v1k"]
 [ext_resource type="Texture2D" uid="uid://eyv3xbeu0olh" path="res://sprites/Structures/building_c/demolished/building_demolished7.png" id="8_x735o"]
 [ext_resource type="Texture2D" uid="uid://dhd1g8qqyhari" path="res://sprites/Structures/building_c/demolished/building_demolished8.png" id="9_o2nbj"]
-[ext_resource type="Script" path="res://scripts/structure.gd" id="10_structure"]
+[ext_resource type="Script" uid="uid://cec3etam8bfs0" path="res://scripts/structure.gd" id="10_structure"]
 
 [sub_resource type="SpriteFrames" id="SpriteFrames_eiewe"]
 animations = [{
@@ -56,3 +56,4 @@ script = ExtResource("10_structure")
 
 [node name="AnimatedSprite2D" type="AnimatedSprite2D" parent="."]
 sprite_frames = SubResource("SpriteFrames_eiewe")
+autoplay = "default"

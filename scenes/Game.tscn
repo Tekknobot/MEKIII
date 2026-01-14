@@ -1,4 +1,4 @@
-[gd_scene load_steps=69 format=3 uid="uid://bmtwqbsx674eo"]
+[gd_scene load_steps=72 format=3 uid="uid://bmtwqbsx674eo"]
 
 [ext_resource type="Script" uid="uid://bn08mhcoceqg" path="res://scripts/game.gd" id="1_400sg"]
 [ext_resource type="PackedScene" uid="uid://b8etqvuw07mhc" path="res://scenes/human.tscn" id="2_s0nni"]
@@ -36,6 +36,9 @@
 [ext_resource type="Script" uid="uid://c5qxy87uee84f" path="res://scripts/turnmanager.gd" id="19_45i86"]
 [ext_resource type="PackedScene" uid="uid://bm1g128j70kea" path="res://scenes/StarNight.tscn" id="20_sv1m6"]
 [ext_resource type="PackedScene" uid="uid://crup4kaqa4cia" path="res://scenes/structures/building.tscn" id="21_1fiys"]
+[ext_resource type="PackedScene" uid="uid://dwtvwjgxljh78" path="res://scenes/structures/district.tscn" id="22_ho5ir"]
+[ext_resource type="PackedScene" uid="uid://cqe28tyh7hada" path="res://scenes/structures/stadium.tscn" id="23_evnk2"]
+[ext_resource type="PackedScene" uid="uid://p5f35eddc3kl" path="res://scenes/structures/tower.tscn" id="24_ca228"]
 [ext_resource type="Texture2D" uid="uid://c1pruacv3xra5" path="res://sprites/Terrain/roads/16.png" id="30_1fiys"]
 [ext_resource type="Texture2D" uid="uid://bp4obyr2a6lhr" path="res://sprites/Terrain/roads/17.png" id="31_m2g6u"]
 [ext_resource type="Texture2D" uid="uid://bkcixujm222r0" path="res://sprites/Terrain/roads/18.png" id="32_27c7x"]
@@ -277,6 +280,7 @@ laser_drop_scene = ExtResource("14_i4jil")
 medkit_drop_scene = ExtResource("17_kbe8o")
 orbital_hits = 1
 sfx_orbital_zap = ExtResource("15_jai3c")
+building_scenes = Array[PackedScene]([ExtResource("21_1fiys"), ExtResource("22_ho5ir"), ExtResource("23_evnk2"), ExtResource("24_ca228")])
 building_scene = ExtResource("21_1fiys")
 building_count = 8
 avoid_spawn_zones = false

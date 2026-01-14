@@ -1,0 +1,59 @@
+[gd_scene load_steps=12 format=3 uid="uid://dwtvwjgxljh78"]
+
+[ext_resource type="Script" uid="uid://cec3etam8bfs0" path="res://scripts/structure.gd" id="1_d475c"]
+[ext_resource type="Texture2D" uid="uid://6gt46uq18kaq" path="res://sprites/Structures/buildings.png" id="2_d475c"]
+[ext_resource type="Texture2D" uid="uid://buvtse4j41f5n" path="res://sprites/Structures/district/buildings_demolished1.png" id="3_aqc7h"]
+[ext_resource type="Texture2D" uid="uid://ccailkq8jkjue" path="res://sprites/Structures/district/buildings_demolished2.png" id="4_cmgb2"]
+[ext_resource type="Texture2D" uid="uid://bm03xx3ws0qne" path="res://sprites/Structures/district/buildings_demolished3.png" id="5_8vcxs"]
+[ext_resource type="Texture2D" uid="uid://biidj0tm0tiuy" path="res://sprites/Structures/district/buildings_demolished4.png" id="6_qo2jm"]
+[ext_resource type="Texture2D" uid="uid://bblq6h56ieg8o" path="res://sprites/Structures/district/buildings_demolished5.png" id="7_fo1xg"]
+[ext_resource type="Texture2D" uid="uid://d25cj5hvjyb6o" path="res://sprites/Structures/district/buildings_demolished6.png" id="8_sfinn"]
+[ext_resource type="Texture2D" uid="uid://dyj7ar2ixt1hp" path="res://sprites/Structures/district/buildings_demolished7.png" id="9_gwsu8"]
+[ext_resource type="Texture2D" uid="uid://dhg1unnt118g2" path="res://sprites/Structures/district/buildings_demolished8.png" id="10_66dw0"]
+
+[sub_resource type="SpriteFrames" id="SpriteFrames_gci0a"]
+animations = [{
+"frames": [{
+"duration": 1.0,
+"texture": ExtResource("2_d475c")
+}],
+"loop": true,
+"name": &"default",
+"speed": 12.0
+}, {
+"frames": [{
+"duration": 1.0,
+"texture": ExtResource("3_aqc7h")
+}, {
+"duration": 1.0,
+"texture": ExtResource("4_cmgb2")
+}, {
+"duration": 1.0,
+"texture": ExtResource("5_8vcxs")
+}, {
+"duration": 1.0,
+"texture": ExtResource("6_qo2jm")
+}, {
+"duration": 1.0,
+"texture": ExtResource("7_fo1xg")
+}, {
+"duration": 1.0,
+"texture": ExtResource("8_sfinn")
+}, {
+"duration": 1.0,
+"texture": ExtResource("9_gwsu8")
+}, {
+"duration": 1.0,
+"texture": ExtResource("10_66dw0")
+}],
+"loop": true,
+"name": &"demolished",
+"speed": 12.0
+}]
+
+[node name="Building" type="Node2D"]
+script = ExtResource("1_d475c")
+
+[node name="AnimatedSprite2D" type="AnimatedSprite2D" parent="."]
+sprite_frames = SubResource("SpriteFrames_gci0a")
+autoplay = "default"

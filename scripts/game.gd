@@ -240,7 +240,12 @@ var pickups := {} # Dictionary[Vector2i, Node2D]  # cell -> pickup instance
 @export var road_pixel_offset_dr := Vector2(0, 16) # <-- this is the “other direction” offset
 
 # --- Structures / Buildings ---
+# NEW: allow multiple building prefabs
+@export var building_scenes: Array[PackedScene] = []
+
+# (keep this as a fallback if you want)
 @export var building_scene: PackedScene
+
 @export var building_count := 6
 @export var building_footprint := Vector2i(2, 2)  # buildings are 2x2 cells
 
@@ -2805,10 +2810,12 @@ func spawn_structures() -> void:
 
 	structure_blocked.clear()
 
-	if building_scene == null:
-		return
-
 	var size := building_footprint
+
+	# ✅ pick a scene source (array-first, fallback to single)
+	var any_scene = _pick_building_scene()
+	if any_scene == null:
+		return
 
 	# Build a list of candidate origin cells (top-left of footprint)
 	var candidates: Array[Vector2i] = []
@@ -2830,7 +2837,12 @@ func spawn_structures() -> void:
 		if _is_structure_blocked(origin, size):
 			continue
 
-		var b := building_scene.instantiate()
+		# ✅ pick per-building
+		var scene = _pick_building_scene()
+		if scene == null:
+			continue
+
+		var b = scene.instantiate()
 		var b2 := b as Node2D
 		if b2 == null:
 			continue
@@ -2848,6 +2860,20 @@ func spawn_structures() -> void:
 
 		_mark_structure_blocked(origin, size)
 		placed += 1
+
+func _pick_building_scene() -> PackedScene:
+	# Prefer the array, fall back to single scene.
+	if building_scenes != null and building_scenes.size() > 0:
+		# Filter out nulls just in case
+		var valid: Array[PackedScene] = []
+		for s in building_scenes:
+			if s != null:
+				valid.append(s)
+
+		if valid.size() > 0:
+			return valid[rng.randi_range(0, valid.size() - 1)]
+
+	return building_scene
 
 func _is_structure_origin_ok(origin: Vector2i, size: Vector2i) -> bool:
 	# footprint must be in bounds

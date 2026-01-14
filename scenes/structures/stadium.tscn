@@ -1,0 +1,59 @@
+[gd_scene load_steps=12 format=3 uid="uid://cqe28tyh7hada"]
+
+[ext_resource type="Script" uid="uid://cec3etam8bfs0" path="res://scripts/structure.gd" id="1_d68p7"]
+[ext_resource type="Texture2D" uid="uid://brf0rek5d3nbm" path="res://sprites/Structures/buildings 2.png" id="2_d68p7"]
+[ext_resource type="Texture2D" uid="uid://7hrhv75jcjt1" path="res://sprites/Structures/stadium/buildings 2_demolished1.png" id="3_v6srh"]
+[ext_resource type="Texture2D" uid="uid://bqga2l6ang5i0" path="res://sprites/Structures/stadium/buildings 2_demolished2.png" id="4_3w5mv"]
+[ext_resource type="Texture2D" uid="uid://cj2amqgx5kma8" path="res://sprites/Structures/stadium/buildings 2_demolished3.png" id="5_qbcbm"]
+[ext_resource type="Texture2D" uid="uid://b0fngoalhjsso" path="res://sprites/Structures/stadium/buildings 2_demolished4.png" id="6_hxbr2"]
+[ext_resource type="Texture2D" uid="uid://b5uhpxv253867" path="res://sprites/Structures/stadium/buildings 2_demolished5.png" id="7_8ln3c"]
+[ext_resource type="Texture2D" uid="uid://cqahc8jgcj4o1" path="res://sprites/Structures/stadium/buildings 2_demolished6.png" id="8_xug2y"]
+[ext_resource type="Texture2D" uid="uid://c4p3l2ydim675" path="res://sprites/Structures/stadium/buildings 2_demolished7.png" id="9_lvadm"]
+[ext_resource type="Texture2D" uid="uid://biqtj7ewpatb2" path="res://sprites/Structures/stadium/buildings 2_demolished8.png" id="10_4786v"]
+
+[sub_resource type="SpriteFrames" id="SpriteFrames_rr3y4"]
+animations = [{
+"frames": [{
+"duration": 1.0,
+"texture": ExtResource("2_d68p7")
+}],
+"loop": true,
+"name": &"default",
+"speed": 12.0
+}, {
+"frames": [{
+"duration": 1.0,
+"texture": ExtResource("3_v6srh")
+}, {
+"duration": 1.0,
+"texture": ExtResource("4_3w5mv")
+}, {
+"duration": 1.0,
+"texture": ExtResource("5_qbcbm")
+}, {
+"duration": 1.0,
+"texture": ExtResource("6_hxbr2")
+}, {
+"duration": 1.0,
+"texture": ExtResource("7_8ln3c")
+}, {
+"duration": 1.0,
+"texture": ExtResource("8_xug2y")
+}, {
+"duration": 1.0,
+"texture": ExtResource("9_lvadm")
+}, {
+"duration": 1.0,
+"texture": ExtResource("10_4786v")
+}],
+"loop": true,
+"name": &"demolished",
+"speed": 12.0
+}]
+
+[node name="Building" type="Node2D"]
+script = ExtResource("1_d68p7")
+
+[node name="AnimatedSprite2D" type="AnimatedSprite2D" parent="."]
+sprite_frames = SubResource("SpriteFrames_rr3y4")
+autoplay = "default"
