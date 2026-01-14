@@ -235,6 +235,21 @@ var pickups := {} # Dictionary[Vector2i, Node2D]  # cell -> pickup instance
 @export var road_pixel_offset_dl := Vector2(0, 16)
 @export var road_pixel_offset_dr := Vector2(0, 16) # <-- this is the “other direction” offset
 
+# --- Structures / Buildings ---
+@export var building_scene: PackedScene
+@export var building_count := 6
+
+# Optional: keep buildings out of spawn zones
+@export var avoid_spawn_zones := true
+
+# Put a Node2D named "Structures" in your scene (sibling to Units/Pickups),
+# or we’ll fall back to self.
+@onready var structures_root: Node2D = get_node_or_null("Structures") as Node2D
+
+# Blocked cells for buildings (acts like a Set): cell -> true
+var structure_blocked := {}
+
+
 func _rect_top_left(size: Vector2i) -> Rect2i:
 	return Rect2i(Vector2i(0, 0), size)
 
@@ -453,7 +468,8 @@ func _ready() -> void:
 
 	if bake_map_visuals:
 		await bake_map_to_sprite()
-			
+	
+	spawn_structures()		
 	spawn_units()
 	ally_rect_cache = _rect_top_left(ally_spawn_size)
 
@@ -487,7 +503,10 @@ func _sync_one_roads_transform(rmap: TileMap, px_off: Vector2) -> void:
 	rmap.z_index = 1000
 
 func _process(_delta: float) -> void:
-	# Only update hover/aim previews when we allow player input.
+	# Terrain might get freed during reload/bake/rebuild — bail safely
+	if terrain == null or not is_instance_valid(terrain):
+		return
+
 	if not _can_handle_player_input():
 		if tnt_aiming:
 			tnt_aiming = false
@@ -723,6 +742,7 @@ func _pick_reward(choice: int) -> void:
 		if roads_x:  roads_x.visible = true
 		await bake_map_to_sprite()
 
+	spawn_structures()
 	# Respawn units on new map
 	spawn_units()
 	_enter_setup()
@@ -731,6 +751,13 @@ func _pick_reward(choice: int) -> void:
 # Mouse -> map helpers
 # -----------------------
 func _update_hovered_cell() -> void:
+	# If terrain got freed or replaced, reacquire it safely
+	if terrain == null or not is_instance_valid(terrain):
+		terrain = get_node_or_null("Terrain") as TileMap
+		if terrain == null or not is_instance_valid(terrain):
+			hovered_cell = Vector2i(-1, -1)
+			return
+
 	var mouse_global := get_global_mouse_position()
 	var local_in_terrain := terrain.to_local(mouse_global)
 	hovered_cell = terrain.local_to_map(local_in_terrain)
@@ -1553,15 +1580,20 @@ func try_move_selected_to(dest: Vector2i) -> bool:
 func _is_cell_walkable(c: Vector2i) -> bool:
 	return grid.in_bounds(c) and grid.terrain[c.x][c.y] != T_WATER
 
-
 func _can_stand(u: Unit, origin: Vector2i) -> bool:
 	for c in u.footprint_cells(origin):
 		if not _is_cell_walkable(c):
 			return false
+
+		# ✅ block buildings
+		if structure_blocked.has(c):
+			return false
+
+		# unit occupancy (existing)
 		if grid.is_occupied(c) and grid.occupied[c] != u:
 			return false
-	return true
 
+	return true
 
 func compute_reachable_origins(u: Unit, start: Vector2i, max_cost: int) -> Array[Vector2i]:
 	var dist := {}
@@ -2745,3 +2777,125 @@ func _zombie_repeats_bonus_for_round(r: int) -> int:
 	if r % 3 != 2:
 		return 0
 	return int(floor(r / 3.0)) + 1
+
+func spawn_structures() -> void:
+	# clear old
+	if structures_root == null:
+		structures_root = self
+
+	for ch in structures_root.get_children():
+		ch.queue_free()
+
+	structure_blocked.clear()
+
+	if building_scene == null:
+		return
+
+	# Build a list of candidate cells (land + in bounds + not in forbidden zones + NOT ON ROADS)
+	var candidates: Array[Vector2i] = []
+	for x in range(map_width):
+		for y in range(map_height):
+			var c := Vector2i(x, y)
+			if not _is_structure_cell_ok(c):
+				continue
+			candidates.append(c)
+
+	candidates.shuffle()
+
+	var placed := 0
+	var tries := 0
+	while placed < building_count and tries < 5000 and not candidates.is_empty():
+		tries += 1
+		var cell = candidates.pop_back()
+
+		if structure_blocked.has(cell):
+			continue
+
+		var b := building_scene.instantiate()
+		var b2 := b as Node2D
+		if b2 == null:
+			continue
+
+		structures_root.add_child(b2)
+
+		# position at cell center (same convention as pickups)
+		var world_pos := terrain.to_global(terrain.map_to_local(cell))
+		b2.global_position = world_pos
+
+		# ✅ Layering: keep structures BEHIND units.
+		# Your units likely use something like Z_UNITS + y*sort_stride (small-ish numbers).
+		# So DO NOT use 180000 here.
+		b2.z_as_relative = false
+		b2.z_index = int(world_pos.y) - 5000  # behind units + still y-ordered vs other structures
+
+		# mark blocked
+		structure_blocked[cell] = true
+		placed += 1
+
+func _is_structure_cell_ok(c: Vector2i) -> bool:
+	if not grid.in_bounds(c):
+		return false
+	if grid.terrain[c.x][c.y] == T_WATER:
+		return false
+
+	# don't place on units / occupied tiles
+	if grid.is_occupied(c):
+		return false
+
+	# ✅ don't place on roads (any of the 3 road TileMaps)
+	if _cell_has_road(c):
+		return false
+
+	# optionally avoid ally/enemy spawn rectangles so battles don’t start jammed
+	if avoid_spawn_zones:
+		var ally_r := _rect_top_left(ally_spawn_size)
+		var enemy_r := _rect_bottom_right(enemy_spawn_size)
+		if ally_r.has_point(c) or enemy_r.has_point(c):
+			return false
+
+	return true
+
+
+func _cell_has_road(c: Vector2i) -> bool:
+	# Convert a terrain cell to world position, then ask each road TileMap
+	# what road-cell that world position maps onto. If any has a tile -> it’s road.
+	if terrain == null or not is_instance_valid(terrain):
+		return false
+
+	var world_pos := terrain.to_global(terrain.map_to_local(c))
+
+	var road_maps: Array[TileMap] = []
+	if roads_dl != null: road_maps.append(roads_dl)
+	if roads_dr != null: road_maps.append(roads_dr)
+	if roads_x  != null: road_maps.append(roads_x)
+
+	for rmap in road_maps:
+		if rmap == null or not is_instance_valid(rmap):
+			continue
+
+		var local_in_road := rmap.to_local(world_pos)
+		var rc := rmap.local_to_map(local_in_road)
+
+		# layer 0 in your road maps
+		if rmap.get_cell_source_id(0, rc) != -1:
+			return true
+
+	return false
+
+@export var iso_sort_stride := 1000  # must be > map_width+map_height etc.
+
+func _depth_from_cell(cell: Vector2i) -> int:
+	# classic iso depth: diagonal “rows”
+	return (cell.x + cell.y) * iso_sort_stride
+
+func _bottom_cell_for_footprint(origin: Vector2i, size: Vector2i) -> Vector2i:
+	return origin + Vector2i(size.x - 1, size.y - 1)
+
+func _depth_for_unit(u: Unit) -> int:
+	var o := get_unit_origin(u)
+	var bottom := _bottom_cell_for_footprint(o, u.footprint_size)
+	return _depth_from_cell(bottom)
+
+func _depth_for_structure_cell(cell: Vector2i, size: Vector2i) -> int:
+	var bottom := _bottom_cell_for_footprint(cell, size)
+	return _depth_from_cell(bottom)

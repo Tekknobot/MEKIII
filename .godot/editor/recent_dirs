@@ -1,3 +1,6 @@
+res://scenes/structures
+res://sprites/Structures/building_c/demolished
+res://sprites/Structures/building_c
 res://scripts
 res://scenes
 res://fonts/magofonts
@@ -17,6 +20,3 @@ res://sprites/Zombies/idle
 res://sprites/Tiles_UI/mek3
 res://sprites/Terrain
 res://sprites/Terrain/mek3
-res://sprites/Tiles_UI
-res://sprites/Meks/M1
-res://sprites/Humans/soldier/attack
