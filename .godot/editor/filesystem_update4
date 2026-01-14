@@ -1,13 +1,5 @@
 res://scenes/Game.tscn
-res://scripts/unit.gd
-res://scripts/structure.gd
-res://scripts/game.gd
-res://scenes/zombie.tscn
-res://scenes/structures/building.tscn
-res://scenes/structures/stadium.tscn
-res://scenes/structures/district.tscn
-res://scenes/structures/tower.tscn
 res://scenes/medkit_drop.tscn
 res://scripts/laser_drop.gd
 res://scripts/medkit_drop.gd
-res://scenes/explosion.tscn
+res://scripts/game.gd

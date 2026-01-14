@@ -2447,7 +2447,7 @@ func perform_human_tnt_throw(thrower: Unit, target_cell: Vector2i, target_unit: 
 	var from_pos := thrower.global_position + Vector2(0, -12)
 
 	# Land at the center of the clicked cell
-	var to_pos := terrain.to_global(terrain.map_to_local(target_cell))
+	var to_pos := terrain.to_global(terrain.map_to_local(target_cell)) + Vector2(0, -16)
 
 	# Face the throw direction
 	_set_facing_from_world_delta(thrower, from_pos, to_pos)
@@ -2572,7 +2572,7 @@ func _tnt_throw_update(t: float, proj: Node2D, from_pos: Vector2, to_pos: Vector
 	# ✅ Keep TNT always ABOVE the curve using same target-cell depth + 1
 	# (uses tnt_aim_cell during aim OR falls back to impact position near end)
 	if tnt_aim_cell.x >= 0 and grid.in_bounds(tnt_aim_cell):
-		var cell_world := terrain.to_global(terrain.map_to_local(tnt_aim_cell))
+		var cell_world := terrain.to_global(terrain.map_to_local(tnt_aim_cell)) + Vector2(0, -16)
 		proj.z_index = int(cell_world.y) + 1
 	else:
 		# fallback: use current world y so it still sorts reasonably
@@ -2649,7 +2649,7 @@ func _update_tnt_aim_preview() -> void:
 	tnt_aim_cell = hovered_cell
 
 	var from_pos := tnt_aim_unit.global_position + Vector2(0, -12)
-	var to_pos := terrain.to_global(terrain.map_to_local(tnt_aim_cell))
+	var to_pos := terrain.to_global(terrain.map_to_local(tnt_aim_cell)) + Vector2(0, -16)
 
 	_set_facing_from_world_delta(tnt_aim_unit, from_pos, to_pos)
 	_draw_tnt_curve(from_pos, to_pos, tnt_arc_height)

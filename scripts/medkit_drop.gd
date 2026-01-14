@@ -8,7 +8,7 @@ class_name MedkitDrop
 @export var also_flash := true
 
 # keeps pickups above terrain/roads/structures but still x+y sorted
-@export var z_base := 3
+@export var z_base := 4
 
 var _t := 0.0
 var visual: Node2D
