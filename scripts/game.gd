@@ -712,23 +712,41 @@ func _refresh_ui_status() -> void:
 		phase = "REWARD"
 
 	var lines: Array[String] = []
-	lines.append("Round %d , Phase: %s" % [round_index, phase])
-	lines.append("Allies: %d  Enemies: %d" % [get_units(Unit.Team.ALLY).size(), get_units(Unit.Team.ENEMY).size()])
 
-	# Avoid special characters and arrow glyphs; keep it plain ASCII.
-	# Also avoid calling _get_tnt_damage() if it doesn't exist for some reason.
+	# Header
+	lines.append("Round %d  ,  Phase: %s" % [round_index, phase])
+	lines.append("Allies: %d   Enemies: %d" %
+		[get_units(Unit.Team.ALLY).size(), get_units(Unit.Team.ENEMY).size()])
+	lines.append("") # spacer
+
+	# Current TNT damage
 	var cur_tnt := tnt_damage
 	if has_method("_get_tnt_damage"):
 		cur_tnt = _get_tnt_damage()
 
-	lines.append(
-		"Upgrades: HP +%d, Range +%d, Move +%d, Repeats +%d, TNT +%d (base %d to %d)" %
-		[bonus_max_hp, bonus_attack_range, bonus_move_range, bonus_attack_repeats, bonus_tnt_damage, tnt_damage, cur_tnt]
-	)
+	# ---- Humans ----
+	lines.append("[b]Humans[/b]")
+	lines.append("  HP:      +%d" % bonus_max_hp)
+	lines.append("  Range:   +%d" % bonus_attack_range)
+	lines.append("  Move:    +%d" % bonus_move_range)
+	lines.append("  Repeats: +%d" % bonus_attack_repeats)
+	lines.append("  TNT:     +%d  (base %d → %d)" % [bonus_tnt_damage, tnt_damage, cur_tnt])
+	lines.append("")
 
+	# ---- Zombies ----
+	var z_hp := _zombie_hp_bonus_for_round(round_index)
+	var z_rep := _zombie_repeats_bonus_for_round(round_index)
+
+	lines.append("[b]Zombies[/b]")
+	lines.append("  HP:      +%d" % z_hp)
+	lines.append("  Repeats: +%d" % z_rep)
+	lines.append("")
+
+	# ---- Phase info ----
 	if state == GameState.SETUP:
-		lines.append("[color=#ffd966]BATTLE RULES[/color]: Units move and attack automatically.")
-		lines.append("[color=#ff9966]Humans[/color] use [color=#ff4444]TNT[/color] when available.")
+		lines.append("[color=#ffd966]BATTLE RULES[/color]")
+		lines.append("• Units move and attack automatically.")
+		lines.append("• [color=#ff9966]Humans[/color] use [color=#ff4444]TNT[/color] when available.")
 
 	elif state == GameState.BATTLE:
 		lines.append("[color=#66ccff]BATTLE IN PROGRESS[/color]")
@@ -739,7 +757,6 @@ func _refresh_ui_status() -> void:
 		lines.append("Choose an upgrade to continue.")
 
 	ui_status_label.text = "\n".join(lines)
-
 
 func _enter_setup() -> void:
 	state = GameState.SETUP
