@@ -350,6 +350,12 @@ func _setup_place_selected(cell: Vector2i) -> bool:
 		if grid.terrain[c.x][c.y] == T_WATER:
 			ok = false
 			break
+
+		# ✅ NEW: block buildings during setup placement
+		if structure_blocked.has(c):
+			ok = false
+			break
+
 		if grid.is_occupied(c):
 			ok = false
 			break
@@ -402,6 +408,12 @@ func _spawn_one(scene: PackedScene, region: Rect2i) -> void:
 			if grid.terrain[c.x][c.y] == T_WATER:
 				ok = false
 				break
+
+			# ✅ NEW: don't spawn on structure footprints
+			if structure_blocked.has(c):
+				ok = false
+				break
+
 			if grid.is_occupied(c):
 				ok = false
 				break
