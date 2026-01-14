@@ -249,6 +249,8 @@ sources/1 = SubResource("TileSetAtlasSource_attvq")
 
 [node name="Game" type="Node2D" groups=["GameMap"]]
 script = ExtResource("1_400sg")
+target_water = 0.0
+freeze_water_chance = 0.0
 mech_count = 1
 zombie_count = 8
 human_scene = ExtResource("2_s0nni")

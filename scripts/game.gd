@@ -883,7 +883,7 @@ func pick_tile_for_season_no_water() -> int:
 		T_SNOW:
 			return (T_ICE if rng.randf() < 0.7 else T_GRASS)
 		T_ICE:
-			return (T_SNOW if rng.randf() < 0.7 else T_WATER) # note: you later add water anyway
+			return (T_SNOW if rng.randf() < 0.7 else T_DIRT) # note: you later add water anyway
 	return main
 
 
@@ -945,7 +945,7 @@ func _add_water_patches() -> void:
 				continue
 
 		var old = grid.terrain[c.x][c.y]
-		grid.terrain[c.x][c.y] = T_WATER
+		grid.terrain[c.x][c.y] = T_GRASS
 
 		if _is_walkable_still_connected():
 			placed += 1
@@ -2492,14 +2492,31 @@ func perform_human_tnt_throw(thrower: Unit, target_cell: Vector2i, target_unit: 
 		boom.z_index = 10000
 		play_sfx_poly(sfx_explosion, to_pos, -2.0, 0.9, 1.1)
 
-	# ✅ Damage structures in splash radius too
+	# ✅ Damage structures in splash radius too (freed-safe)
 	var hit_cells := _splash_cells(target_cell, tnt_splash_radius)
 	for c in hit_cells:
-		if structure_by_cell.has(c):
-			var b := structure_by_cell[c] as Node2D
-			if b != null and is_instance_valid(b):
-				var hit_pos := terrain.to_global(terrain.map_to_local(c))
-				_damage_structure(b, _get_tnt_damage(), hit_pos)
+		if not structure_by_cell.has(c):
+			continue
+
+		var raw = structure_by_cell[c]  # DON'T cast yet
+
+		# raw can be null or a freed instance
+		if raw == null or not is_instance_valid(raw):
+			# clean stale references so this stops happening
+			structure_by_cell.erase(c)
+			structure_blocked.erase(c)
+			continue
+
+		var b := raw as Node2D
+		if b == null:
+			# not a Node2D somehow; also clean
+			structure_by_cell.erase(c)
+			structure_blocked.erase(c)
+			continue
+
+		var hit_pos := terrain.to_global(terrain.map_to_local(c))
+		_damage_structure(b, _get_tnt_damage(), hit_pos)
+
 
 	# Damage units in splash radius (grid distance)
 	var victims: Array[Unit] = []
