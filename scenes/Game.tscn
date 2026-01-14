@@ -249,17 +249,17 @@ sources/1 = SubResource("TileSetAtlasSource_attvq")
 
 [node name="Game" type="Node2D" groups=["GameMap"]]
 script = ExtResource("1_400sg")
-season_strength = 0.65
-target_water = 0.0
 mech_count = 1
 zombie_count = 8
 human_scene = ExtResource("2_s0nni")
 human2_scene = ExtResource("3_1gdd5")
 mech_scene = ExtResource("3_aug50")
 zombie_scene = ExtResource("4_kyk2p")
+water_tiles_target = 8
 tnt_projectile_scene = ExtResource("5_attvq")
 tnt_explosion_scene = ExtResource("6_bneo8")
 tnt_damage = 1
+bake_map_visuals = false
 turn_manager = NodePath("TurnManager")
 sfx_human_attack = ExtResource("7_jbgew")
 sfx_zombie_attack = ExtResource("9_cxum0")
@@ -298,21 +298,18 @@ format = 2
 layer_0/modulate = Color(0.09803922, 0.09803922, 0.09803922, 1)
 
 [node name="RoadsDL" type="TileMap" parent="."]
-z_index = -4096
 tile_set = SubResource("TileSet_pn7ev")
 format = 2
 layer_0/modulate = Color(0.60784316, 0.60784316, 0.60784316, 1)
 layer_1/name = "Layer1"
 
 [node name="RoadsDR" type="TileMap" parent="."]
-z_index = -4096
 tile_set = SubResource("TileSet_pn7ev")
 format = 2
 layer_0/modulate = Color(0.60784316, 0.60784316, 0.60784316, 1)
 layer_1/name = "Layer1"
 
 [node name="RoadsX" type="TileMap" parent="."]
-z_index = -4096
 tile_set = SubResource("TileSet_pn7ev")
 format = 2
 layer_0/modulate = Color(0.60784316, 0.60784316, 0.60784316, 1)

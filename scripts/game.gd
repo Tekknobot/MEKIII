@@ -78,6 +78,9 @@ enum Season { DIRT, SANDSTONE, SNOW, GRASS, ICE }
 @export var mech_scene: PackedScene
 @export var zombie_scene: PackedScene
 
+@export_range(0, 256, 1) var water_tiles_target := 24      # exact number of water tiles you want
+@export_range(1, 50, 1) var water_tries_per_tile := 8      # higher = better chance to hit target
+
 # --- Human right-click TNT throw ---
 @export var tnt_projectile_scene: PackedScene
 @export var tnt_explosion_scene: PackedScene
@@ -255,6 +258,51 @@ var pickups := {} # Dictionary[Vector2i, Node2D]  # cell -> pickup instance
 # Put a Node2D named "Structures" in your scene (sibling to Units/Pickups),
 # or we’ll fall back to self.
 @onready var structures_root: Node2D = get_node_or_null("Structures") as Node2D
+
+# --- Structure tinting ---
+@export var structure_tint_strength := 0.55  # 0 = no tint, 1 = full tint
+@export var structure_tint_value_jitter := 0.12  # small brightness variance
+@export var structure_tint_sat_jitter := 0.10    # small saturation variance
+
+# A nice readable palette (edit to taste)
+@export var structure_tint_palette: Array[Color] = [
+	Color("#E07A5F"), # warm clay
+	Color("#81B29A"), # sage
+	Color("#F2CC8F"), # sand
+	Color("#3D405B"), # slate
+	Color("#9C89B8"), # lilac
+	Color("#F4F1DE"), # off-white
+]
+
+func _pick_structure_tint() -> Color:
+	if structure_tint_palette == null or structure_tint_palette.is_empty():
+		# fallback: random pastel-ish
+		var h := rng.randf()
+		var s = clamp(rng.randf_range(0.25, 0.55), 0.0, 1.0)
+		var v = clamp(rng.randf_range(0.75, 1.0), 0.0, 1.0)
+		return Color.from_hsv(h, s, v, 1.0)
+
+	var base := structure_tint_palette[rng.randi_range(0, structure_tint_palette.size() - 1)]
+
+	# jitter slightly so repeats still feel different
+	var h := base.h
+	var s = clamp(base.s + rng.randf_range(-structure_tint_sat_jitter, structure_tint_sat_jitter), 0.0, 1.0)
+	var v = clamp(base.v + rng.randf_range(-structure_tint_value_jitter, structure_tint_value_jitter), 0.0, 1.0)
+
+	return Color.from_hsv(h, s, v, 1.0)
+
+func _apply_structure_tint(b2: Node2D) -> void:
+	if b2 == null or not is_instance_valid(b2):
+		return
+
+	# Node2D is a CanvasItem, so modulate works.
+	var tint := _pick_structure_tint()
+
+	# Blend between white and tint so you keep sprite detail
+	var blended := Color.WHITE.lerp(tint, clamp(structure_tint_strength, 0.0, 1.0))
+
+	b2.modulate = blended
+
 
 # Blocked cells for buildings (acts like a Set): cell -> true
 var structure_blocked := {}
@@ -522,7 +570,7 @@ func _sync_one_roads_transform(rmap: TileMap, px_off: Vector2) -> void:
 
 	# ✅ FORCE same z_layer as everything else
 	rmap.z_as_relative = false
-	rmap.z_index = 1000
+	rmap.z_index = 1
 
 func _process(_delta: float) -> void:
 	# Terrain might get freed during reload/bake/rebuild — bail safely
@@ -825,7 +873,7 @@ func pick_tile_for_season_no_water() -> int:
 		T_SNOW:
 			return (T_ICE if rng.randf() < 0.7 else T_GRASS)
 		T_ICE:
-			return (T_SNOW if rng.randf() < 0.7 else T_DIRT) # note: you later add water anyway
+			return (T_SNOW if rng.randf() < 0.7 else T_WATER) # note: you later add water anyway
 	return main
 
 
@@ -847,6 +895,7 @@ func generate_map() -> void:
 
 	_ensure_walkable_connected()
 	_remove_dead_ends()
+	_add_water_patches()
 
 	for x in range(map_width):
 		for y in range(map_height):
@@ -856,6 +905,67 @@ func generate_map() -> void:
 	if roads != null:
 		roads.clear()
 	_add_roads()
+
+func _add_water_patches() -> void:
+	var want := clampi(water_tiles_target, 0, map_width * map_height)
+	if want <= 0:
+		return
+
+	var placed := 0
+	var attempts = want * max(1, water_tries_per_tile)
+
+	for i in range(attempts):
+		if placed >= want:
+			break
+
+		var c := Vector2i(
+			rng.randi_range(0, map_width - 1),
+			rng.randi_range(0, map_height - 1)
+		)
+
+		# don't overwrite existing water
+		if grid.terrain[c.x][c.y] == T_WATER:
+			continue
+
+		# avoid spawn zones (optional)
+		if avoid_spawn_zones:
+			var ally_r := _rect_top_left(ally_spawn_size)
+			var enemy_r := _rect_bottom_right(enemy_spawn_size)
+			if ally_r.has_point(c) or enemy_r.has_point(c):
+				continue
+
+		var old = grid.terrain[c.x][c.y]
+		grid.terrain[c.x][c.y] = T_WATER
+
+		if _is_walkable_still_connected():
+			placed += 1
+		else:
+			grid.terrain[c.x][c.y] = old
+
+func _is_walkable_still_connected() -> bool:
+	# find any walkable start
+	var start := Vector2i(-1, -1)
+	for x in range(map_width):
+		for y in range(map_height):
+			if _is_walkable_tile_id(grid.terrain[x][y]):
+				start = Vector2i(x, y)
+				break
+		if start.x >= 0:
+			break
+
+	if start.x < 0:
+		return false # everything water, not allowed
+
+	var visited := _flood_walkable(start)
+
+	# count total walkable cells
+	var total := 0
+	for x in range(map_width):
+		for y in range(map_height):
+			if _is_walkable_tile_id(grid.terrain[x][y]):
+				total += 1
+
+	return visited.size() == total
 
 func _to_road_cell(grid_cell: Vector2i) -> Vector2i:
 	# 16x16 grid -> 8x8 road tiles (2x2 grid cells per road tile)
@@ -2848,6 +2958,7 @@ func spawn_structures() -> void:
 			continue
 
 		structures_root.add_child(b2)
+		_apply_structure_tint(b2)
 
 		# Let a Structure script position & depth-sort itself if present
 		if b2.has_method("set_origin"):
