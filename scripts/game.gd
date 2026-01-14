@@ -2428,12 +2428,7 @@ func _attack_distance_from_origin(a: Unit, a_origin: Vector2i, b: Unit) -> int:
 	return best
 
 func perform_human_tnt_throw(thrower: Unit, target_cell: Vector2i, target_unit: Unit) -> void:
-	# Safety: prevent firing out of range
-	if not _in_tnt_range(thrower, target_cell):
-		is_attacking_unit = false
-		_hide_tnt_curve()
-		return
-	
+	# --- Guards ---
 	if thrower == null or not is_instance_valid(thrower):
 		return
 	if is_moving_unit or is_attacking_unit:
@@ -2442,33 +2437,39 @@ func perform_human_tnt_throw(thrower: Unit, target_cell: Vector2i, target_unit: 
 		push_warning("Assign tnt_projectile_scene and tnt_explosion_scene on the Map/Game node.")
 		return
 
+	# Range gate
+	if not _in_tnt_range(thrower, target_cell):
+		_hide_tnt_curve()
+		is_attacking_unit = false
+		return
+
 	is_attacking_unit = true
 
-	# Start at the thrower's current world position (slightly above so it doesn't clip the feet)
+	# Start / end positions
 	var from_pos := thrower.global_position + Vector2(0, -12)
-
-	# Land at the center of the clicked cell
 	var to_pos := terrain.to_global(terrain.map_to_local(target_cell)) + Vector2(0, -16)
 
 	# Face the throw direction
 	_set_facing_from_world_delta(thrower, from_pos, to_pos)
 
-	# ✅ Draw the preview arc line NOW
+	# Draw preview curve
 	_draw_tnt_curve(from_pos, to_pos, tnt_arc_height)
 
-	# Spawn the TNT projectile
+	# Spawn projectile
 	var proj := tnt_projectile_scene.instantiate() as Node2D
 	if proj == null:
 		_hide_tnt_curve()
 		is_attacking_unit = false
 		return
+
 	add_child(proj)
 	proj.global_position = from_pos
 	proj.z_index = 999999
 
-	play_sfx_poly(sfx_tnt_throw, from_pos, -6.0, 0.95, 1.05)
+	if sfx_tnt_throw != null:
+		play_sfx_poly(sfx_tnt_throw, from_pos, -6.0, 0.95, 1.05)
 
-	# Tween projectile along the exact same arc
+	# Fly along arc
 	var flight := create_tween()
 	flight.set_trans(Tween.TRANS_SINE)
 	flight.set_ease(Tween.EASE_IN_OUT)
@@ -2483,33 +2484,32 @@ func perform_human_tnt_throw(thrower: Unit, target_cell: Vector2i, target_unit: 
 	if is_instance_valid(proj):
 		proj.queue_free()
 
-	# Spawn explosion at landing point
+	# Explosion
 	var boom := tnt_explosion_scene.instantiate() as Node2D
 	if boom != null:
 		add_child(boom)
 		boom.global_position = to_pos
 		boom.z_as_relative = false
 		boom.z_index = 10000
-		play_sfx_poly(sfx_explosion, to_pos, -2.0, 0.9, 1.1)
+		if sfx_explosion != null:
+			play_sfx_poly(sfx_explosion, to_pos, -2.0, 0.9, 1.1)
 
-	# ✅ Damage structures in splash radius too (freed-safe)
+	# Damage structures (freed-safe)
 	var hit_cells := _splash_cells(target_cell, tnt_splash_radius)
 	for c in hit_cells:
 		if not structure_by_cell.has(c):
 			continue
 
-		var raw = structure_by_cell[c]  # DON'T cast yet
-
-		# raw can be null or a freed instance
+		var raw = structure_by_cell[c]
 		if raw == null or not is_instance_valid(raw):
-			# clean stale references so this stops happening
+			# stale refs only
 			structure_by_cell.erase(c)
+			# NOTE: only erase blocked if it's truly stale (you want rubble to stay blocking)
 			structure_blocked.erase(c)
 			continue
 
 		var b := raw as Node2D
 		if b == null:
-			# not a Node2D somehow; also clean
 			structure_by_cell.erase(c)
 			structure_blocked.erase(c)
 			continue
@@ -2517,14 +2517,11 @@ func perform_human_tnt_throw(thrower: Unit, target_cell: Vector2i, target_unit: 
 		var hit_pos := terrain.to_global(terrain.map_to_local(c))
 		_damage_structure(b, _get_tnt_damage(), hit_pos)
 
-
-	# Damage units in splash radius (grid distance)
+	# Damage units in splash radius
 	var victims: Array[Unit] = []
 	for child in units_root.get_children():
 		var u := child as Unit
-		if u == null:
-			continue
-		if not is_instance_valid(u):
+		if u == null or not is_instance_valid(u):
 			continue
 		if u == thrower:
 			continue
@@ -2545,12 +2542,11 @@ func perform_human_tnt_throw(thrower: Unit, target_cell: Vector2i, target_unit: 
 		if still == null or not is_instance_valid(still):
 			continue
 
-		# ✅ flash on hit (only if still alive)
 		if still.hp > 0:
 			play_sfx_poly(_sfx_hurt_for(still), still.global_position, -5.0)
 			await _flash_unit(still)
 
-
+	# Done
 	is_attacking_unit = false
 
 	if is_player_mode and TM != null:

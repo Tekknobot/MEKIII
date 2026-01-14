@@ -1,3 +1,7 @@
 res://scenes/structures/building.tscn
 res://scripts/game.gd
 res://scenes/Game.tscn
+res://scenes/human.tscn
+res://scripts/human.gd
+res://scenes/humantwo.tscn
+res://scripts/humantwo.gd
