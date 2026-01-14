@@ -16,7 +16,7 @@ var hp := 3               # NEW
 var _sprite_base_pos := Vector2.ZERO
 
 var grid_pos := Vector2i.ZERO
-const Z_UNITS := 2000
+const Z_UNITS := 1
 
 enum Team { ALLY, ENEMY }
 @export var team: Team = Team.ALLY
@@ -29,6 +29,9 @@ func _ready():
 	if spr != null:
 		_sprite_base_pos = spr.position
 
+func _process(delta: float) -> void:
+	update_layering()
+	
 func footprint_cells(origin: Vector2i = grid_pos) -> Array[Vector2i]:
 	var cells: Array[Vector2i] = []
 	for dx in range(footprint_size.x):

@@ -91,7 +91,7 @@ enum Season { DIRT, SANDSTONE, SNOW, GRASS, ICE }
 @onready var units_root: Node2D = $Units
 @onready var pickups_root: Node2D = $Pickups
 # --- Roads TileMap (MUST be a separate TileMap with 64x64 TileSet) ---
-@onready var roads: TileMap = $Roads
+@onready var roads: TileMap = get_node_or_null("Roads") as TileMap
 
 @onready var bake_vp: SubViewport = get_node_or_null("MapBakeViewport")
 @onready var bake_root: Node2D = (bake_vp.get_node_or_null("MapBakeRoot") as Node2D) if bake_vp else null
@@ -101,6 +101,10 @@ enum Season { DIRT, SANDSTONE, SNOW, GRASS, ICE }
 
 @export var road_pixel_offset := Vector2(-32, 0) # tweak if needed
 const ROAD_SIZE := 2 # 64x64 road tile covers 2x2 of your 16x16 grid
+
+# --- Depth sorting (x+y) ---
+const Z_STRUCTURES := 1000
+const Z_UNITS := 2000 # keep in sync with Unit.gd
 
 var grid := GridData.new()
 var rng := RandomNumberGenerator.new()
@@ -238,6 +242,7 @@ var pickups := {} # Dictionary[Vector2i, Node2D]  # cell -> pickup instance
 # --- Structures / Buildings ---
 @export var building_scene: PackedScene
 @export var building_count := 6
+@export var building_footprint := Vector2i(2, 2)  # buildings are 2x2 cells
 
 # Optional: keep buildings out of spawn zones
 @export var avoid_spawn_zones := true
@@ -2791,12 +2796,14 @@ func spawn_structures() -> void:
 	if building_scene == null:
 		return
 
-	# Build a list of candidate cells (land + in bounds + not in forbidden zones + NOT ON ROADS)
+	var size := building_footprint
+
+	# Build a list of candidate origin cells (top-left of footprint)
 	var candidates: Array[Vector2i] = []
-	for x in range(map_width):
-		for y in range(map_height):
+	for x in range(map_width - size.x + 1):
+		for y in range(map_height - size.y + 1):
 			var c := Vector2i(x, y)
-			if not _is_structure_cell_ok(c):
+			if not _is_structure_origin_ok(c, size):
 				continue
 			candidates.append(c)
 
@@ -2806,9 +2813,9 @@ func spawn_structures() -> void:
 	var tries := 0
 	while placed < building_count and tries < 5000 and not candidates.is_empty():
 		tries += 1
-		var cell = candidates.pop_back()
+		var origin: Vector2i = candidates.pop_back()
 
-		if structure_blocked.has(cell):
+		if _is_structure_blocked(origin, size):
 			continue
 
 		var b := building_scene.instantiate()
@@ -2818,47 +2825,61 @@ func spawn_structures() -> void:
 
 		structures_root.add_child(b2)
 
-		# position at cell center (same convention as pickups)
-		var world_pos := terrain.to_global(terrain.map_to_local(cell))
-		b2.global_position = world_pos
+		# Let a Structure script position & depth-sort itself if present
+		if b2.has_method("set_origin"):
+			b2.call("set_origin", origin, terrain)
+		else:
+			var world_pos := terrain.to_global(terrain.map_to_local(origin))
+			b2.global_position = world_pos
+			b2.z_as_relative = false
+			b2.z_index = Z_STRUCTURES + _depth_key_for_footprint(origin, size)
 
-		# ✅ Layering: keep structures BEHIND units.
-		# Your units likely use something like Z_UNITS + y*sort_stride (small-ish numbers).
-		# So DO NOT use 180000 here.
-		b2.z_as_relative = false
-		b2.z_index = int(world_pos.y) - 5000  # behind units + still y-ordered vs other structures
-
-		# mark blocked
-		structure_blocked[cell] = true
+		_mark_structure_blocked(origin, size)
 		placed += 1
 
-func _is_structure_cell_ok(c: Vector2i) -> bool:
-	if not grid.in_bounds(c):
+func _is_structure_origin_ok(origin: Vector2i, size: Vector2i) -> bool:
+	# footprint must be in bounds
+	if origin.x < 0 or origin.y < 0:
 		return false
-	if grid.terrain[c.x][c.y] == T_WATER:
+	if origin.x + size.x - 1 >= map_width:
 		return false
-
-	# don't place on units / occupied tiles
-	if grid.is_occupied(c):
-		return false
-
-	# ✅ don't place on roads (any of the 3 road TileMaps)
-	if _cell_has_road(c):
+	if origin.y + size.y - 1 >= map_height:
 		return false
 
 	# optionally avoid ally/enemy spawn rectangles so battles don’t start jammed
 	if avoid_spawn_zones:
 		var ally_r := _rect_top_left(ally_spawn_size)
 		var enemy_r := _rect_bottom_right(enemy_spawn_size)
-		if ally_r.has_point(c) or enemy_r.has_point(c):
-			return false
+		# If ANY footprint cell touches a spawn zone, reject
+		for dx in range(size.x):
+			for dy in range(size.y):
+				var c := origin + Vector2i(dx, dy)
+				if ally_r.has_point(c) or enemy_r.has_point(c):
+					return false
+
+	# check all footprint cells
+	for dx in range(size.x):
+		for dy in range(size.y):
+			var c := origin + Vector2i(dx, dy)
+
+			if not grid.in_bounds(c):
+				return false
+			if grid.terrain[c.x][c.y] == T_WATER:
+				return false
+
+			# don't place on units / occupied tiles
+			if grid.is_occupied(c):
+				return false
+
+			# ✅ don't place on roads (road tiles are 2x2 cells)
+			if _cell_has_road(c):
+				return false
 
 	return true
 
-
 func _cell_has_road(c: Vector2i) -> bool:
-	# Convert a terrain cell to world position, then ask each road TileMap
-	# what road-cell that world position maps onto. If any has a tile -> it’s road.
+	# Road tiles are placed in separate TileMaps (RoadsDL/RoadsDR/RoadsX) using a coarser grid.
+	# We convert the terrain cell's world position to each road TileMap coord and check for any tile.
 	if terrain == null or not is_instance_valid(terrain):
 		return false
 
@@ -2882,20 +2903,27 @@ func _cell_has_road(c: Vector2i) -> bool:
 
 	return false
 
-@export var iso_sort_stride := 1000  # must be > map_width+map_height etc.
 
-func _depth_from_cell(cell: Vector2i) -> int:
-	# classic iso depth: diagonal “rows”
-	return (cell.x + cell.y) * iso_sort_stride
 
-func _bottom_cell_for_footprint(origin: Vector2i, size: Vector2i) -> Vector2i:
-	return origin + Vector2i(size.x - 1, size.y - 1)
 
-func _depth_for_unit(u: Unit) -> int:
-	var o := get_unit_origin(u)
-	var bottom := _bottom_cell_for_footprint(o, u.footprint_size)
-	return _depth_from_cell(bottom)
+func _is_structure_blocked(origin: Vector2i, size: Vector2i) -> bool:
+	for dx in range(size.x):
+		for dy in range(size.y):
+			if structure_blocked.has(origin + Vector2i(dx, dy)):
+				return true
+	return false
 
-func _depth_for_structure_cell(cell: Vector2i, size: Vector2i) -> int:
-	var bottom := _bottom_cell_for_footprint(cell, size)
-	return _depth_from_cell(bottom)
+func _mark_structure_blocked(origin: Vector2i, size: Vector2i) -> void:
+	for dx in range(size.x):
+		for dy in range(size.y):
+			structure_blocked[origin + Vector2i(dx, dy)] = true
+
+
+func _depth_key(cell: Vector2i) -> int:
+	# Requirement: use x+y sum for depth sorting.
+	return cell.x + cell.y
+
+func _depth_key_for_footprint(origin: Vector2i, size: Vector2i) -> int:
+	# Use the bottom-right "feet" cell of the footprint for stable sorting.
+	var bottom := origin + Vector2i(size.x - 1, size.y - 1)
+	return _depth_key(bottom)
