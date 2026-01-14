@@ -432,7 +432,7 @@ func _setup_place_selected(cell: Vector2i) -> bool:
 	unit_origin[u] = new_origin
 	u.grid_pos = new_origin
 	u.global_position = cell_to_world_for_unit(new_origin, u)
-	u.update_layering()
+	_update_all_unit_layering()
 	_refresh_ui_status()
 	return true
 
@@ -504,7 +504,7 @@ func _spawn_one(scene: PackedScene, region: Rect2i) -> void:
 
 			
 		unit.global_position = cell_to_world_for_unit(origin, unit)
-		unit.update_layering()
+		_update_all_unit_layering()
 		return
 
 
@@ -1695,6 +1695,7 @@ func try_move_selected_to(dest: Vector2i) -> bool:
 		move_tween.tween_property(u, "global_position", step_pos, step_duration)
 
 		await move_tween.finished
+		_update_all_unit_layering()
 
 		# keep layering correct mid-walk (optional but helps in iso)
 		u.update_layering()
@@ -2381,7 +2382,7 @@ func move_unit_along_path(u: Unit, path: Array[Vector2i], step_duration := 0.18)
 
 	# snap exact
 	u.global_position = cell_to_world_for_unit(path[path.size() - 1], u)
-	u.update_layering()
+	_update_all_unit_layering()
 	_play_idle(u)
 
 	is_moving_unit = false
@@ -3281,3 +3282,11 @@ func _damage_structure(b: Node2D, dmg: int, hit_world_pos: Vector2) -> void:
 	if structures.has(b):
 		structures.erase(b)
 	return
+
+func _update_all_unit_layering() -> void:
+	if units_root == null:
+		return
+	for ch in units_root.get_children():
+		var u := ch as Unit
+		if u != null and is_instance_valid(u):
+			u.update_layering()

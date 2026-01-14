@@ -28,9 +28,6 @@ func _ready():
 	var spr := _unit_sprite()
 	if spr != null:
 		_sprite_base_pos = spr.position
-
-func _process(delta: float) -> void:
-	update_layering()
 	
 func footprint_cells(origin: Vector2i = grid_pos) -> Array[Vector2i]:
 	var cells: Array[Vector2i] = []
