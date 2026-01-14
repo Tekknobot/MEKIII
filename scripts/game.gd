@@ -3288,11 +3288,9 @@ func _damage_structure(b: Node2D, dmg: int, hit_world_pos: Vector2) -> void:
 				elif spr.sprite_frames.has_animation("destroyed"):
 					spr.play("destroyed")
 
-	# ✅ unblock its cells even if we keep rubble
-	for c in structure_by_cell.keys():
-		if structure_by_cell[c] == b:
-			structure_by_cell.erase(c)
-			structure_blocked.erase(c)
+	# ❌ DO NOT unblock cells on demolition (rubble stays blocking)
+	# We keep structure_blocked + structure_by_cell intact so units cannot walk through rubble.
+	# (Optional) If you ever want rubble to stop taking damage, we’ll handle that below.
 
 	# ✅ keep it on map as rubble (don’t queue_free)
 	structure_hp.erase(b)
