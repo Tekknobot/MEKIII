@@ -274,6 +274,14 @@ var pickups := {} # Dictionary[Vector2i, Node2D]  # cell -> pickup instance
 	Color("#F4F1DE"), # off-white
 ]
 
+var roads_baked_sprite: Sprite2D = null
+
+# --- Destructible structures support ---
+var structures := []                       # Array[Node2D]
+var structure_by_cell := {}                # Dictionary[Vector2i, Node2D]
+var structure_hp := {}                     # Dictionary[Node2D, int]
+@export var building_max_hp := 2
+
 func _pick_structure_tint() -> Color:
 	if structure_tint_palette == null or structure_tint_palette.is_empty():
 		# fallback: random pastel-ish
@@ -537,8 +545,9 @@ func _ready() -> void:
 	_sync_roads_transform()
 
 	if bake_map_visuals:
-		await bake_map_to_sprite()
-	
+		#await bake_map_to_sprite()
+		await bake_roads_to_sprite()
+
 	spawn_structures()		
 	spawn_units()
 	ally_rect_cache = _rect_top_left(ally_spawn_size)
@@ -810,7 +819,8 @@ func _pick_reward(choice: int) -> void:
 		if roads_dl: roads_dl.visible = true
 		if roads_dr: roads_dr.visible = true
 		if roads_x:  roads_x.visible = true
-		await bake_map_to_sprite()
+		#await bake_map_to_sprite()
+		await bake_roads_to_sprite()
 
 	spawn_structures()
 	# Respawn units on new map
@@ -2477,7 +2487,8 @@ func perform_human_tnt_throw(thrower: Unit, target_cell: Vector2i, target_unit: 
 	if boom != null:
 		add_child(boom)
 		boom.global_position = to_pos
-		boom.z_index = 999999
+		boom.z_as_relative = false
+		boom.z_index = 10000
 		play_sfx_poly(sfx_explosion, to_pos, -2.0, 0.9, 1.1)
 
 	# Damage units in splash radius (grid distance)
@@ -2969,7 +2980,7 @@ func spawn_structures() -> void:
 			b2.z_as_relative = false
 			b2.z_index = Z_STRUCTURES + _depth_key_for_footprint(origin, size)
 
-		_mark_structure_blocked(origin, size)
+		_mark_structure_blocked(origin, size, b2)
 		placed += 1
 
 func _pick_building_scene() -> PackedScene:
@@ -3062,10 +3073,12 @@ func _is_structure_blocked(origin: Vector2i, size: Vector2i) -> bool:
 				return true
 	return false
 
-func _mark_structure_blocked(origin: Vector2i, size: Vector2i) -> void:
+func _mark_structure_blocked(origin: Vector2i, size: Vector2i, b2: Node2D) -> void:
 	for dx in range(size.x):
 		for dy in range(size.y):
-			structure_blocked[origin + Vector2i(dx, dy)] = true
+			var c := origin + Vector2i(dx, dy)
+			structure_blocked[c] = true
+			structure_by_cell[c] = b2
 
 
 func _depth_key(cell: Vector2i) -> int:
@@ -3076,3 +3089,164 @@ func _depth_key_for_footprint(origin: Vector2i, size: Vector2i) -> int:
 	# Use the bottom-right "feet" cell of the footprint for stable sorting.
 	var bottom := origin + Vector2i(size.x - 1, size.y - 1)
 	return _depth_key(bottom)
+
+
+func _tilemap_used_bounds_in_terrain_local(tm: TileMap) -> Rect2:
+	# Returns bounds of tm's used cells, expressed in TERRAIN LOCAL pixel space.
+	if tm == null:
+		return Rect2(Vector2.ZERO, Vector2.ZERO)
+
+	var used: Rect2i = tm.get_used_rect()
+	if used.size == Vector2i.ZERO:
+		return Rect2(Vector2.ZERO, Vector2.ZERO)
+
+	# 4 corners in the TileMap's local pixel space
+	var p0 := tm.map_to_local(used.position)
+	var p1 := tm.map_to_local(used.position + Vector2i(used.size.x, 0))
+	var p2 := tm.map_to_local(used.position + Vector2i(0, used.size.y))
+	var p3 := tm.map_to_local(used.position + used.size)
+
+	# Convert each to TERRAIN local space (via global)
+	var g0 := terrain.to_local(tm.to_global(p0))
+	var g1 := terrain.to_local(tm.to_global(p1))
+	var g2 := terrain.to_local(tm.to_global(p2))
+	var g3 := terrain.to_local(tm.to_global(p3))
+
+	var minx = min(g0.x, g1.x, g2.x, g3.x)
+	var maxx = max(g0.x, g1.x, g2.x, g3.x)
+	var miny = min(g0.y, g1.y, g2.y, g3.y)
+	var maxy = max(g0.y, g1.y, g2.y, g3.y)
+
+	return Rect2(Vector2(minx, miny), Vector2(maxx - minx, maxy - miny))
+
+func bake_roads_to_sprite() -> void:
+	if terrain == null or not is_instance_valid(terrain):
+		return
+
+	# ensure nodes exist
+	if bake_vp == null:
+		bake_vp = SubViewport.new()
+		bake_vp.name = "RoadBakeViewport"
+		add_child(bake_vp)
+
+	if bake_root == null:
+		bake_root = Node2D.new()
+		bake_root.name = "RoadBakeRoot"
+		bake_vp.add_child(bake_root)
+
+	if roads_baked_sprite == null:
+		roads_baked_sprite = Sprite2D.new()
+		roads_baked_sprite.name = "RoadsBakedSprite"
+		add_child(roads_baked_sprite)
+
+	# Clear previous bake children
+	for ch in bake_root.get_children():
+		ch.queue_free()
+
+	# Compute bounds in TERRAIN local space for the THREE road maps
+	var bounds := Rect2(Vector2.ZERO, Vector2.ZERO)
+	var first := true
+	for rmap in [roads_dl, roads_dr, roads_x]:
+		if rmap == null or not is_instance_valid(rmap):
+			continue
+		var b := _tilemap_used_bounds_in_terrain_local(rmap)
+		if b.size == Vector2.ZERO:
+			continue
+		bounds = b if first else _union_rect(bounds, b)
+		first = false
+
+	if first:
+		return # nothing to bake
+
+	# Padding to avoid clipping
+	var pad := Vector2(128, 128)
+	bounds.position -= pad
+	bounds.size += pad * 2.0
+
+	var vp_size := Vector2i(ceil(bounds.size.x), ceil(bounds.size.y))
+	vp_size.x = max(vp_size.x, 4)
+	vp_size.y = max(vp_size.y, 4)
+
+	bake_vp.size = vp_size
+	bake_vp.transparent_bg = true
+	bake_vp.disable_3d = true
+	bake_vp.render_target_update_mode = SubViewport.UPDATE_ONCE
+
+	# Shift bake_root so bounds.position maps to (0,0) in viewport
+	bake_root.position = -bounds.position
+
+	# Duplicate ONLY roads into viewport
+	for rmap in [roads_dl, roads_dr, roads_x]:
+		if rmap == null or not is_instance_valid(rmap):
+			continue
+		var copy := rmap.duplicate(Node.DUPLICATE_USE_INSTANTIATION) as TileMap
+		bake_root.add_child(copy)
+		copy.position = rmap.position
+		copy.rotation = rmap.rotation
+		copy.scale = rmap.scale
+
+	# Render
+	await get_tree().process_frame
+	await get_tree().process_frame
+
+	# Assign baked texture
+	roads_baked_sprite.texture = bake_vp.get_texture()
+	roads_baked_sprite.centered = false
+	roads_baked_sprite.z_as_relative = false
+	roads_baked_sprite.z_index = 0  # same as your road z, but now it's a sprite
+
+	# Place sprite so it matches world position of bounds.position (terrain local -> world)
+	roads_baked_sprite.global_position = terrain.to_global(bounds.position)
+
+	# Hide the live road tilemaps (terrain stays visible)
+	if roads_dl: roads_dl.visible = false
+	if roads_dr: roads_dr.visible = false
+	if roads_x:  roads_x.visible = false
+
+func _splash_cells(center: Vector2i, r: int) -> Array[Vector2i]:
+	var out: Array[Vector2i] = []
+	for dx in range(-r, r + 1):
+		for dy in range(-r, r + 1):
+			var c := center + Vector2i(dx, dy)
+			if grid.in_bounds(c) and abs(dx) + abs(dy) <= r:
+				out.append(c)
+	return out
+
+func _damage_structure(b: Node2D, dmg: int, hit_world_pos: Vector2) -> void:
+	if b == null or not is_instance_valid(b):
+		return
+	if not structure_hp.has(b):
+		return
+
+	structure_hp[b] = int(structure_hp[b]) - int(dmg)
+
+	# quick feedback
+	var t := create_tween()
+	t.tween_property(b, "modulate", Color(2, 2, 2, 1), 0.05)
+	t.tween_property(b, "modulate", Color(1, 1, 1, 1), 0.10)
+
+	if int(structure_hp[b]) > 0:
+		return
+
+	# "explode"
+	if tnt_explosion_scene != null:
+		var boom := tnt_explosion_scene.instantiate() as Node2D
+		if boom != null:
+			add_child(boom)
+			boom.global_position = hit_world_pos
+			boom.z_as_relative = false
+			boom.z_index = int(hit_world_pos.y) + 999
+			if sfx_explosion != null:
+				play_sfx_poly(sfx_explosion, hit_world_pos, -2.0, 0.9, 1.1)
+
+	# free + un-block its cells
+	for c in structure_by_cell.keys():
+		if structure_by_cell[c] == b:
+			structure_by_cell.erase(c)
+			structure_blocked.erase(c)
+
+	structure_hp.erase(b)
+	if structures.has(b):
+		structures.erase(b)
+
+	b.queue_free()
