@@ -2491,6 +2491,15 @@ func perform_human_tnt_throw(thrower: Unit, target_cell: Vector2i, target_unit: 
 		boom.z_index = 10000
 		play_sfx_poly(sfx_explosion, to_pos, -2.0, 0.9, 1.1)
 
+	# ✅ Damage structures in splash radius too
+	var hit_cells := _splash_cells(target_cell, tnt_splash_radius)
+	for c in hit_cells:
+		if structure_by_cell.has(c):
+			var b := structure_by_cell[c] as Node2D
+			if b != null and is_instance_valid(b):
+				var hit_pos := terrain.to_global(terrain.map_to_local(c))
+				_damage_structure(b, _get_tnt_damage(), hit_pos)
+
 	# Damage units in splash radius (grid distance)
 	var victims: Array[Unit] = []
 	for child in units_root.get_children():
@@ -2980,6 +2989,10 @@ func spawn_structures() -> void:
 			b2.z_as_relative = false
 			b2.z_index = Z_STRUCTURES + _depth_key_for_footprint(origin, size)
 
+		# ✅ track structures + init HP
+		structures.append(b2)
+		structure_hp[b2] = int(building_max_hp)
+		
 		_mark_structure_blocked(origin, size, b2)
 		placed += 1
 
@@ -3238,15 +3251,33 @@ func _damage_structure(b: Node2D, dmg: int, hit_world_pos: Vector2) -> void:
 			boom.z_index = int(hit_world_pos.y) + 999
 			if sfx_explosion != null:
 				play_sfx_poly(sfx_explosion, hit_world_pos, -2.0, 0.9, 1.1)
+				
+	if int(structure_hp[b]) > 0:
+		return
 
-	# free + un-block its cells
+	# ✅ tell the building to visually demolish itself (if it knows how)
+	if b.has_method("set_demolished"):
+		b.call("set_demolished", true)
+	elif b.has_method("demolish"):
+		b.call("demolish")
+	else:
+		# fallback: try switching AnimatedSprite2D anim names
+		if b.has_node("AnimatedSprite2D"):
+			var spr := b.get_node("AnimatedSprite2D") as AnimatedSprite2D
+			if spr and spr.sprite_frames:
+				if spr.sprite_frames.has_animation("demolished"):
+					spr.play("demolished")
+				elif spr.sprite_frames.has_animation("destroyed"):
+					spr.play("destroyed")
+
+	# ✅ unblock its cells even if we keep rubble
 	for c in structure_by_cell.keys():
 		if structure_by_cell[c] == b:
 			structure_by_cell.erase(c)
 			structure_blocked.erase(c)
 
+	# ✅ keep it on map as rubble (don’t queue_free)
 	structure_hp.erase(b)
 	if structures.has(b):
 		structures.erase(b)
-
-	b.queue_free()
+	return

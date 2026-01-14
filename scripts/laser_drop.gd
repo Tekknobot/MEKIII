@@ -5,7 +5,7 @@ class_name LaserDrop
 @export var rot_degrees := 12.0
 
 # keeps pickups above terrain/roads/structures but still x+y sorted
-@export var z_base := 2
+@export var z_base := 3
 
 var _t := 0.0
 var visual: Node2D
