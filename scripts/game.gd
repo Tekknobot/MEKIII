@@ -764,15 +764,16 @@ func _refresh_ui_status() -> void:
 
 	# ---- Phase info ----
 	if state == GameState.SETUP:
-		lines.append("[color=#ffd966]BATTLE RULES[/color]")
-		lines.append("• Units move and attack automatically.")
-		lines.append("• [color=#ff9966]Humans[/color] use [color=#ff4444]TNT[/color] when available.")
+		lines.append("[color=#ffd966]SETUP: REPOSITION[/color]")
+		lines.append("• Drag & drop [color=#ff9966]Allies[/color] to adjust your formation.")
+		lines.append("• Press [b]Start Battle[/b] when ready.")
 	elif state == GameState.BATTLE:
 		lines.append("[color=#66ccff]BATTLE IN PROGRESS[/color]")
-		lines.append("Units act automatically.")
+		lines.append("• Units move and attack automatically.")
 	elif state == GameState.REWARD:
 		lines.append("[color=#66ff66]ROUND COMPLETE[/color]")
-		lines.append("Choose an upgrade to continue.")
+		lines.append("• Choose an upgrade to continue.")
+		lines.append("• Zombies scale over rounds — pick wisely.")
 
 	ui_status_label.text = "\n".join(lines)
 
