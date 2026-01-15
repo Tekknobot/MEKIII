@@ -57,7 +57,7 @@ const ATTACK_ATLAS := Vector2i(0, 0)
 @onready var mine_preview: TileMap = $MinePreview
 const LAYER_MINE_PREVIEW := 0
 const MINE_PREVIEW_SMALL_SOURCE_ID := 0     # set to your tileset IDs
-const MINE_PREVIEW_LARGE_SOURCE_ID := 1
+const MINE_PREVIEW_SMALLX_SOURCE_ID := 1
 const MINE_PREVIEW_ATLAS := Vector2i(0, 0)
 
 
@@ -772,7 +772,7 @@ func _build_ui() -> void:
 	ui_reward_buttons.append(b5)
 	rv.add_child(b5)
 
-	ui_reward_buttons = [b1, b2, b3, b4]
+	ui_reward_buttons = [b1, b2, b3, b4, b5]
 
 	for b in ui_reward_buttons:
 		if ui_font:
@@ -819,8 +819,18 @@ func _can_place_mine_at(cell: Vector2i) -> bool:
 		return false
 	if road_blocked.has(cell):
 		return false
+
+	# ✅ NEW: don't place on a unit
+	if grid.is_occupied(cell):
+		return false
+
+	# ✅ NEW: don't place where a pickup exists (optional but usually desired)
+	if pickups.has(cell):
+		return false
+
 	if mines.has(cell):
 		return false
+
 	return true
 
 func _place_mine_at(cell: Vector2i) -> bool:
@@ -861,7 +871,6 @@ func _place_mine_at(cell: Vector2i) -> bool:
 	return true
 
 func _on_mine_triggered(cell: Vector2i, body: Node) -> void:
-	# only explode for Units
 	var u := body as Unit
 	if u == null:
 		return
@@ -871,12 +880,12 @@ func _on_mine_triggered(cell: Vector2i, body: Node) -> void:
 	var mine = mines[cell]
 	mines.erase(cell)
 
-	# remove mine
 	if mine != null and is_instance_valid(mine):
 		mine.queue_free()
 
+	# stop motion so your tweens/AI don't fight explosions
 	_cancel_motion_now()
-	await u.take_damage(999)
+	_interrupt_unit_motion(u)
 
 	# explode visual + sfx
 	var boom_scene := (landmine_explosion_scene if landmine_explosion_scene != null else tnt_explosion_scene)
@@ -891,10 +900,9 @@ func _on_mine_triggered(cell: Vector2i, body: Node) -> void:
 			if sfx_explosion != null:
 				play_sfx_poly(sfx_explosion, pos, -2.0, 0.9, 1.1)
 
-	# simplest: kill/damage the unit
+	# ✅ damage once
 	if is_instance_valid(u):
-		_interrupt_unit_motion(u)
-		await u.take_damage(999) # guaranteed
+		await u.take_damage(999)
 
 func _clear_all_mines() -> void:
 	for c in mines.keys():
@@ -3833,7 +3841,7 @@ func _draw_mine_preview() -> void:
 	mine_preview.position = Vector2.ZERO
 
 	var ok := _can_place_mine_at(hovered_cell)
-	var sid := MINE_PREVIEW_SMALL_SOURCE_ID
+	var sid := (MINE_PREVIEW_SMALL_SOURCE_ID if ok else MINE_PREVIEW_SMALLX_SOURCE_ID)
 	mine_preview.set_cell(LAYER_MINE_PREVIEW, hovered_cell, sid, MINE_PREVIEW_ATLAS, 0)
 
 func _interrupt_unit_motion(u: Unit) -> void:

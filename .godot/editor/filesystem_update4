@@ -1,5 +1,3 @@
-res://scenes/landmine.tscn
-res://shaders/outline_1px.gdshader
-res://scenes/Game.tscn
 res://scripts/game.gd
-res://scenes/human.tscn
+res://scenes/Game.tscn
+res://shaders/outline_1px.gdshader
