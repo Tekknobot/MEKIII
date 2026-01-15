@@ -56,8 +56,8 @@ const ATTACK_ATLAS := Vector2i(0, 0)
 # --- Mine placement preview (uses Highlight TileMap) ---
 @onready var mine_preview: TileMap = $MinePreview
 const LAYER_MINE_PREVIEW := 0
-const MINE_PREVIEW_OK_SOURCE_ID := 0     # set to your tileset IDs
-const MINE_PREVIEW_BAD_SOURCE_ID := 1
+const MINE_PREVIEW_SMALL_SOURCE_ID := 0     # set to your tileset IDs
+const MINE_PREVIEW_LARGE_SOURCE_ID := 1
 const MINE_PREVIEW_ATLAS := Vector2i(0, 0)
 
 
@@ -323,6 +323,8 @@ var mines := {} # Dictionary[Vector2i, Node2D]
 
 var ui_mine_button: Button
 var ui_mine_label: Label
+
+var _motion_cancel_token := 0
 
 func _pick_structure_tint() -> Color:
 	if structure_tint_palette == null or structure_tint_palette.is_empty():
@@ -816,7 +818,6 @@ func _can_place_mine_at(cell: Vector2i) -> bool:
 	if structure_blocked.has(cell):
 		return false
 	if road_blocked.has(cell):
-		print("BLOCKED BY ROAD at ", cell)
 		return false
 	if mines.has(cell):
 		return false
@@ -874,6 +875,9 @@ func _on_mine_triggered(cell: Vector2i, body: Node) -> void:
 	if mine != null and is_instance_valid(mine):
 		mine.queue_free()
 
+	_cancel_motion_now()
+	await u.take_damage(999)
+
 	# explode visual + sfx
 	var boom_scene := (landmine_explosion_scene if landmine_explosion_scene != null else tnt_explosion_scene)
 	if boom_scene != null:
@@ -889,6 +893,7 @@ func _on_mine_triggered(cell: Vector2i, body: Node) -> void:
 
 	# simplest: kill/damage the unit
 	if is_instance_valid(u):
+		_interrupt_unit_motion(u)
 		await u.take_damage(999) # guaranteed
 
 func _clear_all_mines() -> void:
@@ -1284,20 +1289,28 @@ func _add_roads() -> void:
 			roads_dr.set_cell(0, rc, ROAD_DOWN_RIGHT, ROAD_ATLAS, 0)
 	
 	_rebuild_road_blocked()
-
+	
 func _rebuild_road_blocked() -> void:
 	road_blocked.clear()
-	if roads == null or not is_instance_valid(roads):
+
+	if terrain == null or not is_instance_valid(terrain):
 		return
 
-	for x in range(map_width):
-		for y in range(map_height):
-			var c := Vector2i(x, y)
+	var road_maps: Array[TileMap] = []
+	if roads_dl != null and is_instance_valid(roads_dl): road_maps.append(roads_dl)
+	if roads_dr != null and is_instance_valid(roads_dr): road_maps.append(roads_dr)
+	if roads_x  != null and is_instance_valid(roads_x):  road_maps.append(roads_x)
 
-			# Roads tilemap contains ONLY road tiles; any set cell = blocked.
-			if roads.get_cell_source_id(LAYER_ROADS, c) != -1:
-				road_blocked[c] = true
+	if road_maps.is_empty():
+		return
 
+	# For every road tile, mark the 2x2-ish terrain cells it visually covers.
+	# We do this by sampling 4 points around the road tile center (±16px),
+	# converting each sample to a terrain cell, and storing it.
+	for rmap in road_maps:
+		var used := rmap.get_used_cells(0)
+		for rc in used:
+			_mark_terrain_cells_covered_by_road_tile(rmap, rc)
 
 func _mark_terrain_cells_covered_by_road_tile(rmap: TileMap, rc: Vector2i) -> void:
 	# Road tile center in WORLD space
@@ -1731,11 +1744,18 @@ func select_unit(u: Unit) -> void:
 
 func clear_attack_range() -> void:
 	attack_range_small.clear()
-	attack_range_big.clear()
+	if attack_range_big != null:
+		attack_range_big.clear()
+
 	attackable_units.clear()
 
+	# ✅ always keep the small overlay aligned normally
 	attack_range_small.position = attack_offset_small
-	attack_range_big.position = attack_offset_big
+
+	# ✅ big overlay not used anymore (but keep it parked)
+	if attack_range_big != null:
+		attack_range_big.position = attack_offset_big
+
 
 func draw_attack_range_for_unit(attacker: Unit) -> void:
 	clear_attack_range()
@@ -1761,6 +1781,7 @@ func draw_attack_range_for_unit(attacker: Unit) -> void:
 			attack_range_big.set_cell(LAYER_ATTACK, target_origin, ATTACK_TILE_BIG_SOURCE_ID, ATTACK_ATLAS, 0)
 		else:
 			attack_range_small.set_cell(LAYER_ATTACK, target_origin, ATTACK_TILE_SMALL_SOURCE_ID, ATTACK_ATLAS, 0)
+
 
 func _input(event: InputEvent) -> void:
 	# R = reload
@@ -2711,7 +2732,15 @@ func move_unit_along_path(u: Unit, path: Array[Vector2i], step_duration := 0.18)
 		move_tween.set_ease(Tween.EASE_IN_OUT)
 		move_tween.tween_property(u, "global_position", step_pos, step_duration)
 
-		await move_tween.finished
+		var token := _motion_cancel_token
+
+		# ... inside the loop, after you create move_tween:
+		await _await_tween_or_cancel(move_tween, token)
+
+		# if cancelled, stop moving immediately
+		if _motion_cancel_token != token:
+			return
+
 		u.update_layering()
 
 	# snap exact
@@ -3800,8 +3829,53 @@ func _draw_mine_preview() -> void:
 	if not grid.in_bounds(hovered_cell):
 		return
 
-	mine_preview.position = hover_offset_1x1
+	# ✅ keep mine preview grid-aligned
+	mine_preview.position = Vector2.ZERO
 
 	var ok := _can_place_mine_at(hovered_cell)
-	var sid := (MINE_PREVIEW_OK_SOURCE_ID if ok else MINE_PREVIEW_BAD_SOURCE_ID)
+	var sid := MINE_PREVIEW_SMALL_SOURCE_ID
 	mine_preview.set_cell(LAYER_MINE_PREVIEW, hovered_cell, sid, MINE_PREVIEW_ATLAS, 0)
+
+func _interrupt_unit_motion(u: Unit) -> void:
+	if u == null or not is_instance_valid(u):
+		return
+
+	# Stop current tween so we don't keep dragging a "dead" unit around
+	if move_tween != null and move_tween.is_valid():
+		move_tween.kill()
+		move_tween = null
+
+	# Reset flags so flow can recover
+	is_moving_unit = false
+	is_attacking_unit = false
+
+	# Optional: clear selection if the selected unit just got nuked
+	if selected_unit == u:
+		select_unit(null)
+
+func _cancel_motion_now() -> void:
+	_motion_cancel_token += 1
+
+	# kill current tween if any
+	if move_tween != null and move_tween.is_valid():
+		move_tween.kill()
+		move_tween = null
+
+	# clear flags so AI/turn logic can continue
+	is_moving_unit = false
+	is_attacking_unit = false
+
+
+func _await_tween_or_cancel(t: Tween, token: int) -> void:
+	# Wait until:
+	# - tween stops running, OR
+	# - motion gets cancelled (token changes), OR
+	# - tween becomes invalid
+	while true:
+		if _motion_cancel_token != token:
+			return
+		if t == null or not t.is_valid():
+			return
+		if not t.is_running():
+			return
+		await get_tree().process_frame
