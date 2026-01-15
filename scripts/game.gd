@@ -2464,11 +2464,7 @@ func _try_spawn_medkit_drop(zombie_cell: Vector2i) -> void:
 	pickups_root.add_child(d2)
 
 	var world_pos := terrain.to_global(terrain.map_to_local(spawn_cell))
-	world_pos += Vector2(0, -16)
 	d2.global_position = world_pos
-
-	d2.z_as_relative = false
-	d2.z_index = 300000 + int(world_pos.y)
 
 	d2.visible = true
 	d2.modulate = Color(1, 1, 1, 1)
@@ -2510,11 +2506,7 @@ func _try_spawn_laser_drop(zombie_cell: Vector2i) -> void:
 	pickups_root.add_child(d2)
 
 	var world_pos := terrain.to_global(terrain.map_to_local(spawn_cell))
-	world_pos += Vector2(0, -16)
 	d2.global_position = world_pos
-
-	d2.z_as_relative = false
-	d2.z_index = 300000 + int(world_pos.y)
 
 	d2.visible = true
 	d2.modulate = Color(1, 1, 1, 1)
