@@ -905,11 +905,18 @@ func _on_mine_triggered(cell: Vector2i, body: Node) -> void:
 		await u.take_damage(999)
 
 func _clear_all_mines() -> void:
+	# remove instances
 	for c in mines.keys():
 		var m = mines[c]
 		if m != null and is_instance_valid(m):
 			m.queue_free()
+
 	mines.clear()
+
+	# exit placement + clear preview + update UI
+	mine_placing = false
+	_clear_mine_preview()
+	_update_mine_ui()
 
 func _refresh_ui_status() -> void:
 	if ui_status_label == null:
@@ -964,6 +971,8 @@ func _refresh_ui_status() -> void:
 	ui_status_label.text = "\n".join(lines)
 
 func _enter_setup() -> void:
+	_clear_all_mines()
+	
 	state = GameState.SETUP
 	set_player_mode(false)
 	assist_tnt_charges_left = 0
@@ -1050,6 +1059,8 @@ func _pick_reward(choice: int) -> void:
 	# -------------------
 	# Rebuild map
 	# -------------------
+	_clear_all_mines()
+	
 	rng.randomize() # ensures new layout each round
 	grid.setup(map_width, map_height)
 	generate_map()
