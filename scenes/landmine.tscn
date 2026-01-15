@@ -1,0 +1,31 @@
+[gd_scene load_steps=5 format=3 uid="uid://caymwfgfg5si7"]
+
+[ext_resource type="Texture2D" uid="uid://8uuo35d8ydcx" path="res://sprites/Zombies/zomb/mine1.png" id="1_vw0b7"]
+[ext_resource type="Texture2D" uid="uid://dim1s7u2fyqce" path="res://sprites/Zombies/zomb/mine2.png" id="2_1irre"]
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_vw0b7"]
+size = Vector2(10, 1)
+
+[sub_resource type="SpriteFrames" id="SpriteFrames_nnu70"]
+animations = [{
+"frames": [{
+"duration": 1.0,
+"texture": ExtResource("1_vw0b7")
+}, {
+"duration": 1.0,
+"texture": ExtResource("2_1irre")
+}],
+"loop": true,
+"name": &"default",
+"speed": 12.0
+}]
+
+[node name="Landmine" type="Area2D"]
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="."]
+position = Vector2(0, -4.5)
+shape = SubResource("RectangleShape2D_vw0b7")
+
+[node name="AnimatedSprite2D" type="AnimatedSprite2D" parent="."]
+sprite_frames = SubResource("SpriteFrames_nnu70")
+autoplay = "default"

@@ -53,6 +53,14 @@ const ATTACK_TILE_SMALL_SOURCE_ID := 0
 const ATTACK_TILE_BIG_SOURCE_ID := 1
 const ATTACK_ATLAS := Vector2i(0, 0)
 
+# --- Mine placement preview (uses Highlight TileMap) ---
+@onready var mine_preview: TileMap = $MinePreview
+const LAYER_MINE_PREVIEW := 0
+const MINE_PREVIEW_OK_SOURCE_ID := 0     # set to your tileset IDs
+const MINE_PREVIEW_BAD_SOURCE_ID := 1
+const MINE_PREVIEW_ATLAS := Vector2i(0, 0)
+
+
 @export var attack_offset_small := Vector2(0, 0) # small 1x1 offset
 @export var attack_offset_big := Vector2(0, 16)   # big 2x2 offset
 
@@ -295,6 +303,26 @@ var _hover_prev_material := {} # Dictionary[Unit, Material]
 var setup_dragging := false
 var setup_drag_unit: Unit = null
 var setup_drag_start_origin := Vector2i.ZERO
+
+# --- Landmine mechanic ---
+@export var landmine_scene: PackedScene               # your mine prefab (Area2D recommended)
+@export var landmine_explosion_scene: PackedScene     # OPTIONAL (leave null to use tnt_explosion_scene)
+@export_range(0, 9, 1) var mines_per_battle_base := 3 # starting mines per battle
+
+# persistent upgrade across rounds
+var bonus_mines_per_battle := 0
+
+# per-battle charges (reset each battle)
+var mines_left := 0
+
+# placement state (SETUP only)
+var mine_placing := false
+
+# cell -> mine instance
+var mines := {} # Dictionary[Vector2i, Node2D]
+
+var ui_mine_button: Button
+var ui_mine_label: Label
 
 func _pick_structure_tint() -> Color:
 	if structure_tint_palette == null or structure_tint_palette.is_empty():
@@ -608,6 +636,11 @@ func _process(_delta: float) -> void:
 	_update_hovered_unit()
 	_update_tnt_aim_preview()
 
+	if state == GameState.SETUP and mine_placing:
+		_draw_mine_preview()
+	else:
+		_clear_mine_preview()
+		
 	# ✅ SETUP: make dragged unit follow the hovered cell
 	if state == GameState.SETUP and setup_dragging and setup_drag_unit != null and is_instance_valid(setup_drag_unit):
 		var c := hovered_cell
@@ -695,6 +728,22 @@ func _build_ui() -> void:
 		ui_start_button.add_theme_font_size_override("font_size", ui_font_size)
 	v.add_child(ui_start_button)
 
+	# --- Mine placement UI ---
+	ui_mine_label = Label.new()
+	ui_mine_label.text = "Mines: 0"
+	if ui_font:
+		ui_mine_label.add_theme_font_override("font", ui_font)
+		ui_mine_label.add_theme_font_size_override("font_size", ui_font_size)
+	v.add_child(ui_mine_label)
+
+	ui_mine_button = Button.new()
+	ui_mine_button.text = "Place Mine"
+	ui_mine_button.pressed.connect(_on_mine_button_pressed)
+	if ui_font:
+		ui_mine_button.add_theme_font_override("font", ui_font)
+		ui_mine_button.add_theme_font_size_override("font_size", ui_font_size)
+	v.add_child(ui_mine_button)
+
 	ui_reward_panel = PanelContainer.new()
 	ui_reward_panel.visible = false
 	v.add_child(ui_reward_panel)
@@ -715,6 +764,12 @@ func _build_ui() -> void:
 	var b3 := Button.new(); b3.text = "+1 TNT Damage"; b3.pressed.connect(func(): _pick_reward(2))
 	var b4 := Button.new(); b4.text = "+1 Attack Repeat";  b4.pressed.connect(func(): _pick_reward(3)) # ✅ NEW
 
+	var b5 := Button.new()
+	b5.text = "+1 Mine"
+	b5.pressed.connect(func(): _pick_reward(4))
+	ui_reward_buttons.append(b5)
+	rv.add_child(b5)
+
 	ui_reward_buttons = [b1, b2, b3, b4]
 
 	for b in ui_reward_buttons:
@@ -724,6 +779,124 @@ func _build_ui() -> void:
 		rv.add_child(b)
 
 	_refresh_ui_status()
+
+func _mine_capacity() -> int:
+	return int(mines_per_battle_base + bonus_mines_per_battle)
+
+func _reset_mines_for_new_battle() -> void:
+	mines_left = _mine_capacity()
+	mine_placing = false
+	_update_mine_ui()
+
+func _update_mine_ui() -> void:
+	if ui_mine_label != null:
+		ui_mine_label.text = "Mines: %d" % mines_left
+
+	if ui_mine_button != null:
+		ui_mine_button.disabled = (state != GameState.SETUP) or (mines_left <= 0) or (landmine_scene == null)
+		ui_mine_button.text = ("Place Mine" if not mine_placing else "Place Mine (Click map...)")
+
+func _on_mine_button_pressed() -> void:
+	if state != GameState.SETUP:
+		return
+	if mines_left <= 0:
+		return
+	if landmine_scene == null:
+		push_warning("Assign landmine_scene in Inspector.")
+		return
+
+	mine_placing = true
+	_update_mine_ui()
+
+func _can_place_mine_at(cell: Vector2i) -> bool:
+	if not grid.in_bounds(cell):
+		return false
+	if grid.terrain[cell.x][cell.y] == T_WATER:
+		return false
+	if structure_blocked.has(cell):
+		return false
+	if road_blocked.has(cell):
+		print("BLOCKED BY ROAD at ", cell)
+		return false
+	if mines.has(cell):
+		return false
+	return true
+
+func _place_mine_at(cell: Vector2i) -> bool:
+	if mines_left <= 0:
+		return false
+	if not _can_place_mine_at(cell):
+		return false
+
+	var inst := landmine_scene.instantiate()
+	var m := inst as Node2D
+	if m == null:
+		push_warning("landmine_scene root must be Node2D/Area2D.")
+		return false
+
+	add_child(m)
+
+	# position at cell
+	var wp := terrain.to_global(terrain.map_to_local(cell)) + Vector2(0, 0)
+	m.global_position = wp
+	m.z_as_relative = false
+	m.z_index = 250000 + int(wp.y) # above map, below units is fine
+
+	# store
+	mines[cell] = m
+
+	# connect trigger (works if mine is Area2D)
+	if m is Area2D:
+		var a := m as Area2D
+		a.body_entered.connect(func(body):
+			_on_mine_triggered(cell, body)
+		)
+	elif m.has_signal("body_entered"):
+		# fallback if your root isn't Area2D but has signal
+		m.connect("body_entered", Callable(self, "_on_mine_triggered").bind(cell))
+
+	mines_left -= 1
+	_update_mine_ui()
+	return true
+
+func _on_mine_triggered(cell: Vector2i, body: Node) -> void:
+	# only explode for Units
+	var u := body as Unit
+	if u == null:
+		return
+	if not mines.has(cell):
+		return
+
+	var mine = mines[cell]
+	mines.erase(cell)
+
+	# remove mine
+	if mine != null and is_instance_valid(mine):
+		mine.queue_free()
+
+	# explode visual + sfx
+	var boom_scene := (landmine_explosion_scene if landmine_explosion_scene != null else tnt_explosion_scene)
+	if boom_scene != null:
+		var boom := boom_scene.instantiate() as Node2D
+		if boom != null:
+			add_child(boom)
+			var pos := terrain.to_global(terrain.map_to_local(cell)) + Vector2(0, -16)
+			boom.global_position = pos
+			boom.z_as_relative = false
+			boom.z_index = int(pos.y) + 999
+			if sfx_explosion != null:
+				play_sfx_poly(sfx_explosion, pos, -2.0, 0.9, 1.1)
+
+	# simplest: kill/damage the unit
+	if is_instance_valid(u):
+		await u.take_damage(999) # guaranteed
+
+func _clear_all_mines() -> void:
+	for c in mines.keys():
+		var m = mines[c]
+		if m != null and is_instance_valid(m):
+			m.queue_free()
+	mines.clear()
 
 func _refresh_ui_status() -> void:
 	if ui_status_label == null:
@@ -786,6 +959,11 @@ func _enter_setup() -> void:
 	select_unit(null)
 	_refresh_ui_status()
 
+	_reset_mines_for_new_battle()
+
+	mine_placing = false
+	_update_mine_ui()
+
 
 func _on_start_pressed() -> void:
 	_start_battle()
@@ -799,8 +977,13 @@ func _start_battle() -> void:
 	select_unit(null)
 	set_player_mode(false) # we stay in AUTO_BATTLE, but assist mode can still allow TNT
 	_refresh_ui_status()
+	
 	if TM != null:
 		TM.start_battle()
+
+	mine_placing = false
+	_update_mine_ui()
+	highlight.clear()
 
 
 func _on_battle_started() -> void:
@@ -833,7 +1016,8 @@ func _pick_reward(choice: int) -> void:
 		1: bonus_attack_range += 1
 		2: bonus_tnt_damage += 1
 		3: bonus_attack_repeats += 1
-
+		4: bonus_mines_per_battle += 1
+		
 	# -------------------
 	# Round progression
 	# -------------------
@@ -1103,25 +1287,17 @@ func _add_roads() -> void:
 
 func _rebuild_road_blocked() -> void:
 	road_blocked.clear()
-
-	if terrain == null or not is_instance_valid(terrain):
+	if roads == null or not is_instance_valid(roads):
 		return
 
-	var road_maps: Array[TileMap] = []
-	if roads_dl != null and is_instance_valid(roads_dl): road_maps.append(roads_dl)
-	if roads_dr != null and is_instance_valid(roads_dr): road_maps.append(roads_dr)
-	if roads_x  != null and is_instance_valid(roads_x):  road_maps.append(roads_x)
+	for x in range(map_width):
+		for y in range(map_height):
+			var c := Vector2i(x, y)
 
-	if road_maps.is_empty():
-		return
+			# Roads tilemap contains ONLY road tiles; any set cell = blocked.
+			if roads.get_cell_source_id(LAYER_ROADS, c) != -1:
+				road_blocked[c] = true
 
-	# For every road tile, mark the 2x2-ish terrain cells it visually covers.
-	# We do this by sampling 4 points around the road tile center (±16px),
-	# converting each sample to a terrain cell, and storing it.
-	for rmap in road_maps:
-		var used := rmap.get_used_cells(0)
-		for rc in used:
-			_mark_terrain_cells_covered_by_road_tile(rmap, rc)
 
 func _mark_terrain_cells_covered_by_road_tile(rmap: TileMap, rc: Vector2i) -> void:
 	# Road tile center in WORLD space
@@ -1606,6 +1782,13 @@ func _input(event: InputEvent) -> void:
 	if event is InputEventMouseButton:
 		var mb := event as InputEventMouseButton
 
+		# --- Mine placement click (SETUP only) ---
+		if mb.button_index == MOUSE_BUTTON_LEFT and mb.pressed and mine_placing:
+			_place_mine_at(hovered_cell) # try
+			mine_placing = false         # ✅ always exit after click
+			_update_mine_ui()
+			return
+
 		# Left press = pick up ally unit
 		if mb.button_index == MOUSE_BUTTON_LEFT and mb.pressed:
 			var u := unit_at_cell(hovered_cell)
@@ -1642,6 +1825,12 @@ func _input(event: InputEvent) -> void:
 				setup_dragging = false
 				setup_drag_unit = null
 			return
+
+		if mb.button_index == MOUSE_BUTTON_RIGHT and mb.pressed and mine_placing:
+			mine_placing = false
+			_update_mine_ui()
+			return
+			
 	
 func try_attack_selected(target: Unit) -> bool:
 	if selected_unit == null or target == null:
@@ -3596,3 +3785,23 @@ func _update_hover_outline() -> void:
 
 	if _hover_outlined_unit != want:
 		_apply_hover_outline(want)
+
+func _clear_mine_preview() -> void:
+	if mine_preview != null:
+		mine_preview.clear()
+
+func _draw_mine_preview() -> void:
+	if mine_preview == null:
+		return
+	mine_preview.clear()
+
+	if not mine_placing:
+		return
+	if not grid.in_bounds(hovered_cell):
+		return
+
+	mine_preview.position = hover_offset_1x1
+
+	var ok := _can_place_mine_at(hovered_cell)
+	var sid := (MINE_PREVIEW_OK_SOURCE_ID if ok else MINE_PREVIEW_BAD_SOURCE_ID)
+	mine_preview.set_cell(LAYER_MINE_PREVIEW, hovered_cell, sid, MINE_PREVIEW_ATLAS, 0)

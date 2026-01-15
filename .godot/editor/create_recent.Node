@@ -1,10 +1,10 @@
-Node2D
-Node
-AnimatedSprite2D
-CharacterBody2D
-Label
 CollisionShape2D
 Area2D
+AnimatedSprite2D
+Node2D
+Node
+CharacterBody2D
+Label
 Sprite2D
 Camera2D
 ColorRect

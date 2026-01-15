@@ -1,3 +1,5 @@
+res://scenes
+res://sprites/Zombies/zomb
 res://sprites/Structures/tower
 res://sprites/Structures/tower/default
 res://sprites/Structures/district
@@ -7,7 +9,6 @@ res://scenes/structures
 res://sprites/Structures/building_c/demolished
 res://sprites/Structures/building_c
 res://scripts
-res://scenes
 res://fonts/magofonts
 res://sprites/Terrain/roads
 res://sprites/Dog
@@ -18,5 +19,3 @@ res://sprites/Humans/merc/idle
 res://sprites/Humans/merc/attack
 res://sprites/Projectiles/default/tnt
 res://sprites/Explosion
-res://sprites/Zombies/death
-res://sprites/Zombies/move
