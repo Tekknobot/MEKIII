@@ -13,3 +13,4 @@ res://scripts/zombie.gd
 res://scenes/mech.tscn
 res://scripts/mech.gd
 res://scripts/unit.gd
+res://scenes/landmine.tscn

@@ -4,7 +4,7 @@
 [ext_resource type="Texture2D" uid="uid://dim1s7u2fyqce" path="res://sprites/Zombies/zomb/mine2.png" id="2_1irre"]
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_vw0b7"]
-size = Vector2(10, 1)
+size = Vector2(10, 3)
 
 [sub_resource type="SpriteFrames" id="SpriteFrames_nnu70"]
 animations = [{
@@ -23,7 +23,7 @@ animations = [{
 [node name="Landmine" type="Area2D"]
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="."]
-position = Vector2(0, -4.5)
+position = Vector2(0, -5.5)
 shape = SubResource("RectangleShape2D_vw0b7")
 
 [node name="AnimatedSprite2D" type="AnimatedSprite2D" parent="."]
