@@ -2,6 +2,9 @@ extends Unit
 class_name Zombie
 
 func _ready() -> void:
+	set_meta("portrait_tex", preload("res://sprites/Portraits/zombie_port.png"))
+	set_meta("display_name", "Zombie")
+		
 	footprint_size = Vector2i(1, 1)
 	move_range = 3
 	attack_range = 1

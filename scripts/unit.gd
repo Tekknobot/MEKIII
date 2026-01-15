@@ -23,6 +23,9 @@ enum Team { ALLY, ENEMY }
 
 var _death_sfx_played := false
 
+signal hp_changed(unit: Unit)
+signal died(unit: Unit)
+
 func _ready():
 	hp = max_hp
 	var spr := _unit_sprite()

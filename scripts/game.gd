@@ -190,6 +190,22 @@ var ui_reward_panel: PanelContainer
 var ui_reward_label: Label
 var ui_reward_buttons: Array[Button] = []
 
+# --- HUD (bottom-right) ---
+var hud_root: Control
+var hud_panel: PanelContainer
+var hud_portrait: TextureRect
+var hud_name: Label
+var hud_hp_bar: ProgressBar
+var hud_target: Unit = null
+
+# --- HUD HP color thresholds ---
+@export_range(0.0, 1.0, 0.01) var hud_high_threshold := 0.67
+@export_range(0.0, 1.0, 0.01) var hud_mid_threshold := 0.34
+
+@export var hud_hp_color_high := Color(0.25, 0.95, 0.35, 1.0) # green
+@export var hud_hp_color_mid  := Color(1.0, 0.9, 0.25, 1.0)  # yellow
+@export var hud_hp_color_low  := Color(1.0, 0.25, 0.25, 1.0) # red
+
 # Put this near the top of game.gd (or wherever _build_ui lives)
 @export var ui_font_path: String = "res://fonts/magofonts/mago1.ttf"
 @export var ui_font_size: int = 18
@@ -536,6 +552,14 @@ func _spawn_one(scene: PackedScene, region: Rect2i) -> void:
 		unit.grid_pos = origin
 		unit_origin[unit] = origin
 		units_root.add_child(unit)
+		
+		# ✅ keep HUD live-updating on HP changes
+		if not unit.hp_changed.is_connected(_on_unit_hp_changed):
+			unit.hp_changed.connect(_on_unit_hp_changed)
+
+		# ✅ ensure HUD clears if the bound unit dies
+		if not unit.died.is_connected(_on_unit_died):
+			unit.died.connect(_on_unit_died)		
 
 		# ✅ Apply run bonuses AFTER the unit's own _ready() finishes
 		if unit.team == Unit.Team.ALLY:
@@ -549,6 +573,18 @@ func _spawn_one(scene: PackedScene, region: Rect2i) -> void:
 		unit.global_position = cell_to_world_for_unit(origin, unit)
 		_update_all_unit_layering()
 		return
+
+func _on_unit_hp_changed(u: Unit) -> void:
+	# If HUD is currently showing this unit, refresh immediately
+	if hud_target != null and is_instance_valid(hud_target) and hud_target == u:
+		_hud_refresh()
+		return
+
+	# Optional: if you're hovering this unit, show it + refresh (feels good)
+	if hovered_unit != null and is_instance_valid(hovered_unit) and hovered_unit == u:
+		_hud_bind(u)  # this will call _hud_refresh()
+
+	_hud_bind(u)
 
 func _unit_sprite(u: Unit) -> AnimatedSprite2D:
 	if u == null:
@@ -594,6 +630,7 @@ func _ready() -> void:
 	spawn_units()
 
 	_build_ui()
+	_build_hud()
 
 	if turn_manager != NodePath():
 		TM = get_node(turn_manager) as TurnManager
@@ -781,6 +818,176 @@ func _build_ui() -> void:
 		rv.add_child(b)
 
 	_refresh_ui_status()
+
+func _build_hud() -> void:
+	# Put HUD on the SAME CanvasLayer as UI (so it overlays the world)
+	if ui_layer == null or not is_instance_valid(ui_layer):
+		ui_layer = CanvasLayer.new()
+		ui_layer.name = "UI"
+		add_child(ui_layer)
+
+	hud_root = Control.new()
+	hud_root.name = "HUD"
+	hud_root.anchor_left = 1.0
+	hud_root.anchor_top = 1.0
+	hud_root.anchor_right = 1.0
+	hud_root.anchor_bottom = 1.0
+	hud_root.offset_left = -320
+	hud_root.offset_top = -140
+	hud_root.offset_right = -16
+	hud_root.offset_bottom = -16
+	ui_layer.add_child(hud_root)
+
+	# Panel (background)
+	hud_panel = PanelContainer.new()
+	hud_panel.name = "Panel"
+	hud_panel.size_flags_horizontal = Control.SIZE_FILL
+	hud_panel.size_flags_vertical = Control.SIZE_FILL
+	hud_root.add_child(hud_panel)
+
+	# Flat panel style (no rounded corners)
+	var panel_sb := StyleBoxFlat.new()
+	panel_sb.bg_color = Color(0.07, 0.07, 0.08, 0.92)
+	panel_sb.border_width_left = 1
+	panel_sb.border_width_top = 1
+	panel_sb.border_width_right = 1
+	panel_sb.border_width_bottom = 1
+	panel_sb.border_color = Color(0.20, 0.20, 0.22, 0.9)
+	panel_sb.corner_radius_top_left = 0
+	panel_sb.corner_radius_top_right = 0
+	panel_sb.corner_radius_bottom_left = 0
+	panel_sb.corner_radius_bottom_right = 0
+	hud_panel.add_theme_stylebox_override("panel", panel_sb)
+
+	# ✅ REAL inner padding: MarginContainer inside PanelContainer
+	var margin := MarginContainer.new()
+	margin.add_theme_constant_override("margin_left", 12)
+	margin.add_theme_constant_override("margin_right", 12)
+	margin.add_theme_constant_override("margin_top", 10)
+	margin.add_theme_constant_override("margin_bottom", 10)
+	hud_panel.add_child(margin)
+
+	# Content row goes inside margin
+	var h := HBoxContainer.new()
+	margin.add_child(h)
+	h.custom_minimum_size = Vector2(0, 0)
+	h.alignment = BoxContainer.ALIGNMENT_BEGIN
+	h.add_theme_constant_override("separation", 10)
+
+	# Portrait
+	hud_portrait = TextureRect.new()
+	hud_portrait.custom_minimum_size = Vector2(64, 64)
+	hud_portrait.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	hud_portrait.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	h.add_child(hud_portrait)
+
+	# Right side (name + HP)
+	var v := VBoxContainer.new()
+	v.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	v.add_theme_constant_override("separation", 6)
+	h.add_child(v)
+
+	hud_name = Label.new()
+	hud_name.text = ""
+	if ui_font:
+		hud_name.add_theme_font_override("font", ui_font)
+		hud_name.add_theme_font_size_override("font_size", ui_title_font_size)
+	v.add_child(hud_name)
+
+	hud_hp_bar = ProgressBar.new()
+	hud_hp_bar.min_value = 0
+	hud_hp_bar.max_value = 10
+	hud_hp_bar.value = 10
+	hud_hp_bar.show_percentage = false
+	hud_hp_bar.custom_minimum_size = Vector2(160, 14) # ← set width here
+	hud_hp_bar.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+
+	v.add_child(hud_hp_bar)
+
+	# Flat HP bar styles (no rounded corners)
+	var bg := StyleBoxFlat.new()
+	bg.bg_color = Color(0.14, 0.14, 0.16, 1.0)
+	bg.corner_radius_top_left = 0
+	bg.corner_radius_top_right = 0
+	bg.corner_radius_bottom_left = 0
+	bg.corner_radius_bottom_right = 0
+
+	var fill := StyleBoxFlat.new()
+	fill.bg_color = hud_hp_color_high # start green (your variable)
+	fill.corner_radius_top_left = 0
+	fill.corner_radius_top_right = 0
+	fill.corner_radius_bottom_left = 0
+	fill.corner_radius_bottom_right = 0
+
+	hud_hp_bar.add_theme_stylebox_override("background", bg)
+	hud_hp_bar.add_theme_stylebox_override("fill", fill)
+
+	# ✅ store reference so we can recolor later
+	hud_hp_bar.set_meta("fill_stylebox", fill)
+
+	# Start hidden until bound
+	hud_root.visible = false
+
+func _hud_bind(u: Unit) -> void:
+	if hud_root == null:
+		return
+
+	if u == null or not is_instance_valid(u):
+		hud_target = null
+		hud_root.visible = false
+		return
+
+	hud_target = u
+	hud_root.visible = true
+
+	# Name
+	hud_name.text = _unit_display_name(u)
+
+	# Portrait texture (you said you already have textures)
+	# Option A: set per-unit via meta: u.set_meta("portrait_tex", preload("res://...png"))
+	# Option B: if the unit has a Sprite2D/AnimatedSprite2D, reuse its first frame/texture (fallback)
+	var tex: Texture2D = null
+	if u.has_meta("portrait_tex"):
+		tex = u.get_meta("portrait_tex") as Texture2D
+	else:
+		# fallback tries
+		if u.has_node("Portrait") and (u.get_node("Portrait") is TextureRect):
+			tex = (u.get_node("Portrait") as TextureRect).texture
+	hud_portrait.texture = tex
+
+	_hud_refresh()
+
+func _hud_refresh() -> void:
+	if hud_target == null or not is_instance_valid(hud_target):
+		_hud_bind(null)
+		return
+
+	var cur = max(0, int(hud_target.hp))
+	var maxv = max(1, int(hud_target.max_hp))
+
+	hud_hp_bar.max_value = maxv
+	hud_hp_bar.value = cur
+
+	# ---- dynamic fill color ----
+	var ratio := float(cur) / float(maxv)
+	var c: Color
+
+	if ratio >= hud_high_threshold:
+		c = hud_hp_color_high
+	elif ratio >= hud_mid_threshold:
+		c = hud_hp_color_mid
+	else:
+		c = hud_hp_color_low
+
+	var fill := hud_hp_bar.get_meta("fill_stylebox") as StyleBoxFlat
+	if fill != null:
+		fill.bg_color = c
+
+	# Optional: dim whole panel if dead
+	if cur <= 0:
+		hud_panel.modulate = Color(1, 1, 1, 0.5)
+	else:
+		hud_panel.modulate = Color(1, 1, 1, 1)
 
 func _mine_capacity() -> int:
 	return int(mines_per_battle_base + bonus_mines_per_battle)
@@ -1740,6 +1947,8 @@ func set_hovered_unit(u: Unit) -> void:
 
 	# NEW: shader outline hover
 	_update_hover_outline()
+	
+	_hud_bind(u)
 
 
 func select_unit(u: Unit) -> void:
@@ -2576,6 +2785,9 @@ func perform_attack(attacker: Unit, target: Unit) -> void:
 	is_attacking_unit = true
 	_set_facing_from_world_delta(attacker, attacker.global_position, target.global_position)
 
+	_hud_bind(attacker)
+	_hud_refresh()
+
 	var anim_name := _get_attack_anim_name(attacker)
 	var repeats = max(attacker.attack_repeats, 1)
 
@@ -2601,8 +2813,12 @@ func perform_attack(attacker: Unit, target: Unit) -> void:
 		if t == null or not is_instance_valid(t):
 			break
 
+		_hud_refresh()
+
 		await t.take_damage(1)
 
+		_hud_refresh()
+		
 		# Re-fetch again (take_damage might free it)
 		t = target_ref.get_ref() as Unit
 		if t == null or not is_instance_valid(t):
@@ -2723,6 +2939,8 @@ func find_path_origins(u: Unit, start: Vector2i, goal: Vector2i, max_cost: int) 
 	return path
 
 func move_unit_along_path(u: Unit, path: Array[Vector2i], step_duration := 0.18) -> void:
+	_hud_bind(u)
+	
 	if u == null or path.is_empty():
 		return
 	if is_moving_unit or is_attacking_unit:
@@ -2749,6 +2967,8 @@ func move_unit_along_path(u: Unit, path: Array[Vector2i], step_duration := 0.18)
 		move_tween.set_trans(Tween.TRANS_SINE)
 		move_tween.set_ease(Tween.EASE_IN_OUT)
 		move_tween.tween_property(u, "global_position", step_pos, step_duration)
+
+		_hud_refresh()
 
 		var token := _motion_cancel_token
 
@@ -3902,3 +4122,13 @@ func _await_tween_or_cancel(t: Tween, token: int) -> void:
 
 		# ✅ safest frame-yield in Godot 4 (doesn't require get_tree().process_frame)
 		await get_tree().create_timer(0.0).timeout
+
+func _unit_display_name(u: Unit) -> String:
+	if u == null:
+		return ""
+	# Prefer meta, then name, then class
+	if u.has_meta("display_name"):
+		return str(u.get_meta("display_name"))
+	if u.name != "":
+		return u.name
+	return u.get_class()
