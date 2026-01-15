@@ -2461,9 +2461,19 @@ func _try_spawn_medkit_drop(zombie_cell: Vector2i) -> void:
 	# tag it so _collect_pickup_at knows what it is
 	d2.set_meta("pickup_kind", "medkit")
 
+	# --- Robust: lock the intended grid cell + z now (don't derive from world pos later) ---
+	d2.set_meta("pickup_cell", spawn_cell)
+
+	# Your usual layering practice: x+y sum
+	var z_base := 2
+	d2.z_as_relative = false
+	d2.z_index = int(z_base + spawn_cell.x + spawn_cell.y)
+
 	pickups_root.add_child(d2)
 
+	# Place in world (visual offset is fine now; z is already correct)
 	var world_pos := terrain.to_global(terrain.map_to_local(spawn_cell))
+	world_pos += Vector2(0, -16)
 	d2.global_position = world_pos
 
 	d2.visible = true
@@ -2476,13 +2486,13 @@ func _try_spawn_medkit_drop(zombie_cell: Vector2i) -> void:
 	var t := create_tween()
 	t.tween_property(d2, "scale", Vector2.ONE, 0.12)
 
+
 func _try_spawn_laser_drop(zombie_cell: Vector2i) -> void:
 	if laser_drop_scene == null:
 		return
 	if rng.randf() > laser_drop_chance:
 		return
 
-	# ✅ Prefer exact death cell, otherwise find a nearby free cell
 	var spawn_cell := Vector2i(-1, -1)
 
 	if _is_pickup_cell_ok(zombie_cell) and not pickups.has(zombie_cell):
@@ -2492,8 +2502,6 @@ func _try_spawn_laser_drop(zombie_cell: Vector2i) -> void:
 
 	if spawn_cell.x < 0:
 		return
-
-	# Don't stack pickups
 	if pickups.has(spawn_cell):
 		return
 
@@ -2503,9 +2511,19 @@ func _try_spawn_laser_drop(zombie_cell: Vector2i) -> void:
 		push_warning("laser_drop_scene root is not Node2D/Area2D; can't render.")
 		return
 
+	# --- Robust: lock the intended grid cell + z now (don't derive from world pos later) ---
+	d2.set_meta("pickup_cell", spawn_cell)
+
+	# Your usual layering practice: x+y sum
+	var z_base := 2
+	d2.z_as_relative = false
+	d2.z_index = int(z_base + spawn_cell.x + spawn_cell.y)
+
 	pickups_root.add_child(d2)
 
+	# Place in world (visual offset is fine now; z is already correct)
 	var world_pos := terrain.to_global(terrain.map_to_local(spawn_cell))
+	world_pos += Vector2(0, -16)
 	d2.global_position = world_pos
 
 	d2.visible = true

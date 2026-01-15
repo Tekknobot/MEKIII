@@ -19,6 +19,13 @@ var visual: Node2D
 @export var pickup_pitch_max := 1.05
 
 func _ready() -> void:
+	if has_meta("pickup_cell"):
+		var cell: Vector2i = get_meta("pickup_cell")
+		z_as_relative = false
+		z_index = int(z_base + cell.x + cell.y)
+	else:
+		_apply_xy_sum_layering() # fallback only
+			
 	visual = get_node_or_null("Visual") as Node2D
 
 	# connect overlap signals
