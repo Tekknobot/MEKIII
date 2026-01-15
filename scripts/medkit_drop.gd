@@ -8,7 +8,7 @@ class_name MedkitDrop
 @export var also_flash := true
 
 # keeps pickups above terrain/roads/structures but still x+y sorted
-@export var z_base := 4
+@export var z_base := 2
 
 var _t := 0.0
 var visual: Node2D
@@ -51,6 +51,10 @@ func _try_collect(obj: Node) -> void:
 	if u == null or not is_instance_valid(u):
 		return
 
+	if u.team != Unit.Team.ALLY:
+		return
+	
+		
 	# find the Map node (same pattern as LaserDrop)
 	var map := get_tree().get_first_node_in_group("GameMap")
 	if map == null:
