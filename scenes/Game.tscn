@@ -252,7 +252,7 @@ script = ExtResource("1_400sg")
 target_water = 0.0
 freeze_water_chance = 0.0
 mech_count = 1
-zombie_count = 8
+zombie_count = 4
 human_scene = ExtResource("2_s0nni")
 human2_scene = ExtResource("3_1gdd5")
 mech_scene = ExtResource("3_aug50")
@@ -324,14 +324,20 @@ layer_0/modulate = Color(0.60784316, 0.60784316, 0.60784316, 1)
 layer_1/name = "Layer1"
 
 [node name="MoveRange" type="TileMap" parent="."]
+z_index = 1
+z_as_relative = false
 tile_set = SubResource("TileSet_kyk2p")
 format = 2
 
 [node name="AttackRangeSmall" type="TileMap" parent="."]
+z_index = 1
+z_as_relative = false
 tile_set = SubResource("TileSet_bneo8")
 format = 2
 
 [node name="AttackRangeBig" type="TileMap" parent="."]
+z_index = 1
+z_as_relative = false
 tile_set = SubResource("TileSet_bneo8")
 format = 2
 
