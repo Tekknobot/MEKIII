@@ -737,7 +737,7 @@ func _build_ui() -> void:
 	ui_layer.add_child(ui_root)
 
 	var v := VBoxContainer.new()
-	v.custom_minimum_size = Vector2(240, 0) 
+	v.custom_minimum_size = Vector2(200, 0) 
 
 	v.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	v.size_flags_vertical = Control.SIZE_EXPAND_FILL
