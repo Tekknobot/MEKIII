@@ -286,6 +286,12 @@ var structure_by_cell := {}                # Dictionary[Vector2i, Node2D]
 var structure_hp := {}                     # Dictionary[Node2D, int]
 @export var building_max_hp := 2
 
+@export var hover_outline_shader: Shader = preload("res://shaders/outline_1px.gdshader")
+@export var hover_outline_color: Color = Color(1.0, 1.0, 0.25, 1.0) # tweak
+
+var _hover_outlined_unit: Unit = null
+var _hover_prev_material := {} # Dictionary[Unit, Material]
+
 func _pick_structure_tint() -> Color:
 	if structure_tint_palette == null or structure_tint_palette.is_empty():
 		# fallback: random pastel-ish
@@ -315,10 +321,11 @@ func _apply_structure_tint(b2: Node2D) -> void:
 
 	b2.modulate = blended
 
-
 # Blocked cells for buildings (acts like a Set): cell -> true
 var structure_blocked := {}
 
+# Terrain cells covered by ANY road tile (acts like a Set): cell -> true
+var road_blocked := {}
 
 func _rect_top_left(size: Vector2i) -> Rect2i:
 	return Rect2i(Vector2i(0, 0), size)
@@ -858,9 +865,11 @@ func _update_hovered_cell() -> void:
 			hovered_cell = Vector2i(-1, -1)
 			return
 
-	var mouse_global := get_global_mouse_position()
+	# ✅ offset the mouse hit point BEFORE mapping to cell
+	var mouse_global := get_global_mouse_position() + Vector2(0, 8)
 	var local_in_terrain := terrain.to_local(mouse_global)
 	hovered_cell = terrain.local_to_map(local_in_terrain)
+
 
 func _update_hovered_unit() -> void:
 	var u := unit_at_cell(hovered_cell)
@@ -1071,6 +1080,50 @@ func _add_roads() -> void:
 		elif mask == 2:
 			roads_dr.set_cell(0, rc, ROAD_DOWN_RIGHT, ROAD_ATLAS, 0)
 	
+	_rebuild_road_blocked()
+
+func _rebuild_road_blocked() -> void:
+	road_blocked.clear()
+
+	if terrain == null or not is_instance_valid(terrain):
+		return
+
+	var road_maps: Array[TileMap] = []
+	if roads_dl != null and is_instance_valid(roads_dl): road_maps.append(roads_dl)
+	if roads_dr != null and is_instance_valid(roads_dr): road_maps.append(roads_dr)
+	if roads_x  != null and is_instance_valid(roads_x):  road_maps.append(roads_x)
+
+	if road_maps.is_empty():
+		return
+
+	# For every road tile, mark the 2x2-ish terrain cells it visually covers.
+	# We do this by sampling 4 points around the road tile center (±16px),
+	# converting each sample to a terrain cell, and storing it.
+	for rmap in road_maps:
+		var used := rmap.get_used_cells(0)
+		for rc in used:
+			_mark_terrain_cells_covered_by_road_tile(rmap, rc)
+
+func _mark_terrain_cells_covered_by_road_tile(rmap: TileMap, rc: Vector2i) -> void:
+	# Road tile center in WORLD space
+	var road_center_local := rmap.map_to_local(rc)
+	var road_center_world := rmap.to_global(road_center_local)
+
+	# 64x64 road covers about 2x2 terrain cells (32x32 each)
+	# sample 4 quadrants around the center
+	var samples: Array[Vector2] = [
+		road_center_world + Vector2(-16, -16),
+		road_center_world + Vector2( 16, -16),
+		road_center_world + Vector2(-16,  16),
+		road_center_world + Vector2( 16,  16),
+	]
+
+	for wp in samples:
+		var local_in_terrain := terrain.to_local(wp)
+		var tc := terrain.local_to_map(local_in_terrain)
+		if grid.in_bounds(tc):
+			road_blocked[tc] = true
+
 func _build_road_path_2x2(start: Vector2i, goal: Vector2i) -> Array[Vector2i]:
 	# Like your old road path, but steps by 2 so it matches 64x64 tiles.
 	if not grid.in_bounds(start) or not grid.in_bounds(goal):
@@ -1451,9 +1504,16 @@ func draw_unit_hover(u: Unit) -> void:
 func set_hovered_unit(u: Unit) -> void:
 	if hovered_unit == u:
 		return
+
 	hovered_unit = u
+
+	# keep your existing hover tile overlay behavior
 	if selected_unit == null:
 		draw_unit_hover(hovered_unit)
+
+	# NEW: shader outline hover
+	_update_hover_outline()
+
 
 func select_unit(u: Unit) -> void:
 	selected_unit = u
@@ -1471,6 +1531,8 @@ func select_unit(u: Unit) -> void:
 		clear_selection_highlight()
 		clear_move_range()
 		clear_attack_range()
+		
+	_update_hover_outline()
 
 func clear_attack_range() -> void:
 	attack_range_small.clear()
@@ -2588,6 +2650,9 @@ func set_player_mode(enabled: bool) -> void:
 		tnt_aiming = false
 		tnt_aim_unit = null
 		_hide_tnt_curve()
+		
+	if _hover_outlined_unit != null:
+		_clear_hover_outline(_hover_outlined_unit)	
 
 func _tnt_throw_update(t: float, proj: Node2D, from_pos: Vector2, to_pos: Vector2, arc_height: float, spin_turns: float) -> void:
 	if proj == null or not is_instance_valid(proj):
@@ -3045,6 +3110,11 @@ func _pick_building_scene() -> PackedScene:
 	return building_scene
 
 func _is_structure_origin_ok(origin: Vector2i, size: Vector2i) -> bool:
+	# inside _is_structure_origin_ok(origin, size):
+	if size == Vector2i(1, 1):
+		if _cell_has_road(origin):
+			return false
+				
 	# footprint must be in bounds
 	if origin.x < 0 or origin.y < 0:
 		return false
@@ -3079,39 +3149,54 @@ func _is_structure_origin_ok(origin: Vector2i, size: Vector2i) -> bool:
 				return false
 
 			# ✅ don't place on roads (road tiles are 2x2 cells)
-			if _cell_has_road(c):
+			if road_blocked.has(c):
 				return false
 
 	return true
 
 func _cell_has_road(c: Vector2i) -> bool:
-	# Road tiles are placed in separate TileMaps (RoadsDL/RoadsDR/RoadsX) using a coarser grid.
-	# We convert the terrain cell's world position to each road TileMap coord and check for any tile.
+	# Robust road overlap test for 1x1 structures:
+	# sample multiple points inside the terrain cell so offsets + 64x64 road tiles can't slip through.
 	if terrain == null or not is_instance_valid(terrain):
 		return false
 
-	var world_pos := terrain.to_global(terrain.map_to_local(c))
-
 	var road_maps: Array[TileMap] = []
-	if roads_dl != null: road_maps.append(roads_dl)
-	if roads_dr != null: road_maps.append(roads_dr)
-	if roads_x  != null: road_maps.append(roads_x)
+	if roads_dl != null and is_instance_valid(roads_dl): road_maps.append(roads_dl)
+	if roads_dr != null and is_instance_valid(roads_dr): road_maps.append(roads_dr)
+	if roads_x  != null and is_instance_valid(roads_x):  road_maps.append(roads_x)
+	if road_maps.is_empty():
+		return false
+
+	var tile_sz: Vector2 = Vector2(32, 32)
+	if terrain.tile_set != null:
+		tile_sz = terrain.tile_set.tile_size
+
+	# terrain.map_to_local gives cell center in local space (Godot 4)
+	var center_local := terrain.map_to_local(c)
+	var center_world := terrain.to_global(center_local)
+
+	# sample 5 points: center + 4 corners (inset a bit so we don't land exactly on borders)
+	var inset := 6.0
+	var hx := tile_sz.x * 0.5 - inset
+	var hy := tile_sz.y * 0.5 - inset
+
+	var samples: Array[Vector2] = [
+		center_world,
+		center_world + Vector2(-hx, -hy),
+		center_world + Vector2( hx, -hy),
+		center_world + Vector2(-hx,  hy),
+		center_world + Vector2( hx,  hy),
+	]
 
 	for rmap in road_maps:
-		if rmap == null or not is_instance_valid(rmap):
-			continue
-
-		var local_in_road := rmap.to_local(world_pos)
-		var rc := rmap.local_to_map(local_in_road)
-
-		# layer 0 in your road maps
-		if rmap.get_cell_source_id(0, rc) != -1:
-			return true
+		# If any sample point lands inside a road cell that has a tile, we consider it blocked.
+		for wp in samples:
+			var local_in_road := rmap.to_local(wp)
+			var rc := rmap.local_to_map(local_in_road)
+			if rmap.get_cell_source_id(0, rc) != -1:
+				return true
 
 	return false
-
-
-
 
 func _is_structure_blocked(origin: Vector2i, size: Vector2i) -> bool:
 	for dx in range(size.x):
@@ -3371,3 +3456,76 @@ func _damage_units_near_structure(struct_origin: Vector2i, radius: int, dmg: int
 		if still != null and is_instance_valid(still) and still.hp > 0:
 			play_sfx_poly(_sfx_hurt_for(still), still.global_position, -5.0)
 			await _flash_unit(still)
+
+func _get_unit_canvas_sprite(u: Unit) -> CanvasItem:
+	# You currently use AnimatedSprite2D, but this keeps it flexible.
+	if u == null or not is_instance_valid(u):
+		return null
+	if u.has_node("AnimatedSprite2D"):
+		return u.get_node("AnimatedSprite2D") as AnimatedSprite2D
+	return null
+
+func _apply_hover_outline(u: Unit) -> void:
+	if u == null or not is_instance_valid(u):
+		return
+
+	var spr := _get_unit_canvas_sprite(u)
+	if spr == null:
+		return
+
+	# Save previous material once
+	if not _hover_prev_material.has(u):
+		_hover_prev_material[u] = spr.material
+
+	var mat := ShaderMaterial.new()
+	mat.shader = hover_outline_shader
+	mat.set_shader_parameter("outline_color", hover_outline_color)
+	mat.set_shader_parameter("thickness_px", 1.0)
+
+	spr.material = mat
+	_hover_outlined_unit = u
+
+func _clear_hover_outline(u: Unit) -> void:
+	if u == null:
+		return
+
+	# If it got freed, just forget it
+	if not is_instance_valid(u):
+		_hover_prev_material.erase(u)
+		if _hover_outlined_unit == u:
+			_hover_outlined_unit = null
+		return
+
+	var spr := _get_unit_canvas_sprite(u)
+	if spr == null:
+		return
+
+	# Restore previous material if we stored one
+	if _hover_prev_material.has(u):
+		spr.material = _hover_prev_material[u]
+		_hover_prev_material.erase(u)
+	else:
+		spr.material = null
+
+	if _hover_outlined_unit == u:
+		_hover_outlined_unit = null
+
+func _update_hover_outline() -> void:
+	# Don’t outline if a unit is selected (optional preference)
+	# If you WANT outline + selection, remove this block.
+	if selected_unit != null:
+		if _hover_outlined_unit != null:
+			_clear_hover_outline(_hover_outlined_unit)
+		return
+
+	# Clear old outline if hover changed
+	if _hover_outlined_unit != null and _hover_outlined_unit != hovered_unit:
+		_clear_hover_outline(_hover_outlined_unit)
+
+	# Apply to current hovered unit
+	if hovered_unit != null and is_instance_valid(hovered_unit):
+		if _hover_outlined_unit != hovered_unit:
+			_apply_hover_outline(hovered_unit)
+	else:
+		if _hover_outlined_unit != null:
+			_clear_hover_outline(_hover_outlined_unit)
