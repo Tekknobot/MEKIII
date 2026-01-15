@@ -27,3 +27,10 @@ func set_occupied(c: Vector2i, value) -> void:
 		occupied.erase(c)
 	else:
 		occupied[c] = value
+
+func get_occupied(c: Vector2i):
+	# returns whatever you stored (unit id / node ref), or null
+	return occupied.get(c, null)
+
+func clear_occupied(c: Vector2i) -> void:
+	occupied.erase(c)

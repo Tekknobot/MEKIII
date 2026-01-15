@@ -292,6 +292,13 @@ var structure_hp := {}                     # Dictionary[Node2D, int]
 var _hover_outlined_unit: Unit = null
 var _hover_prev_material := {} # Dictionary[Unit, Material]
 
+# -------------------
+# Setup drag state
+# -------------------
+var setup_dragging := false
+var setup_drag_unit: Unit = null
+var setup_drag_start_origin := Vector2i.ZERO
+
 func _pick_structure_tint() -> Color:
 	if structure_tint_palette == null or structure_tint_palette.is_empty():
 		# fallback: random pastel-ish
@@ -602,6 +609,19 @@ func _process(_delta: float) -> void:
 	_update_hovered_cell()
 	_update_hovered_unit()
 	_update_tnt_aim_preview()
+
+	# ✅ SETUP: make dragged unit follow the hovered cell
+	if state == GameState.SETUP and setup_dragging and setup_drag_unit != null and is_instance_valid(setup_drag_unit):
+		var c := hovered_cell
+		if not grid.in_bounds(c):
+			return
+
+		var u := setup_drag_unit
+		var origin := c
+		if _is_big_unit(u):
+			origin = snap_origin_for_unit(c, u)
+
+		u.global_position = cell_to_world_for_unit(origin, u)
 
 func _seed_rng() -> void:
 	if map_seed == 0:
@@ -1567,8 +1587,8 @@ func draw_attack_range_for_unit(attacker: Unit) -> void:
 		else:
 			attack_range_small.set_cell(LAYER_ATTACK, target_origin, ATTACK_TILE_SMALL_SOURCE_ID, ATTACK_ATLAS, 0)
 
-func _unhandled_input(event: InputEvent) -> void:
-	# ✅ Press R to hard reset (reload scene)
+func _input(event: InputEvent) -> void:
+	# R = reload
 	if event is InputEventKey and event.pressed and not event.echo:
 		var k := event as InputEventKey
 		if k.keycode == KEY_R:
@@ -1579,7 +1599,50 @@ func _unhandled_input(event: InputEvent) -> void:
 		return
 	if is_moving_unit or is_attacking_unit:
 		return
-		
+
+	# ✅ SETUP DRAG
+	if state != GameState.SETUP:
+		return
+
+	if event is InputEventMouseButton:
+		var mb := event as InputEventMouseButton
+
+		# Left press = pick up ally unit
+		if mb.button_index == MOUSE_BUTTON_LEFT and mb.pressed:
+			var u := unit_at_cell(hovered_cell)
+			if u != null and is_instance_valid(u) and u.team == Unit.Team.ALLY:
+				select_unit(u)
+				setup_dragging = true
+				setup_drag_unit = u
+				setup_drag_start_origin = get_unit_origin(u)
+			return
+
+		# Left release = place
+		if mb.button_index == MOUSE_BUTTON_LEFT and (not mb.pressed):
+			if setup_dragging and setup_drag_unit != null and is_instance_valid(setup_drag_unit):
+				select_unit(setup_drag_unit)
+
+				var placed := _setup_place_selected(hovered_cell)
+				if not placed:
+					# snap back (your _setup_place_selected already restored occupancy)
+					setup_drag_unit.global_position = cell_to_world_for_unit(setup_drag_start_origin, setup_drag_unit)
+					setup_drag_unit.grid_pos = setup_drag_start_origin
+					unit_origin[setup_drag_unit] = setup_drag_start_origin
+
+				setup_dragging = false
+				setup_drag_unit = null
+			return
+
+		# Right click = cancel drag
+		if mb.button_index == MOUSE_BUTTON_RIGHT and mb.pressed:
+			if setup_dragging and setup_drag_unit != null and is_instance_valid(setup_drag_unit):
+				select_unit(setup_drag_unit)
+				_setup_place_selected(setup_drag_start_origin)
+
+				setup_dragging = false
+				setup_drag_unit = null
+			return
+	
 func try_attack_selected(target: Unit) -> bool:
 	if selected_unit == null or target == null:
 		return false

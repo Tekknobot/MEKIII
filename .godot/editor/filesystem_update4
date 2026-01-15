@@ -1,3 +1,6 @@
 res://scenes/Game.tscn
 res://scripts/game.gd
 res://shaders/outline_1px.gdshader
+res://scripts/unit.gd
+res://scripts/turnmanager.gd
+res://scripts/grid_data.gd
