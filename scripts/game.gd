@@ -162,9 +162,6 @@ var zombie_bonus_repeats := 0
 # Per-battle assist charges
 var assist_tnt_charges_left := 0
 
-# Cached placement zone (computed from ally_spawn_size)
-var ally_rect_cache: Rect2i
-
 @export var tnt_curve_points := 24          # more = smoother line
 @export var tnt_curve_line_width := 3.0
 @export var tnt_curve_show_time := 0.60     # seconds (usually == flight time)
@@ -390,8 +387,6 @@ func spawn_units() -> void:
 	for i in range(zombie_count):
 		_spawn_one(zombie_scene, enemy_rect)
 
-	# Ensure UI + setup zone cache stays correct
-	ally_rect_cache = _rect_top_left(ally_spawn_size)
 	_refresh_ui_status()
 
 # -----------------------
@@ -404,52 +399,56 @@ func _setup_place_selected(cell: Vector2i) -> bool:
 		return false
 	if not grid.in_bounds(cell):
 		return false
-	if not ally_rect_cache.has_point(cell):
-		return false
-	if grid.terrain[cell.x][cell.y] == T_WATER:
-		return false
 
 	var u := selected_unit
 	var new_origin := cell
 	if _is_big_unit(u):
 		new_origin = snap_origin_for_unit(cell, u)
 
-	# All footprint cells must be inside the ally zone, on land, and unoccupied (except by itself)
+	# ✅ Must be inside the precomputed move range
+	if not reachable_set.has(new_origin):
+		return false
+
+	# basic terrain check
+	if grid.terrain[new_origin.x][new_origin.y] == T_WATER:
+		return false
+
+	# --- Temporarily clear own occupancy ---
 	var old_origin := get_unit_origin(u)
-	# Temporarily clear own occupancy
 	for c in u.footprint_cells(old_origin):
 		if grid.is_occupied(c) and grid.get_occupied(c) == u:
 			grid.set_occupied(c, null)
 
+	# --- Validate new footprint ---
 	var ok := true
 	for c in u.footprint_cells(new_origin):
-		if not grid.in_bounds(c) or not ally_rect_cache.has_point(c):
+		if not grid.in_bounds(c):
 			ok = false
 			break
 		if grid.terrain[c.x][c.y] == T_WATER:
 			ok = false
 			break
-
-		# ✅ NEW: block buildings during setup placement
 		if structure_blocked.has(c):
 			ok = false
 			break
-
 		if grid.is_occupied(c):
 			ok = false
 			break
 
-	# Restore / apply occupancy
+	# --- Restore if failed ---
 	if not ok:
 		for c in u.footprint_cells(old_origin):
 			grid.set_occupied(c, u)
 		return false
 
+	# --- Commit new position ---
 	for c in u.footprint_cells(new_origin):
 		grid.set_occupied(c, u)
+
 	unit_origin[u] = new_origin
 	u.grid_pos = new_origin
 	u.global_position = cell_to_world_for_unit(new_origin, u)
+
 	_update_all_unit_layering()
 	_refresh_ui_status()
 	return true
@@ -563,7 +562,6 @@ func _ready() -> void:
 
 	spawn_structures()		
 	spawn_units()
-	ally_rect_cache = _rect_top_left(ally_spawn_size)
 
 	_build_ui()
 
@@ -1615,6 +1613,7 @@ func _input(event: InputEvent) -> void:
 				setup_dragging = true
 				setup_drag_unit = u
 				setup_drag_start_origin = get_unit_origin(u)
+				draw_move_range_for_unit(u)
 			return
 
 		# Left release = place
@@ -3574,21 +3573,25 @@ func _clear_hover_outline(u: Unit) -> void:
 		_hover_outlined_unit = null
 
 func _update_hover_outline() -> void:
-	# Don’t outline if a unit is selected (optional preference)
-	# If you WANT outline + selection, remove this block.
-	if selected_unit != null:
+	# During SETUP drag, keep outline on the dragged unit (even though it's "selected")
+	var want: Unit = null
+
+	if state == GameState.SETUP and setup_dragging and setup_drag_unit != null and is_instance_valid(setup_drag_unit):
+		want = setup_drag_unit
+	else:
+		# normal hover behavior
+		if hovered_unit != null and is_instance_valid(hovered_unit):
+			want = hovered_unit
+
+	# If nothing wanted, clear any current outline
+	if want == null:
 		if _hover_outlined_unit != null:
 			_clear_hover_outline(_hover_outlined_unit)
 		return
 
-	# Clear old outline if hover changed
-	if _hover_outlined_unit != null and _hover_outlined_unit != hovered_unit:
+	# If outline target changed, swap it
+	if _hover_outlined_unit != null and _hover_outlined_unit != want:
 		_clear_hover_outline(_hover_outlined_unit)
 
-	# Apply to current hovered unit
-	if hovered_unit != null and is_instance_valid(hovered_unit):
-		if _hover_outlined_unit != hovered_unit:
-			_apply_hover_outline(hovered_unit)
-	else:
-		if _hover_outlined_unit != null:
-			_clear_hover_outline(_hover_outlined_unit)
+	if _hover_outlined_unit != want:
+		_apply_hover_outline(want)

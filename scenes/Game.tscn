@@ -326,7 +326,6 @@ layer_1/name = "Layer1"
 [node name="MoveRange" type="TileMap" parent="."]
 tile_set = SubResource("TileSet_kyk2p")
 format = 2
-layer_0/modulate = Color(0.09803922, 0.09803922, 0.09803922, 1)
 
 [node name="AttackRangeSmall" type="TileMap" parent="."]
 tile_set = SubResource("TileSet_bneo8")
