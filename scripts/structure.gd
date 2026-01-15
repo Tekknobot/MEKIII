@@ -1,10 +1,10 @@
 extends Node2D
 class_name Structure
 
-@export var footprint_size := Vector2i(2, 2)
+@export var footprint_size := Vector2i(1, 1)
 var origin_cell: Vector2i = Vector2i.ZERO
 
-const Z_STRUCTURES := 0
+const Z_STRUCTURES := 1
 
 func set_origin(cell: Vector2i, terrain: TileMap) -> void:
 	origin_cell = cell

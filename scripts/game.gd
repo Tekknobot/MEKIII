@@ -155,6 +155,10 @@ var bonus_move_range := 0
 var bonus_tnt_damage := 0
 var bonus_attack_repeats := 0
 
+# Persistent zombie progression (stacks across rounds)
+var zombie_bonus_hp := 0
+var zombie_bonus_repeats := 0
+
 # Per-battle assist charges
 var assist_tnt_charges_left := 0
 
@@ -470,7 +474,7 @@ func _spawn_one(scene: PackedScene, region: Rect2i) -> void:
 				ok = false
 				break
 
-			# ✅ NEW: don't spawn on structure footprints
+			# ✅ don't spawn on structure footprints
 			if structure_blocked.has(c):
 				ok = false
 				break
@@ -490,23 +494,18 @@ func _spawn_one(scene: PackedScene, region: Rect2i) -> void:
 		unit_origin[unit] = origin
 		units_root.add_child(unit)
 
-		# ✅ Now apply run bonuses AFTER the unit's own _ready() finishes
+		# ✅ Apply run bonuses AFTER the unit's own _ready() finishes
 		if unit.team == Unit.Team.ALLY:
 			unit.call_deferred("apply_run_bonuses", bonus_max_hp, bonus_attack_range, bonus_move_range, bonus_attack_repeats)
 
-		# ✅ Enemy scaling (zombies only)
+		# ✅ Enemy scaling (zombies only) — STACKED + PERSISTENT
 		if unit is Zombie:
-			var hp_bonus := _zombie_hp_bonus_for_round(round_index)
-			unit.call_deferred("_apply_hp_bonus_safe", hp_bonus)
+			unit.call_deferred("_apply_hp_bonus_safe", zombie_bonus_hp)
+			unit.call_deferred("_apply_repeats_bonus_safe", zombie_bonus_repeats)
 
-			var rep_bonus := _zombie_repeats_bonus_for_round(round_index)
-			unit.call_deferred("_apply_repeats_bonus_safe", rep_bonus)
-
-			
 		unit.global_position = cell_to_world_for_unit(origin, unit)
 		_update_all_unit_layering()
 		return
-
 
 func _unit_sprite(u: Unit) -> AnimatedSprite2D:
 	if u == null:
@@ -715,9 +714,8 @@ func _refresh_ui_status() -> void:
 
 	# Header
 	lines.append("Round %d  ,  Phase: %s" % [round_index, phase])
-	lines.append("Allies: %d   Enemies: %d" %
-		[get_units(Unit.Team.ALLY).size(), get_units(Unit.Team.ENEMY).size()])
-	lines.append("") # spacer
+	lines.append("Allies: %d   Enemies: %d" % [get_units(Unit.Team.ALLY).size(), get_units(Unit.Team.ENEMY).size()])
+	lines.append("")
 
 	# Current TNT damage
 	var cur_tnt := tnt_damage
@@ -733,13 +731,10 @@ func _refresh_ui_status() -> void:
 	lines.append("  TNT:     +%d  (base %d → %d)" % [bonus_tnt_damage, tnt_damage, cur_tnt])
 	lines.append("")
 
-	# ---- Zombies ----
-	var z_hp := _zombie_hp_bonus_for_round(round_index)
-	var z_rep := _zombie_repeats_bonus_for_round(round_index)
-
+	# ---- Zombies (STACKED) ----
 	lines.append("[b]Zombies[/b]")
-	lines.append("  HP:      +%d" % z_hp)
-	lines.append("  Repeats: +%d" % z_rep)
+	lines.append("  HP:      +%d" % zombie_bonus_hp)
+	lines.append("  Repeats: +%d" % zombie_bonus_repeats)
 	lines.append("")
 
 	# ---- Phase info ----
@@ -747,11 +742,9 @@ func _refresh_ui_status() -> void:
 		lines.append("[color=#ffd966]BATTLE RULES[/color]")
 		lines.append("• Units move and attack automatically.")
 		lines.append("• [color=#ff9966]Humans[/color] use [color=#ff4444]TNT[/color] when available.")
-
 	elif state == GameState.BATTLE:
 		lines.append("[color=#66ccff]BATTLE IN PROGRESS[/color]")
 		lines.append("Units act automatically.")
-
 	elif state == GameState.REWARD:
 		lines.append("[color=#66ff66]ROUND COMPLETE[/color]")
 		lines.append("Choose an upgrade to continue.")
@@ -805,42 +798,52 @@ func _on_battle_ended(winner_team: int) -> void:
 
 	_refresh_ui_status()
 
-
 func _pick_reward(choice: int) -> void:
+	# -------------------
+	# Player upgrade choice
+	# -------------------
 	match choice:
 		0: bonus_max_hp += 1
 		1: bonus_attack_range += 1
 		2: bonus_tnt_damage += 1
-		3: bonus_attack_repeats += 1   
+		3: bonus_attack_repeats += 1
 
-	# Difficulty ramp
+	# -------------------
+	# Round progression
+	# -------------------
 	round_index += 1
 	zombie_count += 2
 
-	# ✅ RANDOMIZE SEASON EACH ROUND
-	season = Season.values()[rng.randi_range(0, Season.values().size() - 1)]
+	# ✅ STACK zombie upgrades permanently (never reset)
+	zombie_bonus_hp += _zombie_hp_bonus_for_round(round_index)
+	zombie_bonus_repeats += _zombie_repeats_bonus_for_round(round_index)
 
-	# (Optional) also slightly randomize season strength for variety
+	# -------------------
+	# Variety: random season per round
+	# -------------------
+	season = Season.values()[rng.randi_range(0, Season.values().size() - 1)]
 	season_strength = rng.randf_range(0.55, 0.9)
 
-	# ✅ Rebuild map with new season
-	rng.randomize()   # ensures new layout each round
+	# -------------------
+	# Rebuild map
+	# -------------------
+	rng.randomize() # ensures new layout each round
 	grid.setup(map_width, map_height)
 	generate_map()
 	terrain.update_internals()
 	_sync_roads_transform()
 
 	if bake_map_visuals:
-		# if you already baked before, you may want to re-show tilemaps briefly or just bake again
 		terrain.visible = true
 		if roads_dl: roads_dl.visible = true
 		if roads_dr: roads_dr.visible = true
 		if roads_x:  roads_x.visible = true
-		#await bake_map_to_sprite()
 		await bake_roads_to_sprite()
 
+	# -------------------
+	# Respawn content on new map
+	# -------------------
 	spawn_structures()
-	# Respawn units on new map
 	spawn_units()
 	_enter_setup()
 
@@ -3305,6 +3308,18 @@ func _damage_structure(b: Node2D, dmg: int, hit_world_pos: Vector2) -> void:
 	# We keep structure_blocked + structure_by_cell intact so units cannot walk through rubble.
 	# (Optional) If you ever want rubble to stop taking damage, we’ll handle that below.
 
+	# ✅ structure is demolished — splash zombies in 3x3 (radius 1) or bigger
+	# building footprint is 2x2, so use its ORIGIN cell (top-left) as the splash center
+	var origin := Vector2i(-1, -1)
+	for k in structure_by_cell.keys():
+		if structure_by_cell[k] == b:
+			origin = k
+			break
+
+	if origin.x >= 0:
+		# radius=1 => 3x3, radius=2 => 5x5, radius=3 => 7x7
+		await _damage_units_near_structure(origin, 1, _get_tnt_damage(), hit_world_pos)
+
 	# ✅ keep it on map as rubble (don’t queue_free)
 	structure_hp.erase(b)
 	if structures.has(b):
@@ -3318,3 +3333,41 @@ func _update_all_unit_layering() -> void:
 		var u := ch as Unit
 		if u != null and is_instance_valid(u):
 			u.update_layering()
+
+func _damage_units_near_structure(struct_origin: Vector2i, radius: int, dmg: int, source_world_pos: Vector2) -> void:
+	if dmg <= 0:
+		return
+
+	var hit_cells := _splash_cells(struct_origin, radius)
+
+	# collect victims first (so we can await safely)
+	var victims: Array[Unit] = []
+	for child in units_root.get_children():
+		var u := child as Unit
+		if u == null or not is_instance_valid(u):
+			continue
+		if not (u is Zombie):
+			continue
+
+		var uo := get_unit_origin(u)
+		# if any of the unit's footprint cells are in the hit set, count it
+		var in_range := false
+		for fc in u.footprint_cells(uo):
+			if hit_cells.has(fc):
+				in_range = true
+				break
+		if in_range:
+			victims.append(u)
+
+	# apply damage
+	for z in victims:
+		if z == null or not is_instance_valid(z):
+			continue
+
+		var zref = weakref(z)
+		await z.take_damage(dmg)
+
+		var still := zref.get_ref() as Unit
+		if still != null and is_instance_valid(still) and still.hp > 0:
+			play_sfx_poly(_sfx_hurt_for(still), still.global_position, -5.0)
+			await _flash_unit(still)
