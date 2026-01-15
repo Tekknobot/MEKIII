@@ -39,6 +39,13 @@ func _try_collect(obj: Node) -> void:
 	if not (obj is Unit):
 		return
 
+	var u := obj as Unit
+	if u == null or not is_instance_valid(u):
+		return
+		
+	if u.team != Unit.Team.ALLY:
+		return
+	
 	# find the Map node (parent of Units root)
 	var map := get_tree().get_first_node_in_group("GameMap")
 	if map == null:

@@ -277,6 +277,7 @@ sfx_humantwo_die = ExtResource("10_jhsr3")
 sfx_dog_die = ExtResource("8_a85ww")
 sfx_medkit_pickup = ExtResource("16_cxum0")
 laser_drop_scene = ExtResource("14_i4jil")
+laser_drop_chance = 1.0
 medkit_drop_scene = ExtResource("17_kbe8o")
 orbital_hits = 1
 sfx_orbital_zap = ExtResource("15_jai3c")

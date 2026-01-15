@@ -53,8 +53,7 @@ func _try_collect(obj: Node) -> void:
 
 	if u.team != Unit.Team.ALLY:
 		return
-	
-		
+			
 	# find the Map node (same pattern as LaserDrop)
 	var map := get_tree().get_first_node_in_group("GameMap")
 	if map == null:

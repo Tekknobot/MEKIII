@@ -2304,7 +2304,6 @@ func _try_spawn_laser_drop(zombie_cell: Vector2i) -> void:
 	world_pos += Vector2(0, -16)
 	d2.global_position = world_pos
 
-	# ✅ Above tilemaps, still y-sorted
 	d2.z_as_relative = false
 	d2.z_index = 300000 + int(world_pos.y)
 
@@ -3889,7 +3888,8 @@ func _await_tween_or_cancel(t: Tween, token: int) -> void:
 	# Wait until:
 	# - tween stops running, OR
 	# - motion gets cancelled (token changes), OR
-	# - tween becomes invalid
+	# - tween becomes invalid, OR
+	# - this node is leaving the tree (so get_tree() becomes null)
 	while true:
 		if _motion_cancel_token != token:
 			return
@@ -3897,4 +3897,8 @@ func _await_tween_or_cancel(t: Tween, token: int) -> void:
 			return
 		if not t.is_running():
 			return
-		await get_tree().process_frame
+		if not is_inside_tree():
+			return
+
+		# ✅ safest frame-yield in Godot 4 (doesn't require get_tree().process_frame)
+		await get_tree().create_timer(0.0).timeout
