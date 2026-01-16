@@ -26,12 +26,29 @@ var _death_sfx_played := false
 signal hp_changed(unit: Unit)
 signal died(unit: Unit)
 
+var _motion_tween: Tween = null
+
 func _ready():
 	hp = max_hp
 	var spr := _unit_sprite()
 	if spr != null:
 		_sprite_base_pos = spr.position
-	
+
+func set_motion_tween(t: Tween) -> void:
+	_motion_tween = t
+
+func cancel_motion() -> void:
+	# Kill any tween we know about
+	if _motion_tween != null and _motion_tween.is_valid():
+		_motion_tween.kill()
+	_motion_tween = null
+
+	# Also stop any animation if you want
+	if has_node("AnimatedSprite2D"):
+		var spr := $AnimatedSprite2D as AnimatedSprite2D
+		if spr:
+			spr.stop()
+				
 func footprint_cells(origin: Vector2i = grid_pos) -> Array[Vector2i]:
 	var cells: Array[Vector2i] = []
 	for dx in range(footprint_size.x):

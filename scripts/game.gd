@@ -209,7 +209,7 @@ var hud_target: Unit = null
 # Put this near the top of game.gd (or wherever _build_ui lives)
 @export var ui_font_path: String = "res://fonts/magofonts/mago1.ttf"
 @export var ui_font_size: int = 16
-@export var ui_title_font_size: int = 32
+@export var ui_title_font_size: int = 16
 
 var ui_font: FontFile
 
@@ -4120,6 +4120,10 @@ func _interrupt_unit_motion(u: Unit) -> void:
 		move_tween.kill()
 		move_tween = null
 
+	# ✅ Stop unit-side movement tweens too (if Unit implements it)
+	if u.has_method("cancel_motion"):
+		u.call("cancel_motion")
+		
 	# Reset flags so flow can recover
 	is_moving_unit = false
 	is_attacking_unit = false
@@ -4169,3 +4173,6 @@ func _unit_display_name(u: Unit) -> String:
 	if u.name != "":
 		return u.name
 	return u.get_class()
+
+func _unit_dead_or_freeing(u: Unit) -> bool:
+	return u == null or (not is_instance_valid(u)) or u.is_queued_for_deletion() or int(u.hp) <= 0
