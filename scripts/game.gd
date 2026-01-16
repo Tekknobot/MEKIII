@@ -736,13 +736,45 @@ func _build_ui() -> void:
 	ui_root.offset_bottom = -16
 	ui_layer.add_child(ui_root)
 
+	# ✅ PANEL BEHIND (HUD-style)
+	var ui_panel := PanelContainer.new()
+	ui_panel.name = "UIPanel"
+	# IMPORTANT: keep width behavior the same as before (your VBox was 200px min)
+	ui_panel.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+	ui_panel.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
+	ui_root.add_child(ui_panel)
+
+	# HUD-like flat style
+	var panel_sb := StyleBoxFlat.new()
+	panel_sb.bg_color = Color(0.07, 0.07, 0.08, 0.92)
+	panel_sb.border_width_left = 1
+	panel_sb.border_width_top = 1
+	panel_sb.border_width_right = 1
+	panel_sb.border_width_bottom = 1
+	panel_sb.border_color = Color(0.20, 0.20, 0.22, 0.9)
+	panel_sb.corner_radius_top_left = 0
+	panel_sb.corner_radius_top_right = 0
+	panel_sb.corner_radius_bottom_left = 0
+	panel_sb.corner_radius_bottom_right = 0
+	ui_panel.add_theme_stylebox_override("panel", panel_sb)
+
+	# ✅ inner padding like HUD
+	var margin := MarginContainer.new()
+	margin.add_theme_constant_override("margin_left", 12)
+	margin.add_theme_constant_override("margin_right", 12)
+	margin.add_theme_constant_override("margin_top", 10)
+	margin.add_theme_constant_override("margin_bottom", 10)
+	ui_panel.add_child(margin)
+	ui_panel.custom_minimum_size = Vector2(220, 0) # 200 + left/right padding (12+12)
+
+	# Your existing VBox goes inside the margin
 	var v := VBoxContainer.new()
-	v.custom_minimum_size = Vector2(200, 0) 
+	v.custom_minimum_size = Vector2(200, 0)  # ✅ keeps same width as before
+	v.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+	v.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
+	margin.add_child(v)
 
-	v.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	v.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	ui_root.add_child(v)
-
+	# --- status ---
 	ui_status_label = RichTextLabel.new()
 	ui_status_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	ui_status_label.bbcode_enabled = true
@@ -752,13 +784,12 @@ func _build_ui() -> void:
 	if ui_font:
 		ui_status_label.add_theme_font_override("normal_font", ui_font)
 		ui_status_label.add_theme_font_size_override("normal_font_size", ui_font_size)
-
-		# optional (only matters if you ever use [b] or [i] tags)
 		ui_status_label.add_theme_font_override("bold_font", ui_font)
 		ui_status_label.add_theme_font_override("italics_font", ui_font)
 		ui_status_label.add_theme_font_override("bold_italics_font", ui_font)
 	v.add_child(ui_status_label)
 
+	# --- start button ---
 	ui_start_button = Button.new()
 	ui_start_button.text = "Start Battle"
 	ui_start_button.pressed.connect(_on_start_pressed)
@@ -783,6 +814,7 @@ func _build_ui() -> void:
 		ui_mine_button.add_theme_font_size_override("font_size", ui_font_size)
 	v.add_child(ui_mine_button)
 
+	# --- reward panel ---
 	ui_reward_panel = PanelContainer.new()
 	ui_reward_panel.visible = false
 	v.add_child(ui_reward_panel)
@@ -801,13 +833,8 @@ func _build_ui() -> void:
 	var b1 := Button.new(); b1.text = "+1 Max HP"; b1.pressed.connect(func(): _pick_reward(0))
 	var b2 := Button.new(); b2.text = "+1 Attack Range"; b2.pressed.connect(func(): _pick_reward(1))
 	var b3 := Button.new(); b3.text = "+1 TNT Damage"; b3.pressed.connect(func(): _pick_reward(2))
-	var b4 := Button.new(); b4.text = "+1 Attack Repeat";  b4.pressed.connect(func(): _pick_reward(3)) # ✅ NEW
-
-	var b5 := Button.new()
-	b5.text = "+1 Mine"
-	b5.pressed.connect(func(): _pick_reward(4))
-	ui_reward_buttons.append(b5)
-	rv.add_child(b5)
+	var b4 := Button.new(); b4.text = "+1 Attack Repeat"; b4.pressed.connect(func(): _pick_reward(3))
+	var b5 := Button.new(); b5.text = "+1 Mine"; b5.pressed.connect(func(): _pick_reward(4))
 
 	ui_reward_buttons = [b1, b2, b3, b4, b5]
 
@@ -1165,15 +1192,15 @@ func _refresh_ui_status() -> void:
 	# ---- Phase info ----
 	if state == GameState.SETUP:
 		lines.append("[color=#ffd966]SETUP: REPOSITION[/color]")
-		lines.append("• Drag & drop [color=#ff9966]Allies[/color] to adjust your formation.")
-		lines.append("• Press [b]Start Battle[/b] when ready.")
+		lines.append("1. Drag & drop [color=#ff9966]Allies[/color] to adjust your formation.")
+		lines.append("2. Press [b]Start Battle[/b] when ready.")
 	elif state == GameState.BATTLE:
 		lines.append("[color=#66ccff]BATTLE IN PROGRESS[/color]")
-		lines.append("• Units move and attack automatically.")
+		lines.append("1. Units move and attack automatically.")
 	elif state == GameState.REWARD:
 		lines.append("[color=#66ff66]ROUND COMPLETE[/color]")
-		lines.append("• Choose an upgrade to continue.")
-		lines.append("• Zombies scale over rounds — pick wisely.")
+		lines.append("1. Choose an upgrade to continue.")
+		lines.append("2. Zombies scale over rounds — pick wisely.")
 
 	ui_status_label.text = "\n".join(lines)
 
