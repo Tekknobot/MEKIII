@@ -208,7 +208,7 @@ var hud_target: Unit = null
 
 # Put this near the top of game.gd (or wherever _build_ui lives)
 @export var ui_font_path: String = "res://fonts/magofonts/mago1.ttf"
-@export var ui_font_size: int = 16
+@export var ui_font_size: int = 8
 @export var ui_title_font_size: int = 16
 
 var ui_font: FontFile
@@ -405,35 +405,199 @@ func spawn_units() -> void:
 		push_warning("Assign human_scene, mech_scene, and zombie_scene in the Inspector.")
 		return
 
-	# human2 is optional, but if it's missing we’ll just use human_scene
-	var has_h2 := (human2_scene != null)
-
+	# wipe old units
 	for child in units_root.get_children():
 		child.queue_free()
 	grid.occupied.clear()
 	unit_origin.clear()
 
-	var ally_rect := _rect_top_left(ally_spawn_size)
-	var enemy_rect := _rect_bottom_right(enemy_spawn_size)
+	# ---- build zones (4 quadrants) ----
+	var zones := _build_spawn_zones()
+	if zones.is_empty():
+		# fallback: whole map
+		zones = [Rect2i(Vector2i(0, 0), Vector2i(map_width, map_height))]
 
-	# ✅ Mechs: top-left
+	# pick a random zone for ALLIES
+	var ally_zone_idx := rng.randi_range(0, zones.size() - 1)
+
+	# pick a different random zone for ZOMBIES (if possible)
+	var zombie_zone_idx := ally_zone_idx
+	if zones.size() > 1:
+		while zombie_zone_idx == ally_zone_idx:
+			zombie_zone_idx = rng.randi_range(0, zones.size() - 1)
+
+	var ally_zone := zones[ally_zone_idx]
+
+	# “spill order”: start at zombie zone, then go to the “next zones”
+	# (we rotate the zone list so zombie_zone is first, then the rest in sequence)
+	var zombie_zone_order: Array[Rect2i] = []
+	for i in range(zones.size()):
+		var idx := (zombie_zone_idx + i) % zones.size()
+		zombie_zone_order.append(zones[idx])
+
+	# ---- Spawn ALLIES together in ally_zone ----
+	# (mechs + humans + human2)
 	for i in range(mech_count):
-		_spawn_one(mech_scene, ally_rect)
+		_spawn_one_in_zone(mech_scene, ally_zone)
 
-	# ✅ Humans: top-left
 	for i in range(human_count):
-		_spawn_one(human_scene, ally_rect)
+		_spawn_one_in_zone(human_scene, ally_zone)
 
-	# ✅ Human2: top-left (only if scene assigned)
 	if human2_scene != null:
 		for i in range(human2_count):
-			_spawn_one(human2_scene, ally_rect)
+			_spawn_one_in_zone(human2_scene, ally_zone)
 
-	# ✅ Zombies: bottom-right
-	for i in range(zombie_count):
-		_spawn_one(zombie_scene, enemy_rect)
+	# ---- Spawn ZOMBIES together in zombie zone, spill into next zones if needed ----
+	_spawn_many_spilling(zombie_scene, zombie_count, zombie_zone_order)
 
+	_update_all_unit_layering()
 	_refresh_ui_status()
+
+func _build_spawn_zones() -> Array[Rect2i]:
+	# 4 quadrants: TL, TR, BL, BR
+	var zones: Array[Rect2i] = []
+
+	# If your map isn't evenly divisible, we floor for safety.
+	var half_w = max(1, map_width / 2)
+	var half_h = max(1, map_height / 2)
+
+	var tl := Rect2i(Vector2i(0, 0), Vector2i(half_w, half_h))
+	var tr := Rect2i(Vector2i(map_width - half_w, 0), Vector2i(half_w, half_h))
+	var bl := Rect2i(Vector2i(0, map_height - half_h), Vector2i(half_w, half_h))
+	var br := Rect2i(Vector2i(map_width - half_w, map_height - half_h), Vector2i(half_w, half_h))
+
+	zones.append(tl)
+	zones.append(tr)
+	zones.append(bl)
+	zones.append(br)
+
+	# Optional: shuffle zone “identity” a bit (still quadrants, but random order)
+	# NOTE: we still “spill into next zone” via rotated order in spawn_units().
+	# If you want strict clockwise spill, remove this shuffle.
+	zones.shuffle()
+
+	return zones
+
+
+func _spawn_many_spilling(scene: PackedScene, count: int, zone_order: Array[Rect2i]) -> void:
+	if scene == null:
+		return
+	if count <= 0:
+		return
+	if zone_order.is_empty():
+		return
+
+	var zone_i := 0
+	var spawned := 0
+
+	# We’ll try hard, but never infinite loop.
+	var global_guard := 6000
+
+	while spawned < count and global_guard > 0:
+		global_guard -= 1
+
+		# if we run out of zones, keep using the last one (or wrap; your call)
+		zone_i = clampi(zone_i, 0, zone_order.size() - 1)
+
+		var zone := zone_order[zone_i]
+
+		var ok := _spawn_one_in_zone(scene, zone)
+
+		if ok:
+			spawned += 1
+			continue
+
+		# Could not fit into this zone: spill to next zone
+		if zone_i < zone_order.size() - 1:
+			zone_i += 1
+		else:
+			# Nowhere left. We stop (or you could relax rules here).
+			push_warning("Not enough space to spawn all units. Spawned %d/%d." % [spawned, count])
+			return
+
+
+func _spawn_one_in_zone(scene: PackedScene, zone: Rect2i) -> bool:
+	# Same idea as your _spawn_one, but constrained to a zone.
+	var tries := 500
+	while tries > 0:
+		tries -= 1
+
+		var unit := scene.instantiate() as Unit
+		if unit == null:
+			return false
+
+		var origin := _rand_cell_in_rect(zone)
+
+		# big units must align
+		if _is_big_unit(unit):
+			origin = snap_origin_for_unit(origin, unit)
+
+			# if snapping pushed it outside the zone, try again
+			if not zone.has_point(origin):
+				unit.queue_free()
+				continue
+
+		var cells := unit.footprint_cells(origin)
+
+		var ok := true
+		for c in cells:
+			if not grid.in_bounds(c):
+				ok = false
+				break
+			if grid.terrain[c.x][c.y] == T_WATER:
+				ok = false
+				break
+
+			# ✅ don't spawn on structure footprints
+			if structure_blocked.has(c):
+				ok = false
+				break
+
+			# ✅ also keep out of roads if you want
+			# (you already use road_blocked for mines/buildings; optional for spawns)
+			# if road_blocked.has(c):
+			# 	ok = false
+			# 	break
+
+			if grid.is_occupied(c):
+				ok = false
+				break
+
+		if not ok:
+			unit.queue_free()
+			continue
+
+		# commit occupancy
+		for c in cells:
+			grid.set_occupied(c, unit)
+
+		unit.grid_pos = origin
+		unit_origin[unit] = origin
+		units_root.add_child(unit)
+
+		# ✅ keep HUD live-updating on HP changes
+		if not unit.hp_changed.is_connected(_on_unit_hp_changed):
+			unit.hp_changed.connect(_on_unit_hp_changed)
+
+		# ✅ ensure HUD clears if the bound unit dies
+		if not unit.died.is_connected(_on_unit_died):
+			unit.died.connect(_on_unit_died)
+
+		# ✅ Apply run bonuses AFTER the unit's own _ready() finishes
+		if unit.team == Unit.Team.ALLY:
+			unit.call_deferred("apply_run_bonuses", bonus_max_hp, bonus_attack_range, bonus_move_range, bonus_attack_repeats)
+
+		# ✅ Enemy scaling (zombies only) — STACKED + PERSISTENT
+		if unit is Zombie:
+			unit.call_deferred("_apply_hp_bonus_safe", zombie_bonus_hp)
+			unit.call_deferred("_apply_repeats_bonus_safe", zombie_bonus_repeats)
+
+		# place in world
+		unit.global_position = cell_to_world_for_unit(origin, unit)
+
+		return true
+
+	return false
 
 # -----------------------
 # SETUP: reposition allies before starting the battle
@@ -765,11 +929,11 @@ func _build_ui() -> void:
 	margin.add_theme_constant_override("margin_top", 10)
 	margin.add_theme_constant_override("margin_bottom", 10)
 	ui_panel.add_child(margin)
-	ui_panel.custom_minimum_size = Vector2(220, 0) # 200 + left/right padding (12+12)
+	ui_panel.custom_minimum_size = Vector2(140, 0) # 200 + left/right padding (12+12)
 
 	# Your existing VBox goes inside the margin
 	var v := VBoxContainer.new()
-	v.custom_minimum_size = Vector2(200, 0)  # ✅ keeps same width as before
+	v.custom_minimum_size = Vector2(140, 0)  # ✅ keeps same width as before
 	v.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
 	v.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
 	margin.add_child(v)
@@ -1193,7 +1357,7 @@ func _refresh_ui_status() -> void:
 	if state == GameState.SETUP:
 		lines.append("[color=#ffd966]SETUP: REPOSITION[/color]")
 		lines.append("1. Drag & drop [color=#ff9966]Allies[/color] to adjust your formation.")
-		lines.append("2. Press [b]Start Battle[/b] when ready.")
+		lines.append("2. Press Start Battle when ready.")
 	elif state == GameState.BATTLE:
 		lines.append("[color=#66ccff]BATTLE IN PROGRESS[/color]")
 		lines.append("1. Units move and attack automatically.")
@@ -2747,41 +2911,37 @@ func _orbital_laser_strike() -> void:
 	if zombies.is_empty():
 		return
 
-	# pick up to N random zombies (unique)
 	zombies.shuffle()
 	var count = min(orbital_hits, zombies.size())
 
 	for i in range(count):
 		var z := zombies[i]
-		if z == null or not is_instance_valid(z):
+		if z == null or not is_instance_valid(z) or z.is_queued_for_deletion():
 			continue
+
+		# ✅ stop any in-progress movement so it can’t “finish its tween” after death
+		_interrupt_unit_motion(z)
 
 		var hit_pos := z.global_position
 
-		# 1px beam flash
 		_spawn_orbital_beam(hit_pos)
 
-		# optional zap sfx
 		if sfx_orbital_zap != null:
 			play_sfx_poly(sfx_orbital_zap, hit_pos, -4.0, 0.95, 1.05)
 
-		# explosion visual + sfx
 		if tnt_explosion_scene != null:
 			var boom := tnt_explosion_scene.instantiate() as Node2D
 			if boom != null:
 				add_child(boom)
 				boom.global_position = hit_pos
+				boom.z_as_relative = false
 				boom.z_index = int(hit_pos.y) + 999
-				play_sfx_poly(sfx_explosion, hit_pos, -2.0, 0.9, 1.1)
+				if sfx_explosion != null:
+					play_sfx_poly(sfx_explosion, hit_pos, -2.0, 0.9, 1.1)
 
-		# kill the zombie
-		if is_instance_valid(z):
+		# ✅ kill safely
+		if is_instance_valid(z) and not z.is_queued_for_deletion():
 			await z.take_damage(orbital_damage)
-
-			# ✅ flash on hit (only if still alive)
-			if is_instance_valid(z) and z.hp > 0:
-				play_sfx_poly(_sfx_hurt_for(z), z.global_position, -5.0)
-				await _flash_unit(z)
 
 		await get_tree().create_timer(orbital_delay).timeout
 
@@ -2977,12 +3137,12 @@ func find_path_origins(u: Unit, start: Vector2i, goal: Vector2i, max_cost: int) 
 
 func move_unit_along_path(u: Unit, path: Array[Vector2i], step_duration := 0.18) -> void:
 	_hud_bind(u)
-	
+
 	if u == null or path.is_empty():
 		return
 	if is_moving_unit or is_attacking_unit:
 		return
-	if not is_instance_valid(u):
+	if not is_instance_valid(u) or u.is_queued_for_deletion():
 		return
 
 	is_moving_unit = true
@@ -2991,9 +3151,15 @@ func move_unit_along_path(u: Unit, path: Array[Vector2i], step_duration := 0.18)
 	# kill any previous tween
 	if move_tween != null and move_tween.is_valid():
 		move_tween.kill()
+		move_tween = null
 
 	# path includes start, so skip 0
 	for i in range(1, path.size()):
+		# ✅ if unit died during previous step, stop NOW
+		if _unit_dead_or_freeing(u):
+			is_moving_unit = false
+			return
+
 		var step_origin := path[i]
 		var step_pos := cell_to_world_for_unit(step_origin, u)
 
@@ -3005,20 +3171,27 @@ func move_unit_along_path(u: Unit, path: Array[Vector2i], step_duration := 0.18)
 		move_tween.set_ease(Tween.EASE_IN_OUT)
 		move_tween.tween_property(u, "global_position", step_pos, step_duration)
 
+		# ✅ let Unit know what tween is moving it (so death can cancel it)
+		if u.has_method("set_motion_tween"):
+			u.call("set_motion_tween", move_tween)
+
 		_hud_refresh()
 
 		var token := _motion_cancel_token
-
-		# ... inside the loop, after you create move_tween:
 		await _await_tween_or_cancel(move_tween, token)
 
-		# if cancelled, stop moving immediately
-		if _motion_cancel_token != token:
+		# ✅ cancelled or unit died while awaiting
+		if _motion_cancel_token != token or _unit_dead_or_freeing(u):
+			is_moving_unit = false
 			return
 
 		u.update_layering()
 
-	# snap exact
+	# ✅ final snap only if still alive
+	if _unit_dead_or_freeing(u):
+		is_moving_unit = false
+		return
+
 	u.global_position = cell_to_world_for_unit(path[path.size() - 1], u)
 	_update_all_unit_layering()
 	_play_idle(u)
@@ -3174,6 +3347,7 @@ func perform_human_tnt_throw(thrower: Unit, target_cell: Vector2i, target_unit: 
 			continue
 
 		var vref = weakref(v)
+		_interrupt_unit_motion(v)
 		await v.take_damage(_get_tnt_damage())
 
 		var still := vref.get_ref() as Unit
