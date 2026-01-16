@@ -5,22 +5,15 @@ class_name LaserDrop
 @export var rot_degrees := 12.0
 
 # keeps pickups above terrain/roads/structures but still x+y sorted
-@export var z_base := 2
+@export var z_base := 1
 
 var _t := 0.0
 var visual: Node2D
 
 func _ready() -> void:
-	if has_meta("pickup_cell"):
-		var cell: Vector2i = get_meta("pickup_cell")
-		z_as_relative = false
-		z_index = int(z_base + cell.x + cell.y)
-	else:
-		_apply_xy_sum_layering() # fallback only
-			
 	visual = get_node_or_null("Visual") as Node2D
 
-	# connect overlap signal
+	# connect overlap signals
 	body_entered.connect(_on_body_entered)
 	area_entered.connect(_on_area_entered)
 
@@ -68,6 +61,14 @@ func _try_collect(obj: Node) -> void:
 	queue_free()
 
 func _apply_xy_sum_layering() -> void:
+	# If spawner already gave us the authoritative grid cell, use it.
+	if has_meta("pickup_cell"):
+		var cell: Vector2i = get_meta("pickup_cell")
+		z_as_relative = false
+		z_index = int(z_base + cell.x + cell.y)
+		return
+
+	# ---- Fallback only if no cell meta ----
 	var map := get_tree().get_first_node_in_group("GameMap")
 	if map == null:
 		return
@@ -78,10 +79,9 @@ func _apply_xy_sum_layering() -> void:
 	if terrain == null or not is_instance_valid(terrain):
 		return
 
-	# world -> terrain local -> map cell
-	var local_in_terrain := terrain.to_local(global_position)
-	var cell := terrain.local_to_map(local_in_terrain)
+	# Convert world → terrain local → map cell
+	var local_px := terrain.to_local(global_position)
+	var cell := terrain.local_to_map(local_px)
 
-	# ✅ x+y sum layering
 	z_as_relative = false
 	z_index = int(z_base + cell.x + cell.y)
