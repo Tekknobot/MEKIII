@@ -1,3 +1,4 @@
 res://scenes/Game.tscn
 res://shaders/outline_1px.gdshader
 res://scripts/game.gd
+res://scenes/camera.gd

@@ -208,8 +208,8 @@ var hud_target: Unit = null
 
 # Put this near the top of game.gd (or wherever _build_ui lives)
 @export var ui_font_path: String = "res://fonts/magofonts/mago1.ttf"
-@export var ui_font_size: int = 18
-@export var ui_title_font_size: int = 20
+@export var ui_font_size: int = 16
+@export var ui_title_font_size: int = 32
 
 var ui_font: FontFile
 

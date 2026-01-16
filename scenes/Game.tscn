@@ -352,8 +352,6 @@ format = 2
 [node name="Camera2D" type="Camera2D" parent="."]
 zoom = Vector2(2, 2)
 script = ExtResource("8_400sg")
-map_width = 16
-map_height = 16
 
 [node name="TurnManager" type="Node2D" parent="."]
 script = ExtResource("19_45i86")

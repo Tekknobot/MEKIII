@@ -1,7 +1,7 @@
 extends Camera2D
 
-@export var map_width := 8
-@export var map_height := 8
+@export var map_width := 16
+@export var map_height := 16
 
 @onready var terrain := $"../Terrain"
 
