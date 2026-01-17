@@ -950,7 +950,7 @@ func _build_ui() -> void:
 
 	# --- Structure selection UI (like mines) ---
 	ui_structure_label = Label.new()
-	ui_structure_label.text = "Structures: 0/2 active"
+	ui_structure_label.text = "Structures: 0/%d active" % [structure_active_cap]
 	if ui_font:
 		ui_structure_label.add_theme_font_override("font", ui_font)
 		ui_structure_label.add_theme_font_size_override("font_size", ui_font_size)
@@ -2380,6 +2380,26 @@ func _input(event: InputEvent) -> void:
 			# If there is nothing under the cursor, clear selection
 			if b == null and u == null:
 				select_unit(null)
+				return
+
+		# Left press = inspect enemy (zombie): show move range, but DO NOT drag
+		if mb.button_index == MOUSE_BUTTON_LEFT and mb.pressed:
+			var u := unit_at_cell(hovered_cell)
+			if u != null and is_instance_valid(u) and u.team == Unit.Team.ENEMY:
+				# Make sure we are not dragging anything
+				setup_dragging = false
+				setup_drag_unit = null
+
+				# Select so the hover/selection outline behaves consistently
+				selected_unit = u
+				draw_unit_hover(u)
+
+				# Show movement range only (as requested)
+				draw_move_range_for_unit(u)
+
+				# Optional: keep attack overlay clean during setup inspection
+				clear_attack_range()
+
 				return
 				
 		# Left press = pick up ally unit
