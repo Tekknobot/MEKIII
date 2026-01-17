@@ -34,3 +34,4 @@ res://scripts/game_connectivity_units_overlays.gd
 res://scripts/game_combat_pickups_tnt.gd
 res://scripts/structure_shot.gd
 res://scenes/structures/structure_shot.tscn
+res://scripts/explosion.gd

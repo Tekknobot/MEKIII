@@ -166,6 +166,7 @@ var bonus_attack_repeats := 0
 # Persistent zombie progression (stacks across rounds)
 var zombie_bonus_hp := 0
 var zombie_bonus_repeats := 0
+var zombie_bonus_count:= 0
 
 # Per-battle assist charges
 var assist_tnt_charges_left := 0
@@ -816,8 +817,37 @@ func _ready() -> void:
 			TM.battle_started.connect(_on_battle_started)
 			TM.battle_ended.connect(_on_battle_ended)
 
+	
+	_advance_round_progression()
+	_refresh_ui_status()
+	
 	# Start in SETUP so the player can reposition allies, then press Start.
 	_enter_setup()
+
+func _advance_round_progression() -> void:
+	# Move to next round
+	round_index += 1
+
+	# --- Zombie HP scales every 3 rounds ---
+	# r: 1→0, 2→0, 3→1, 4→1, 5→1, 6→2 ...
+	if round_index < 3:
+		zombie_bonus_hp = 0
+	else:
+		zombie_bonus_hp = int(floor((round_index - 1) / 3.0))
+
+	# --- Zombie attack repeats scale every 3 rounds starting at round 2 ---
+	# r: 1→0, 2→1, 3→1, 4→1, 5→2, 6→2 ...
+	if round_index < 2:
+		zombie_bonus_repeats = 0
+	else:
+		zombie_bonus_repeats = int(floor((round_index - 2) / 3.0)) + 1
+
+	# --- Zombie count scales gently every 2 rounds ---
+	# r: 1→0, 2→1, 3→1, 4→2, 5→2, 6→3 ...
+	if round_index < 2:
+		zombie_bonus_count = 0
+	else:
+		zombie_bonus_count = int(floor((round_index - 2) / 2.0)) + 1
 
 func _sync_roads_transform() -> void:
 	_sync_one_roads_transform(roads_dl, road_pixel_offset_dl)
@@ -4583,12 +4613,3 @@ func _count_active_structures() -> int:
 func upgrade_structure_slot() -> void:
 	structure_active_cap += 1
 	_update_structure_ui()
-
-func _advance_round_progression() -> void:
-	# Move to next round
-	round_index += 1
-
-	# STACKED + PERSISTENT: recompute totals for this round
-	# (these helpers return the total bonus by round)
-	zombie_bonus_hp = _zombie_hp_bonus_for_round(round_index)
-	zombie_bonus_repeats = _zombie_repeats_bonus_for_round(round_index)
