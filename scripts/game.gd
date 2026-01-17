@@ -1109,6 +1109,8 @@ func _build_hud() -> void:
 	hud_root.visible = false
 
 func _on_structure_button_pressed() -> void:
+	mine_placing = false
+	
 	if state != GameState.SETUP:
 		return
 	structure_selecting = not structure_selecting
@@ -1278,6 +1280,8 @@ func _update_mine_ui() -> void:
 		ui_mine_button.text = ("Place Mine" if not mine_placing else "Place Mine")	
 
 func _on_mine_button_pressed() -> void:
+	structure_selecting = false
+	
 	if state != GameState.SETUP:
 		return
 	if mines_left <= 0:
@@ -1286,7 +1290,7 @@ func _on_mine_button_pressed() -> void:
 		push_warning("Assign landmine_scene in Inspector.")
 		return
 
-	mine_placing = true
+	mine_placing = !mine_placing
 	_update_mine_ui()
 
 func _can_place_mine_at(cell: Vector2i) -> bool:

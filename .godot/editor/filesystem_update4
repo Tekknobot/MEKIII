@@ -1,3 +1,5 @@
 res://scripts/game.gd
 res://scenes/Game.tscn
 res://shaders/outline_1px.gdshader
+res://scenes/laser_drop.tscn
+res://scenes/medkit_drop.tscn
