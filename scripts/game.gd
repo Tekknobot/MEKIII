@@ -799,7 +799,7 @@ func _ready() -> void:
 	generate_map()
 	terrain.update_internals()
 	_sync_roads_transform()
-
+	
 	if bake_map_visuals:
 		#await bake_map_to_sprite()
 		await bake_roads_to_sprite()
@@ -1567,26 +1567,43 @@ func _pick_reward(choice: int) -> void:
 
 	# Close reward panel
 	ui_reward_panel.visible = false
+	
+	_advance_round_progression()
 
 	# ✅ IMPORTANT: actually advance the game
 	_begin_next_round_setup()
 
 func _begin_next_round_setup() -> void:
-	state = GameState.SETUP
+	_seed_rng()
+	
+	rng.randomize()
 
-	# stop selection modes
-	mine_placing = false
-	structure_selecting = false
+	# GridData should be 16x16 here
+	grid.setup(map_width, map_height)	
+	
+	generate_map()
+	terrain.update_internals()
+	_sync_roads_transform()
 
-	# ✅ if you randomize/rebuild the terrain each round, do it here
-	generate_map()   # only if your game is meant to change the map
+	if bake_map_visuals:
+		#await bake_map_to_sprite()
+		await bake_roads_to_sprite()
 
-	# ✅ most likely what you want: new enemies/wave
-	spawn_units()        # or spawn_zombies_wave(), or whatever you use
+	spawn_structures()		
+	spawn_units()
+
+	if turn_manager != NodePath():
+		TM = get_node(turn_manager) as TurnManager
+		if TM != null:
+			TM.battle_started.connect(_on_battle_started)
+			TM.battle_ended.connect(_on_battle_ended)
 
 	_refresh_ui_status()
-	_update_mine_ui()
-	_update_structure_ui()
+	ui_structure_button.disabled = false
+	structure_selecting = false
+	# Start in SETUP so the player can reposition allies, then press Start.
+	_enter_setup()
+
 
 # -----------------------
 # Mouse -> map helpers
@@ -1971,7 +1988,6 @@ func _build_road_path(start: Vector2i, goal: Vector2i) -> Array[Vector2i]:
 		path.append(cur)
 
 	return path
-
 
 func _register_road_exits_from_path(path: Array[Vector2i], exits: Dictionary) -> void:
 	if path.is_empty():
@@ -3876,6 +3892,11 @@ func _zombie_repeats_bonus_for_round(r: int) -> int:
 	return int(floor(r / 3.0)) + 1
 
 func spawn_structures() -> void:
+	structures.clear()
+	structure_by_cell.clear()
+	structure_hp.clear()
+	structure_can_act.clear()
+	
 	# clear old
 	if structures_root == null:
 		structures_root = self
@@ -4505,6 +4526,7 @@ func perform_structure_attack(b: Node2D, target_cell: Vector2i) -> void:
 		var boom := tnt_explosion_scene.instantiate() as Node2D
 		if boom != null:
 			add_child(boom)
+			end_world += Vector2(0, -16)
 			boom.global_position = end_world
 			boom.z_as_relative = false
 			boom.z_index = int(end_world.y) + 999
@@ -4561,3 +4583,12 @@ func _count_active_structures() -> int:
 func upgrade_structure_slot() -> void:
 	structure_active_cap += 1
 	_update_structure_ui()
+
+func _advance_round_progression() -> void:
+	# Move to next round
+	round_index += 1
+
+	# STACKED + PERSISTENT: recompute totals for this round
+	# (these helpers return the total bonus by round)
+	zombie_bonus_hp = _zombie_hp_bonus_for_round(round_index)
+	zombie_bonus_repeats = _zombie_repeats_bonus_for_round(round_index)

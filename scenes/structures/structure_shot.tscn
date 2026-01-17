@@ -4,6 +4,7 @@
 [ext_resource type="AudioStream" uid="uid://bmery8486ov70" path="res://audio/SFX/missile_launch.wav" id="2_481o3"]
 
 [node name="StructureShot" type="Node2D"]
+modulate = Color(1, 1, 1, 0.3764706)
 script = ExtResource("1_jvkuv")
 
 [node name="Line2D" type="Line2D" parent="."]
