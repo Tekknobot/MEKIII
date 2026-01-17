@@ -314,6 +314,9 @@ var structure_hp := {}                     # Dictionary[Node2D, int]
 var _hover_outlined_unit: Unit = null
 var _hover_prev_material := {} # Dictionary[Unit, Material]
 
+var _hover_outlined_structure: Node2D = null
+var _hover_prev_structure_material := {} # Dictionary[Node2D, Material]
+
 # -------------------
 # Setup drag state
 # -------------------
@@ -384,13 +387,13 @@ func _apply_structure_tint(b2: Node2D) -> void:
 	if b2 == null or not is_instance_valid(b2):
 		return
 
-	# Node2D is a CanvasItem, so modulate works.
 	var tint := _pick_structure_tint()
-
-	# Blend between white and tint so you keep sprite detail
 	var blended := Color.WHITE.lerp(tint, clamp(structure_tint_strength, 0.0, 1.0))
 
+	# store base tint so "active dim/bright" doesn't destroy it
+	b2.set_meta("base_tint", blended)
 	b2.modulate = blended
+
 
 func _rect_top_left(size: Vector2i) -> Rect2i:
 	return Rect2i(Vector2i(0, 0), size)
@@ -805,6 +808,7 @@ func _process(_delta: float) -> void:
 	_update_hovered_cell()
 	_update_hovered_unit()
 	_update_tnt_aim_preview()
+	_update_structure_hover_outline()
 
 	if state == GameState.SETUP and mine_placing:
 		_draw_mine_preview()
@@ -1125,8 +1129,14 @@ func _update_structure_ui() -> void:
 func _set_structure_active_visual(b: Node2D, active: bool) -> void:
 	if b == null or not is_instance_valid(b):
 		return
-	# simple readable indicator: inactive = dim
-	b.modulate = (Color(1, 1, 1, 1) if active else Color(0.55, 0.55, 0.55, 1))
+
+	var base := Color(1, 1, 1, 1)
+	if b.has_meta("base_tint"):
+		base = b.get_meta("base_tint") as Color
+
+	var mul := (1.0 if active else 0.55)
+	b.modulate = Color(base.r * mul, base.g * mul, base.b * mul, base.a)
+
 
 func _toggle_structure_active(b: Node2D) -> void:
 	if b == null or not is_instance_valid(b):
@@ -4549,3 +4559,89 @@ func _count_active_structures() -> int:
 func upgrade_structure_slot() -> void:
 	structure_active_cap += 1
 	_update_structure_ui()
+
+func _get_structure_canvas_sprite(b: Node2D) -> CanvasItem:
+	if b == null or not is_instance_valid(b):
+		return null
+
+	# common visual nodes in building scenes
+	for name in ["AnimatedSprite2D", "Sprite2D", "Sprite", "Art", "Body", "Visual"]:
+		if b.has_node(name):
+			var n = b.get_node(name)
+			if n is CanvasItem:
+				return n as CanvasItem
+
+	# fallback: first CanvasItem child
+	for ch in b.get_children():
+		if ch is CanvasItem:
+			return ch as CanvasItem
+
+	return null
+
+func _apply_hover_outline_structure(b: Node2D) -> void:
+	if b == null or not is_instance_valid(b):
+		return
+
+	var spr := _get_structure_canvas_sprite(b)
+	if spr == null:
+		return
+
+	if not _hover_prev_structure_material.has(b):
+		_hover_prev_structure_material[b] = spr.material
+
+	var mat := ShaderMaterial.new()
+	mat.shader = hover_outline_shader
+	mat.set_shader_parameter("outline_color", hover_outline_color)
+	mat.set_shader_parameter("thickness_px", 1.0)
+
+	spr.material = mat
+	_hover_outlined_structure = b
+
+
+func _clear_hover_outline_structure(b: Node2D) -> void:
+	if b == null:
+		return
+
+	if not is_instance_valid(b):
+		_hover_prev_structure_material.erase(b)
+		if _hover_outlined_structure == b:
+			_hover_outlined_structure = null
+		return
+
+	var spr := _get_structure_canvas_sprite(b)
+	if spr == null:
+		return
+
+	if _hover_prev_structure_material.has(b):
+		spr.material = _hover_prev_structure_material[b]
+		_hover_prev_structure_material.erase(b)
+	else:
+		spr.material = null
+
+	if _hover_outlined_structure == b:
+		_hover_outlined_structure = null
+
+func _update_structure_hover_outline() -> void:
+	# Only when picking structures in SETUP
+	if not (state == GameState.SETUP and structure_selecting):
+		if _hover_outlined_structure != null:
+			_clear_hover_outline_structure(_hover_outlined_structure)
+		return
+
+	var want: Node2D = null
+	var b := structure_at_cell(hovered_cell)
+	if b != null and is_instance_valid(b) and structure_hp.has(b):
+		want = b
+
+	# clear if nothing wanted
+	if want == null:
+		if _hover_outlined_structure != null:
+			_clear_hover_outline_structure(_hover_outlined_structure)
+		return
+
+	# swap if changed
+	if _hover_outlined_structure != null and _hover_outlined_structure != want:
+		_clear_hover_outline_structure(_hover_outlined_structure)
+
+	if _hover_outlined_structure != want:
+		_apply_hover_outline_structure(want)
