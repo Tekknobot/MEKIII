@@ -1656,6 +1656,9 @@ func _neighbors8(c: Vector2i) -> Array[Vector2i]:
 func generate_map() -> void:
 	_seed_rng()
 
+	# --- Pick a season before terrain generation ---
+	season = Season.values()[rng.randi_range(0, Season.values().size() - 1)]
+	
 	for x in range(map_width):
 		for y in range(map_height):
 			grid.terrain[x][y] = pick_tile_for_season_no_water()
