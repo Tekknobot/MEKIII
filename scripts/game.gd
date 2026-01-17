@@ -744,9 +744,10 @@ func _ready() -> void:
 		if TM != null:
 			TM.battle_started.connect(_on_battle_started)
 			TM.battle_ended.connect(_on_battle_ended)
-	
+
+	structure_selecting = false	
 	_refresh_ui_status()
-	
+
 	# Start in SETUP so the player can reposition allies, then press Start.
 	_enter_setup()
 
@@ -1116,7 +1117,7 @@ func _on_structure_button_pressed() -> void:
 func _update_structure_ui() -> void:
 	if ui_structure_button != null:
 		ui_structure_button.disabled = (state != GameState.SETUP) or (structures.is_empty())
-		ui_structure_button.text = ("Select Structures" if not structure_selecting else "Select Structures (Click buildings...)")
+		ui_structure_button.text = ("Select Structures" if not structure_selecting else "Select Structures")
 
 	if ui_structure_label != null:
 		var active := 0
@@ -1264,11 +1265,7 @@ func _update_mine_ui() -> void:
 
 	if ui_mine_button != null:
 		ui_mine_button.disabled = (state != GameState.SETUP) or (mines_left <= 0) or (landmine_scene == null)
-		ui_mine_button.text = ("Place Mine" if not mine_placing else "Place Mine (Click map...)")
-		
-	if mines_left != null:
-		ui_mine_button.disabled = (state != GameState.SETUP) or (mines_left <= 0) or (landmine_scene == null)
-		ui_mine_button.text = ("Place Mine" if not mine_placing else "Place Mine (Click map...)")	
+		ui_mine_button.text = ("Place Mine" if not mine_placing else "Place Mine")	
 
 func _on_mine_button_pressed() -> void:
 	if state != GameState.SETUP:
@@ -1456,6 +1453,7 @@ func _enter_setup() -> void:
 	_reset_mines_for_new_battle()
 
 	mine_placing = false
+	structure_selecting = false
 	_update_mine_ui()
 
 
@@ -1759,32 +1757,78 @@ func _add_roads() -> void:
 	_sync_roads_transform()
 
 	# 16x16 terrain, ROAD_SIZE=2 => 8x8 road grid
-	var cols := int(map_width / ROAD_SIZE) * 2 - 1  # 15
-	var rows := int(map_height / ROAD_SIZE) * 2 - 1 # 15
+	var cols := int(map_width / ROAD_SIZE) * 2 - 1
+	var rows := int(map_height / ROAD_SIZE) * 2 - 1
 
-	# pick lane column/row within the road grid
 	var margin := 0
 	var road_col := rng.randi_range(margin, cols - 1 - margin)
 	var road_row := rng.randi_range(margin, rows - 1 - margin)
 
-	# rc -> bitmask (1=DL, 2=DR, 3=intersection)
 	var conn := {}
+	var min_gap := 3  # road-grid cells apart
 
-	# vertical lane (DL) within [0, rows-1]
-	for ry in range(0, rows):
+	# ✅ Chance that we even add the extra road (0.0..1.0)
+	var extra_road_chance := 0.55
+	var spawn_extra := rng.randf() < extra_road_chance
+
+	# Decide whether we add a parallel vertical or horizontal lane
+	var add_vertical := rng.randi_range(0, 1) == 0
+
+	var extra_col := -1
+	var extra_row := -1
+
+	# Only try to pick an extra lane if spawn_extra succeeds
+	if spawn_extra:
+		# --- pick extra parallel vertical lane ---
+		if add_vertical:
+			var candidates: Array[int] = []
+			for i in range(margin, cols - margin):
+				if abs(i - road_col) >= min_gap:
+					candidates.append(i)
+			if not candidates.is_empty():
+				extra_col = candidates[rng.randi_range(0, candidates.size() - 1)]
+
+		# --- pick extra parallel horizontal lane ---
+		else:
+			var candidates: Array[int] = []
+			for i in range(margin, rows - margin):
+				if abs(i - road_row) >= min_gap:
+					candidates.append(i)
+			if not candidates.is_empty():
+				extra_row = candidates[rng.randi_range(0, candidates.size() - 1)]
+
+	# --- main vertical lane ---
+	for ry in range(rows):
 		var rc := Vector2i(road_col, ry)
 		conn[rc] = int(conn.get(rc, 0)) | 1
 
-	# horizontal lane (DR) within [0, cols-1]
-	for rx in range(0, cols):
+	# --- extra vertical lane ---
+	if extra_col != -1:
+		for ry in range(rows):
+			var rc := Vector2i(extra_col, ry)
+			conn[rc] = int(conn.get(rc, 0)) | 1
+
+	# --- main horizontal lane ---
+	for rx in range(cols):
 		var rc := Vector2i(rx, road_row)
 		conn[rc] = int(conn.get(rc, 0)) | 2
 
-	# force intersection
-	var cross := Vector2i(road_col, road_row)
-	conn[cross] = 3
+	# --- extra horizontal lane ---
+	if extra_row != -1:
+		for rx in range(cols):
+			var rc := Vector2i(rx, extra_row)
+			conn[rc] = int(conn.get(rc, 0)) | 2
 
-	# paint (all rc are guaranteed in-bounds)
+	# --- force intersections ---
+	conn[Vector2i(road_col, road_row)] = 3
+	if extra_col != -1:
+		conn[Vector2i(extra_col, road_row)] = 3
+	if extra_row != -1:
+		conn[Vector2i(road_col, extra_row)] = 3
+	if extra_col != -1 and extra_row != -1:
+		conn[Vector2i(extra_col, extra_row)] = 3
+
+	# --- paint tiles ---
 	for rc in conn.keys():
 		var mask := int(conn[rc])
 		if mask == 3:
@@ -1793,9 +1837,9 @@ func _add_roads() -> void:
 			roads_dl.set_cell(0, rc, ROAD_DOWN_LEFT, ROAD_ATLAS, 0)
 		elif mask == 2:
 			roads_dr.set_cell(0, rc, ROAD_DOWN_RIGHT, ROAD_ATLAS, 0)
-	
+
 	_rebuild_road_blocked()
-	
+
 func _rebuild_road_blocked() -> void:
 	road_blocked.clear()
 
