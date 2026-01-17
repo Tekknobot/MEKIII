@@ -209,7 +209,7 @@ var hud_target: Unit = null
 
 # Put this near the top of game.gd (or wherever _build_ui lives)
 @export var ui_font_path: String = "res://fonts/magofonts/mago1.ttf"
-@export var ui_font_size: int = 8
+@export var ui_font_size: int = 16
 @export var ui_title_font_size: int = 16
 
 var ui_font: FontFile
@@ -1255,6 +1255,10 @@ func _update_mine_ui() -> void:
 	if ui_mine_button != null:
 		ui_mine_button.disabled = (state != GameState.SETUP) or (mines_left <= 0) or (landmine_scene == null)
 		ui_mine_button.text = ("Place Mine" if not mine_placing else "Place Mine (Click map...)")
+		
+	if mines_left != null:
+		ui_mine_button.disabled = (state != GameState.SETUP) or (mines_left <= 0) or (landmine_scene == null)
+		ui_mine_button.text = ("Place Mine" if not mine_placing else "Place Mine (Click map...)")	
 
 func _on_mine_button_pressed() -> void:
 	if state != GameState.SETUP:
@@ -1389,7 +1393,7 @@ func _refresh_ui_status() -> void:
 	var lines: Array[String] = []
 
 	# Header
-	lines.append("Round %d  ,  Phase: %s" % [round_index, phase])
+	lines.append("Round %d , Phase: %s" % [round_index, phase])
 	lines.append("Allies: %d   Enemies: %d" % [get_units(Unit.Team.ALLY).size(), get_units(Unit.Team.ENEMY).size()])
 	lines.append("")
 
@@ -1404,7 +1408,7 @@ func _refresh_ui_status() -> void:
 	lines.append("  Range:   +%d" % bonus_attack_range)
 	lines.append("  Move:    +%d" % bonus_move_range)
 	lines.append("  Repeats: +%d" % bonus_attack_repeats)
-	lines.append("  TNT:     +%d  (base %d → %d)" % [bonus_tnt_damage, tnt_damage, cur_tnt])
+	lines.append("  TNT:     +%d" % [bonus_tnt_damage])
 	lines.append("")
 
 	# ---- Zombies (STACKED) ----
@@ -1542,8 +1546,6 @@ func _begin_next_round_setup() -> void:
 		if TM != null:
 			TM.battle_started.connect(_on_battle_started)
 			TM.battle_ended.connect(_on_battle_ended)
-
-	_advance_round_progression()
 
 	spawn_structures()		
 	spawn_units()
@@ -2300,11 +2302,14 @@ func _input(event: InputEvent) -> void:
 
 		# --- Mine placement click (SETUP only) ---
 		if mb.button_index == MOUSE_BUTTON_LEFT and mb.pressed and mine_placing:
-			_place_mine_at(hovered_cell) # try
-			#mine_placing = false         # ✅ always exit after click
+			var placed := _place_mine_at(hovered_cell) # make this return true/false if possible
 			_update_mine_ui()
-			return
 
+			# If we placed and we’re now out of mines (or at max), exit + unpress
+			if placed and mines_left <= 0:  # rename to your real vars
+				_exit_mine_placing()
+			return
+			
 		# --- Structure selection click (SETUP only) ---
 		if mb.button_index == MOUSE_BUTTON_LEFT and mb.pressed and structure_selecting:
 			var b := structure_at_cell(hovered_cell)
@@ -2354,6 +2359,16 @@ func _input(event: InputEvent) -> void:
 			_update_mine_ui()
 			return
 			
+func _exit_mine_placing() -> void:
+	mine_placing = false
+
+	if ui_mine_button != null and is_instance_valid(ui_mine_button):
+		# force the toggle button to unpress
+		ui_mine_button.set_pressed_no_signal(false)
+		# optional: prevent re-entering if no mines left
+		ui_mine_button.disabled = true
+
+	_update_mine_ui()
 	
 func try_attack_selected(target: Unit) -> bool:
 	if selected_unit == null or target == null:
