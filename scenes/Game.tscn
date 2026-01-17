@@ -1,4 +1,4 @@
-[gd_scene load_steps=73 format=3 uid="uid://bmtwqbsx674eo"]
+[gd_scene load_steps=74 format=3 uid="uid://bmtwqbsx674eo"]
 
 [ext_resource type="Script" uid="uid://bn08mhcoceqg" path="res://scripts/game.gd" id="1_400sg"]
 [ext_resource type="PackedScene" uid="uid://b8etqvuw07mhc" path="res://scenes/human.tscn" id="2_s0nni"]
@@ -39,6 +39,7 @@
 [ext_resource type="PackedScene" uid="uid://cqe28tyh7hada" path="res://scenes/structures/stadium.tscn" id="23_evnk2"]
 [ext_resource type="PackedScene" uid="uid://p5f35eddc3kl" path="res://scenes/structures/tower.tscn" id="24_ca228"]
 [ext_resource type="PackedScene" uid="uid://caymwfgfg5si7" path="res://scenes/landmine.tscn" id="25_evnk2"]
+[ext_resource type="PackedScene" uid="uid://b3nwid717rj4v" path="res://scenes/structures/structure_shot.tscn" id="26_ca228"]
 [ext_resource type="Texture2D" uid="uid://c1pruacv3xra5" path="res://sprites/Terrain/roads/16.png" id="30_1fiys"]
 [ext_resource type="Texture2D" uid="uid://bp4obyr2a6lhr" path="res://sprites/Terrain/roads/17.png" id="31_m2g6u"]
 [ext_resource type="Texture2D" uid="uid://bkcixujm222r0" path="res://sprites/Terrain/roads/18.png" id="32_27c7x"]
@@ -288,6 +289,7 @@ building_footprint = Vector2i(1, 1)
 avoid_spawn_zones = false
 landmine_scene = ExtResource("25_evnk2")
 landmine_explosion_scene = ExtResource("6_bneo8")
+structure_shot_scene = ExtResource("26_ca228")
 
 [node name="StarryNight" parent="." instance=ExtResource("20_sv1m6")]
 z_index = -4096

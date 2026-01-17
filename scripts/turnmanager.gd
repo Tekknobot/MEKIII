@@ -70,57 +70,73 @@ func _battle_loop_auto() -> void:
 		var allies: Array[Unit] = M.get_units(Unit.Team.ALLY)
 		var enemies: Array[Unit] = M.get_units(Unit.Team.ENEMY)
 
-		# If a side has no one, end check will catch it next loop,
-		# but we can early-flip to avoid index errors.
-		if side == Unit.Team.ALLY and allies.is_empty():
+		var ally_structs: Array = _active_structures(Unit.Team.ALLY)
+		var enemy_structs: Array = _active_structures(Unit.Team.ENEMY)
+
+		var ally_actors: Array = []
+		ally_actors.append_array(allies)
+		ally_actors.append_array(ally_structs)
+
+		var enemy_actors: Array = []
+		enemy_actors.append_array(enemies)
+		enemy_actors.append_array(enemy_structs)
+
+		# If a side has no actors (no units AND no active structures), flip
+		if side == Unit.Team.ALLY and ally_actors.is_empty():
 			side = Unit.Team.ENEMY
 			ally_i = 0
+			await get_tree().process_frame
 			continue
-		if side == Unit.Team.ENEMY and enemies.is_empty():
+		if side == Unit.Team.ENEMY and enemy_actors.is_empty():
 			side = Unit.Team.ALLY
 			enemy_i = 0
+			await get_tree().process_frame
 			continue
 
-		# Pick next unit on the current side (skip invalids safely)
-		var u: Unit = null
+		# Pick next actor on the current side (skip invalids safely)
+		var actor = null
 
 		if side == Unit.Team.ALLY:
-			if ally_i >= allies.size():
+			if ally_i >= ally_actors.size():
 				ally_i = 0
 
-			var tries := allies.size()
+			var tries := ally_actors.size()
 			while tries > 0:
 				tries -= 1
-				u = allies[ally_i]
+				actor = ally_actors[ally_i]
 				ally_i += 1
-				if ally_i >= allies.size():
+				if ally_i >= ally_actors.size():
 					ally_i = 0
-				if u != null and is_instance_valid(u):
+				if actor != null and is_instance_valid(actor):
 					break
-				u = null
+				actor = null
 		else:
-			if enemy_i >= enemies.size():
+			if enemy_i >= enemy_actors.size():
 				enemy_i = 0
 
-			var tries2 := enemies.size()
+			var tries2 := enemy_actors.size()
 			while tries2 > 0:
 				tries2 -= 1
-				u = enemies[enemy_i]
+				actor = enemy_actors[enemy_i]
 				enemy_i += 1
-				if enemy_i >= enemies.size():
+				if enemy_i >= enemy_actors.size():
 					enemy_i = 0
-				if u != null and is_instance_valid(u):
+				if actor != null and is_instance_valid(actor):
 					break
-				u = null
+				actor = null
 
-		# If we couldn't find a valid unit on that side (all freed), just flip and continue
-		if u == null:
+		# If we couldn't find a valid actor on that side (all freed), just flip and continue
+		if actor == null:
 			side = (Unit.Team.ENEMY if side == Unit.Team.ALLY else Unit.Team.ALLY)
 			await get_tree().process_frame
 			continue
 
-		# Take the action
-		await _unit_take_ai_turn(u)
+		# Take the action (Unit vs Structure)
+		if actor is Unit:
+			await _unit_take_ai_turn(actor)
+		else:
+			await _structure_take_ai_turn(actor, side)
+
 		await get_tree().create_timer(think_delay).timeout
 
 		# Flip side after every single action
@@ -751,3 +767,23 @@ func _best_move_tile_toward_cell(u: Unit, goal: Vector2i, reachable: Array[Vecto
 			best = cell
 
 	return best
+
+func _active_structures(team: int) -> Array:
+	if M != null and M.has_method("get_active_structures"):
+		return M.get_active_structures(team)
+	return []
+
+func _structure_take_ai_turn(b: Node2D, team: int) -> void:
+	if b == null or not is_instance_valid(b):
+		return
+	if M == null:
+		return
+	if not M.has_method("pick_best_structure_target_cell"):
+		return
+
+	var cell: Vector2i = M.pick_best_structure_target_cell(b)
+	if cell.x < 0:
+		return
+
+	if M.has_method("perform_structure_attack"):
+		await M.perform_structure_attack(b, cell)

@@ -275,7 +275,7 @@ var pickups := {} # Dictionary[Vector2i, Node2D]  # cell -> pickup instance
 @export var building_scene: PackedScene
 
 @export var building_count := 6
-@export var building_footprint := Vector2i(2, 2)  # buildings are 2x2 cells
+@export var building_footprint := Vector2i(1, 1)  # buildings are 2x2 cells
 
 # Optional: keep buildings out of spawn zones
 @export var avoid_spawn_zones := true
@@ -342,6 +342,26 @@ var ui_mine_label: Label
 
 var _motion_cancel_token := 0
 
+# Blocked cells for buildings (acts like a Set): cell -> true
+var structure_blocked := {}
+
+# Terrain cells covered by ANY road tile (acts like a Set): cell -> true
+var road_blocked := {}
+
+# --- Structure action selection (SETUP only) ---
+@export var structure_shot_scene: PackedScene          # assign res://scenes/structure_shot.tscn
+@export var structure_attack_range := 8
+@export var structure_splash_radius := 1
+@export var structure_attack_damage := 2
+
+var structure_selecting := false
+var structure_can_act := {} # Dictionary[Node2D, bool]
+
+var ui_structure_label: Label
+var ui_structure_button: Button
+
+@export var structure_active_cap := 2   # start cap = 2 (what you asked)
+
 func _pick_structure_tint() -> Color:
 	if structure_tint_palette == null or structure_tint_palette.is_empty():
 		# fallback: random pastel-ish
@@ -370,12 +390,6 @@ func _apply_structure_tint(b2: Node2D) -> void:
 	var blended := Color.WHITE.lerp(tint, clamp(structure_tint_strength, 0.0, 1.0))
 
 	b2.modulate = blended
-
-# Blocked cells for buildings (acts like a Set): cell -> true
-var structure_blocked := {}
-
-# Terrain cells covered by ANY road tile (acts like a Set): cell -> true
-var road_blocked := {}
 
 func _rect_top_left(size: Vector2i) -> Rect2i:
 	return Rect2i(Vector2i(0, 0), size)
@@ -877,7 +891,6 @@ func _can_handle_player_input() -> bool:
 		return is_player_mode or _is_assist_mode()
 	return false
 
-
 func _build_ui() -> void:
 	# --- load font once ---
 	if ui_font == null:
@@ -903,7 +916,6 @@ func _build_ui() -> void:
 	# ✅ PANEL BEHIND (HUD-style)
 	var ui_panel := PanelContainer.new()
 	ui_panel.name = "UIPanel"
-	# IMPORTANT: keep width behavior the same as before (your VBox was 200px min)
 	ui_panel.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
 	ui_panel.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
 	ui_root.add_child(ui_panel)
@@ -929,11 +941,11 @@ func _build_ui() -> void:
 	margin.add_theme_constant_override("margin_top", 10)
 	margin.add_theme_constant_override("margin_bottom", 10)
 	ui_panel.add_child(margin)
-	ui_panel.custom_minimum_size = Vector2(140, 0) # 200 + left/right padding (12+12)
+	ui_panel.custom_minimum_size = Vector2(140, 0)
 
-	# Your existing VBox goes inside the margin
+	# VBox inside margin
 	var v := VBoxContainer.new()
-	v.custom_minimum_size = Vector2(140, 0)  # ✅ keeps same width as before
+	v.custom_minimum_size = Vector2(140, 0)
 	v.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
 	v.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
 	margin.add_child(v)
@@ -978,6 +990,22 @@ func _build_ui() -> void:
 		ui_mine_button.add_theme_font_size_override("font_size", ui_font_size)
 	v.add_child(ui_mine_button)
 
+	# --- Structure selection UI (like mines) ---
+	ui_structure_label = Label.new()
+	ui_structure_label.text = "Structures: 0/2 active"
+	if ui_font:
+		ui_structure_label.add_theme_font_override("font", ui_font)
+		ui_structure_label.add_theme_font_size_override("font_size", ui_font_size)
+	v.add_child(ui_structure_label)
+
+	ui_structure_button = Button.new()
+	ui_structure_button.text = "Select Structures"
+	ui_structure_button.pressed.connect(_on_structure_button_pressed)
+	if ui_font:
+		ui_structure_button.add_theme_font_override("font", ui_font)
+		ui_structure_button.add_theme_font_size_override("font_size", ui_font_size)
+	v.add_child(ui_structure_button)
+
 	# --- reward panel ---
 	ui_reward_panel = PanelContainer.new()
 	ui_reward_panel.visible = false
@@ -993,14 +1021,16 @@ func _build_ui() -> void:
 		ui_reward_label.add_theme_font_size_override("font_size", ui_title_font_size)
 	rv.add_child(ui_reward_label)
 
+	# ✅ Reward buttons (+ turret slot)
 	ui_reward_buttons.clear()
-	var b1 := Button.new(); b1.text = "+1 Max HP"; b1.pressed.connect(func(): _pick_reward(0))
-	var b2 := Button.new(); b2.text = "+1 Attack Range"; b2.pressed.connect(func(): _pick_reward(1))
-	var b3 := Button.new(); b3.text = "+1 TNT Damage"; b3.pressed.connect(func(): _pick_reward(2))
+	var b1 := Button.new(); b1.text = "+1 Max HP";        b1.pressed.connect(func(): _pick_reward(0))
+	var b2 := Button.new(); b2.text = "+1 Attack Range";  b2.pressed.connect(func(): _pick_reward(1))
+	var b3 := Button.new(); b3.text = "+1 TNT Damage";    b3.pressed.connect(func(): _pick_reward(2))
 	var b4 := Button.new(); b4.text = "+1 Attack Repeat"; b4.pressed.connect(func(): _pick_reward(3))
-	var b5 := Button.new(); b5.text = "+1 Mine"; b5.pressed.connect(func(): _pick_reward(4))
+	var b5 := Button.new(); b5.text = "+1 Mine";          b5.pressed.connect(func(): _pick_reward(4))
+	var b6 := Button.new(); b6.text = "+1 Turret Slot";   b6.pressed.connect(func(): _pick_reward(5))
 
-	ui_reward_buttons = [b1, b2, b3, b4, b5]
+	ui_reward_buttons = [b1, b2, b3, b4, b5, b6]
 
 	for b in ui_reward_buttons:
 		if ui_font:
@@ -1009,6 +1039,7 @@ func _build_ui() -> void:
 		rv.add_child(b)
 
 	_refresh_ui_status()
+	_update_structure_ui()
 
 func _build_hud() -> void:
 	# Put HUD on the SAME CanvasLayer as UI (so it overlays the world)
@@ -1118,6 +1149,82 @@ func _build_hud() -> void:
 
 	# Start hidden until bound
 	hud_root.visible = false
+
+func _on_structure_button_pressed() -> void:
+	if state != GameState.SETUP:
+		return
+	structure_selecting = not structure_selecting
+	_update_structure_ui()
+
+func _update_structure_ui() -> void:
+	if ui_structure_button != null:
+		ui_structure_button.disabled = (state != GameState.SETUP) or (structures.is_empty())
+		ui_structure_button.text = ("Select Structures" if not structure_selecting else "Select Structures (Click buildings...)")
+
+	if ui_structure_label != null:
+		var active := 0
+		for b in structures:
+			if b != null and is_instance_valid(b) and structure_can_act.get(b, false):
+				active += 1
+		active = _count_active_structures()
+		ui_structure_label.text = "Structures: %d/%d active" % [active, structure_active_cap]
+
+func _set_structure_active_visual(b: Node2D, active: bool) -> void:
+	if b == null or not is_instance_valid(b):
+		return
+	# simple readable indicator: inactive = dim
+	b.modulate = (Color(1, 1, 1, 1) if active else Color(0.55, 0.55, 0.55, 1))
+
+func _toggle_structure_active(b: Node2D) -> void:
+	if b == null or not is_instance_valid(b):
+		return
+	if not structure_hp.has(b):
+		return
+
+	var currently := bool(structure_can_act.get(b, false))
+
+	# turning OFF is always allowed
+	if currently:
+		structure_can_act[b] = false
+		_set_structure_active_visual(b, false)
+		_update_structure_ui()
+		return
+
+	# turning ON: enforce cap
+	var active := _count_active_structures()
+	if active >= structure_active_cap:
+		# optional: quick feedback
+		if ui_structure_label != null:
+			ui_structure_label.text = "Structures: %d/%d active (MAX)" % [active, structure_active_cap]
+		return
+
+	structure_can_act[b] = true
+	_set_structure_active_visual(b, true)
+	_update_structure_ui()
+
+func structure_at_cell(cell: Vector2i) -> Node2D:
+	if structure_by_cell.has(cell):
+		var b := structure_by_cell[cell] as Node2D
+		if b != null and is_instance_valid(b):
+			return b
+	return null
+
+func get_active_structures(team: int) -> Array[Node2D]:
+	# For now: treat all structures as ALLY-side turrets.
+	if team != Unit.Team.ALLY:
+		return []
+
+	var out: Array[Node2D] = []
+	for b in structures:
+		if b == null or not is_instance_valid(b):
+			continue
+		if structure_can_act.get(b, false) and not structure_hp.has(b) == false:
+			# if you removed HP entries on demolition, this keeps rubble from shooting
+			pass
+		# Better: only allow if it still has HP tracked (not demolished)
+		if structure_can_act.get(b, false) and structure_hp.has(b):
+			out.append(b)
+	return out
 
 func _hud_bind(u: Unit) -> void:
 	if hud_root == null:
@@ -1428,56 +1535,60 @@ func _on_battle_ended(winner_team: int) -> void:
 	_refresh_ui_status()
 
 func _pick_reward(choice: int) -> void:
-	# -------------------
-	# Player upgrade choice
-	# -------------------
+	# Apply upgrade
 	match choice:
-		0: bonus_max_hp += 1
-		1: bonus_attack_range += 1
-		2: bonus_tnt_damage += 1
-		3: bonus_attack_repeats += 1
-		4: bonus_mines_per_battle += 1
-		
-	# -------------------
-	# Round progression
-	# -------------------
-	round_index += 1
-	zombie_count += 2
+		0:
+			# +1 Max HP to all ally units
+			for u in get_units(Unit.Team.ALLY):
+				if u == null or not is_instance_valid(u):
+					continue
+				u.max_hp += 1
+				u.hp = min(u.hp + 1, u.max_hp)  # small heal feels good; delete if you don't want it
+		1:
+			# +1 Attack Range to all ally units
+			for u in get_units(Unit.Team.ALLY):
+				if u == null or not is_instance_valid(u):
+					continue
+				if "attack_range" in u:
+					u.attack_range += 1
+		2:
+			# +1 TNT Damage (global or per-unit if you store it there)
+			# If you store TNT damage on units, do that. Otherwise use a global var.
+			if "tnt_damage_bonus" in self:
+				bonus_tnt_damage += 1
+			else:
+				# per unit fallback
+				for u in get_units(Unit.Team.ALLY):
+					if u == null or not is_instance_valid(u):
+						continue
+					if "tnt_damage" in u:
+						u.tnt_damage += 1
+		3:
+			# +1 Attack Repeat to all ally units
+			for u in get_units(Unit.Team.ALLY):
+				if u == null or not is_instance_valid(u):
+					continue
+				if "attack_repeats" in u:
+					u.attack_repeats += 1
+		4:
+			# +1 Mine
+			bonus_mines_per_battle += 1
+		5:
+			# ✅ +1 Turret Slot (lets player activate more buildings in setup)
+			structure_active_cap += 1
+			_update_structure_ui()
 
-	# ✅ STACK zombie upgrades permanently (never reset)
-	zombie_bonus_hp += _zombie_hp_bonus_for_round(round_index)
-	zombie_bonus_repeats += _zombie_repeats_bonus_for_round(round_index)
+	# Close reward panel + return to SETUP
+	ui_reward_panel.visible = false
+	state = GameState.SETUP
 
-	# -------------------
-	# Variety: random season per round
-	# -------------------
-	season = Season.values()[rng.randi_range(0, Season.values().size() - 1)]
-	season_strength = rng.randf_range(0.55, 0.9)
+	# stop selection modes
+	mine_placing = false
+	structure_selecting = false
 
-	# -------------------
-	# Rebuild map
-	# -------------------
-	_clear_all_mines()
-	
-	rng.randomize() # ensures new layout each round
-	grid.setup(map_width, map_height)
-	generate_map()
-	terrain.update_internals()
-	_sync_roads_transform()
-
-	if bake_map_visuals:
-		terrain.visible = true
-		if roads_dl: roads_dl.visible = true
-		if roads_dr: roads_dr.visible = true
-		if roads_x:  roads_x.visible = true
-		await bake_roads_to_sprite()
-
-	# -------------------
-	# Respawn content on new map
-	# -------------------
-	spawn_structures()
-	spawn_units()
-	_enter_setup()
+	_refresh_ui_status()
+	_update_mine_ui()
+	_update_structure_ui()
 
 # -----------------------
 # Mouse -> map helpers
@@ -2227,6 +2338,13 @@ func _input(event: InputEvent) -> void:
 			_place_mine_at(hovered_cell) # try
 			mine_placing = false         # ✅ always exit after click
 			_update_mine_ui()
+			return
+
+		# --- Structure selection click (SETUP only) ---
+		if mb.button_index == MOUSE_BUTTON_LEFT and mb.pressed and structure_selecting:
+			var b := structure_at_cell(hovered_cell)
+			if b != null:
+				_toggle_structure_active(b)
 			return
 
 		# Left press = pick up ally unit
@@ -3821,6 +3939,11 @@ func spawn_structures() -> void:
 		# ✅ track structures + init HP
 		structures.append(b2)
 		structure_hp[b2] = int(building_max_hp)
+
+		# default: player chooses which buildings act
+		structure_can_act[b2] = false
+		_set_structure_active_visual(b2, false)
+		_update_structure_ui()
 		
 		_mark_structure_blocked(origin, size, b2)
 		placed += 1
@@ -4350,3 +4473,93 @@ func _unit_display_name(u: Unit) -> String:
 
 func _unit_dead_or_freeing(u: Unit) -> bool:
 	return u == null or (not is_instance_valid(u)) or u.is_queued_for_deletion() or int(u.hp) <= 0
+
+func perform_structure_attack(b: Node2D, target_cell: Vector2i) -> void:
+	if b == null or not is_instance_valid(b):
+		return
+	if not structure_hp.has(b):
+		return # demolished rubble can't shoot
+	if structure_shot_scene == null:
+		push_warning("Assign structure_shot_scene (StructureShot.tscn) in Inspector.")
+		return
+	if not grid.in_bounds(target_cell):
+		return
+
+	# start = building position (you can offset if you want a muzzle point)
+	var start_world := b.global_position
+
+	# end = center of target cell
+	var end_world := terrain.to_global(terrain.map_to_local(target_cell))
+
+	# 1) animate 1px line growing outward
+	var shot := structure_shot_scene.instantiate() as Node2D
+	add_child(shot)
+	shot.z_as_relative = false
+	shot.z_index = int(max(start_world.y, end_world.y)) + 2000
+
+	if shot.has_method("fire"):
+		shot.call("fire", start_world, end_world)
+		await shot.finished
+	shot.queue_free()
+
+	# 2) explosion visual (reuse your TNT boom)
+	if tnt_explosion_scene != null:
+		var boom := tnt_explosion_scene.instantiate() as Node2D
+		if boom != null:
+			add_child(boom)
+			boom.global_position = end_world
+			boom.z_as_relative = false
+			boom.z_index = int(end_world.y) + 999
+			if sfx_explosion != null:
+				play_sfx_poly(sfx_explosion, end_world, -2.0, 0.9, 1.1)
+
+	# 3) apply damage (zombies only, like your structure demolition splash)
+	await _damage_units_near_structure(target_cell, int(structure_splash_radius), int(structure_attack_damage), end_world)
+
+func pick_best_structure_target_cell(b: Node2D) -> Vector2i:
+	# Pick closest zombie within range, but never closer than 3 cells
+	if b == null or not is_instance_valid(b):
+		return Vector2i(-1, -1)
+
+	var best := Vector2i(-1, -1)
+	var best_d := 999999
+
+	# Get building cell
+	var b_local := terrain.to_local(b.global_position)
+	var bcell := terrain.local_to_map(b_local)
+
+	for child in units_root.get_children():
+		var u := child as Unit
+		if u == null or not is_instance_valid(u):
+			continue
+		if not (u is Zombie):
+			continue
+
+		var uc := get_unit_origin(u)
+		var d = abs(uc.x - bcell.x) + abs(uc.y - bcell.y)
+
+		# ✅ must be at least 3 cells away
+		if d < 3:
+			continue
+
+		# ✅ must still be within attack range
+		if d > int(structure_attack_range):
+			continue
+
+		# pick closest valid target
+		if d < best_d:
+			best_d = d
+			best = uc
+
+	return best
+
+func _count_active_structures() -> int:
+	var n := 0
+	for b in structures:
+		if b != null and is_instance_valid(b) and structure_can_act.get(b, false) and structure_hp.has(b):
+			n += 1
+	return n
+
+func upgrade_structure_slot() -> void:
+	structure_active_cap += 1
+	_update_structure_ui()
