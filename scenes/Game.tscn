@@ -290,6 +290,7 @@ avoid_spawn_zones = false
 landmine_scene = ExtResource("25_evnk2")
 landmine_explosion_scene = ExtResource("6_bneo8")
 structure_shot_scene = ExtResource("26_ca228")
+structure_attack_range = 6
 structure_splash_radius = 2
 
 [node name="StarryNight" parent="." instance=ExtResource("20_sv1m6")]

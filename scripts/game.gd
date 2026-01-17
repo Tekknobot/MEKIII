@@ -317,6 +317,8 @@ var _hover_prev_material := {} # Dictionary[Unit, Material]
 var _hover_outlined_structure: Node2D = null
 var _hover_prev_structure_material := {} # Dictionary[Node2D, Material]
 
+var _hover_attack_structure: Node2D = null
+
 # -------------------
 # Setup drag state
 # -------------------
@@ -2347,6 +2349,30 @@ func draw_attack_range_for_unit(attacker: Unit) -> void:
 		else:
 			attack_range_small.set_cell(LAYER_ATTACK, target_origin, ATTACK_TILE_SMALL_SOURCE_ID, ATTACK_ATLAS, 0)
 
+func draw_attack_range_for_structure(b: Node2D) -> void:
+	clear_attack_range()
+	if b == null or not is_instance_valid(b):
+		return
+
+	# Building cell (same logic you use in pick_best_structure_target_cell)
+	var b_local := terrain.to_local(b.global_position)
+	var bcell := terrain.local_to_map(b_local)
+
+	var r := int(structure_attack_range)
+	var min_d := 4 # matches your "never closer than 3" rule (d < 4 rejected)
+
+	for dx in range(-r, r + 1):
+		for dy in range(-r, r + 1):
+			var d = abs(dx) + abs(dy)
+			if d < min_d or d > r:
+				continue
+
+			var c := bcell + Vector2i(dx, dy)
+			if not grid.in_bounds(c):
+				continue
+
+			# Use the same attack overlay tile your unit range uses
+			attack_range_small.set_cell(LAYER_ATTACK, c, ATTACK_TILE_SMALL_SOURCE_ID, ATTACK_ATLAS, 0)
 
 func _input(event: InputEvent) -> void:
 	# R = reload
@@ -4725,6 +4751,11 @@ func _update_structure_hover_outline() -> void:
 	if not (state == GameState.SETUP and structure_selecting):
 		if _hover_outlined_structure != null:
 			_clear_hover_outline_structure(_hover_outlined_structure)
+			_hover_outlined_structure = null
+
+		if _hover_attack_structure != null:
+			clear_attack_range()
+			_hover_attack_structure = null
 		return
 
 	var want: Node2D = null
@@ -4732,15 +4763,27 @@ func _update_structure_hover_outline() -> void:
 	if b != null and is_instance_valid(b) and structure_hp.has(b):
 		want = b
 
-	# clear if nothing wanted
+	# Nothing hovered -> clear outline + clear attack overlay
 	if want == null:
 		if _hover_outlined_structure != null:
 			_clear_hover_outline_structure(_hover_outlined_structure)
+			_hover_outlined_structure = null
+
+		if _hover_attack_structure != null:
+			clear_attack_range()
+			_hover_attack_structure = null
 		return
 
-	# swap if changed
+	# Hover changed -> swap outline, redraw attack overlay
 	if _hover_outlined_structure != null and _hover_outlined_structure != want:
 		_clear_hover_outline_structure(_hover_outlined_structure)
+		_hover_outlined_structure = null
 
 	if _hover_outlined_structure != want:
 		_apply_hover_outline_structure(want)
+		_hover_outlined_structure = want
+
+	# Attack range overlay (only redraw when changed)
+	if _hover_attack_structure != want:
+		draw_attack_range_for_structure(want)
+		_hover_attack_structure = want

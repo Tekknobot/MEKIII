@@ -781,9 +781,41 @@ func _structure_take_ai_turn(b: Node2D, team: int) -> void:
 	if not M.has_method("pick_best_structure_target_cell"):
 		return
 
+	# --- TURN FLASH ---
+	_flash_structure_turn(b)
+
 	var cell: Vector2i = M.pick_best_structure_target_cell(b)
 	if cell.x < 0:
 		return
 
 	if M.has_method("perform_structure_attack"):
 		await M.perform_structure_attack(b, cell)
+
+
+func _flash_structure_turn(b: Node2D) -> void:
+	if b == null or not is_instance_valid(b):
+		return
+
+	# Prefer flashing a Sprite2D child if present; otherwise flash the Node2D modulate.
+	var spr: CanvasItem = null
+	if b is CanvasItem:
+		spr = b as CanvasItem
+
+	# Try common child names first
+	if b.has_node("Sprite2D"):
+		spr = b.get_node("Sprite2D") as CanvasItem
+	elif b.has_node("Sprite"):
+		spr = b.get_node("Sprite") as CanvasItem
+
+	if spr == null:
+		return
+
+	var prev := spr.modulate
+
+	# Bright pulse (keeps your tint but makes it pop)
+	spr.modulate = prev * Color(1.6, 1.6, 1.6, 1.0)
+
+	var tw := create_tween()
+	tw.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
+	tw.tween_property(spr, "modulate", prev, 1.14)
+	await tw.finished
