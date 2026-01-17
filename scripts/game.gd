@@ -1538,53 +1538,51 @@ func _pick_reward(choice: int) -> void:
 	# Apply upgrade
 	match choice:
 		0:
-			# +1 Max HP to all ally units
 			for u in get_units(Unit.Team.ALLY):
-				if u == null or not is_instance_valid(u):
-					continue
+				if u == null or not is_instance_valid(u): continue
 				u.max_hp += 1
-				u.hp = min(u.hp + 1, u.max_hp)  # small heal feels good; delete if you don't want it
+				u.hp = min(u.hp + 1, u.max_hp)
 		1:
-			# +1 Attack Range to all ally units
 			for u in get_units(Unit.Team.ALLY):
-				if u == null or not is_instance_valid(u):
-					continue
+				if u == null or not is_instance_valid(u): continue
 				if "attack_range" in u:
 					u.attack_range += 1
 		2:
-			# +1 TNT Damage (global or per-unit if you store it there)
-			# If you store TNT damage on units, do that. Otherwise use a global var.
 			if "tnt_damage_bonus" in self:
 				bonus_tnt_damage += 1
 			else:
-				# per unit fallback
 				for u in get_units(Unit.Team.ALLY):
-					if u == null or not is_instance_valid(u):
-						continue
+					if u == null or not is_instance_valid(u): continue
 					if "tnt_damage" in u:
 						u.tnt_damage += 1
 		3:
-			# +1 Attack Repeat to all ally units
 			for u in get_units(Unit.Team.ALLY):
-				if u == null or not is_instance_valid(u):
-					continue
+				if u == null or not is_instance_valid(u): continue
 				if "attack_repeats" in u:
 					u.attack_repeats += 1
 		4:
-			# +1 Mine
 			bonus_mines_per_battle += 1
 		5:
-			# ✅ +1 Turret Slot (lets player activate more buildings in setup)
 			structure_active_cap += 1
-			_update_structure_ui()
 
-	# Close reward panel + return to SETUP
+	# Close reward panel
 	ui_reward_panel.visible = false
+
+	# ✅ IMPORTANT: actually advance the game
+	_begin_next_round_setup()
+
+func _begin_next_round_setup() -> void:
 	state = GameState.SETUP
 
 	# stop selection modes
 	mine_placing = false
 	structure_selecting = false
+
+	# ✅ if you randomize/rebuild the terrain each round, do it here
+	generate_map()   # only if your game is meant to change the map
+
+	# ✅ most likely what you want: new enemies/wave
+	spawn_units()        # or spawn_zombies_wave(), or whatever you use
 
 	_refresh_ui_status()
 	_update_mine_ui()
@@ -4539,7 +4537,7 @@ func pick_best_structure_target_cell(b: Node2D) -> Vector2i:
 		var d = abs(uc.x - bcell.x) + abs(uc.y - bcell.y)
 
 		# ✅ must be at least 3 cells away
-		if d < 3:
+		if d < 4:
 			continue
 
 		# ✅ must still be within attack range

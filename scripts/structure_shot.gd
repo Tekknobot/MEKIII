@@ -4,7 +4,7 @@ class_name StructureShot
 signal finished
 
 # ✅ Every shot takes the same amount of time (no fast “short shots”)
-@export var shot_time_sec: float = 1.45
+@export var shot_time_sec: float = 2.00
 
 # Curve look controls
 @export var arc_height_px: float = 140.0          # base arc height
@@ -23,7 +23,9 @@ var _pts: PackedVector2Array
 
 func fire(start_world: Vector2, end_world: Vector2) -> void:
 	_start_world = start_world
-	_end_world = end_world
+
+	# ✅ 16px destination offset (screen up)
+	_end_world = end_world + Vector2(0, -16)
 
 	# Root sits at start, so local points are relative to start
 	global_position = _start_world
