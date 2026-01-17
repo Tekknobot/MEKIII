@@ -1160,6 +1160,7 @@ func _toggle_structure_active(b: Node2D) -> void:
 		# optional: quick feedback
 		if ui_structure_label != null:
 			ui_structure_label.text = "Structures: %d/%d active (MAX)" % [active, structure_active_cap]
+			structure_selecting = false
 		return
 
 	structure_can_act[b] = true
@@ -2371,6 +2372,16 @@ func _input(event: InputEvent) -> void:
 				_toggle_structure_active(b)
 			return
 
+		# --- Deselect on empty cell (SETUP only) ---
+		if mb.button_index == MOUSE_BUTTON_LEFT and mb.pressed:
+			var b := structure_at_cell(hovered_cell)
+			var u := unit_at_cell(hovered_cell)
+
+			# If there is nothing under the cursor, clear selection
+			if b == null and u == null:
+				select_unit(null)
+				return
+				
 		# Left press = pick up ally unit
 		if mb.button_index == MOUSE_BUTTON_LEFT and mb.pressed:
 			var u := unit_at_cell(hovered_cell)
