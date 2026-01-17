@@ -3413,7 +3413,7 @@ func perform_human_tnt_throw(thrower: Unit, target_cell: Vector2i, target_unit: 
 		add_child(boom)
 		boom.global_position = to_pos
 		boom.z_as_relative = false
-		boom.z_index = 10000
+		boom.z_index = int(to_pos.y) + 999
 		if sfx_explosion != null:
 			play_sfx_poly(sfx_explosion, to_pos, -2.0, 0.9, 1.1)
 
