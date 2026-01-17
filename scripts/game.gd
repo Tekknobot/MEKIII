@@ -466,7 +466,7 @@ func spawn_units() -> void:
 			_spawn_one_in_zone(human2_scene, ally_zone)
 
 	# ---- Spawn ZOMBIES together in zombie zone, spill into next zones if needed ----
-	_spawn_many_spilling(zombie_scene, zombie_count, zombie_zone_order)
+	_spawn_many_spilling(zombie_scene, zombie_count + zombie_bonus_count, zombie_zone_order)
 
 	_update_all_unit_layering()
 	_refresh_ui_status()
@@ -2872,7 +2872,11 @@ func get_units(team_id: int) -> Array[Unit]:
 	var out: Array[Unit] = []
 	for child in units_root.get_children():
 		var u := child as Unit
-		if u != null and u.team == team_id:
+		if u == null:
+			continue
+		if u.is_queued_for_deletion():
+			continue
+		if u.team == team_id:
 			out.append(u)
 	return out
 
