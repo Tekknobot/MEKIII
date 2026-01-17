@@ -677,82 +677,7 @@ func _setup_place_selected(cell: Vector2i) -> bool:
 	_update_all_unit_layering()
 	_refresh_ui_status()
 	return true
-
-# -----------------------
-# Spawn one (UPDATED signature)
-# -----------------------
-func _spawn_one(scene: PackedScene, region: Rect2i) -> void:
-	var tries := 500
-	while tries > 0:
-		tries -= 1
-
-		var unit := scene.instantiate() as Unit
-		if unit == null:
-			return
-
-		var origin := _rand_cell_in_rect(region)
-
-		# big units must align
-		if _is_big_unit(unit):
-			origin = snap_origin_for_unit(origin, unit)
-
-			# if snapping pushed it outside the region, try again
-			if not region.has_point(origin):
-				unit.queue_free()
-				continue
-
-		var cells := unit.footprint_cells(origin)
-
-		var ok := true
-		for c in cells:
-			if not grid.in_bounds(c):
-				ok = false
-				break
-			if grid.terrain[c.x][c.y] == T_WATER:
-				ok = false
-				break
-
-			# ✅ don't spawn on structure footprints
-			if structure_blocked.has(c):
-				ok = false
-				break
-
-			if grid.is_occupied(c):
-				ok = false
-				break
-
-		if not ok:
-			unit.queue_free()
-			continue
-
-		for c in cells:
-			grid.set_occupied(c, unit)
-
-		unit.grid_pos = origin
-		unit_origin[unit] = origin
-		units_root.add_child(unit)
-		
-		# ✅ keep HUD live-updating on HP changes
-		if not unit.hp_changed.is_connected(_on_unit_hp_changed):
-			unit.hp_changed.connect(_on_unit_hp_changed)
-
-		# ✅ ensure HUD clears if the bound unit dies
-		if not unit.died.is_connected(_on_unit_died):
-			unit.died.connect(_on_unit_died)		
-
-		# ✅ Apply run bonuses AFTER the unit's own _ready() finishes
-		if unit.team == Unit.Team.ALLY:
-			unit.call_deferred("apply_run_bonuses", bonus_max_hp, bonus_attack_range, bonus_move_range, bonus_attack_repeats)
-
-		# ✅ Enemy scaling (zombies only) — STACKED + PERSISTENT
-		if unit is Zombie:
-			unit.call_deferred("_apply_hp_bonus_safe", zombie_bonus_hp)
-			unit.call_deferred("_apply_repeats_bonus_safe", zombie_bonus_repeats)
-
-		unit.global_position = cell_to_world_for_unit(origin, unit)
-		_update_all_unit_layering()
-		return
-
+	
 func _on_unit_hp_changed(u: Unit) -> void:
 	# If HUD is currently showing this unit, refresh immediately
 	if hud_target != null and is_instance_valid(hud_target) and hud_target == u:
@@ -816,9 +741,7 @@ func _ready() -> void:
 		if TM != null:
 			TM.battle_started.connect(_on_battle_started)
 			TM.battle_ended.connect(_on_battle_ended)
-
 	
-	_advance_round_progression()
 	_refresh_ui_status()
 	
 	# Start in SETUP so the player can reposition allies, then press Start.
@@ -1565,45 +1488,40 @@ func _on_battle_ended(winner_team: int) -> void:
 	_refresh_ui_status()
 
 func _pick_reward(choice: int) -> void:
-	# Apply upgrade
 	match choice:
 		0:
+			bonus_max_hp += 1
 			for u in get_units(Unit.Team.ALLY):
-				if u == null or not is_instance_valid(u): continue
-				u.max_hp += 1
-				u.hp = min(u.hp + 1, u.max_hp)
+				if u and is_instance_valid(u) and u.has_method("apply_run_bonuses"):
+					u.apply_run_bonuses(1, 0, 0, 0)
+
 		1:
+			bonus_attack_range += 1
 			for u in get_units(Unit.Team.ALLY):
-				if u == null or not is_instance_valid(u): continue
-				if "attack_range" in u:
-					u.attack_range += 1
+				if u and is_instance_valid(u) and u.has_method("apply_run_bonuses"):
+					u.apply_run_bonuses(0, 1, 0, 0)
+
 		2:
-			if "tnt_damage_bonus" in self:
-				bonus_tnt_damage += 1
-			else:
-				for u in get_units(Unit.Team.ALLY):
-					if u == null or not is_instance_valid(u): continue
-					if "tnt_damage" in u:
-						u.tnt_damage += 1
+			bonus_tnt_damage += 1
+
 		3:
+			bonus_attack_repeats += 1
 			for u in get_units(Unit.Team.ALLY):
-				if u == null or not is_instance_valid(u): continue
-				if "attack_repeats" in u:
-					u.attack_repeats += 1
+				if u and is_instance_valid(u) and u.has_method("apply_run_bonuses"):
+					u.apply_run_bonuses(0, 0, 0, 1)
+
 		4:
 			bonus_mines_per_battle += 1
+
 		5:
 			structure_active_cap += 1
 
-	# Close reward panel
 	ui_reward_panel.visible = false
-	
-	_advance_round_progression()
-
-	# ✅ IMPORTANT: actually advance the game
 	_begin_next_round_setup()
 
 func _begin_next_round_setup() -> void:
+	_advance_round_progression()
+	
 	_seed_rng()
 	
 	rng.randomize()
@@ -1619,18 +1537,21 @@ func _begin_next_round_setup() -> void:
 		#await bake_map_to_sprite()
 		await bake_roads_to_sprite()
 
-	spawn_structures()		
-	spawn_units()
-
 	if turn_manager != NodePath():
 		TM = get_node(turn_manager) as TurnManager
 		if TM != null:
 			TM.battle_started.connect(_on_battle_started)
 			TM.battle_ended.connect(_on_battle_ended)
 
+	_advance_round_progression()
+
+	spawn_structures()		
+	spawn_units()
+	
 	_refresh_ui_status()
 	ui_structure_button.disabled = false
 	structure_selecting = false
+	
 	# Start in SETUP so the player can reposition allies, then press Start.
 	_enter_setup()
 
@@ -2380,7 +2301,7 @@ func _input(event: InputEvent) -> void:
 		# --- Mine placement click (SETUP only) ---
 		if mb.button_index == MOUSE_BUTTON_LEFT and mb.pressed and mine_placing:
 			_place_mine_at(hovered_cell) # try
-			mine_placing = false         # ✅ always exit after click
+			#mine_placing = false         # ✅ always exit after click
 			_update_mine_ui()
 			return
 
