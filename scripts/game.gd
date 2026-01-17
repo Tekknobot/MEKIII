@@ -1124,6 +1124,15 @@ func _update_structure_ui() -> void:
 		for b in structures:
 			if b != null and is_instance_valid(b) and structure_can_act.get(b, false):
 				active += 1
+				# turning ON: enforce cap
+				active = _count_active_structures()
+				if active >= structure_active_cap:
+					# optional: quick feedback
+					if ui_structure_label != null:
+						ui_structure_label.text = "Structures: %d/%d active (MAX)" % [active, structure_active_cap]
+						structure_selecting = false
+					return
+					
 		active = _count_active_structures()
 		ui_structure_label.text = "Structures: %d/%d active" % [active, structure_active_cap]
 
@@ -3951,11 +3960,9 @@ func spawn_structures() -> void:
 	structure_by_cell.clear()
 	structure_hp.clear()
 	structure_can_act.clear()
-	
-	# clear old
+
 	if structures_root == null:
 		structures_root = self
-
 	for ch in structures_root.get_children():
 		ch.queue_free()
 
@@ -3963,12 +3970,15 @@ func spawn_structures() -> void:
 
 	var size := building_footprint
 
-	# ✅ pick a scene source (array-first, fallback to single)
-	var any_scene = _pick_building_scene()
-	if any_scene == null:
-		return
+	# --- Tier spawn counters ---
+	var tier_counts : Array[int] = []
+	tier_counts.resize(building_scenes.size())
+	for i in range(tier_counts.size()):
+		tier_counts[i] = 0
 
-	# Build a list of candidate origin cells (top-left of footprint)
+	const MAX_PER_TIER := 3
+
+	# --- Build candidate origin cells ---
 	var candidates: Array[Vector2i] = []
 	for x in range(map_width - size.x + 1):
 		for y in range(map_height - size.y + 1):
@@ -3981,6 +3991,7 @@ func spawn_structures() -> void:
 
 	var placed := 0
 	var tries := 0
+
 	while placed < building_count and tries < 5000 and not candidates.is_empty():
 		tries += 1
 		var origin: Vector2i = candidates.pop_back()
@@ -3988,11 +3999,18 @@ func spawn_structures() -> void:
 		if _is_structure_blocked(origin, size):
 			continue
 
-		# ✅ pick per-building
-		var scene = _pick_building_scene()
-		if scene == null:
-			continue
+		# --- Pick next allowed tier ---
+		var picked_tier := -1
+		for t in range(building_scenes.size()):
+			if tier_counts[t] < MAX_PER_TIER and building_scenes[t] != null:
+				picked_tier = t
+				break
 
+		# No tiers left under cap → stop spawning
+		if picked_tier == -1:
+			break
+
+		var scene := building_scenes[picked_tier]
 		var b = scene.instantiate()
 		var b2 := b as Node2D
 		if b2 == null:
@@ -4001,7 +4019,6 @@ func spawn_structures() -> void:
 		structures_root.add_child(b2)
 		_apply_structure_tint(b2)
 
-		# Let a Structure script position & depth-sort itself if present
 		if b2.has_method("set_origin"):
 			b2.call("set_origin", origin, terrain)
 		else:
@@ -4010,17 +4027,16 @@ func spawn_structures() -> void:
 			b2.z_as_relative = false
 			b2.z_index = Z_STRUCTURES + _depth_key_for_footprint(origin, size)
 
-		# ✅ track structures + init HP
+		# --- Track ---
 		structures.append(b2)
 		structure_hp[b2] = int(building_max_hp)
-
-		# default: player chooses which buildings act
 		structure_can_act[b2] = false
 		_set_structure_active_visual(b2, false)
 		_update_structure_ui()
-		
 		_mark_structure_blocked(origin, size, b2)
+
 		placed += 1
+		tier_counts[picked_tier] += 1
 
 func _pick_building_scene() -> PackedScene:
 	# Prefer the array, fall back to single scene.
