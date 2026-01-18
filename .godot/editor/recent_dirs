@@ -1,3 +1,4 @@
+res://audio/SFX
 res://sprites/Tiles_UI/mek3
 res://scenes
 res://sprites/Zombies/zomb
@@ -19,4 +20,3 @@ res://sprites/Humans/merc
 res://sprites/Humans/merc/idle
 res://sprites/Humans/merc/attack
 res://sprites/Projectiles/default/tnt
-res://sprites/Explosion

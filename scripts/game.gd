@@ -216,6 +216,8 @@ var ui_font: FontFile
 
 @onready var sfx: AudioStreamPlayer2D = $SFX
 
+@export var outline_sfx: AudioStream
+
 @export var sfx_human_attack: AudioStream
 @export var sfx_zombie_attack: AudioStream
 
@@ -1152,7 +1154,6 @@ func _set_structure_active_visual(b: Node2D, active: bool) -> void:
 	var mul := (1.0 if active else 0.55)
 	b.modulate = Color(base.r * mul, base.g * mul, base.b * mul, base.a)
 
-
 func _toggle_structure_active(b: Node2D) -> void:
 	if b == null or not is_instance_valid(b):
 		return
@@ -1176,7 +1177,8 @@ func _toggle_structure_active(b: Node2D) -> void:
 			ui_structure_label.text = "Structures: %d/%d active (MAX)" % [active, structure_active_cap]
 			structure_selecting = false
 		return
-
+	
+	
 	structure_can_act[b] = true
 	_set_structure_active_visual(b, true)
 	_update_structure_ui()
@@ -2402,7 +2404,8 @@ func _input(event: InputEvent) -> void:
 		if mb.button_index == MOUSE_BUTTON_LEFT and mb.pressed and mine_placing:
 			var placed := _place_mine_at(hovered_cell) # make this return true/false if possible
 			_update_mine_ui()
-
+			play_sfx_poly(outline_sfx, Vector2(0,0))
+			
 			# If we placed and we’re now out of mines (or at max), exit + unpress
 			if placed and mines_left <= 0:  # rename to your real vars
 				_exit_mine_placing()
@@ -2428,6 +2431,7 @@ func _input(event: InputEvent) -> void:
 		# Left press = inspect enemy (zombie): show move range, but DO NOT drag
 		if mb.button_index == MOUSE_BUTTON_LEFT and mb.pressed:
 			var u := unit_at_cell(hovered_cell)
+			
 			if u != null and is_instance_valid(u) and u.team == Unit.Team.ENEMY:
 				# Make sure we are not dragging anything
 				setup_dragging = false
@@ -2448,6 +2452,7 @@ func _input(event: InputEvent) -> void:
 		# Left press = pick up ally unit
 		if mb.button_index == MOUSE_BUTTON_LEFT and mb.pressed:
 			var u := unit_at_cell(hovered_cell)
+			
 			if u != null and is_instance_valid(u) and u.team == Unit.Team.ALLY:
 				select_unit(u)
 				setup_dragging = true
@@ -2460,8 +2465,9 @@ func _input(event: InputEvent) -> void:
 		if mb.button_index == MOUSE_BUTTON_LEFT and (not mb.pressed):
 			if setup_dragging and setup_drag_unit != null and is_instance_valid(setup_drag_unit):
 				select_unit(setup_drag_unit)
-
 				var placed := _setup_place_selected(hovered_cell)
+				play_sfx_poly(outline_sfx, Vector2(0,0))
+				
 				if not placed:
 					# snap back (your _setup_place_selected already restored occupancy)
 					setup_drag_unit.global_position = cell_to_world_for_unit(setup_drag_start_origin, setup_drag_unit)
@@ -4462,6 +4468,8 @@ func _apply_hover_outline(u: Unit) -> void:
 	spr.material = mat
 	_hover_outlined_unit = u
 
+	
+
 func _clear_hover_outline(u: Unit) -> void:
 	if u == null:
 		return
@@ -4726,6 +4734,7 @@ func _apply_hover_outline_structure(b: Node2D) -> void:
 	spr.material = mat
 	_hover_outlined_structure = b
 
+	
 
 func _clear_hover_outline_structure(b: Node2D) -> void:
 	if b == null:
