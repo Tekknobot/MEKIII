@@ -4,3 +4,5 @@ res://shaders/outline_1px.gdshader
 res://scenes/laser_drop.tscn
 res://scenes/medkit_drop.tscn
 res://scripts/turnmanager.gd
+res://scenes/human.tscn
+res://scripts/human.gd
