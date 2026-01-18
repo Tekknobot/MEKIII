@@ -1135,6 +1135,7 @@ func _update_structure_ui() -> void:
 					if ui_structure_label != null:
 						ui_structure_label.text = "Structures: %d/%d active (MAX)" % [active, structure_active_cap]
 						structure_selecting = false
+						ui_structure_button.disabled = true
 					return
 					
 		active = _count_active_structures()
