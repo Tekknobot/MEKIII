@@ -5,3 +5,4 @@ res://scripts/human.gd
 res://scripts/map_controller.gd
 res://scripts/zombie.gd
 res://scenes/move_tile.tscn
+res://scripts/cursor.gd

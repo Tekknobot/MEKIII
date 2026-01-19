@@ -324,3 +324,4 @@ ally_scene = ExtResource("25_a85ww")
 enemy_zombie_scene = ExtResource("26_0bq3a")
 move_tile_scene = ExtResource("27_0bq3a")
 attack_tile_scene = ExtResource("26_jhsr3")
+attack_flash_time = 0.48

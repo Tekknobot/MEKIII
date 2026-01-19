@@ -24,7 +24,7 @@ enum Team { ALLY, ENEMY }
 # -------------------------
 var cell: Vector2i = Vector2i.ZERO
 
-@export var z_base: int = 200000
+@export var z_base: int = 1
 @export var z_per_cell: int = 1
 
 @export var sprite_path: NodePath = NodePath("Sprite2D")
