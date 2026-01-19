@@ -1,4 +1,4 @@
-[gd_scene load_steps=60 format=3 uid="uid://bmtwqbsx674eo"]
+[gd_scene load_steps=57 format=3 uid="uid://bmtwqbsx674eo"]
 
 [ext_resource type="Script" uid="uid://bn08mhcoceqg" path="res://scripts/game.gd" id="1_400sg"]
 [ext_resource type="Texture2D" uid="uid://by1nnygq8fbib" path="res://sprites/Terrain/dirt.png" id="6_mcffj"]
@@ -20,12 +20,9 @@
 [ext_resource type="PackedScene" uid="uid://cqe28tyh7hada" path="res://scenes/structures/stadium.tscn" id="23_evnk2"]
 [ext_resource type="PackedScene" uid="uid://p5f35eddc3kl" path="res://scenes/structures/tower.tscn" id="24_ca228"]
 [ext_resource type="Script" uid="uid://tcy0f4y2y347" path="res://scripts/map_controller.gd" id="24_ocgqw"]
-[ext_resource type="PackedScene" uid="uid://b8etqvuw07mhc" path="res://scenes/human.tscn" id="25_a85ww"]
 [ext_resource type="PackedScene" uid="uid://dmujwxtnheagi" path="res://scenes/zombie.tscn" id="26_0bq3a"]
-[ext_resource type="PackedScene" uid="uid://cv6mfkhtkvxij" path="res://scenes/humantwo.tscn" id="26_i4jil"]
 [ext_resource type="PackedScene" uid="uid://jlyja0pfcon6" path="res://scenes/attack_tile.tscn" id="26_jhsr3"]
 [ext_resource type="PackedScene" uid="uid://4iryuer0rpdr" path="res://scenes/move_tile.tscn" id="27_0bq3a"]
-[ext_resource type="PackedScene" uid="uid://bqrbab23wjpjp" path="res://scenes/mech.tscn" id="27_jai3c"]
 [ext_resource type="Texture2D" uid="uid://c1pruacv3xra5" path="res://sprites/Terrain/roads/16.png" id="30_1fiys"]
 [ext_resource type="Texture2D" uid="uid://bp4obyr2a6lhr" path="res://sprites/Terrain/roads/17.png" id="31_m2g6u"]
 [ext_resource type="Texture2D" uid="uid://bkcixujm222r0" path="res://sprites/Terrain/roads/18.png" id="32_27c7x"]
@@ -278,8 +275,6 @@ layer_0/modulate = Color(0.60784316, 0.60784316, 0.60784316, 1)
 layer_1/name = "Layer1"
 
 [node name="Terrain" type="TileMap" parent="."]
-z_index = -1
-z_as_relative = false
 tile_set = SubResource("TileSet_a8wo8")
 format = 2
 layer_0/modulate = Color(0.60784316, 0.60784316, 0.60784316, 1)
@@ -324,7 +319,6 @@ script = ExtResource("24_ocgqw")
 terrain_path = NodePath("../Terrain")
 units_root_path = NodePath("../Units")
 overlay_root_path = NodePath("../Overlays")
-ally_scenes = Array[PackedScene]([ExtResource("25_a85ww"), ExtResource("26_i4jil"), ExtResource("27_jai3c")])
 enemy_zombie_scene = ExtResource("26_0bq3a")
 move_tile_scene = ExtResource("27_0bq3a")
 attack_tile_scene = ExtResource("26_jhsr3")

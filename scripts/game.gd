@@ -103,7 +103,7 @@ func _ready() -> void:
 	map_controller.units_root_path = units_root.get_path()
 	map_controller.overlay_root_path = overlays_root.get_path()
 	map_controller.setup(self)
-	map_controller.spawn_one_ally_one_enemy()
+	map_controller.spawn_units()
 
 
 func _input(event: InputEvent) -> void:
@@ -127,8 +127,7 @@ func regenerate_map() -> void:
 	spawn_structures()
 
 	map_controller.setup(self)
-	map_controller.spawn_one_ally_one_enemy()
-
+	map_controller.spawn_units()
 
 
 # -------------------------------------------------
@@ -370,7 +369,7 @@ func _sync_one_roads_transform(rmap: TileMap, px_off: Vector2) -> void:
 
 	# keep roads at a stable draw order
 	rmap.z_as_relative = false
-	rmap.z_index = 1
+	rmap.z_index = 0
 
 func _add_roads() -> void:
 	if roads_dl == null or roads_dr == null or roads_x == null:

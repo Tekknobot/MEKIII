@@ -5,7 +5,7 @@ class_name MapController
 @export var units_root_path: NodePath
 @export var overlay_root_path: NodePath
 
-@export var ally_scene: PackedScene
+@export var ally_scenes: Array[PackedScene] = []
 @export var enemy_zombie_scene: PackedScene
 
 @export var move_tile_scene: PackedScene
@@ -35,6 +35,9 @@ var _is_moving := false
 @export var attack_flash_time := 0.10
 @export var attack_anim_lock_time := 0.18   # small pause so attack feels visible
 
+@export var max_zombies: int = 4
+@export var ally_count: int = 3
+
 func _ready() -> void:
 	terrain = get_node_or_null(terrain_path) as TileMap
 	units_root = get_node_or_null(units_root_path) as Node2D
@@ -46,11 +49,14 @@ func _ready() -> void:
 		push_error("MapController: units_root_path not set or invalid. Add a Node2D named 'Units' and assign it.")
 	if overlay_root == null:
 		push_error("MapController: overlay_root_path not set or invalid. Add a Node2D named 'Overlays' and assign it.")
-	if ally_scene == null:
-		push_error("MapController: ally_scene is not assigned in Inspector.")
+	if ally_scenes.is_empty():
+		push_error("MapController: ally_scenes is empty. Add 3 ally scenes in Inspector.")
+	else:
+		for i in range(ally_scenes.size()):
+			if ally_scenes[i] == null:
+				push_error("MapController: ally_scenes[%d] is null." % i)
 	if enemy_zombie_scene == null:
 		push_error("MapController: enemy_zombie_scene is not assigned in Inspector.")
-
 	if move_tile_scene == null:
 		push_warning("MapController: move_tile_scene is not assigned (move overlay won't show).")
 	if attack_tile_scene == null:
@@ -60,23 +66,86 @@ func setup(game) -> void:
 	game_ref = game
 	grid = game.grid
 
-func spawn_one_ally_one_enemy() -> void:
-	if terrain == null or units_root == null:
-		push_error("MapController: cannot spawn (missing terrain/units_root).")
-		return
-	if ally_scene == null or enemy_zombie_scene == null:
-		push_error("MapController: cannot spawn (ally_scene/enemy_zombie_scene not assigned).")
+func spawn_units() -> void:
+	if terrain == null or units_root == null or grid == null:
 		return
 
 	clear_all()
 
-	var ally_cell := Vector2i(2, 2)
-	var enemy_cell := Vector2i(13, 13)
+	# Structure-blocked cells from Game
+	var structure_blocked: Dictionary = {}
+	if game_ref != null and "structure_blocked" in game_ref:
+		structure_blocked = game_ref.structure_blocked
 
-	_spawn_unit_walkable(ally_cell, Unit.Team.ALLY)
-	_spawn_unit_walkable(enemy_cell, Unit.Team.ENEMY)
+	# --- Build list of all valid walkable + unblocked cells ---
+	var valid_cells: Array[Vector2i] = []
+	var w := int(grid.w)
+	var h := int(grid.h)
 
-	print("Spawned units:", units_by_cell.size())
+	for x in range(w):
+		for y in range(h):
+			var c := Vector2i(x,y)
+			if not _is_walkable(c):
+				continue
+			if structure_blocked.has(c):
+				continue
+			valid_cells.append(c)
+
+	if valid_cells.is_empty():
+		return
+
+	# ---------------------------------------------------
+	# 1) Pick a random "ally cluster center"
+	# ---------------------------------------------------
+	var cluster_center = valid_cells.pick_random()
+
+	# Sort valid cells by distance to cluster center
+	valid_cells.sort_custom(func(a:Vector2i, b:Vector2i) -> bool:
+		var da = abs(a.x - cluster_center.x) + abs(a.y - cluster_center.y)
+		var db = abs(b.x - cluster_center.x) + abs(b.y - cluster_center.y)
+		return da < db
+	)
+
+	# --- Spawn allies close together: one of each ally_scenes ---
+	for i in range(min(ally_scenes.size(), valid_cells.size())):
+		var c = valid_cells.pop_front()
+		_spawn_specific_ally(c, ally_scenes[i])
+
+	# ---------------------------------------------------
+	# 2) Remaining cells used for zombies (random spread)
+	# ---------------------------------------------------
+	valid_cells.shuffle()
+
+	for i in range(min(max_zombies, valid_cells.size())):
+		var c = valid_cells.pop_back()
+		_spawn_unit_walkable(c, Unit.Team.ENEMY)
+
+	print("Spawned allies:", ally_count, "zombies:", max_zombies)
+
+func _spawn_specific_ally(preferred: Vector2i, scene: PackedScene) -> void:
+	var c := _find_nearest_open_walkable(preferred)
+	if c.x < 0:
+		push_warning("MapController: no WALKABLE open land found near %s" % [preferred])
+		return
+
+	if scene == null:
+		push_error("MapController: ally scene is null.")
+		return
+
+	var inst := scene.instantiate()
+	var u := inst as Unit
+	if u == null:
+		push_error("MapController: ally scene root is not a Unit.")
+		return
+
+	units_root.add_child(u)
+
+	u.team = Unit.Team.ALLY
+	u.hp = u.max_hp
+	u.set_cell(c, terrain)
+	units_by_cell[c] = u
+
+	print("Spawned ALLY", scene.resource_path.get_file(), "at", c)
 
 func clear_all() -> void:
 	if units_root:
@@ -92,10 +161,18 @@ func _spawn_unit_walkable(preferred: Vector2i, team: int) -> void:
 		push_warning("MapController: no WALKABLE open land found near %s" % [preferred])
 		return
 
-	var scene := (ally_scene if team == Unit.Team.ALLY else enemy_zombie_scene)
-	if scene == null:
-		push_error("MapController: missing scene for team %s" % [team])
-		return
+	var scene: PackedScene
+
+	if team == Unit.Team.ALLY:
+		if ally_scenes.is_empty():
+			push_error("MapController: ally_scenes is empty.")
+			return
+		scene = ally_scenes.pick_random()
+	else:
+		scene = enemy_zombie_scene
+		if scene == null:
+			push_error("MapController: enemy_zombie_scene not assigned.")
+			return
 
 	var inst := scene.instantiate()
 	var u := inst as Unit
@@ -183,21 +260,22 @@ func _input(event: InputEvent) -> void:
 			return
 
 		# -------------------------
-		# ATTACK MODE: left click attacks enemies in range
+		# ATTACK MODE: left click ONLY attacks, never moves
 		# -------------------------
 		if aim_mode == AimMode.ATTACK:
-			if clicked != null and clicked.team != selected.team:
-				if _in_attack_range(selected, clicked.cell):
+			# valid target -> attack
+			if clicked != null and selected != null and is_instance_valid(selected):
+				if clicked.team != selected.team and _in_attack_range(selected, clicked.cell):
 					await _do_attack(selected, clicked)
-					# After attacking, go back to MOVE mode
+					# after attacking, disarm back to MOVE
 					aim_mode = AimMode.MOVE
 					_refresh_overlays()
 					return
 
-			# Not a valid attack target -> treat as normal left click (switch to MOVE)
+			# anything else: just DISARM (no move, no select switching)
 			aim_mode = AimMode.MOVE
 			_refresh_overlays()
-			# fallthrough to MOVE behavior below
+			return
 
 		# -------------------------
 		# MOVE MODE behavior
@@ -363,6 +441,8 @@ func _do_attack(attacker: Unit, defender: Unit) -> void:
 	_flash_unit_white(defender, attack_flash_time)
 	_jitter_unit(defender, 3.0, 6, attack_flash_time)
 	defender.take_damage(attacker.attack_damage)
+
+	await _wait_for_attack_anim(attacker)
 
 	# Optional tiny wait so attack anim is seen even if defender dies instantly
 	await get_tree().create_timer(attack_anim_lock_time).timeout
@@ -732,3 +812,56 @@ func _jitter_unit(u: Unit, strength := 3.0, shakes := 6, total_time := 0.12) -> 
 		if u != null and is_instance_valid(u):
 			u.global_position = original
 	)
+
+func _get_attack_anim_length(u: Unit) -> float:
+	# If the Unit exposes a custom duration, use it
+	if "attack_anim_time" in u:
+		return float(u.attack_anim_time)
+
+	# If AnimatedSprite2D exists and has "attack", estimate from FPS + frame count
+	var a := u.get_node_or_null("AnimatedSprite2D") as AnimatedSprite2D
+	if a != null and a.sprite_frames != null and a.sprite_frames.has_animation("attack"):
+		var fps := float(a.sprite_frames.get_animation_speed("attack"))
+		var frames := a.sprite_frames.get_frame_count("attack")
+		if fps > 0.0 and frames > 0:
+			return frames / fps
+
+	# fallback
+	return attack_anim_lock_time
+
+func _wait_for_attack_anim(u: Unit) -> void:
+	if u == null or not is_instance_valid(u):
+		return
+
+	var a := u.get_node_or_null("AnimatedSprite2D") as AnimatedSprite2D
+	var fallback := _get_attack_anim_length(u)
+
+	# No AnimatedSprite2D attack anim -> just wait fallback time
+	if a == null or a.sprite_frames == null or not a.sprite_frames.has_animation("attack"):
+		await get_tree().create_timer(max(0.01, fallback)).timeout
+		return
+
+	# If attack isn't currently playing, just time fallback
+	if a.animation != "attack":
+		await get_tree().create_timer(max(0.01, fallback)).timeout
+		return
+
+	var done := false
+	var cb := func() -> void:
+		done = true
+
+	var callable := Callable(cb)
+
+	# Connect once
+	if not a.animation_finished.is_connected(callable):
+		a.animation_finished.connect(callable)
+
+	# Wait until finished OR timeout
+	var t := 0.0
+	while not done and t < fallback + 0.25:
+		await get_tree().process_frame
+		t += get_process_delta_time()
+
+	# Disconnect safely
+	if a != null and is_instance_valid(a) and a.animation_finished.is_connected(callable):
+		a.animation_finished.disconnect(callable)

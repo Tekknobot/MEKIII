@@ -9,7 +9,6 @@ func _ready() -> void:
 	move_range = 3
 	attack_range = 4
 	attack_damage = 1
-	tnt_throw_range = 4
 
 	# Do NOT hard reset; clamp up
 	max_hp = max(max_hp, 3)
