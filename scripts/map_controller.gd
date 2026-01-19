@@ -112,15 +112,97 @@ func spawn_units() -> void:
 		_spawn_specific_ally(c, ally_scenes[i])
 
 	# ---------------------------------------------------
-	# 2) Remaining cells used for zombies (random spread)
+	# 2) Zombies: far zone + clusters
 	# ---------------------------------------------------
-	valid_cells.shuffle()
+	var enemy_center := _pick_far_center(valid_cells, cluster_center)
 
-	for i in range(min(max_zombies, valid_cells.size())):
-		var c = valid_cells.pop_back()
-		_spawn_unit_walkable(c, Unit.Team.ENEMY)
+	# Build an enemy-zone pool near enemy_center (tweak radius)
+	var enemy_zone_radius := 6
+	var enemy_zone_cells := _cells_within_radius(valid_cells, enemy_center, enemy_zone_radius)
+
+	# If the zone is too small, fall back to all remaining valid cells
+	if enemy_zone_cells.size() < max_zombies:
+		enemy_zone_cells = valid_cells.duplicate()
+
+	_spawn_zombies_in_clusters(enemy_zone_cells, max_zombies)
 
 	print("Spawned allies:", ally_count, "zombies:", max_zombies)
+
+func _pick_far_center(cells: Array[Vector2i], from_center: Vector2i) -> Vector2i:
+	if cells.is_empty():
+		return Vector2i(-1, -1)
+
+	var best := cells[0]
+	var best_d := -1
+	for c in cells:
+		var d = abs(c.x - from_center.x) + abs(c.y - from_center.y)
+		if d > best_d:
+			best_d = d
+			best = c
+	return best
+
+
+func _cells_within_radius(cells: Array[Vector2i], center: Vector2i, r: int) -> Array[Vector2i]:
+	var out: Array[Vector2i] = []
+	for c in cells:
+		var d = abs(c.x - center.x) + abs(c.y - center.y)
+		if d <= r:
+			out.append(c)
+	return out
+
+
+func _spawn_zombies_in_clusters(zone_cells: Array[Vector2i], total: int) -> void:
+	if total <= 0 or zone_cells.is_empty():
+		return
+
+	zone_cells.shuffle()
+
+	# 2–3 clusters depending on zombie count
+	var cluster_count = clamp(int(ceil(float(total) / 2.0)), 2, 3)
+
+	for k in range(cluster_count):
+		if total <= 0 or zone_cells.is_empty():
+			break
+
+		# pick an anchor for this cluster
+		var anchor = zone_cells.pop_back()
+
+		# spawn size: 1–3 (but not more than remaining)
+		var size = min(total, randi_range(1, 3))
+
+		# spawn anchor first
+		_spawn_unit_walkable(anchor, Unit.Team.ENEMY)
+		total -= 1
+
+		# find nearby cells for the rest of this cluster (tight radius)
+		var near := _neighbors_sorted_by_distance(zone_cells, anchor, 3)
+
+		for i in range(size - 1):
+			if total <= 0 or near.is_empty():
+				break
+			var c = near.pop_front()
+			_spawn_unit_walkable(c, Unit.Team.ENEMY)
+			total -= 1
+
+			# remove used cell from the zone pool
+			var idx := zone_cells.find(c)
+			if idx != -1:
+				zone_cells.remove_at(idx)
+
+
+func _neighbors_sorted_by_distance(cells: Array[Vector2i], anchor: Vector2i, max_r: int) -> Array[Vector2i]:
+	var near: Array[Vector2i] = []
+	for c in cells:
+		var d = abs(c.x - anchor.x) + abs(c.y - anchor.y)
+		if d > 0 and d <= max_r:
+			near.append(c)
+
+	near.sort_custom(func(a:Vector2i, b:Vector2i) -> bool:
+		var da = abs(a.x - anchor.x) + abs(a.y - anchor.y)
+		var db = abs(b.x - anchor.x) + abs(b.y - anchor.y)
+		return da < db
+	)
+	return near
 
 func _spawn_specific_ally(preferred: Vector2i, scene: PackedScene) -> void:
 	var c := _find_nearest_open_walkable(preferred)
