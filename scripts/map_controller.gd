@@ -335,7 +335,40 @@ func _unselect() -> void:
 
 func _in_attack_range(attacker: Unit, target_cell: Vector2i) -> bool:
 	var d = abs(attacker.cell.x - target_cell.x) + abs(attacker.cell.y - target_cell.y)
-	return d <= attacker.attack_range
+	if d > attacker.attack_range:
+		return false
+
+	# ✅ must have clear attack path (structures block)
+	return _has_clear_attack_path(attacker.cell, target_cell)
+
+func _has_clear_attack_path(from_cell: Vector2i, to_cell: Vector2i) -> bool:
+	if from_cell == to_cell:
+		return true
+
+	var structure_blocked: Dictionary = {}
+	if game_ref != null and "structure_blocked" in game_ref:
+		structure_blocked = game_ref.structure_blocked
+
+	# Build two L paths (x->y and y->x), like your move logic
+	var p1 := _build_L_path(from_cell, to_cell, true)
+	var p2 := _build_L_path(from_cell, to_cell, false)
+
+	# A path is clear if NONE of the intermediate cells (excluding destination) are blocked by structures.
+	if _path_clear_of_structures(p1, to_cell, structure_blocked):
+		return true
+	if _path_clear_of_structures(p2, to_cell, structure_blocked):
+		return true
+
+	return false
+
+func _path_clear_of_structures(path: Array[Vector2i], dest: Vector2i, structure_blocked: Dictionary) -> bool:
+	for c in path:
+		# allow hitting the destination even if it's "occupied" by a unit
+		if c == dest:
+			continue
+		if structure_blocked.has(c):
+			return false
+	return true
 
 func _play_attack_anim(u: Unit) -> void:
 	if u == null or not is_instance_valid(u):
@@ -412,17 +445,21 @@ func _flash_canvasitem_white(ci: CanvasItem, t: float) -> void:
 	tw.set_ease(Tween.EASE_IN)
 	tw.tween_property(ci, "modulate", prev, max(0.01, t * 0.65))
 
-func _cleanup_dead(defender: Unit) -> void:
-	if defender == null or not is_instance_valid(defender):
-		return
-	if defender.hp > 0:
+func _cleanup_dead_at(cell: Vector2i) -> void:
+	if not units_by_cell.has(cell):
 		return
 
-	# Only remove from grid tracking
-	units_by_cell.erase(defender.cell)
+	var v = units_by_cell[cell]  # <-- DO NOT cast yet
 
-	# Do NOT queue_free here.
-	# Unit._die() handles animation + freeing.
+	# Freed or not even an Object anymore -> remove
+	if v == null or not (v is Object) or not is_instance_valid(v):
+		units_by_cell.erase(cell)
+		return
+
+	# Now it's safe to cast/use as Unit
+	var u := v as Unit
+	if u == null or u.hp <= 0:
+		units_by_cell.erase(cell)
 
 func _do_attack(attacker: Unit, defender: Unit) -> void:
 	if attacker == null or defender == null:
@@ -430,26 +467,23 @@ func _do_attack(attacker: Unit, defender: Unit) -> void:
 	if not is_instance_valid(attacker) or not is_instance_valid(defender):
 		return
 
-	# Face each other
+	var def_cell := defender.cell  # ✅ store before defender can die/free
+
 	_face_unit_toward_world(attacker, defender.global_position)
 	_face_unit_toward_world(defender, attacker.global_position)
 
-	# Play attack anim, small lock so it reads
 	_play_attack_anim(attacker)
 
-	# Defender flash + apply damage
 	_flash_unit_white(defender, attack_flash_time)
 	_jitter_unit(defender, 3.0, 6, attack_flash_time)
 	defender.take_damage(attacker.attack_damage)
 
 	await _wait_for_attack_anim(attacker)
-
-	# Optional tiny wait so attack anim is seen even if defender dies instantly
 	await get_tree().create_timer(attack_anim_lock_time).timeout
 
-	_cleanup_dead(defender)
+	# ✅ defender might be freed now, so never pass it as a typed arg
+	_cleanup_dead_at(def_cell)
 
-	# Return attacker to idle (optional)
 	_play_idle_anim(attacker)
 
 # --------------------------
@@ -510,7 +544,6 @@ func _draw_attack_range(u: Unit) -> void:
 	var r := u.attack_range
 	var origin := u.cell
 
-	# Structure blocked dictionary from Game
 	var structure_blocked: Dictionary = {}
 	if game_ref != null and "structure_blocked" in game_ref:
 		structure_blocked = game_ref.structure_blocked
@@ -519,21 +552,31 @@ func _draw_attack_range(u: Unit) -> void:
 		for dy in range(-r, r + 1):
 			var c := origin + Vector2i(dx, dy)
 
+			# Bounds
 			if grid != null and grid.has_method("in_bounds") and not grid.in_bounds(c):
 				continue
+
+			# Manhattan range
 			if abs(dx) + abs(dy) > r:
 				continue
 
-			# ✅ don't draw over structures
+			# ✅ NEW: don't draw on water
+			if not _is_walkable(c):
+				continue
+
+			# Don't draw on blocking structures
 			if structure_blocked.has(c):
+				continue
+
+			# ✅ NEW: don't draw if structure blocks line-of-sight
+			if not _has_clear_attack_path(origin, c):
 				continue
 
 			var t := attack_tile_scene.instantiate() as Node2D
 			overlay_root.add_child(t)
-
 			t.global_position = terrain.to_global(terrain.map_to_local(c))
 
-			# x+y sum layering
+			# Iso depth
 			t.z_as_relative = false
 			t.z_index = 1 + (c.x + c.y)
 
