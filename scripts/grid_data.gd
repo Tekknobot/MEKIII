@@ -1,36 +1,19 @@
-extends Resource
+extends RefCounted
 class_name GridData
 
-var width: int
-var height: int
-var terrain := []        # 2D array of ints (terrain id)
-var occupied := {}       # Dictionary: Vector2i -> unit_id or Node reference
+var w: int = 0
+var h: int = 0
+var terrain: Array = []  # terrain[x][y] -> tile id
 
-func setup(w: int, h: int) -> void:
-	width = w
-	height = h
-	terrain.resize(width)
-	for x in range(width):
+func setup(width: int, height: int, fill_value: int = 0) -> void:
+	w = width
+	h = height
+	terrain.resize(w)
+	for x in range(w):
 		terrain[x] = []
-		terrain[x].resize(height)
-		for y in range(height):
-			terrain[x][y] = 0  # default terrain id
+		terrain[x].resize(h)
+		for y in range(h):
+			terrain[x][y] = fill_value
 
 func in_bounds(c: Vector2i) -> bool:
-	return c.x >= 0 and c.y >= 0 and c.x < width and c.y < height
-
-func is_occupied(c: Vector2i) -> bool:
-	return occupied.has(c)
-
-func set_occupied(c: Vector2i, value) -> void:
-	if value == null:
-		occupied.erase(c)
-	else:
-		occupied[c] = value
-
-func get_occupied(c: Vector2i):
-	# returns whatever you stored (unit id / node ref), or null
-	return occupied.get(c, null)
-
-func clear_occupied(c: Vector2i) -> void:
-	occupied.erase(c)
+	return c.x >= 0 and c.y >= 0 and c.x < w and c.y < h

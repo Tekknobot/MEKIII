@@ -191,6 +191,7 @@ animations = [{
 
 [node name="Unit" type="CharacterBody2D"]
 script = ExtResource("1_swaxu")
+tnt_throw_range = 4
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="."]
 position = Vector2(0, -9)

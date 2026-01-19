@@ -1,8 +1,10 @@
-res://scripts/game.gd
 res://scenes/Game.tscn
 res://shaders/outline_1px.gdshader
-res://scenes/laser_drop.tscn
-res://scenes/medkit_drop.tscn
-res://scripts/turnmanager.gd
-res://scenes/human.tscn
+res://scripts/game.gd
+res://scripts/grid_data.gd
 res://scripts/human.gd
+res://scripts/humantwo.gd
+res://scripts/mech.gd
+res://scripts/structure.gd
+res://scripts/turnmanager.gd
+res://scripts/unit.gd
