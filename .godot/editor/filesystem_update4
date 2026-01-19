@@ -1,10 +1,7 @@
 res://scenes/Game.tscn
 res://shaders/outline_1px.gdshader
-res://scripts/game.gd
-res://scripts/grid_data.gd
-res://scripts/human.gd
-res://scripts/humantwo.gd
-res://scripts/mech.gd
-res://scripts/structure.gd
-res://scripts/turnmanager.gd
 res://scripts/unit.gd
+res://scripts/human.gd
+res://scripts/map_controller.gd
+res://scripts/zombie.gd
+res://scenes/move_tile.tscn

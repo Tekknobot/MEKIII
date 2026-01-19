@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3 uid="uid://4iryuer0rpdr"]
+
+[ext_resource type="Texture2D" uid="uid://d3dw1g0jasso3" path="res://sprites/Tiles_UI/mek3/1x1_move.png" id="1_48ob4"]
+
+[node name="MoveTile" type="Sprite2D"]
+texture = ExtResource("1_48ob4")

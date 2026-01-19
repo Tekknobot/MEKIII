@@ -4,9 +4,7 @@
 [ext_resource type="Texture2D" uid="uid://bysc7op7qquei" path="res://sprites/Tiles_UI/mek3/1x1_cursor.png" id="2_n5qf0"]
 [ext_resource type="Texture2D" uid="uid://b2b8iier8i5b7" path="res://sprites/Tiles_UI/mek3/2x2_cursor.png" id="3_pey64"]
 
-[node name="Cursor" type="Sprite2D" node_paths=PackedStringArray("tilemap", "map_controller")]
+[node name="Cursor" type="Sprite2D"]
 script = ExtResource("1_ndevg")
-tilemap = NodePath("")
-map_controller = NodePath("")
 highlight_texture_1x1 = ExtResource("2_n5qf0")
 highlight_texture_2x2 = ExtResource("3_pey64")

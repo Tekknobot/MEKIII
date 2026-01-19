@@ -80,6 +80,10 @@ var road_blocked := {}
 # structure_blocked: terrain-cell -> true
 var structure_blocked := {}
 
+@onready var units_root: Node2D = get_node("Units") as Node2D
+@onready var overlays_root: Node2D = get_node("Overlays") as Node2D
+@onready var map_controller: MapController = get_node("MapController") as MapController
+
 func _ready() -> void:
 	rng.randomize()
 
@@ -94,6 +98,12 @@ func _ready() -> void:
 
 	# Structures after terrain+roads are final (avoids roads+water)
 	spawn_structures()
+
+	map_controller.terrain_path = terrain.get_path()
+	map_controller.units_root_path = units_root.get_path()
+	map_controller.overlay_root_path = overlays_root.get_path()
+	map_controller.setup(self)
+	map_controller.spawn_one_ally_one_enemy()
 
 
 func _input(event: InputEvent) -> void:
@@ -115,6 +125,10 @@ func regenerate_map() -> void:
 	generate_map()
 
 	spawn_structures()
+
+	map_controller.setup(self)
+	map_controller.spawn_one_ally_one_enemy()
+
 
 
 # -------------------------------------------------

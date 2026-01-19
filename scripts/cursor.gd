@@ -3,30 +3,28 @@ class_name GridCursor
 
 @export var tilemap: TileMap
 @export var map_controller: Node
-@export var highlight_texture_1x1: Texture2D
-@export var highlight_texture_2x2: Texture2D
+
+@export var highlight_texture: Texture2D
 @export var mouse_offset := Vector2(0, 0)
+@export var cursor_offset := Vector2(0, 0)
 
-@export var cursor_offset_1x1 := Vector2(0, 0)
-@export var cursor_offset_2x2 := Vector2(0, 16)
-
-# Roads are 1000. Cursor must be > 1000.
-@export var cursor_z_base := 50000      # comfortably above roads
-@export var cursor_z_cap := 299000      # safely below drops (~300000 + y)
+# Depth sorting by grid coordinate sum
+@export var cursor_z_base := 0
+@export var cursor_z_per_cell := 1
 
 var hovered_cell: Vector2i = Vector2i(-1, -1)
 
 func _ready() -> void:
 	top_level = true
 	z_as_relative = false
+	show_behind_parent = false
+	texture = highlight_texture
 	z_index = cursor_z_base
 
-	# ✅ make sure Roads can't "win" via z_layer
-	z_as_relative = false
-	show_behind_parent = false
-	
 func _process(_delta: float) -> void:
 	if tilemap == null or map_controller == null:
+		return
+	if map_controller.grid == null:
 		return
 
 	var mouse_global := get_viewport().get_mouse_position()
@@ -38,30 +36,14 @@ func _process(_delta: float) -> void:
 
 	if not map_controller.grid.in_bounds(cell):
 		visible = false
-		map_controller.set_hovered_unit(null)
+		hovered_cell = Vector2i(-1, -1)
 		return
 
 	visible = true
 	hovered_cell = cell
 
-	var u: Unit = map_controller.unit_at_cell(cell)
+	# Position cursor on hovered cell
+	global_position = tilemap.to_global(tilemap.map_to_local(cell)) + cursor_offset
 
-	var anchor_cell := cell
-	if u != null:
-		anchor_cell = map_controller.get_unit_origin(u)
-
-	var is_big := false
-	if u != null:
-		var fp := u.footprint_cells(anchor_cell)
-		is_big = fp.size() > 1
-
-	texture = (highlight_texture_2x2 if is_big else highlight_texture_1x1)
-
-	var base_world := tilemap.to_global(tilemap.map_to_local(anchor_cell))
-	global_position = base_world + (cursor_offset_2x2 if is_big else cursor_offset_1x1)
-
-	# ✅ Force cursor above roads (1000), below drops (300000+)
-	var desired := cursor_z_base + int(global_position.y)
-	z_index = clampi(desired, 2000, cursor_z_cap)
-
-	map_controller.set_hovered_unit(u)
+	# ✅ Proper x+y sum layering
+	z_index = cursor_z_base + ((cell.x + cell.y) * cursor_z_per_cell)

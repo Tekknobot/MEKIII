@@ -1,4 +1,4 @@
-[gd_scene load_steps=58 format=3 uid="uid://bmtwqbsx674eo"]
+[gd_scene load_steps=56 format=3 uid="uid://bmtwqbsx674eo"]
 
 [ext_resource type="Script" uid="uid://bn08mhcoceqg" path="res://scripts/game.gd" id="1_400sg"]
 [ext_resource type="Texture2D" uid="uid://by1nnygq8fbib" path="res://sprites/Terrain/dirt.png" id="6_mcffj"]
@@ -21,9 +21,7 @@
 [ext_resource type="PackedScene" uid="uid://p5f35eddc3kl" path="res://scenes/structures/tower.tscn" id="24_ca228"]
 [ext_resource type="Script" uid="uid://tcy0f4y2y347" path="res://scripts/map_controller.gd" id="24_ocgqw"]
 [ext_resource type="PackedScene" uid="uid://b8etqvuw07mhc" path="res://scenes/human.tscn" id="25_a85ww"]
-[ext_resource type="PackedScene" uid="uid://dmujwxtnheagi" path="res://scenes/zombie.tscn" id="26_0bq3a"]
 [ext_resource type="PackedScene" uid="uid://jlyja0pfcon6" path="res://scenes/attack_tile.tscn" id="26_jhsr3"]
-[ext_resource type="PackedScene" uid="uid://4iryuer0rpdr" path="res://scenes/move_tile.tscn" id="27_0bq3a"]
 [ext_resource type="Texture2D" uid="uid://c1pruacv3xra5" path="res://sprites/Terrain/roads/16.png" id="30_1fiys"]
 [ext_resource type="Texture2D" uid="uid://bp4obyr2a6lhr" path="res://sprites/Terrain/roads/17.png" id="31_m2g6u"]
 [ext_resource type="Texture2D" uid="uid://bkcixujm222r0" path="res://sprites/Terrain/roads/18.png" id="32_27c7x"]
@@ -242,7 +240,6 @@ z_index = -4096
 [node name="Structures" type="Node2D" parent="."]
 
 [node name="Overlays" type="Node2D" parent="."]
-z_as_relative = false
 
 [node name="Units" type="Node2D" parent="."]
 
@@ -320,7 +317,5 @@ script = ExtResource("24_ocgqw")
 terrain_path = NodePath("../Terrain")
 units_root_path = NodePath("../Units")
 overlay_root_path = NodePath("../Overlays")
-ally_scene = ExtResource("25_a85ww")
-enemy_zombie_scene = ExtResource("26_0bq3a")
-move_tile_scene = ExtResource("27_0bq3a")
+unit_scene = ExtResource("25_a85ww")
 attack_tile_scene = ExtResource("26_jhsr3")

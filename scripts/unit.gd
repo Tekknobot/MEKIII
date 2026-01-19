@@ -1,170 +1,54 @@
 extends Node2D
 class_name Unit
 
-@export var footprint_size := Vector2i(1, 1)
-@export var move_range := 3
-@export var attack_range := 1
-@export var attack_repeats := 1
-@export var attack_anim: StringName = "attack"
-
-@export var tnt_throw_range := 3  # default (can override per unit)
-
-@export var max_hp := 3   # NEW
-var hp := 3               # NEW
-
-@export var death_offset := Vector2.ZERO
-var _sprite_base_pos := Vector2.ZERO
-
-var grid_pos := Vector2i.ZERO
-const Z_UNITS := 1
-
 enum Team { ALLY, ENEMY }
+
+# -------------------------
+# Core stats (what Human expects)
+# -------------------------
 @export var team: Team = Team.ALLY
 
-var _death_sfx_played := false
+@export var footprint_size: Vector2i = Vector2i(1, 1)
 
-signal hp_changed(unit: Unit)
-signal died(unit: Unit)
+@export var move_range: int = 3
+@export var attack_range: int = 3
+@export var attack_damage: int = 1
 
-var _motion_tween: Tween = null
+@export var tnt_throw_range: int = 0
 
-func _ready():
-	hp = max_hp
-	var spr := _unit_sprite()
-	if spr != null:
-		_sprite_base_pos = spr.position
+@export var max_hp: int = 3
+@export var hp: int = 3
 
-func set_motion_tween(t: Tween) -> void:
-	_motion_tween = t
+# -------------------------
+# Placement + layering
+# -------------------------
+var cell: Vector2i = Vector2i.ZERO
 
-func cancel_motion() -> void:
-	# Kill any tween we know about
-	if _motion_tween != null and _motion_tween.is_valid():
-		_motion_tween.kill()
-	_motion_tween = null
+@export var z_base: int = 200000
+@export var z_per_cell: int = 1
 
-	# Also stop any animation if you want
-	if has_node("AnimatedSprite2D"):
-		var spr := $AnimatedSprite2D as AnimatedSprite2D
-		if spr:
-			spr.stop()
-				
-func footprint_cells(origin: Vector2i = grid_pos) -> Array[Vector2i]:
-	var cells: Array[Vector2i] = []
-	for dx in range(footprint_size.x):
-		for dy in range(footprint_size.y):
-			cells.append(origin + Vector2i(dx, dy))
-	return cells
+@export var sprite_path: NodePath = NodePath("Sprite2D")
+@onready var spr: Sprite2D = get_node_or_null(sprite_path) as Sprite2D
 
-func feet_cell() -> Vector2i:
-	return grid_pos + Vector2i(footprint_size.x - 1, footprint_size.y - 1)
+func _ready() -> void:
+	# Base init so children can safely call super._ready()
+	hp = clamp(hp, 0, max_hp)
+	_update_depth()
 
-func update_layering() -> void:
-	var key := feet_cell().x + feet_cell().y
-	z_index = Z_UNITS + key
+func set_cell(c: Vector2i, terrain: TileMap) -> void:
+	cell = c
+	if terrain and is_instance_valid(terrain):
+		global_position = terrain.to_global(terrain.map_to_local(c))
+	_update_depth()
 
+func _update_depth() -> void:
+	z_as_relative = false
+	# ✅ x+y sum layering (matches your practice)
+	z_index = 1 + (cell.x + cell.y) * z_per_cell
 
-# =========================
-# Damage / Death API
-# =========================
+func set_selected(on: bool) -> void:
+	if spr:
+		spr.modulate = (Color(1, 1, 1) if not on else Color(1.25, 1.25, 1.25))
 
-func take_damage(amount: int) -> void:
-	hp -= amount
-	if hp <= 0:
-		await die() # wait so the animation can play
-
-func die() -> void:
-	# Prevent double-death if hit multiple times quickly
-	if is_queued_for_deletion():
-		return
-
-	var map := _get_map_controller()
-
-	# ✅ Play death SFX immediately (before waiting on animation)
-	_play_death_sfx(map)
-
-	# Try play death animation
-	var spr := _unit_sprite()
-	var played := false
-
-	if spr != null and spr.sprite_frames != null:
-		if spr.sprite_frames.has_animation("explode"):
-			self.scale = Vector2(1, 1)
-
-			# Apply per-unit death offset
-			spr.position = _sprite_base_pos + death_offset
-
-			spr.play("explode")
-			played = true
-
-		elif spr.sprite_frames.has_animation("death"):
-			spr.play("death")
-			played = true
-
-	# Tell the map to clear occupancy / selection immediately
-	if map != null and map.has_method("_on_unit_died"):
-		map._on_unit_died(self)
-
-	# If we played a death anim, wait for it to finish
-	if played and spr != null:
-		await spr.animation_finished
-	else:
-		await get_tree().create_timer(0.05).timeout
-
-	queue_free()
-
-# ---- helpers (Unit-local) ----
-func _unit_sprite() -> AnimatedSprite2D:
-	if has_node("AnimatedSprite2D"):
-		return $AnimatedSprite2D as AnimatedSprite2D
-	return null
-
-func _get_map_controller() -> Node:
-	# UnitsRoot is a child of the main map node in your setup
-	# Unit -> Units (Node2D) -> Map (Node2D)
-	if get_parent() != null and get_parent().get_parent() != null:
-		return get_parent().get_parent()
-	return null
-
-func _play_death_sfx(map: Node) -> void:
-	if _death_sfx_played:
-		return
-	_death_sfx_played = true
-
-	if map == null:
-		return
-
-	# expects your Map script to have:
-	# - play_sfx_poly(stream, pos, vol_db, pitch_min, pitch_max)
-	# - _sfx_die_for(unit)
-	if map.has_method("_sfx_die_for") and map.has_method("play_sfx_poly"):
-		var stream: AudioStream = map._sfx_die_for(self)
-		if stream != null:
-			map.play_sfx_poly(stream, global_position, -4.0, 0.95, 1.05)
-
-func apply_run_bonuses(bonus_hp: int, bonus_range: int, bonus_move: int, bonus_repeats: int) -> void:
-	# Make sure we start from whatever the unit's scene/_ready configured.
-	# Then apply run bonuses on top.
-
-	# --- Max HP ---
-	var old_max := int(max_hp)
-	max_hp = max(1, old_max + int(bonus_hp))
-
-	# Keep current HP sensible:
-	# Option A (recommended): heal by the amount max increased (feels like a reward)
-	var delta := int(max_hp) - old_max
-	hp = clampi(int(hp) + delta, 0, int(max_hp))
-
-	# --- Range / Move / Repeats ---
-	attack_range = max(1, int(attack_range) + int(bonus_range))
-	move_range = max(0, int(move_range) + int(bonus_move))
-	attack_repeats = max(1, int(attack_repeats) + int(bonus_repeats))
-
-func _apply_hp_bonus_safe(hp_bonus: int) -> void:
-	if hp_bonus <= 0:
-		return
-	max_hp = int(max_hp) + hp_bonus
-	hp = int(max_hp) # keep them full when they spawn
-
-func _apply_repeats_bonus_safe(bonus: int) -> void:
-	attack_repeats = max(1, int(attack_repeats) + int(bonus))
+func take_damage(dmg: int) -> void:
+	hp = max(hp - dmg, 0)
