@@ -25,6 +25,8 @@ var game_ref: Node = null
 enum AimMode { MOVE, ATTACK }
 var aim_mode: AimMode = AimMode.MOVE
 
+@export var mouse_offset := Vector2(0, 8)
+
 func _ready() -> void:
 	terrain = get_node_or_null(terrain_path) as TileMap
 	units_root = get_node_or_null(units_root_path) as Node2D
@@ -192,8 +194,10 @@ func _mouse_to_cell() -> Vector2i:
 	if terrain == null:
 		return Vector2i(-1, -1)
 
+	# ✅ Match GridCursor math exactly
 	var mouse_global := get_viewport().get_mouse_position()
 	mouse_global = get_viewport().get_canvas_transform().affine_inverse() * mouse_global
+	mouse_global += mouse_offset
 
 	var local := terrain.to_local(mouse_global)
 	var cell := terrain.local_to_map(local)
