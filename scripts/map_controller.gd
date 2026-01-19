@@ -340,9 +340,11 @@ func _cleanup_dead(defender: Unit) -> void:
 	if defender.hp > 0:
 		return
 
-	# Remove from dict by its last known cell
+	# Only remove from grid tracking
 	units_by_cell.erase(defender.cell)
-	defender.queue_free()
+
+	# Do NOT queue_free here.
+	# Unit._die() handles animation + freeing.
 
 func _do_attack(attacker: Unit, defender: Unit) -> void:
 	if attacker == null or defender == null:
