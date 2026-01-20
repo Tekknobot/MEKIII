@@ -1,4 +1,4 @@
-[gd_scene load_steps=64 format=3 uid="uid://bmtwqbsx674eo"]
+[gd_scene load_steps=70 format=3 uid="uid://bmtwqbsx674eo"]
 
 [ext_resource type="Script" uid="uid://bn08mhcoceqg" path="res://scripts/game.gd" id="1_400sg"]
 [ext_resource type="Texture2D" uid="uid://by1nnygq8fbib" path="res://sprites/Terrain/dirt.png" id="6_mcffj"]
@@ -33,6 +33,12 @@
 [ext_resource type="Texture2D" uid="uid://bkcixujm222r0" path="res://sprites/Terrain/roads/18.png" id="32_27c7x"]
 [ext_resource type="PackedScene" uid="uid://bulgypadw5war" path="res://scenes/explosion.tscn" id="32_426vi"]
 [ext_resource type="PackedScene" uid="uid://caymwfgfg5si7" path="res://scenes/landmine.tscn" id="33_naigu"]
+[ext_resource type="AudioStream" uid="uid://bbttj3mk2c2mp" path="res://audio/SFX/Retro Beeep 20.wav" id="34_m1oc7"]
+[ext_resource type="AudioStream" uid="uid://dj3d7h858nj8j" path="res://audio/SFX/Retro Beeep 06.wav" id="35_kbe8o"]
+[ext_resource type="AudioStream" uid="uid://c7wah0i8xrgkm" path="res://audio/SFX/Retro FootStep 03.wav" id="36_m2g6u"]
+[ext_resource type="AudioStream" uid="uid://b7n22ud1fbmt5" path="res://audio/SFX/slash.wav" id="37_27c7x"]
+[ext_resource type="AudioStream" uid="uid://cvmadfryrn0ar" path="res://audio/SFX/Hit8.wav" id="38_ho5ir"]
+[ext_resource type="AudioStream" uid="uid://dogvi6q7030pk" path="res://audio/SFX/explosion_8bit.wav" id="39_evnk2"]
 [ext_resource type="Texture2D" uid="uid://bsyc60b8surhm" path="res://sprites/Tiles_UI/mek3/1x1_no_attack.png" id="41_evnk2"]
 
 [sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_g4kob"]
@@ -343,6 +349,22 @@ max_zombies = 16
 explosion_scene = ExtResource("32_426vi")
 mine_scene = ExtResource("33_naigu")
 mine_y_offset_px = 0.0
+sfx_player_path = NodePath("AudioStreamPlayer2D")
+sfx_streams = {
+"attack_hit": ExtResource("38_ho5ir"),
+"attack_swing": ExtResource("37_27c7x"),
+"explosion_small": ExtResource("39_evnk2"),
+"mine_place": null,
+"move_end": null,
+"move_start": ExtResource("36_m2g6u"),
+"move_step": ExtResource("36_m2g6u"),
+"ui_arm_attack": ExtResource("35_kbe8o"),
+"ui_deselect": ExtResource("35_kbe8o"),
+"ui_disarm": ExtResource("35_kbe8o"),
+"ui_select": ExtResource("34_m1oc7")
+}
+
+[node name="AudioStreamPlayer2D" type="AudioStreamPlayer2D" parent="MapController"]
 
 [node name="CanvasLayer" type="CanvasLayer" parent="."]
 

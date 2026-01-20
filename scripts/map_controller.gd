@@ -62,6 +62,76 @@ signal aim_changed(mode: int, special_id: StringName)
 
 var mine_nodes_by_cell: Dictionary = {} # Vector2i -> Node2D
 
+# --------------------------
+# SFX (simple dispatcher)
+# --------------------------
+@export var sfx_player_path: NodePath
+@onready var SFX := get_node_or_null(sfx_player_path)
+
+# Optional: volume scalars if you want
+@export var sfx_volume_ui := 0.8
+@export var sfx_volume_world := 1.0
+
+# Assign in Inspector: { "ui_select": <AudioStream>, "attack_swing": <AudioStream>, ... }
+@export var sfx_streams: Dictionary = {}
+
+func _sfx(cue: StringName, vol := 1.0, pitch := 1.0, world_pos: Variant = null) -> void:
+	if SFX == null:
+		return
+
+	# ✅ If SFX is just an AudioStreamPlayer(2D/3D): do one-shot spawn so sounds can overlap.
+	if (SFX is AudioStreamPlayer) or (SFX is AudioStreamPlayer2D) or (SFX is AudioStreamPlayer3D):
+		var stream := sfx_streams.get(String(cue), null) as AudioStream
+		if stream == null:
+			return
+
+		var p: Node
+		if SFX is AudioStreamPlayer:
+			p = AudioStreamPlayer.new()
+		elif SFX is AudioStreamPlayer3D:
+			p = AudioStreamPlayer3D.new()
+		else:
+			p = AudioStreamPlayer2D.new()
+
+		# Common setup
+		p.stream = stream
+		p.pitch_scale = max(0.01, float(pitch))
+		p.volume_db = linear_to_db(clamp(float(vol), 0.0, 2.0))
+		p.bus = SFX.bus
+
+		# Position only for spatial players
+		if p is AudioStreamPlayer2D:
+			(p as AudioStreamPlayer2D).global_position = (world_pos if (world_pos is Vector2) else (SFX as AudioStreamPlayer2D).global_position)
+		elif p is AudioStreamPlayer3D:
+			# If you ever use 3D, you can pass Vector3. Otherwise it’ll just use SFX position.
+			(p as AudioStreamPlayer3D).global_position = (SFX as AudioStreamPlayer3D).global_position
+
+		SFX.add_child(p)
+
+		# Free after play
+		p.finished.connect(func():
+			if p != null and is_instance_valid(p):
+				p.queue_free()
+		)
+
+		p.play()
+		return
+
+	# ✅ Otherwise, treat SFX as a custom "manager" node
+	if SFX.has_method("play_sfx_poly"):
+		SFX.call("play_sfx_poly", String(cue), float(vol), float(pitch))
+		return
+	if SFX.has_method("play_sfx"):
+		SFX.call("play_sfx", String(cue), float(vol), float(pitch))
+		return
+	if SFX.has_method("play_named"):
+		SFX.call("play_named", String(cue), float(vol), float(pitch))
+		return
+	if SFX.has_method("play"):
+		# Custom manager might accept a cue name
+		SFX.call("play", String(cue))
+		return
+
 func _ready() -> void:
 	terrain = get_node_or_null(terrain_path) as TileMap
 	units_root = get_node_or_null(units_root_path) as Node2D
@@ -356,6 +426,7 @@ func _unhandled_input(event: InputEvent) -> void:
 		# Right click = ATTACK mode (arm)
 		if event.button_index == MOUSE_BUTTON_RIGHT:
 			aim_mode = AimMode.ATTACK
+			_sfx(&"ui_arm_attack", sfx_volume_ui, 1.0)
 			_refresh_overlays()
 			emit_signal("aim_changed", int(aim_mode), special_id)
 			return
@@ -390,9 +461,11 @@ func _unhandled_input(event: InputEvent) -> void:
 					_refresh_overlays()
 					emit_signal("aim_changed", int(aim_mode), special_id)
 					return
-
+					
 			# anything else: just DISARM (no move, no select switching)
 			aim_mode = AimMode.MOVE
+			_sfx(&"ui_disarm", sfx_volume_ui, 1.0)
+
 			_refresh_overlays()
 			emit_signal("aim_changed", int(aim_mode), special_id)
 			return
@@ -504,12 +577,19 @@ func _select(u: Unit) -> void:
 	_unselect()
 	selected = u
 	selected.set_selected(true)
+	
+	_sfx(&"ui_select", sfx_volume_ui, 1.0)
 	_refresh_overlays()
 
 	emit_signal("selection_changed", selected)
 	emit_signal("aim_changed", int(aim_mode), special_id)
 
+
 func _unselect() -> void:
+	if selected and is_instance_valid(selected):
+		_sfx(&"ui_deselect", sfx_volume_ui, 1.0)
+		selected.set_selected(false)
+			
 	if selected and is_instance_valid(selected):
 		selected.set_selected(false)
 	selected = null
@@ -657,12 +737,14 @@ func _do_attack(attacker: Unit, defender: Unit) -> void:
 
 	_face_unit_toward_world(attacker, defender.global_position)
 	_face_unit_toward_world(defender, attacker.global_position)
-
+	
+	_sfx(&"attack_swing", sfx_volume_world, randf_range(0.95, 1.05), attacker.global_position)
 	_play_attack_anim(attacker)
 
 	_flash_unit_white(defender, attack_flash_time)
 	_jitter_unit(defender, 3.0, 6, attack_flash_time)
 	defender.take_damage(attacker.attack_damage)
+	_sfx(&"attack_hit", sfx_volume_world, randf_range(0.95, 1.05), defender.global_position)
 
 	await _wait_for_attack_anim(attacker)
 	await get_tree().create_timer(attack_anim_lock_time).timeout
@@ -918,6 +1000,7 @@ func _move_selected_to(target: Vector2i) -> void:
 		return
 
 	_is_moving = true
+	_sfx(&"move_start", sfx_volume_world, 1.0, _cell_world(from_cell))
 
 	_clear_overlay()
 
@@ -934,6 +1017,7 @@ func _move_selected_to(target: Vector2i) -> void:
 
 		_face_unit_for_step(u, from_world, to_world)
 
+		_sfx(&"move_step", sfx_volume_world * 0.55, randf_range(0.95, 1.05), to_world)
 		var tw := create_tween()
 		tw.set_trans(Tween.TRANS_LINEAR)
 		tw.set_ease(Tween.EASE_IN_OUT)
@@ -957,7 +1041,8 @@ func _move_selected_to(target: Vector2i) -> void:
 		return
 	
 	_play_move_anim(u, false)
-
+	_sfx(&"move_end", sfx_volume_world, 1.0, _cell_world(target))
+	
 	_is_moving = false
 
 	_refresh_overlays()
@@ -1627,6 +1712,7 @@ func _trigger_mine_if_present(u: Unit) -> void:
 	mines_by_cell.erase(c)
 
 	remove_mine_visual(c)
+	_sfx(&"mine_trigger", sfx_volume_world, 1.0, _cell_world(c))
 	spawn_explosion_at_cell(c)
 
 	var mine_team := int(data.get("team", Unit.Team.ALLY))
@@ -1663,7 +1749,8 @@ func spawn_explosion_at_cell(cell: Vector2i) -> void:
 	var world_pos := terrain.to_global(terrain.map_to_local(cell))
 	world_pos += Vector2(0, explosion_y_offset_px)
 	fx.global_position = world_pos
-
+	_sfx(&"explosion_small", sfx_volume_world, randf_range(0.95, 1.05), world_pos)
+	
 	# Depth using grid-space (recomputed after offset)
 	var local := terrain.to_local(world_pos)
 	var depth_cell := terrain.local_to_map(local)
@@ -1754,7 +1841,8 @@ func place_mine_visual(cell: Vector2i) -> void:
 
 	var world := terrain.to_global(terrain.map_to_local(cell)) + Vector2(0, mine_y_offset_px)
 	mine.global_position = world
-
+	_sfx(&"mine_place", sfx_volume_world, 1.0, world)
+	
 	# Depth from grid (local_to_map) so it matches iso sorting
 	var local := terrain.to_local(world)
 	var depth_cell := terrain.local_to_map(local)
