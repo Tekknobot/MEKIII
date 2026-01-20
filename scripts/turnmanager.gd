@@ -59,12 +59,10 @@ func start_player_phase() -> void:
 			M.set_unit_exhausted(u, false) # ✅ reset tint each new player phase
 
 	_update_end_turn_button()
-	_auto_select_first_ally()
 
 func start_enemy_phase() -> void:
 	phase = Phase.ENEMY
 	_update_end_turn_button()
-	_auto_select_first_ally()
 	_update_special_buttons()
 	
 	await _run_enemy_turns()
@@ -101,7 +99,6 @@ func _update_end_turn_button() -> void:
 	end_turn_button.disabled = (phase != Phase.PLAYER)
 
 func on_units_spawned() -> void:
-	_auto_select_first_ally()
 	_update_special_buttons()
 
 func _all_allies_done() -> bool:

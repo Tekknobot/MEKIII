@@ -687,22 +687,67 @@ func _flash_unit_white(u: Unit, t: float) -> void:
 	if u == null or not is_instance_valid(u):
 		return
 
-	# Try common visuals first
+	var ci: CanvasItem = null
+
 	var spr := u.get_node_or_null("Sprite2D") as Sprite2D
 	if spr != null:
-		_flash_canvasitem_white(spr, t)
+		ci = spr
+	else:
+		var anim := u.get_node_or_null("AnimatedSprite2D") as AnimatedSprite2D
+		if anim != null:
+			ci = anim
+		else:
+			for ch in u.get_children():
+				if ch is CanvasItem:
+					ci = ch as CanvasItem
+					break
+
+	if ci == null:
 		return
 
-	var anim := u.get_node_or_null("AnimatedSprite2D") as AnimatedSprite2D
-	if anim != null:
-		_flash_canvasitem_white(anim, t)
-		return
+	# If a previous flash is running, kill it and restore the original color
+	if ci.has_meta("flash_tw"):
+		var old = ci.get_meta("flash_tw")
+		if old != null and (old is Tween) and is_instance_valid(old):
+			(old as Tween).kill()
+		ci.set_meta("flash_tw", null)
 
-	# Fallback: any CanvasItem child
-	for ch in u.get_children():
-		if ch is CanvasItem:
-			_flash_canvasitem_white(ch as CanvasItem, t)
-			return
+	if ci.has_meta("flash_base"):
+		var base_restore = ci.get_meta("flash_base")
+		if base_restore is Color:
+			ci.modulate = base_restore
+
+	# Decide what "normal" is:
+	# - If we already have a stored base, keep using it
+	# - Otherwise capture the current (true) normal
+	var base: Color
+	if ci.has_meta("flash_base") and (ci.get_meta("flash_base") is Color):
+		base = ci.get_meta("flash_base") as Color
+	else:
+		base = ci.modulate
+		ci.set_meta("flash_base", base)
+
+	var peak := Color(
+		min(base.r * 2.2, 2.0),
+		min(base.g * 2.2, 2.0),
+		min(base.b * 2.2, 2.0),
+		base.a
+	)
+
+	var tw := create_tween()
+	ci.set_meta("flash_tw", tw)
+
+	tw.set_trans(Tween.TRANS_SINE)
+	tw.set_ease(Tween.EASE_OUT)
+	tw.tween_property(ci, "modulate", peak, max(0.01, t * 0.35))
+	tw.set_ease(Tween.EASE_IN)
+	tw.tween_property(ci, "modulate", base, max(0.01, t * 0.65))
+
+	tw.finished.connect(func():
+		if ci != null and is_instance_valid(ci):
+			ci.modulate = base
+			ci.set_meta("flash_tw", null)
+	)
 
 func _flash_canvasitem_white(ci: CanvasItem, t: float) -> void:
 	if ci == null or not is_instance_valid(ci):
@@ -1063,7 +1108,8 @@ func _move_selected_to(target: Vector2i) -> void:
 	
 	_is_moving = false
 
-	_refresh_overlays()
+	#_refresh_overlays()
+	selected = null
 	emit_signal("aim_changed", int(aim_mode), special_id)
 
 func _face_unit_for_step(u: Unit, from_world: Vector2, to_world: Vector2) -> void:
@@ -2054,5 +2100,6 @@ func _damage_structure_only_at_cell(cell: Vector2i, dmg: int) -> void:
 
 	if died:
 		_play_structure_demolished(s)
-		if game_ref != null and "structure_blocked" in game_ref:
-			game_ref.structure_blocked.erase(cell)
+		# ✅ DO NOT free occupancy when demolished.
+		# Leave game_ref.structure_blocked as-is so rubble still blocks movement/LOS.
+		return
