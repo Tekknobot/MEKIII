@@ -1,4 +1,4 @@
-[gd_scene load_steps=70 format=3 uid="uid://bmtwqbsx674eo"]
+[gd_scene load_steps=72 format=3 uid="uid://bmtwqbsx674eo"]
 
 [ext_resource type="Script" uid="uid://bn08mhcoceqg" path="res://scripts/game.gd" id="1_400sg"]
 [ext_resource type="Texture2D" uid="uid://by1nnygq8fbib" path="res://sprites/Terrain/dirt.png" id="6_mcffj"]
@@ -39,7 +39,9 @@
 [ext_resource type="AudioStream" uid="uid://b7n22ud1fbmt5" path="res://audio/SFX/slash.wav" id="37_27c7x"]
 [ext_resource type="AudioStream" uid="uid://cvmadfryrn0ar" path="res://audio/SFX/Hit8.wav" id="38_ho5ir"]
 [ext_resource type="AudioStream" uid="uid://dogvi6q7030pk" path="res://audio/SFX/explosion_8bit.wav" id="39_evnk2"]
+[ext_resource type="AudioStream" uid="uid://dpslt5sraa3ko" path="res://audio/Zombie/zombie_massacre_vocal_impact_pain_hurt_01.wav" id="40_27c7x"]
 [ext_resource type="Texture2D" uid="uid://bsyc60b8surhm" path="res://sprites/Tiles_UI/mek3/1x1_no_attack.png" id="41_evnk2"]
+[ext_resource type="AudioStream" uid="uid://8c083clar0gj" path="res://audio/Zombie/human_death.wav" id="41_ho5ir"]
 
 [sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_g4kob"]
 texture = ExtResource("11_2rd6h")
@@ -361,7 +363,9 @@ sfx_streams = {
 "ui_arm_attack": ExtResource("35_kbe8o"),
 "ui_deselect": ExtResource("35_kbe8o"),
 "ui_disarm": ExtResource("35_kbe8o"),
-"ui_select": ExtResource("34_m1oc7")
+"ui_select": ExtResource("34_m1oc7"),
+"unit_death": ExtResource("41_ho5ir"),
+"unit_hurt": ExtResource("40_27c7x")
 }
 tnt_unit_splash_damage = 1
 

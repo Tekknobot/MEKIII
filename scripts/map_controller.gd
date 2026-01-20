@@ -149,6 +149,8 @@ func _sfx(cue: StringName, vol := 1.0, pitch := 1.0, world_pos: Variant = null) 
 		return
 
 func _ready() -> void:
+	add_to_group("MapController")
+	
 	terrain = get_node_or_null(terrain_path) as TileMap
 	units_root = get_node_or_null(units_root_path) as Node2D
 	overlay_root = get_node_or_null(overlay_root_path) as Node2D
@@ -1623,8 +1625,10 @@ func _play_death_and_wait(u: Unit) -> void:
 
 	if a.sprite_frames.has_animation("death"):
 		a.play("death")
+		u._play_sfx("unit_death")
 	elif a.sprite_frames.has_animation("die"):
 		a.play("die")
+		u._play_sfx("unit_death")
 	else:
 		await get_tree().create_timer(0.12).timeout
 		return

@@ -27,6 +27,9 @@ var cell: Vector2i = Vector2i.ZERO
 
 var _dying := false
 
+@export var sfx_hurt := &"unit_hurt"
+@export var sfx_death := &"unit_death"
+
 func _ready() -> void:
 	hp = clamp(hp, 0, max_hp)
 	_update_depth()
@@ -50,6 +53,10 @@ func take_damage(dmg: int) -> void:
 		return
 
 	hp = max(hp - dmg, 0)
+
+	# ✅ Hurt sound if still alive
+	if hp > 0:
+		_play_sfx(sfx_hurt)
 
 	if hp <= 0:
 		_die()
@@ -88,6 +95,8 @@ func _die() -> void:
 	if _dying:
 		return
 	_dying = true
+
+	_play_sfx(sfx_death)
 
 	# Prefer unit-specific death behavior if you add it later.
 	# IMPORTANT: your custom play_death_anim should NOT queue_free immediately,
@@ -143,3 +152,14 @@ func _play_death_anim_fallback() -> void:
 
 func get_special_range(id: String) -> int:
 	return 0
+
+func _play_sfx(cue: StringName) -> void:
+	# Find MapController safely
+	var M := get_tree().get_first_node_in_group("MapController") as Node
+	if M == null:
+		return
+	if not M.has_method("_sfx"):
+		return
+
+	# Call MapController's spatial SFX
+	M.call("_sfx", cue, 1.0, randf_range(0.95, 1.05), global_position)
