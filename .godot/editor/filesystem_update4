@@ -3,3 +3,6 @@ res://shaders/outline_1px.gdshader
 res://scripts/map_controller.gd
 res://scenes/human.tscn
 res://scripts/human.gd
+res://scenes/mech.tscn
+res://scripts/mech.gd
+res://scripts/turnmanager.gd

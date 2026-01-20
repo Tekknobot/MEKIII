@@ -39,16 +39,24 @@ func perform_place_mine(M: MapController, target_cell: Vector2i) -> void:
 	# ✅ spawn mine scene visual
 	M.place_mine_visual(target_cell)
 
-# Human.gd (example)
 func get_available_specials() -> Array[String]:
-	return ["Mines"]  # only humans can place mines (example)
+	return ["Mines", "Overwatch"]
 
 func can_use_special(id: String) -> bool:
-	# your cooldown logic here
 	return true
 
 func get_special_range(id: String) -> int:
 	id = id.to_lower()
 	if id == "mines":
 		return mine_place_range
+	if id == "overwatch":
+		return 0
 	return 0
+
+@export var overwatch_range := 4
+
+func perform_overwatch(M: MapController) -> void:
+	if not can_use_special("overwatch"):
+		return
+	M.set_overwatch(self, true, overwatch_range)
+	mark_special_used("overwatch", 2) # cooldown example

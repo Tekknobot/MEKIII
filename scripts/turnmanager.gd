@@ -10,7 +10,9 @@ class_name TurnManager
 @export var hellfire_button_path: NodePath
 @export var blade_button_path: NodePath
 @export var mines_button_path: NodePath
+@export var overwatch_button_path: NodePath
 
+@onready var overwatch_button := get_node_or_null(overwatch_button_path)
 @onready var hellfire_button := get_node_or_null(hellfire_button_path)
 @onready var blade_button := get_node_or_null(blade_button_path)
 @onready var mines_button := get_node_or_null(mines_button_path)
@@ -32,6 +34,8 @@ func _ready() -> void:
 		blade_button.pressed.connect(_on_blade_pressed)
 	if mines_button:
 		mines_button.pressed.connect(_on_mines_pressed)
+	if overwatch_button:
+		overwatch_button.pressed.connect(_on_overwatch_pressed)
 
 	start_player_phase()
 	_update_end_turn_button()
@@ -44,6 +48,7 @@ func _ready() -> void:
 			M.aim_changed.connect(_on_aim_changed)
 
 	_update_special_buttons()
+	
 # -----------------------
 # Phase control
 # -----------------------
@@ -57,6 +62,9 @@ func start_player_phase() -> void:
 			_moved[u] = false
 			_attacked[u] = false
 			M.set_unit_exhausted(u, false) # ✅ reset tint each new player phase
+
+	if M != null:
+		M.overwatch_by_unit.clear()
 
 	_update_end_turn_button()
 
@@ -329,17 +337,25 @@ func _update_special_buttons() -> void:
 	if hellfire_button: hellfire_button.toggle_mode = true
 	if blade_button: blade_button.toggle_mode = true
 	if mines_button: mines_button.toggle_mode = true
+	if overwatch_button: overwatch_button.toggle_mode = true
 
 	# Reset
 	if hellfire_button:
 		hellfire_button.disabled = true
 		hellfire_button.button_pressed = false
+		hellfire_button.visible = false
 	if blade_button:
 		blade_button.disabled = true
 		blade_button.button_pressed = false
+		blade_button.visible = false
 	if mines_button:
 		mines_button.disabled = true
 		mines_button.button_pressed = false
+		mines_button.visible = false
+	if overwatch_button:
+		overwatch_button.disabled = true
+		overwatch_button.button_pressed = false
+		overwatch_button.visible = false
 
 	# Only during player phase
 	if phase != Phase.PLAYER:
@@ -353,41 +369,54 @@ func _update_special_buttons() -> void:
 
 	_ensure_unit_tracked(u)
 
-	# If this unit already spent its attack decision, block specials
-	if _attacked.get(u, false):
-		return
+	# If this unit already spent its attack decision, block specials (but still SHOW them greyed)
+	var spent_attack := bool(_attacked.get(u, false))
 
-	# --- What specials does THIS unit actually have? ---
-	var specials: Array[String] = []
+	# -------------------------
+	# Determine what this unit has
+	# -------------------------
+	var has_hellfire := u.has_method("perform_hellfire")
+	var has_blade := u.has_method("perform_blade")
+	var has_mines := u.has_method("perform_place_mine")
+	var has_overwatch := u.has_method("perform_overwatch")
+
+	# If unit provides get_available_specials(), use it to further filter (optional)
 	if u.has_method("get_available_specials"):
-		specials = u.get_available_specials()
-	# Normalize
-	for i in range(specials.size()):
-		specials[i] = String(specials[i]).to_lower()
+		var specials: Array[String] = u.get_available_specials()
+		for i in range(specials.size()):
+			specials[i] = String(specials[i]).to_lower()
+		has_hellfire = has_hellfire and specials.has("hellfire")
+		has_blade = has_blade and specials.has("blade")
+		has_mines = has_mines and specials.has("mines")
+		has_overwatch = has_overwatch and specials.has("overwatch")
 
-	var has_hellfire := specials.has("hellfire")
-	var has_blade := specials.has("blade")
-	var has_mines := specials.has("mines")
+	# Show buttons for supported specials
+	if hellfire_button: hellfire_button.visible = has_hellfire
+	if blade_button: blade_button.visible = has_blade
+	if mines_button: mines_button.visible = has_mines
+	if overwatch_button: overwatch_button.visible = has_overwatch
 
 	# Cooldowns if supported
 	var ok_hellfire := true
 	var ok_blade := true
 	var ok_mines := true
+	var ok_overwatch := true
 	if u.has_method("can_use_special"):
 		ok_hellfire = u.can_use_special("hellfire")
 		ok_blade = u.can_use_special("blade")
 		ok_mines = u.can_use_special("mines")
+		ok_overwatch = u.can_use_special("overwatch")
 
-	# Enable ONLY if this unit has it + can use it
-	var can_hellfire := has_hellfire and ok_hellfire
-	var can_blade := has_blade and ok_blade
-	var can_mines := has_mines and ok_mines
+	# Enable ONLY if: has it, cooldown ok, and unit hasn't spent attack
+	if hellfire_button: hellfire_button.disabled = spent_attack or (not has_hellfire) or (not ok_hellfire)
+	if blade_button: blade_button.disabled = spent_attack or (not has_blade) or (not ok_blade)
+	if mines_button: mines_button.disabled = spent_attack or (not has_mines) or (not ok_mines)
 
-	if hellfire_button: hellfire_button.disabled = not can_hellfire
-	if blade_button: blade_button.disabled = not can_blade
-	if mines_button: mines_button.disabled = not can_mines
+	# Overwatch: enabled if cooldown ok + not spent attack
+	if overwatch_button:
+		overwatch_button.disabled = spent_attack or (not has_overwatch) or (not ok_overwatch)
 
-	# Reflect currently armed special (mutually exclusive)
+	# Reflect currently armed targeted special (mutually exclusive)
 	var active := ""
 	if M.aim_mode == MapController.AimMode.SPECIAL:
 		active = String(M.special_id).to_lower()
@@ -398,6 +427,12 @@ func _update_special_buttons() -> void:
 		blade_button.button_pressed = (active == "blade")
 	if mines_button and not mines_button.disabled:
 		mines_button.button_pressed = (active == "mines")
+	if overwatch_button and not overwatch_button.disabled:
+		# Overwatch is instant; show pressed when unit is currently overwatching
+		if M != null and M.has_method("is_overwatching"):
+			overwatch_button.button_pressed = bool(M.call("is_overwatching", u))
+		else:
+			overwatch_button.button_pressed = false
 
 func _auto_select_first_ally() -> void:
 	# Keep current selection if it's valid + selectable
@@ -422,3 +457,17 @@ func _ensure_unit_tracked(u: Unit) -> void:
 		_moved[u] = false
 	if not _attacked.has(u):
 		_attacked[u] = false
+
+func _on_overwatch_pressed() -> void:
+	if phase != Phase.PLAYER:
+		return
+	var u := M.selected
+	if u == null or not is_instance_valid(u):
+		return
+	if _attacked.get(u, false):
+		return
+	if not u.has_method("perform_overwatch"):
+		return
+
+	M.activate_special("overwatch") # instant special (your MapController handles instant)
+	_update_special_buttons()

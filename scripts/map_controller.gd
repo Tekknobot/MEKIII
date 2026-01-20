@@ -150,6 +150,20 @@ var _bubble_by_unit: Dictionary = {} # Unit -> CanvasItem
 @export var bubble_voice_punct_chance := 0.55
 @export var bubble_voice_bus := "Master"
 
+# --- Overwatch ---
+var overwatch_by_unit: Dictionary = {}  # Unit -> {"range": int}
+
+@export var sfx_overwatch_on := &"ui_overwatch_on"
+@export var sfx_overwatch_shot := &"overwatch_shot"
+
+var overwatch_ghost_by_unit: Dictionary = {} # Unit -> Node2D
+@export var overwatch_ghost_offset := Vector2(0, -26)
+@export var overwatch_ghost_color := Color(0.2, 1.0, 1.0, 0.65)
+
+# --- Overlay sub-roots (so _clear_overlay doesn't nuke ghosts) ---
+var overlay_tiles_root: Node2D = null
+var overlay_ghosts_root: Node2D = null
+
 func _sfx(cue: StringName, vol := 1.0, pitch := 1.0, world_pos: Variant = null) -> void:
 	if SFX == null:
 		return
@@ -242,6 +256,9 @@ func _ready() -> void:
 	if attack_tile_scene == null:
 		push_warning("MapController: attack_tile_scene is not assigned (attack overlay won't show).")
 
+	overlay_root = get_node_or_null(overlay_root_path) as Node2D
+	_ensure_overlay_subroots()
+	
 func setup(game) -> void:
 	game_ref = game
 	grid = game.grid
@@ -286,10 +303,42 @@ func spawn_units() -> void:
 		return da < db
 	)
 
-	# --- Spawn allies close together: one of each ally_scenes ---
-	for i in range(min(ally_scenes.size(), valid_cells.size())):
-		var c = valid_cells.pop_front()
-		_spawn_specific_ally(c, ally_scenes[i])
+	# --- Spawn allies close together BUT spaced by 1 tile ---
+	# Build a "near" list (already sorted by distance) and pick cells that aren't adjacent.
+	var near := valid_cells.duplicate()
+	var used: Array[Vector2i] = []
+
+	for i in range(min(ally_scenes.size(), near.size())):
+		var chosen := Vector2i(-1, -1)
+
+		# Find the first cell that is NOT adjacent to any already chosen ally cell
+		for idx in range(near.size()):
+			var cand = near[idx]
+			var ok := true
+			for ucell in used:
+				var dx = abs(cand.x - ucell.x)
+				var dy = abs(cand.y - ucell.y)
+				# Block adjacency including diagonals (Chebyshev distance <= 1)
+				if max(dx, dy) <= 1:
+					ok = false
+					break
+			if ok:
+				chosen = cand
+				near.remove_at(idx)
+				break
+
+		# Fallback if we couldn't find a spaced cell (rare on tiny maps)
+		if chosen.x < 0:
+			chosen = near.pop_front()
+
+		used.append(chosen)
+		_spawn_specific_ally(chosen, ally_scenes[i])
+
+	# Remove chosen ally cells from valid_cells so enemies don't spawn there
+	for c in used:
+		var k := valid_cells.find(c)
+		if k != -1:
+			valid_cells.remove_at(k)
 
 	# ---------------------------------------------------
 	# 2) Zombies: far zone + clusters
@@ -619,6 +668,8 @@ func _perform_special(u: Unit, id: String, target_cell: Vector2i) -> void:
 			u.mark_special_used(id, 2)
 		elif id == "mines":
 			u.mark_special_used(id, 1)
+		elif id == "overwatch":
+			u.mark_special_used(id, 2)
 
 	if id == "hellfire" and u.has_method("perform_hellfire"):
 		await u.call("perform_hellfire", self, target_cell)
@@ -626,6 +677,8 @@ func _perform_special(u: Unit, id: String, target_cell: Vector2i) -> void:
 		await u.call("perform_blade", self, target_cell)
 	elif id == "mines" and u.has_method("perform_place_mine"):
 		await u.call("perform_place_mine", self, target_cell)
+	elif id == "overwatch" and u.has_method("perform_overwatch"):
+		await u.call("perform_overwatch", self)
 
 	_is_moving = false
 
@@ -897,13 +950,22 @@ func _do_attack(attacker: Unit, defender: Unit) -> void:
 # Overlay helpers
 # --------------------------
 func _clear_overlay() -> void:
-	if overlay_root == null:
+	if overlay_root == null or not is_instance_valid(overlay_root):
 		return
-	for ch in overlay_root.get_children():
-		ch.queue_free()
+
+	_ensure_overlay_subroots()
+
+	# ✅ only clear move/attack/special tiles
+	if overlay_tiles_root != null and is_instance_valid(overlay_tiles_root):
+		for ch in overlay_tiles_root.get_children():
+			ch.queue_free()
+
 
 func _draw_move_range(u: Unit) -> void:
-	if overlay_root == null or move_tile_scene == null:
+	if move_tile_scene == null:
+		return
+	_ensure_overlay_subroots()
+	if overlay_tiles_root == null:
 		return
 
 	valid_move_cells.clear()
@@ -938,14 +1000,18 @@ func _draw_move_range(u: Unit) -> void:
 			valid_move_cells[c] = true
 
 			var t := move_tile_scene.instantiate() as Node2D
-			overlay_root.add_child(t)
+			overlay_tiles_root.add_child(t)
 
 			t.global_position = terrain.to_global(terrain.map_to_local(c))
 			t.z_as_relative = false
 			t.z_index = 1 + (c.x + c.y)
 
 func _draw_attack_range(u: Unit) -> void:
-	if overlay_root == null or attack_tile_scene == null:
+	if attack_tile_scene == null:
+		return
+
+	_ensure_overlay_subroots()
+	if overlay_tiles_root == null:
 		return
 
 	var r := u.attack_range
@@ -959,31 +1025,20 @@ func _draw_attack_range(u: Unit) -> void:
 		for dy in range(-r, r + 1):
 			var c := origin + Vector2i(dx, dy)
 
-			# Bounds
 			if grid != null and grid.has_method("in_bounds") and not grid.in_bounds(c):
 				continue
-
-			# Manhattan range
 			if abs(dx) + abs(dy) > r:
 				continue
-
-			# ✅ NEW: don't draw on water
 			if not _is_walkable(c):
 				continue
-
-			# Don't draw on blocking structures
 			if structure_blocked.has(c):
 				continue
-
-			# ✅ NEW: don't draw if structure blocks line-of-sight
 			if not _has_clear_attack_path(origin, c):
 				continue
 
 			var t := attack_tile_scene.instantiate() as Node2D
-			overlay_root.add_child(t)
+			overlay_tiles_root.add_child(t) # ✅ IMPORTANT
 			t.global_position = terrain.to_global(terrain.map_to_local(c))
-
-			# Iso depth
 			t.z_as_relative = false
 			t.z_index = 1 + (c.x + c.y)
 
@@ -1057,7 +1112,11 @@ func _draw_special_range(u: Unit, special: String) -> void:
 			valid_special_cells[c] = true
 
 			var t := attack_tile_scene.instantiate() as Node2D
-			overlay_root.add_child(t)
+			_ensure_overlay_subroots()
+			if overlay_tiles_root == null:
+				return
+			overlay_tiles_root.add_child(t)
+
 			t.global_position = terrain.to_global(terrain.map_to_local(c))
 			t.z_as_relative = false
 			t.z_index = 0 + (c.x + c.y)
@@ -1162,7 +1221,13 @@ func _move_selected_to(target: Vector2i) -> void:
 			_set_unit_depth_from_world(u, p)
 		, from_world, to_world, step_time)
 
+		if is_overwatching(u):
+			_update_overwatch_ghost_pos(u)
+
 		await tw.finished
+
+		# Overwatch trigger: enemy entering a new step cell
+		await _check_overwatch_trigger(u, step_cell)
 
 	u.set_cell(target, terrain)
 	
@@ -1215,6 +1280,8 @@ func _face_unit_for_step(u: Unit, from_world: Vector2, to_world: Vector2) -> voi
 		if ch is AnimatedSprite2D:
 			(ch as AnimatedSprite2D).flip_h = flip
 			return
+
+	_sync_ghost_facing(u)
 
 func _is_blocked_for_move(c: Vector2i, origin: Vector2i) -> bool:
 	# blocks: out of bounds, water, structures, occupied (except origin)
@@ -1324,6 +1391,8 @@ func _face_unit_toward_world(u: Unit, look_at_world: Vector2) -> void:
 		if ch is AnimatedSprite2D:
 			(ch as AnimatedSprite2D).flip_h = flip
 			return
+	
+	_sync_ghost_facing(u)
 
 func _jitter_unit(u: Unit, strength := 3.0, shakes := 6, total_time := 0.12) -> void:
 	if u == null or not is_instance_valid(u):
@@ -1577,6 +1646,9 @@ func _push_unit_to_cell(u: Unit, to_cell: Vector2i) -> void:
 	units_by_cell[to_cell] = u
 
 	u.set_cell(to_cell, terrain)
+	if is_overwatching(u):
+		_update_overwatch_ghost_pos(u)
+	
 	_set_unit_depth_from_world(u, to_world)
 
 	await _trigger_mine_if_present(u)
@@ -1810,11 +1882,42 @@ func activate_special(id: String) -> void:
 	if not _unit_can_use_special(selected, id):
 		return
 
+	# Specials that execute instantly (no targeting)
+	if id == "overwatch":
+		# ✅ ALWAYS disarm special aim + clear special tiles
+		aim_mode = AimMode.MOVE
+		special_id = &""
+		valid_special_cells.clear()
+		_clear_overlay()
+
+		var u := selected
+		if u == null or not is_instance_valid(u):
+			return
+
+		# 🔁 Toggle OFF if already overwatching
+		if is_overwatching(u):
+			clear_overwatch(u)
+			_refresh_overlays()
+			emit_signal("aim_changed", int(aim_mode), special_id)
+			return
+
+		# Otherwise toggle ON
+		if u.has_method("can_use_special") and not u.can_use_special(id):
+			_refresh_overlays()
+			emit_signal("aim_changed", int(aim_mode), special_id)
+			return
+
+		await _perform_special(u, id, u.cell) # dummy cell
+		_refresh_overlays()
+		emit_signal("aim_changed", int(aim_mode), special_id)
+		return
+
 	# ✅ Toggle off if same special pressed again
 	if aim_mode == AimMode.SPECIAL and String(special_id).to_lower() == id:
 		aim_mode = AimMode.MOVE
 		special_id = &""
 		_refresh_overlays()
+		emit_signal("aim_changed", int(aim_mode), special_id)
 		return
 
 	# ✅ Turn on SPECIAL aim + show range immediately
@@ -1834,6 +1937,9 @@ func _unit_can_use_special(u: Unit, id: String) -> bool:
 			return u.has_method("perform_blade")
 		"mines":
 			return u.has_method("perform_place_mine")
+		"overwatch":
+			return u.has_method("perform_overwatch")
+			
 	return false
 
 func select_unit(u: Unit) -> void:
@@ -2375,3 +2481,256 @@ func _bubble_voice_tick(ch: String, voice_style := 0) -> void:
 	)
 
 	p.play()
+
+func set_overwatch(u: Unit, enabled: bool, r: int = 0) -> void:
+	_prune_overwatch_dicts()
+	if u == null or not is_instance_valid(u):
+		return
+
+	if not enabled:
+		overwatch_by_unit.erase(u)
+		_remove_overwatch_ghost(u)
+		return
+
+	if r <= 0:
+		r = u.attack_range + 3
+
+	overwatch_by_unit[u] = {"range": r}
+
+	_add_overwatch_ghost(u)
+	_update_overwatch_ghost_pos(u)
+
+	_sfx(sfx_overwatch_on, sfx_volume_ui, 1.0)
+	_say(u, "Overwatch set.")
+
+func is_overwatching(u: Unit) -> bool:
+	return u != null and is_instance_valid(u) and overwatch_by_unit.has(u)
+
+func clear_overwatch(u: Unit) -> void:
+	if u == null:
+		return
+	overwatch_by_unit.erase(u)
+	_remove_overwatch_ghost(u)
+
+func _check_overwatch_trigger(_mover: Unit, _entered_cell: Vector2i) -> void:
+	_prune_overwatch_dicts()
+
+	# Build safe watcher list
+	var watchers: Array[Unit] = []
+	for k in overwatch_by_unit.keys():
+		var w := k as Unit
+		if w != null and is_instance_valid(w) and w.team == Unit.Team.ALLY:
+			watchers.append(w)
+
+	# Optional: stable order (closest-to-center doesn’t matter now)
+	watchers.sort_custom(func(a: Unit, b: Unit) -> bool:
+		return (a.cell.x + a.cell.y) < (b.cell.x + b.cell.y)
+	)
+
+	# Fire: each watcher takes ONE overwatch shot, but can pick ANY enemy in range.
+	for w in watchers:
+		if w == null or not is_instance_valid(w):
+			continue
+		if not overwatch_by_unit.has(w):
+			continue
+
+		var targets := _enemies_in_overwatch_range(w)
+		if targets.is_empty():
+			continue
+
+		# Pick a target (closest)
+		var t := targets[0]
+		if t == null or not is_instance_valid(t) or t.hp <= 0:
+			continue
+
+		_face_unit_toward_world(w, t.global_position)
+		_sync_ghost_facing(w)
+
+		_say(w, "Contact!")
+		_sfx(sfx_overwatch_shot, sfx_volume_world, randf_range(0.95, 1.05), w.global_position)
+
+		await _do_attack(w, t)
+
+func _get_unit_render_node(u: Unit) -> CanvasItem:
+	if u == null or not is_instance_valid(u):
+		return null
+
+	# Fast paths
+	var spr := u.get_node_or_null("Sprite2D") as Sprite2D
+	if spr != null:
+		return spr
+	var anim := u.get_node_or_null("AnimatedSprite2D") as AnimatedSprite2D
+	if anim != null:
+		return anim
+
+	# ✅ Recursive search (handles Visual/Skeleton/etc)
+	return _find_first_canvasitem_descendant(u)
+
+func _find_first_canvasitem_descendant(n: Node) -> CanvasItem:
+	for ch in n.get_children():
+		if ch is CanvasItem:
+			return ch as CanvasItem
+		var deeper := _find_first_canvasitem_descendant(ch)
+		if deeper != null:
+			return deeper
+	return null
+
+func _add_overwatch_ghost(u: Unit) -> void:
+	_prune_overwatch_dicts()
+
+	if u == null or not is_instance_valid(u):
+		return
+	if overwatch_ghost_by_unit.has(u):
+		# already has one, just ensure it still exists
+		var existing := overwatch_ghost_by_unit[u] as CanvasItem
+		if existing != null and is_instance_valid(existing):
+			_update_overwatch_ghost_pos(u)
+			return
+		overwatch_ghost_by_unit.erase(u)
+
+	_ensure_overlay_subroots()
+	if overlay_ghosts_root == null:
+		return
+
+	var src := _get_unit_render_node(u)
+	if src == null or not is_instance_valid(src):
+		return
+
+	var ghost := src.duplicate() as CanvasItem
+	if ghost == null:
+		return
+
+	ghost.name = "OverwatchGhost"
+	ghost.modulate = overwatch_ghost_color
+	ghost.visible = true
+	ghost.show()
+	ghost.z_as_relative = false
+
+	# ✅ Put ghost somewhere that _clear_overlay() will NOT delete
+	overlay_ghosts_root.add_child(ghost)
+
+	# ✅ keep it ALWAYS above units
+	ghost.z_index = 1 + (u.cell.x + u.cell.y)
+
+	overwatch_ghost_by_unit[u] = ghost
+	_update_overwatch_ghost_pos(u)
+
+func _remove_overwatch_ghost(u: Unit) -> void:
+	_prune_overwatch_dicts()
+
+	if u == null:
+		return
+	if not overwatch_ghost_by_unit.has(u):
+		return
+
+	var g := overwatch_ghost_by_unit[u] as CanvasItem
+	overwatch_ghost_by_unit.erase(u)
+	if g != null and is_instance_valid(g):
+		g.queue_free()
+
+
+func _update_overwatch_ghost_pos(u: Unit) -> void:
+	if u == null or not is_instance_valid(u):
+		return
+	if not overwatch_ghost_by_unit.has(u):
+		return
+
+	var g := overwatch_ghost_by_unit[u] as CanvasItem
+	if g == null or not is_instance_valid(g):
+		return
+
+	# ✅ position works for CanvasItem too
+	g.global_position = u.global_position + overwatch_ghost_offset
+
+	# ✅ DO NOT crush z_index back down to 1+(x+y)
+	g.z_as_relative = false
+	g.z_index = 1 + (u.cell.x + u.cell.y)
+
+	_sync_ghost_facing(u)
+
+func _ensure_overlay_subroots() -> void:
+	if overlay_root == null or not is_instance_valid(overlay_root):
+		return
+
+	overlay_tiles_root = overlay_root.get_node_or_null("Tiles") as Node2D
+	if overlay_tiles_root == null:
+		overlay_tiles_root = Node2D.new()
+		overlay_tiles_root.name = "Tiles"
+		overlay_root.add_child(overlay_tiles_root)
+
+	overlay_ghosts_root = overlay_root.get_node_or_null("Ghosts") as Node2D
+	if overlay_ghosts_root == null:
+		overlay_ghosts_root = Node2D.new()
+		overlay_ghosts_root.name = "Ghosts"
+		overlay_root.add_child(overlay_ghosts_root)
+
+func _prune_overwatch_dicts() -> void:
+	# Clean overwatch_by_unit keys
+	for k in overwatch_by_unit.keys():
+		var u := k as Unit
+		if u == null or not is_instance_valid(u):
+			overwatch_by_unit.erase(k)
+
+	# Clean ghost dict
+	for k in overwatch_ghost_by_unit.keys():
+		var u := k as Unit
+		var g := overwatch_ghost_by_unit[k] as CanvasItem
+		if u == null or not is_instance_valid(u):
+			overwatch_ghost_by_unit.erase(k)
+			if g != null and is_instance_valid(g):
+				g.queue_free()
+		elif g == null or not is_instance_valid(g):
+			overwatch_ghost_by_unit.erase(k)
+
+func _sync_ghost_facing(u: Unit) -> void:
+	if u == null or not is_instance_valid(u):
+		return
+	if not overwatch_ghost_by_unit.has(u):
+		return
+
+	var ghost := overwatch_ghost_by_unit[u] as CanvasItem
+	if ghost == null or not is_instance_valid(ghost):
+		return
+
+	# Get render node of real unit
+	var src := _get_unit_render_node(u)
+	if src == null or not is_instance_valid(src):
+		return
+
+	# Copy horizontal flip if available
+	if src is Sprite2D and ghost is Sprite2D:
+		(ghost as Sprite2D).flip_h = (src as Sprite2D).flip_h
+	elif src is AnimatedSprite2D and ghost is AnimatedSprite2D:
+		(ghost as AnimatedSprite2D).flip_h = (src as AnimatedSprite2D).flip_h
+
+func _enemies_in_overwatch_range(w: Unit) -> Array[Unit]:
+	var out: Array[Unit] = []
+	if w == null or not is_instance_valid(w):
+		return out
+	if not overwatch_by_unit.has(w):
+		return out
+
+	var data = overwatch_by_unit[w]
+	var r := int(data.get("range", w.attack_range))
+
+	for e in get_all_units():
+		if e == null or not is_instance_valid(e):
+			continue
+		if e.team != Unit.Team.ENEMY:
+			continue
+
+		var d = abs(w.cell.x - e.cell.x) + abs(w.cell.y - e.cell.y)
+		if d > r:
+			continue
+		if not _has_clear_attack_path(w.cell, e.cell):
+			continue
+
+		out.append(e)
+
+	# Optional: closest first
+	out.sort_custom(func(a: Unit, b: Unit) -> bool:
+		var da = abs(w.cell.x - a.cell.x) + abs(w.cell.y - a.cell.y)
+		var db = abs(w.cell.x - b.cell.x) + abs(w.cell.y - b.cell.y)
+		return da < db
+	)
+	return out
