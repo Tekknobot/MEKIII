@@ -1210,28 +1210,74 @@ func _try_melee_knockback(attacker: Unit, defender: Unit) -> void:
 	if not is_instance_valid(attacker) or not is_instance_valid(defender):
 		return
 
-	# Must be adjacent in iso terms (including diagonals)
+	# Must be adjacent (including diagonals)
 	var dx = abs(attacker.cell.x - defender.cell.x)
 	var dy = abs(attacker.cell.y - defender.cell.y)
-
-	# Chebyshev adjacency: any neighbor around you counts
 	if max(dx, dy) != 1:
 		return
 
 	if not _is_knockback_melee_attacker(attacker):
 		return
 
-	# Defender must still be alive (don’t shove corpses / freed units)
+	# Defender must still be alive
 	if defender.hp <= 0:
 		return
 
 	var dest := _knockback_destination(attacker.cell, defender.cell)
 
-	# Only shove if destination is valid + free
-	if not _cell_is_free_for_knockback(dest):
+	# Bounds + water + structures still block knockback
+	if grid != null and grid.has_method("in_bounds") and not grid.in_bounds(dest):
+		return
+	if not _is_walkable(dest):
 		return
 
-	# Briefly lock input during shove so nothing fights it
+	var structure_blocked: Dictionary = {}
+	if game_ref != null and "structure_blocked" in game_ref:
+		structure_blocked = game_ref.structure_blocked
+	if structure_blocked.has(dest):
+		return
+
+	# -------------------------
+	# NEW: allow "collision" only into OTHER ZOMBIES
+	# -------------------------
+	var occupant := unit_at_cell(dest)
+
+	# If occupied by something:
+	if occupant != null and is_instance_valid(occupant):
+		# Only allow knockback INTO a zombie, and ONLY when defender is also a zombie
+		if _is_zombie(defender) and _is_zombie(occupant):
+			_is_moving = true
+
+			# Snap defender onto the occupied cell (optional, but makes collision feel real)
+			await _push_unit_to_cell(defender, dest)
+
+			# Flash both on impact (quick + readable)
+			_flash_unit_white(defender, max(attack_flash_time, 0.12))
+			_flash_unit_white(occupant, max(attack_flash_time, 0.12))
+
+			# Optional: add a tiny impact pause so the flash registers
+			await get_tree().create_timer(0.06).timeout
+
+			# Kill both instantly, but let death anims play fully
+			defender.hp = 0
+			occupant.hp = 0
+
+			# Kill both instantly, but let death anims play fully
+			defender.hp = 0
+			occupant.hp = 0
+
+			# Play both death anims (sequential keeps it simple + reliable)
+			await _play_death_and_wait(defender)
+			await _play_death_and_wait(occupant)
+
+			_remove_unit_from_board(defender)
+			_remove_unit_from_board(occupant)
+
+			_is_moving = false
+		# Occupied by non-zombie (or defender not a zombie) => blocked
+		return
+
+	# Empty destination => normal shove
 	_is_moving = true
 	await _push_unit_to_cell(defender, dest)
 	_is_moving = false
@@ -1253,3 +1299,82 @@ func _get_unit_visual_node(u: Unit) -> Node2D:
 
 	# Last resort: if the Unit itself is safe to offset (no snap), return u
 	return u
+
+func _is_zombie(u: Unit) -> bool:
+	if u == null or not is_instance_valid(u):
+		return false
+	if u.team != Unit.Team.ENEMY:
+		return false
+
+	# Prefer class_name if you have it
+	if u.is_class("Zombie"):
+		return true
+
+	# Robust fallback: script file name
+	var sc = u.get_script()
+	if sc != null:
+		var p := String(sc.resource_path).to_lower()
+		if p.ends_with("zombie.gd"):
+			return true
+
+	# Last fallback: node name
+	var n := String(u.name).to_lower()
+	return n.contains("zombie")
+
+
+func _play_death_and_wait(u: Unit) -> void:
+	if u == null or not is_instance_valid(u):
+		return
+
+	# Preferred: unit-defined death handler (if you have one)
+	if u.has_method("play_death_anim"):
+		u.call("play_death_anim")
+		# If you also expose a wait method:
+		if u.has_method("wait_death_anim"):
+			await u.call("wait_death_anim")
+			return
+		# else fall through to sprite wait
+
+	var a := u.get_node_or_null("AnimatedSprite2D") as AnimatedSprite2D
+	if a == null or a.sprite_frames == null:
+		# No anim; just a short delay so it still “feels” like it happened
+		await get_tree().create_timer(0.12).timeout
+		return
+
+	if a.sprite_frames.has_animation("death"):
+		a.play("death")
+	elif a.sprite_frames.has_animation("die"):
+		a.play("die")
+	else:
+		await get_tree().create_timer(0.12).timeout
+		return
+
+	# Wait until the animation finishes (or a safe timeout)
+	var done := false
+	var cb := func() -> void: done = true
+	var callable := Callable(cb)
+
+	if not a.animation_finished.is_connected(callable):
+		a.animation_finished.connect(callable)
+
+	var t := 0.0
+	while not done and t < 0.5:
+		await get_tree().process_frame
+		t += get_process_delta_time()
+
+	if a != null and is_instance_valid(a) and a.animation_finished.is_connected(callable):
+		a.animation_finished.disconnect(callable)
+
+
+func _remove_unit_from_board(u: Unit) -> void:
+	if u == null:
+		return
+
+	# remove from units_by_cell safely
+	for k in units_by_cell.keys():
+		if units_by_cell[k] == u:
+			units_by_cell.erase(k)
+			break
+
+	if is_instance_valid(u):
+		u.queue_free()
