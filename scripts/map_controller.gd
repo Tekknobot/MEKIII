@@ -75,6 +75,22 @@ var mine_nodes_by_cell: Dictionary = {} # Vector2i -> Node2D
 # Assign in Inspector: { "ui_select": <AudioStream>, "attack_swing": <AudioStream>, ... }
 @export var sfx_streams: Dictionary = {}
 
+# --------------------------
+# Structures (damage + explode)
+# --------------------------
+@export var structure_hit_damage := 1                 # damage per explosion hit
+@export var structure_flash_time := 0.8
+@export var structure_splash_radius := 1              # cells
+@export var structure_explosion_splash_damage := 1    # damage to units in splash
+@export var structure_demolished_anim := "demolished" # animation name to play on death
+
+# Optional: if your structures are tagged in a group, set it here. Leave blank to scan all children.
+@export var structure_group_name := "Structures"
+
+@export var tnt_splash_radius := 1              # cells (Manhattan)
+@export var tnt_structure_damage := 2           # per TNT hit to structures
+@export var tnt_unit_splash_damage := 2         # per TNT hit to units (or set from your TNT item)
+
 func _sfx(cue: StringName, vol := 1.0, pitch := 1.0, world_pos: Variant = null) -> void:
 	if SFX == null:
 		return
@@ -1770,6 +1786,11 @@ func spawn_explosion_at_cell(cell: Vector2i) -> void:
 	if fx == null:
 		return
 
+	# ✅ NEW: explosions also apply splash + structure damage
+	# (keeps all explosions consistent: mines, hellfire, etc.)
+	await _apply_splash_damage(cell, structure_splash_radius, structure_explosion_splash_damage)
+	_apply_structure_splash_damage(cell, structure_splash_radius, structure_hit_damage)
+
 	if overlay_root != null:
 		overlay_root.add_child(fx)
 	else:
@@ -1889,3 +1910,145 @@ func remove_mine_visual(cell: Vector2i) -> void:
 	mine_nodes_by_cell.erase(cell)
 	if n != null and is_instance_valid(n):
 		n.queue_free()
+
+func _trigger_structure_explosion(center: Vector2i) -> void:
+	# Visual FX + SFX
+	spawn_explosion_at_cell(center)
+
+	# Splash damage to units in radius (including center)
+	_apply_splash_damage(center, structure_splash_radius, structure_explosion_splash_damage)
+
+	# Also damage structures in radius (including center)
+	_apply_structure_splash_damage(center, structure_splash_radius, structure_hit_damage)
+
+
+func _apply_splash_damage(center: Vector2i, radius: int, dmg: int) -> void:
+	if dmg <= 0:
+		return
+
+	for dx in range(-radius, radius + 1):
+		for dy in range(-radius, radius + 1):
+			var c := center + Vector2i(dx, dy)
+			# Manhattan splash
+			if abs(dx) + abs(dy) > radius:
+				continue
+			if grid != null and grid.has_method("in_bounds") and not grid.in_bounds(c):
+				continue
+
+			var u := unit_at_cell(c)
+			if u == null or not is_instance_valid(u):
+				continue
+
+			_flash_unit_white(u, max(attack_flash_time, 0.12))
+			_jitter_unit(u, 2.5, 5, 0.10)
+			u.take_damage(dmg)
+
+			if u != null and is_instance_valid(u) and u.hp <= 0:
+				await _play_death_and_wait(u)
+				_remove_unit_from_board_at_cell(c)
+			else:
+				_cleanup_dead_at(c)
+
+
+func _apply_structure_splash_damage(center: Vector2i, radius: int, dmg: int) -> void:
+	if dmg <= 0:
+		return
+
+	for dx in range(-radius, radius + 1):
+		for dy in range(-radius, radius + 1):
+			var c := center + Vector2i(dx, dy)
+			if abs(dx) + abs(dy) > radius:
+				continue
+			if grid != null and grid.has_method("in_bounds") and not grid.in_bounds(c):
+				continue
+
+			_damage_structure_at_cell(c, dmg)
+
+func _damage_structure_at_cell(cell: Vector2i, dmg: int) -> void:
+	_damage_structure_only_at_cell(cell, dmg)
+
+func _node_cell(n: Node) -> Vector2i:
+	if n == null:
+		return Vector2i(-999, -999)
+	if n.has_method("get_cell"):
+		var c = n.call("get_cell")
+		if c is Vector2i: return c
+	if "cell" in n:
+		var c2 = n.get("cell")
+		if c2 is Vector2i: return c2
+	if n.has_meta("cell"):
+		var c3 = n.get_meta("cell")
+		if c3 is Vector2i: return c3
+	return Vector2i(-999, -999)
+
+func _structure_at_cell(cell: Vector2i) -> Node:
+	if structure_group_name != "" and get_tree() != null:
+		for n in get_tree().get_nodes_in_group(structure_group_name):
+			if n == null or not is_instance_valid(n):
+				continue
+
+			# ✅ Preferred: structures report footprint occupancy
+			if n.has_method("occupies_cell") and bool(n.call("occupies_cell", cell)):
+				return n
+
+			# ✅ Fallback: single-cell structures (origin only)
+			if _node_cell(n) == cell:
+				return n
+
+	return null
+
+
+func _flash_structure_white(s: Node, t: float) -> void:
+	if s == null or not is_instance_valid(s):
+		return
+	var spr := s.get_node_or_null("Sprite2D") as Sprite2D
+	if spr != null:
+		_flash_canvasitem_white(spr, t); return
+	var anim := s.get_node_or_null("AnimatedSprite2D") as AnimatedSprite2D
+	if anim != null:
+		_flash_canvasitem_white(anim, t); return
+	for ch in s.get_children():
+		if ch is CanvasItem:
+			_flash_canvasitem_white(ch as CanvasItem, t); return
+
+func _play_structure_demolished(s: Node) -> void:
+	if s == null or not is_instance_valid(s):
+		return
+	var a := s.get_node_or_null("AnimatedSprite2D") as AnimatedSprite2D
+	if a != null and a.sprite_frames != null and a.sprite_frames.has_animation(structure_demolished_anim):
+		a.play(structure_demolished_anim)
+		return
+	var ap := s.get_node_or_null("AnimationPlayer") as AnimationPlayer
+	if ap != null and ap.has_animation(structure_demolished_anim):
+		ap.play(structure_demolished_anim)
+		return
+	if s.has_method("set_demolished"):
+		s.call("set_demolished", true)
+
+func _damage_structure_only_at_cell(cell: Vector2i, dmg: int) -> void:
+	var s := _structure_at_cell(cell)
+	if s == null or not is_instance_valid(s):
+		return
+
+	_flash_structure_white(s, 0.10)
+
+	# Apply damage
+	var died := false
+	if s.has_method("apply_damage"):
+		s.call("apply_damage", dmg)
+		if "hp" in s:
+			died = int(s.get("hp")) <= 0
+	elif s.has_method("take_damage"):
+		s.call("take_damage", dmg)
+		if "hp" in s:
+			died = int(s.get("hp")) <= 0
+	elif "hp" in s:
+		var hp := int(s.get("hp"))
+		hp -= dmg
+		s.set("hp", hp)
+		died = hp <= 0
+
+	if died:
+		_play_structure_demolished(s)
+		if game_ref != null and "structure_blocked" in game_ref:
+			game_ref.structure_blocked.erase(cell)

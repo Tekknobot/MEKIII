@@ -505,6 +505,8 @@ func spawn_structures() -> void:
 		if b == null:
 			continue
 
+
+		b.add_to_group("Structures") # ✅ tag for easy queries / damage lookup
 		structures_root.add_child(b)
 
 		# prefer Structure.set_origin(cell, terrain) if available

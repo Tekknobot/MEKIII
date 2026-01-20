@@ -11,3 +11,5 @@ res://scripts/mech.gd
 res://scripts/game.gd
 res://scenes/human.tscn
 res://scenes/explosion.tscn
+res://scenes/structures/building.tscn
+res://scripts/structure.gd
