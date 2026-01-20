@@ -137,6 +137,7 @@ func notify_player_attacked(u: Unit) -> void:
 		_attacked[u] = true
 		_moved[u] = true # ✅ attacking ends the whole unit turn
 		M.set_unit_exhausted(u, true)
+		
 	_update_end_turn_button()
 
 # If you want “skip attack” as a button later:

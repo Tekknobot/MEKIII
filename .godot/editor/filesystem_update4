@@ -3,3 +3,4 @@ res://shaders/outline_1px.gdshader
 res://scripts/map_controller.gd
 res://scripts/turnmanager.gd
 res://scenes/mech.tscn
+res://scenes/humantwo.tscn

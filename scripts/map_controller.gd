@@ -351,13 +351,7 @@ func _input(event: InputEvent) -> void:
 			# valid target -> attack
 			if clicked != null and selected != null and is_instance_valid(selected):
 				if clicked.team != selected.team and _in_attack_range(selected, clicked.cell):
-					if TM != null and not TM.can_attack(selected):
-						aim_mode = AimMode.MOVE
-						_refresh_overlays()
-						return
-
 					await _do_attack(selected, clicked)
-					# after attacking, disarm back to MOVE
 					aim_mode = AimMode.MOVE
 					_refresh_overlays()
 					return
@@ -573,13 +567,15 @@ func _do_attack(attacker: Unit, defender: Unit) -> void:
 	await _wait_for_attack_anim(attacker)
 	await get_tree().create_timer(attack_anim_lock_time).timeout
 
-	if TM != null and attacker.team == Unit.Team.ALLY:
-		TM.notify_player_attacked(attacker)
+	# ✅ NEW: melee knockback for HumanTwo + Mech (only if defender survived)
+	if defender != null and is_instance_valid(defender) and defender.hp > 0:
+		await _try_melee_knockback(attacker, defender)
 
 	# ✅ defender might be freed now, so never pass it as a typed arg
 	_cleanup_dead_at(def_cell)
 
 	_play_idle_anim(attacker)
+
 
 # --------------------------
 # Overlay helpers
@@ -679,24 +675,13 @@ func _refresh_overlays() -> void:
 	_clear_overlay()
 	if selected == null or not is_instance_valid(selected):
 		return
-
-	# ✅ If unit already moved this turn, don't show move range again
 	if aim_mode == AimMode.MOVE:
-		if TM != null and not TM.can_move(selected):
-			return
 		_draw_move_range(selected)
 	else:
 		_draw_attack_range(selected)
 
 func _is_valid_move_target(c: Vector2i) -> bool:
-	if selected == null or not is_instance_valid(selected):
-		return false
-	if not valid_move_cells.has(c):
-		return false
-	if TM != null and not TM.can_move(selected):
-		return false
-	return true
-
+	return selected != null and is_instance_valid(selected) and valid_move_cells.has(c)
 
 func _play_move_anim(u: Unit, moving: bool) -> void:
 	if u == null or not is_instance_valid(u):
@@ -799,12 +784,7 @@ func _move_selected_to(target: Vector2i) -> void:
 
 	_is_moving = false
 
-	if TM != null:
-		TM.notify_player_moved(u)
-
-	# Optional: once moved, force attack mode overlays or clear selection
-	# aim_mode = AimMode.ATTACK
-	# _refresh_overlays()
+	_refresh_overlays()
 
 func _face_unit_for_step(u: Unit, from_world: Vector2, to_world: Vector2) -> void:
 	if u == null or not is_instance_valid(u):
@@ -1119,3 +1099,157 @@ func set_unit_exhausted(u: Unit, exhausted: bool) -> void:
 		if ch is CanvasItem:
 			(ch as CanvasItem).modulate = tint
 			return
+
+func _is_knockback_melee_attacker(u: Unit) -> bool:
+	if u == null or not is_instance_valid(u):
+		return false
+
+	# 1) Best: use meta flag if you can set it on the unit scenes
+	if u.has_meta("melee_knockback") and bool(u.get_meta("melee_knockback")):
+		return true
+
+	# 2) Robust fallback: match script file name (works even without class_name)
+	var sc = u.get_script()
+	if sc != null:
+		var path := str(sc.resource_path).to_lower()
+		if path.ends_with("humantwo.gd") or path.ends_with("human_two.gd") or path.ends_with("human2.gd"):
+			return true
+		if path.ends_with("mech.gd"):
+			return true
+
+	# 3) Last fallback: match scene/node name (your log shows humantwo.tscn)
+	var n := String(u.name).to_lower()
+	if n.contains("humantwo") or n.contains("human2"):
+		return true
+	if n.contains("mech"):
+		return true
+
+	return false
+
+func _knockback_destination(attacker_cell: Vector2i, defender_cell: Vector2i) -> Vector2i:
+	# Push 1 tile in the direction from attacker -> defender (normalized to -1/0/1 per axis)
+	var dx := defender_cell.x - attacker_cell.x
+	var dy := defender_cell.y - attacker_cell.y
+
+	var sx := 0
+	var sy := 0
+	if dx > 0: sx = 1
+	elif dx < 0: sx = -1
+	if dy > 0: sy = 1
+	elif dy < 0: sy = -1
+
+	return defender_cell + Vector2i(sx, sy)
+
+
+func _cell_is_free_for_knockback(c: Vector2i) -> bool:
+	if grid != null and grid.has_method("in_bounds") and not grid.in_bounds(c):
+		return false
+	if not _is_walkable(c):
+		return false
+
+	# structures block
+	var structure_blocked: Dictionary = {}
+	if game_ref != null and "structure_blocked" in game_ref:
+		structure_blocked = game_ref.structure_blocked
+	if structure_blocked.has(c):
+		return false
+
+	# units block
+	if units_by_cell.has(c):
+		return false
+
+	return true
+
+func _push_unit_to_cell(u: Unit, to_cell: Vector2i) -> void:
+	if u == null or not is_instance_valid(u):
+		return
+	if terrain == null:
+		return
+
+	var from_cell := u.cell
+	if from_cell == to_cell:
+		return
+
+	# World points for animation math
+	var from_world := _cell_world(from_cell)
+	var to_world := _cell_world(to_cell)
+
+	# --- Update occupancy + LOGICAL position first (so any snap-to-cell code agrees) ---
+	if units_by_cell.has(from_cell) and units_by_cell[from_cell] == u:
+		units_by_cell.erase(from_cell)
+	units_by_cell[to_cell] = u
+
+	# Commit the cell immediately (this usually sets u.cell AND u.global_position)
+	u.set_cell(to_cell, terrain)
+	_set_unit_depth_from_world(u, to_world)
+
+	# --- Animate as a visual offset back to zero ---
+	var visual := _get_unit_visual_node(u)
+	if visual == null or not is_instance_valid(visual):
+		return
+
+	# If we’re animating a child (Sprite/Anim/Visual), we want it to start “back” at the old spot.
+	# Since the parent snapped to to_world, the offset that visually places it at from_world is:
+	var offset := from_world - to_world
+
+	# Apply offset in local space (works great for child visuals)
+	visual.position += offset
+
+	var step_time = max(0.04, 1.0 / move_speed_cells_per_sec) * 0.6
+
+	var tw := create_tween()
+	tw.set_trans(Tween.TRANS_SINE)
+	tw.set_ease(Tween.EASE_OUT)
+	tw.tween_property(visual, "position", visual.position - offset, step_time)
+
+	await tw.finished
+
+func _try_melee_knockback(attacker: Unit, defender: Unit) -> void:
+	if attacker == null or defender == null:
+		return
+	if not is_instance_valid(attacker) or not is_instance_valid(defender):
+		return
+
+	# Must be adjacent in iso terms (including diagonals)
+	var dx = abs(attacker.cell.x - defender.cell.x)
+	var dy = abs(attacker.cell.y - defender.cell.y)
+
+	# Chebyshev adjacency: any neighbor around you counts
+	if max(dx, dy) != 1:
+		return
+
+	if not _is_knockback_melee_attacker(attacker):
+		return
+
+	# Defender must still be alive (don’t shove corpses / freed units)
+	if defender.hp <= 0:
+		return
+
+	var dest := _knockback_destination(attacker.cell, defender.cell)
+
+	# Only shove if destination is valid + free
+	if not _cell_is_free_for_knockback(dest):
+		return
+
+	# Briefly lock input during shove so nothing fights it
+	_is_moving = true
+	await _push_unit_to_cell(defender, dest)
+	_is_moving = false
+
+func _get_unit_visual_node(u: Unit) -> Node2D:
+	# Prefer a dedicated Visual root if you have one
+	var v := u.get_node_or_null("Visual") as Node2D
+	if v != null:
+		return v
+
+	# Otherwise try common render nodes (they are Node2D)
+	var s := u.get_node_or_null("Sprite2D") as Node2D
+	if s != null:
+		return s
+
+	var a := u.get_node_or_null("AnimatedSprite2D") as Node2D
+	if a != null:
+		return a
+
+	# Last resort: if the Unit itself is safe to offset (no snap), return u
+	return u
