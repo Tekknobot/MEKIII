@@ -164,6 +164,16 @@ var overwatch_ghost_by_unit: Dictionary = {} # Unit -> Node2D
 var overlay_tiles_root: Node2D = null
 var overlay_ghosts_root: Node2D = null
 
+# -----------------------------------
+# Turn indicators (tint + pulse)
+# -----------------------------------
+@export var tint_move_left := Color(0.80, 0.95, 1.00, 1.0)      # bluish
+@export var tint_attack_left := Color(1.00, 0.92, 0.75, 1.0)    # warm
+@export var tint_exhausted := Color(0.55, 0.55, 0.55, 1.0)      # dark gray
+@export var pulse_scale := 1.08
+@export var pulse_time := 0.22
+
+
 func _sfx(cue: StringName, vol := 1.0, pitch := 1.0, world_pos: Variant = null) -> void:
 	if SFX == null:
 		return
@@ -220,6 +230,84 @@ func _sfx(cue: StringName, vol := 1.0, pitch := 1.0, world_pos: Variant = null) 
 		# Custom manager might accept a cue name
 		SFX.call("play", String(cue))
 		return
+
+var _pulse_tw_by_unit: Dictionary = {} # Unit -> Tween
+
+func _apply_turn_indicator(u: Unit) -> void:
+	if u == null or not is_instance_valid(u):
+		return
+	if u.team != Unit.Team.ALLY:
+		return
+
+	# Grab state from meta flags
+	var moved := _unit_has_moved(u)
+	var attacked := _unit_has_attacked(u)
+
+	# What is still available?
+	var has_move_left := not moved
+	var has_attack_left := moved and (not attacked)  # your rules: attack after move
+
+	# Decide tint
+	if moved and attacked:
+		_set_unit_tint(u, tint_exhausted)
+		_stop_pulse(u)
+	elif has_attack_left:
+		# attack left = highlight more + pulse
+		_set_unit_tint(u, tint_attack_left)
+		_start_pulse(u)
+	elif has_move_left:
+		_set_unit_tint(u, tint_move_left)
+		_stop_pulse(u)
+	else:
+		# fallback
+		_set_unit_tint(u, Color(1,1,1,1))
+		_stop_pulse(u)
+
+func _apply_turn_indicators_all_allies() -> void:
+	for u in get_all_units():
+		if u != null and is_instance_valid(u) and u.team == Unit.Team.ALLY:
+			_apply_turn_indicator(u)
+
+func _set_unit_tint(u: Unit, tint: Color) -> void:
+	# Tint the first render CanvasItem we can find
+	var ci: CanvasItem = _get_unit_render_node(u)
+	if ci != null and is_instance_valid(ci):
+		ci.modulate = tint
+
+func _start_pulse(u: Unit) -> void:
+	_stop_pulse(u)
+
+	var visual := _get_unit_visual_node(u)
+	if visual == null or not is_instance_valid(visual):
+		return
+
+	# Store base scale so we always return cleanly
+	if not visual.has_meta("pulse_base_scale"):
+		visual.set_meta("pulse_base_scale", visual.scale)
+
+	var base_scale: Vector2 = visual.get_meta("pulse_base_scale")
+	visual.scale = base_scale
+
+	var tw := create_tween()
+	tw.set_trans(Tween.TRANS_SINE)
+	tw.set_ease(Tween.EASE_IN_OUT)
+	tw.set_loops()
+
+	tw.tween_property(visual, "scale", base_scale * pulse_scale, pulse_time)
+	tw.tween_property(visual, "scale", base_scale, pulse_time)
+
+	_pulse_tw_by_unit[u] = tw
+
+func _stop_pulse(u: Unit) -> void:
+	if _pulse_tw_by_unit.has(u):
+		var tw = _pulse_tw_by_unit[u]
+		_pulse_tw_by_unit.erase(u)
+		if tw != null and (tw is Tween) and is_instance_valid(tw):
+			(tw as Tween).kill()
+
+	var visual := _get_unit_visual_node(u)
+	if visual != null and is_instance_valid(visual) and visual.has_meta("pulse_base_scale"):
+		visual.scale = visual.get_meta("pulse_base_scale")
 
 func _ready() -> void:
 	# --------------------------
@@ -611,6 +699,7 @@ func _unhandled_input(event: InputEvent) -> void:
 
 				await _do_attack(selected, clicked)
 				_set_unit_attacked(selected, true)
+				_apply_turn_indicator(selected)
 
 				if TM != null and TM.has_method("notify_player_attacked"):
 					TM.notify_player_attacked(selected)
@@ -640,6 +729,7 @@ func _unhandled_input(event: InputEvent) -> void:
 				await _perform_special(u, String(special_id), cell)
 
 				_set_unit_attacked(u, true)
+				_apply_turn_indicator(u)
 				if TM != null and TM.has_method("notify_player_attacked"):
 					TM.notify_player_attacked(u)
 
@@ -654,12 +744,14 @@ func _unhandled_input(event: InputEvent) -> void:
 			emit_signal("aim_changed", int(aim_mode), special_id)
 			return
 
-
-			
 		# -------------------------
-		# MOVE MODE behavior
+		# MOVE MODE behavior (ALLIES ONLY)
 		# -------------------------
 		if _is_valid_move_target(cell):
+			# ✅ only player-controlled allies can move via clicks
+			if selected == null or not is_instance_valid(selected) or selected.team != Unit.Team.ALLY:
+				_sfx(&"ui_denied", sfx_volume_ui, 1.0) # optional
+				return
 			_move_selected_to(cell)
 			return
 
@@ -763,6 +855,7 @@ func _select(u: Unit) -> void:
 		_say(u, ally_select_lines.pick_random())
 
 	_refresh_overlays()
+	_apply_turn_indicators_all_allies()
 	emit_signal("selection_changed", selected)
 	emit_signal("aim_changed", int(aim_mode), special_id)
 
@@ -1322,6 +1415,8 @@ func _move_selected_to(target: Vector2i) -> void:
 	u.set_cell(target, terrain)
 	if u.team == Unit.Team.ALLY:
 		_set_unit_moved(u, true)
+
+	_apply_turn_indicator(u)
 
 	# ✅ Overwatch triggers once, when mover finishes movement
 	await _check_overwatch_trigger(u, target)
@@ -2931,6 +3026,8 @@ func reset_turn_flags_for_allies() -> void:
 			_set_unit_attacked(u, false)
 			# optional tint reset
 			set_unit_exhausted(u, false)
+	
+	_apply_turn_indicators_all_allies()
 
 func _all_allies_done() -> bool:
 	for u in get_all_units():
