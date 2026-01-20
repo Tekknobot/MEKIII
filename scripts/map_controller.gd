@@ -2530,7 +2530,7 @@ func _bubble_voice_tick(ch: String, voice_style := 0) -> void:
 
 	p.play()
 
-func set_overwatch(u: Unit, enabled: bool, r: int = 0) -> void:
+func set_overwatch(u: Unit, enabled: bool, r: int = 0, turns := 1) -> void:
 	_prune_overwatch_dicts()
 	if u == null or not is_instance_valid(u):
 		return
@@ -2543,13 +2543,14 @@ func set_overwatch(u: Unit, enabled: bool, r: int = 0) -> void:
 	if r <= 0:
 		r = u.attack_range + 3
 
-	overwatch_by_unit[u] = {"range": r}
+	overwatch_by_unit[u] = {"range": r, "turns": int(turns)}
 
 	_add_overwatch_ghost(u)
 	_update_overwatch_ghost_pos(u)
 
 	_sfx(sfx_overwatch_on, sfx_volume_ui, 1.0)
 	_say(u, "Overwatch set.")
+
 
 func is_overwatching(u: Unit) -> bool:
 	return u != null and is_instance_valid(u) and overwatch_by_unit.has(u)
@@ -2782,3 +2783,25 @@ func _enemies_in_overwatch_range(w: Unit) -> Array[Unit]:
 		return da < db
 	)
 	return out
+
+func tick_overwatch_turn() -> void:
+	_prune_overwatch_dicts()
+
+	var to_clear: Array[Unit] = []
+
+	for k in overwatch_by_unit.keys():
+		var u := k as Unit
+		if u == null or not is_instance_valid(u):
+			continue
+
+		var data = overwatch_by_unit[u]
+		var t := int(data.get("turns", 1)) - 1
+
+		if t <= 0:
+			to_clear.append(u)
+		else:
+			data["turns"] = t
+			overwatch_by_unit[u] = data
+
+	for u in to_clear:
+		clear_overwatch(u)

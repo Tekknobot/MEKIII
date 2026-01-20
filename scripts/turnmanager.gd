@@ -73,9 +73,6 @@ func start_player_phase() -> void:
 			_attacked[u] = false
 			M.set_unit_exhausted(u, false) # ✅ reset tint each new player phase
 
-	if M != null:
-		M.overwatch_by_unit.clear()
-
 	_update_end_turn_button()
 
 func start_enemy_phase() -> void:
@@ -87,6 +84,11 @@ func start_enemy_phase() -> void:
 	_update_special_buttons()
 
 	await _run_enemy_turns()
+
+	# ✅ Overwatch expires after the enemy phase (1 round)
+	if M != null:
+		M.tick_overwatch_turn()
+			
 	start_player_phase()
 
 

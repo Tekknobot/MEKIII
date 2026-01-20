@@ -58,5 +58,5 @@ func get_special_range(id: String) -> int:
 func perform_overwatch(M: MapController) -> void:
 	if not can_use_special("overwatch"):
 		return
-	M.set_overwatch(self, true, overwatch_range)
-	mark_special_used("overwatch", 2) # cooldown example
+	M.set_overwatch(self, true, overwatch_range, 1) # ✅ 1 round
+	mark_special_used("overwatch", 2)
