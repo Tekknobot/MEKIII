@@ -1709,15 +1709,45 @@ func _trigger_mine_if_present(u: Unit) -> void:
 		return
 
 	var data = mines_by_cell[c]
+	var mine_team := int(data.get("team", Unit.Team.ALLY))
+
+	# -------------------------
+	# ✅ FRIENDLY MINE: PICK UP (no explosion)
+	# -------------------------
+	if u.team == mine_team:
+		# remove mine from board
+		mines_by_cell.erase(c)
+		remove_mine_visual(c)
+
+		# optional pickup sound (add this key to sfx_streams)
+		_sfx(&"mine_pickup", sfx_volume_ui, randf_range(0.95, 1.05), _cell_world(c))
+
+		# give mine back to the unit if it supports it
+		# (supports multiple possible APIs so you can match your Unit scripts)
+		if u.has_method("add_mine"):
+			u.call("add_mine", 1)
+		elif u.has_method("add_mines"):
+			u.call("add_mines", 1)
+		elif u.has_method("gain_mine"):
+			u.call("gain_mine", 1)
+		elif u.has_method("give_mine"):
+			u.call("give_mine", 1)
+		elif u.has_method("add_special_charge"):
+			u.call("add_special_charge", "mines", 1)
+		elif u.has_method("add_special_ammo"):
+			u.call("add_special_ammo", "mines", 1)
+		# else: silently just pick it up (still useful even without inventory)
+
+		return
+
+	# -------------------------
+	# ✅ ENEMY ON MINE: DETONATE
+	# -------------------------
 	mines_by_cell.erase(c)
 
 	remove_mine_visual(c)
 	_sfx(&"mine_trigger", sfx_volume_world, 1.0, _cell_world(c))
 	spawn_explosion_at_cell(c)
-
-	var mine_team := int(data.get("team", Unit.Team.ALLY))
-	if u.team == mine_team:
-		return
 
 	var dmg := int(data.get("damage", 2))
 
