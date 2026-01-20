@@ -660,7 +660,9 @@ func _perform_special(u: Unit, id: String, target_cell: Vector2i) -> void:
 	_is_moving = true
 	_clear_overlay()
 
-	# mark cooldowns (tweak numbers)
+	# -------------------------
+	# Mark cooldowns (ONLY here)
+	# -------------------------
 	if u.has_method("mark_special_used"):
 		if id == "hellfire":
 			u.mark_special_used(id, 2)
@@ -670,15 +672,31 @@ func _perform_special(u: Unit, id: String, target_cell: Vector2i) -> void:
 			u.mark_special_used(id, 1)
 		elif id == "overwatch":
 			u.mark_special_used(id, 2)
-
+		elif id == "suppress":
+			u.mark_special_used(id, 1)
+		elif id == "stim" and u.has_method("perform_stim"):
+			await u.call("perform_stim", self)
+			
+	# -------------------------
+	# Execute special
+	# -------------------------
 	if id == "hellfire" and u.has_method("perform_hellfire"):
 		await u.call("perform_hellfire", self, target_cell)
+
 	elif id == "blade" and u.has_method("perform_blade"):
 		await u.call("perform_blade", self, target_cell)
+
 	elif id == "mines" and u.has_method("perform_place_mine"):
 		await u.call("perform_place_mine", self, target_cell)
+
 	elif id == "overwatch" and u.has_method("perform_overwatch"):
 		await u.call("perform_overwatch", self)
+
+	elif id == "suppress" and u.has_method("perform_suppress"):
+		await u.call("perform_suppress", self, target_cell)
+
+	elif id == "stim" and u.has_method("perform_stim"):
+		u.mark_special_used(id, 3)
 
 	_is_moving = false
 
@@ -930,7 +948,9 @@ func _do_attack(attacker: Unit, defender: Unit) -> void:
 
 	_flash_unit_white(defender, attack_flash_time)
 	_jitter_unit(defender, 3.0, 6, attack_flash_time)
-	defender.take_damage(attacker.attack_damage)
+	var dmg := attacker.get_attack_damage() if attacker.has_method("get_attack_damage") else attacker.attack_damage
+	defender.take_damage(dmg)
+
 	_sfx(&"attack_hit", sfx_volume_world, randf_range(0.95, 1.05), defender.global_position)
 
 	await _wait_for_attack_anim(attacker)
@@ -970,7 +990,7 @@ func _draw_move_range(u: Unit) -> void:
 
 	valid_move_cells.clear()
 
-	var r := u.move_range
+	var r := u.get_move_range() if u.has_method("get_move_range") else u.move_range
 	var origin := u.cell
 
 	var structure_blocked: Dictionary = {}
@@ -1107,6 +1127,13 @@ func _draw_special_range(u: Unit, special: String) -> void:
 				if units_by_cell.has(c):
 					continue
 				if mines_by_cell.has(c):
+					continue
+
+			elif id == "suppress":
+				var tgt := unit_at_cell(c)
+				if tgt == null:
+					continue
+				if tgt.team == u.team:
 					continue
 
 			valid_special_cells[c] = true
@@ -1488,7 +1515,7 @@ func ai_reachable_cells(u: Unit) -> Array[Vector2i]:
 	if u == null or not is_instance_valid(u):
 		return out
 
-	var r := u.move_range
+	var r := u.get_move_range() if u.has_method("get_move_range") else u.move_range
 	var origin := u.cell
 
 	var structure_blocked: Dictionary = {}
@@ -1912,6 +1939,23 @@ func activate_special(id: String) -> void:
 		emit_signal("aim_changed", int(aim_mode), special_id)
 		return
 
+	if id == "stim":
+		aim_mode = AimMode.MOVE
+		special_id = &""
+		valid_special_cells.clear()
+		_clear_overlay()
+		var u := selected
+		if u == null or not is_instance_valid(u):
+			return
+		if u.has_method("can_use_special") and not u.can_use_special(id):
+			_refresh_overlays()
+			emit_signal("aim_changed", int(aim_mode), special_id)
+			return
+		await _perform_special(u, id, u.cell)
+		_refresh_overlays()
+		emit_signal("aim_changed", int(aim_mode), special_id)
+		return
+
 	# ✅ Toggle off if same special pressed again
 	if aim_mode == AimMode.SPECIAL and String(special_id).to_lower() == id:
 		aim_mode = AimMode.MOVE
@@ -1939,7 +1983,11 @@ func _unit_can_use_special(u: Unit, id: String) -> bool:
 			return u.has_method("perform_place_mine")
 		"overwatch":
 			return u.has_method("perform_overwatch")
-			
+		"suppress":
+			return u.has_method("perform_suppress")
+		"stim":
+			return u.has_method("perform_stim")
+
 	return false
 
 func select_unit(u: Unit) -> void:

@@ -11,6 +11,11 @@ class_name TurnManager
 @export var blade_button_path: NodePath
 @export var mines_button_path: NodePath
 @export var overwatch_button_path: NodePath
+@export var suppress_button_path: NodePath
+@export var stim_button_path: NodePath
+
+@onready var suppress_button := get_node_or_null(suppress_button_path)
+@onready var stim_button := get_node_or_null(stim_button_path)
 
 @onready var overwatch_button := get_node_or_null(overwatch_button_path)
 @onready var hellfire_button := get_node_or_null(hellfire_button_path)
@@ -24,6 +29,7 @@ var phase: Phase = Phase.PLAYER
 var _moved: Dictionary = {}   # Unit -> bool
 var _attacked: Dictionary = {}# Unit -> bool
 
+
 func _ready() -> void:
 	if end_turn_button:
 		end_turn_button.pressed.connect(_on_end_turn_pressed)
@@ -36,6 +42,10 @@ func _ready() -> void:
 		mines_button.pressed.connect(_on_mines_pressed)
 	if overwatch_button:
 		overwatch_button.pressed.connect(_on_overwatch_pressed)
+	if suppress_button:
+		suppress_button.pressed.connect(_on_suppress_pressed)
+	if stim_button:
+		stim_button.pressed.connect(_on_stim_pressed)
 
 	start_player_phase()
 	_update_end_turn_button()
@@ -70,11 +80,15 @@ func start_player_phase() -> void:
 
 func start_enemy_phase() -> void:
 	phase = Phase.ENEMY
+
+	_tick_buffs_enemy_phase_start() # ✅ stim expires here (and UI refreshes)
+
 	_update_end_turn_button()
 	_update_special_buttons()
-	
+
 	await _run_enemy_turns()
 	start_player_phase()
+
 
 func _on_end_turn_pressed() -> void:
 	if phase != Phase.PLAYER:
@@ -217,6 +231,23 @@ func _enemy_take_turn(z: Unit) -> void:
 	if z == null or not is_instance_valid(z):
 		return
 
+	# SUPPRESSION: skip turn + tick down
+	if z.has_meta("suppress_turns") and int(z.get_meta("suppress_turns")) > 0:
+		var t := int(z.get_meta("suppress_turns")) - 1
+		if t <= 0:
+			z.set_meta("suppress_turns", 0)
+			z.set_meta("suppress_move_penalty", 0)
+		else:
+			z.set_meta("suppress_turns", t)
+
+		# optional impact twitch sound
+		M._flash_unit_white(z, 0.12)
+		M._jitter_unit(z, 2.5, 6, 0.18)
+
+		# skip this zombie’s turn
+		await get_tree().create_timer(0.12).timeout
+		return
+
 	var target := _pick_best_attack_target(z)
 	if target != null:
 		await M.ai_attack(z, target)
@@ -338,6 +369,8 @@ func _update_special_buttons() -> void:
 	if blade_button: blade_button.toggle_mode = true
 	if mines_button: mines_button.toggle_mode = true
 	if overwatch_button: overwatch_button.toggle_mode = true
+	if suppress_button: suppress_button.toggle_mode = true
+	if stim_button: stim_button.toggle_mode = true
 
 	# Reset
 	if hellfire_button:
@@ -356,6 +389,14 @@ func _update_special_buttons() -> void:
 		overwatch_button.disabled = true
 		overwatch_button.button_pressed = false
 		overwatch_button.visible = false
+	if suppress_button:
+		suppress_button.disabled = true
+		suppress_button.button_pressed = false
+		suppress_button.visible = false
+	if stim_button:
+		stim_button.disabled = true
+		stim_button.button_pressed = false
+		stim_button.visible = false
 
 	# Only during player phase
 	if phase != Phase.PLAYER:
@@ -369,18 +410,17 @@ func _update_special_buttons() -> void:
 
 	_ensure_unit_tracked(u)
 
-	# If this unit already spent its attack decision, block specials (but still SHOW them greyed)
 	var spent_attack := bool(_attacked.get(u, false))
 
-	# -------------------------
 	# Determine what this unit has
-	# -------------------------
 	var has_hellfire := u.has_method("perform_hellfire")
 	var has_blade := u.has_method("perform_blade")
 	var has_mines := u.has_method("perform_place_mine")
 	var has_overwatch := u.has_method("perform_overwatch")
+	var has_suppress := u.has_method("perform_suppress")
+	var has_stim := u.has_method("perform_stim")
 
-	# If unit provides get_available_specials(), use it to further filter (optional)
+	# Optional filter list
 	if u.has_method("get_available_specials"):
 		var specials: Array[String] = u.get_available_specials()
 		for i in range(specials.size()):
@@ -389,34 +429,41 @@ func _update_special_buttons() -> void:
 		has_blade = has_blade and specials.has("blade")
 		has_mines = has_mines and specials.has("mines")
 		has_overwatch = has_overwatch and specials.has("overwatch")
+		has_suppress = has_suppress and specials.has("suppress")
+		has_stim = has_stim and specials.has("stim")
 
-	# Show buttons for supported specials
+	# Show
 	if hellfire_button: hellfire_button.visible = has_hellfire
 	if blade_button: blade_button.visible = has_blade
 	if mines_button: mines_button.visible = has_mines
 	if overwatch_button: overwatch_button.visible = has_overwatch
+	if suppress_button: suppress_button.visible = has_suppress
+	if stim_button: stim_button.visible = has_stim
 
-	# Cooldowns if supported
+	# Cooldowns
 	var ok_hellfire := true
 	var ok_blade := true
 	var ok_mines := true
 	var ok_overwatch := true
+	var ok_suppress := true
+	var ok_stim := true
 	if u.has_method("can_use_special"):
 		ok_hellfire = u.can_use_special("hellfire")
 		ok_blade = u.can_use_special("blade")
 		ok_mines = u.can_use_special("mines")
 		ok_overwatch = u.can_use_special("overwatch")
+		ok_suppress = u.can_use_special("suppress")
+		ok_stim = u.can_use_special("stim")
 
-	# Enable ONLY if: has it, cooldown ok, and unit hasn't spent attack
+	# Enable
 	if hellfire_button: hellfire_button.disabled = spent_attack or (not has_hellfire) or (not ok_hellfire)
 	if blade_button: blade_button.disabled = spent_attack or (not has_blade) or (not ok_blade)
 	if mines_button: mines_button.disabled = spent_attack or (not has_mines) or (not ok_mines)
+	if overwatch_button: overwatch_button.disabled = spent_attack or (not has_overwatch) or (not ok_overwatch)
+	if suppress_button: suppress_button.disabled = spent_attack or (not has_suppress) or (not ok_suppress)
+	if stim_button: stim_button.disabled = spent_attack or (not has_stim) or (not ok_stim)
 
-	# Overwatch: enabled if cooldown ok + not spent attack
-	if overwatch_button:
-		overwatch_button.disabled = spent_attack or (not has_overwatch) or (not ok_overwatch)
-
-	# Reflect currently armed targeted special (mutually exclusive)
+	# Pressed visuals
 	var active := ""
 	if M.aim_mode == MapController.AimMode.SPECIAL:
 		active = String(M.special_id).to_lower()
@@ -427,12 +474,23 @@ func _update_special_buttons() -> void:
 		blade_button.button_pressed = (active == "blade")
 	if mines_button and not mines_button.disabled:
 		mines_button.button_pressed = (active == "mines")
+	if suppress_button and not suppress_button.disabled:
+		suppress_button.button_pressed = (active == "suppress")
+
+	# Overwatch + Stim are instant toggles
 	if overwatch_button and not overwatch_button.disabled:
-		# Overwatch is instant; show pressed when unit is currently overwatching
 		if M != null and M.has_method("is_overwatching"):
 			overwatch_button.button_pressed = bool(M.call("is_overwatching", u))
 		else:
 			overwatch_button.button_pressed = false
+
+	# --- Stim button pressed state ---
+	if stim_button and not stim_button.disabled:
+		stim_button.button_pressed = (
+			u.has_meta("stim_turns")
+			and int(u.get_meta("stim_turns")) > 0
+		)
+
 
 func _auto_select_first_ally() -> void:
 	# Keep current selection if it's valid + selectable
@@ -471,3 +529,57 @@ func _on_overwatch_pressed() -> void:
 
 	M.activate_special("overwatch") # instant special (your MapController handles instant)
 	_update_special_buttons()
+
+func _on_suppress_pressed() -> void:
+	if phase != Phase.PLAYER:
+		return
+	var u := M.selected
+	if u == null or not is_instance_valid(u):
+		return
+	if _attacked.get(u, false):
+		return
+	if not u.has_method("perform_suppress"):
+		return
+
+	M.activate_special("suppress")
+	_update_special_buttons()
+
+func _on_stim_pressed() -> void:
+	if phase != Phase.PLAYER:
+		return
+	var u := M.selected
+	if u == null or not is_instance_valid(u):
+		return
+	if _attacked.get(u, false):
+		return
+	if not u.has_method("perform_stim"):
+		return
+
+	M.activate_special("stim") # make it instant in MapController like overwatch, OR targeted if you prefer
+	_update_special_buttons()
+
+func _tick_buffs_enemy_phase_start() -> void:
+	var changed := false
+
+	for u in M.get_all_units():
+		if u == null or not is_instance_valid(u):
+			continue
+
+		# Stim ticks down on ENEMY phase start
+		if u.has_meta("stim_turns"):
+			var t := int(u.get_meta("stim_turns"))
+			if t > 0:
+				t -= 1
+				u.set_meta("stim_turns", t)
+				changed = true
+
+			# When it hits 0, fully clear (so UI + logic read clean)
+			if t <= 0:
+				u.set_meta("stim_turns", 0)
+				u.set_meta("stim_move_bonus", 0)
+				u.set_meta("stim_damage_bonus", 0)
+				changed = true
+
+	# ✅ If any buff state changed, refresh special buttons now
+	if changed:
+		_update_special_buttons()

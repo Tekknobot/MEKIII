@@ -183,7 +183,7 @@ func perform_blade(M: MapController, target_cell: Vector2i) -> void:
 
 # Human.gd (example)
 func get_available_specials() -> Array[String]:
-	return ["Blade"]  # only humans can place mines (example)
+	return ["Blade", "Stim"]  # only humans can place mines (example)
 
 func can_use_special(id: String) -> bool:
 	# your cooldown logic here
@@ -193,4 +193,32 @@ func get_special_range(id: String) -> int:
 	id = id.to_lower()
 	if id == "blade":
 		return blade_range
+	if id == "stim":
+		return 0
 	return 0
+
+
+# -----------------------------
+# Special: Stim (instant buff)
+# -----------------------------
+@export var stim_duration_turns := 1          # lasts N enemy turns
+@export var stim_move_bonus := 2              # +move_range while active
+@export var stim_attack_damage_bonus := 1     # +attack_damage while active
+
+func perform_stim(M: MapController) -> void:
+	# Instant: no target cell
+	if not can_use_special("stim"):
+		return
+
+	# Apply as meta so you don’t need new classes
+	set_meta("stim_turns", stim_duration_turns)
+	set_meta("stim_move_bonus", stim_move_bonus)
+	set_meta("stim_damage_bonus", stim_attack_damage_bonus)
+
+	# Optional feedback
+	if M != null and is_instance_valid(M):
+		M._say(self, "Stim!")
+		M._sfx(&"ui_stim", M.sfx_volume_ui, 1.0, global_position)
+
+	# Cooldown example
+	mark_special_used("stim", 3)

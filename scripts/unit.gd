@@ -163,3 +163,15 @@ func _play_sfx(cue: StringName) -> void:
 
 	# Call MapController's spatial SFX
 	M.call("_sfx", cue, 1.0, randf_range(0.95, 1.05), global_position)
+
+func get_move_range() -> int:
+	var r := move_range
+	if has_meta("stim_turns") and int(get_meta("stim_turns")) > 0:
+		r += int(get_meta("stim_move_bonus"))
+	return r
+
+func get_attack_damage() -> int:
+	var d := attack_damage
+	if has_meta("stim_turns") and int(get_meta("stim_turns")) > 0:
+		d += int(get_meta("stim_damage_bonus"))
+	return d

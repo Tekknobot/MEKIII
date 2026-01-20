@@ -334,6 +334,8 @@ hellfire_button_path = NodePath("../CanvasLayer/Hellfire")
 blade_button_path = NodePath("../CanvasLayer/Blade")
 mines_button_path = NodePath("../CanvasLayer/Mines")
 overwatch_button_path = NodePath("../CanvasLayer/Overwatch")
+suppress_button_path = NodePath("../CanvasLayer/Supress")
+stim_button_path = NodePath("../CanvasLayer/Stimpack")
 
 [node name="Pickups" type="Node2D" parent="."]
 z_index = 2
@@ -416,23 +418,21 @@ theme_override_fonts/font = ExtResource("32_1gdd5")
 text = "Mines
 "
 
-[node name="Smoke" type="Button" parent="CanvasLayer"]
-visible = false
+[node name="Supress" type="Button" parent="CanvasLayer"]
 offset_left = 886.0
 offset_top = 577.0
 offset_right = 934.0
 offset_bottom = 598.0
 theme_override_fonts/font = ExtResource("32_1gdd5")
-text = "Smoke"
+text = "Supress"
 
-[node name="Bash" type="Button" parent="CanvasLayer"]
-visible = false
+[node name="Stimpack" type="Button" parent="CanvasLayer"]
 offset_left = 996.0
 offset_top = 577.0
 offset_right = 1044.0
 offset_bottom = 598.0
 theme_override_fonts/font = ExtResource("32_1gdd5")
-text = "Bash
+text = "Stimpack
 "
 
 [node name="Overwatch" type="Button" parent="CanvasLayer"]
