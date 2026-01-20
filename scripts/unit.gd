@@ -2,6 +2,8 @@ extends Node2D
 class_name Unit
 
 enum Team { ALLY, ENEMY }
+# --- Specials base plumbing ---
+var special_cd: Dictionary = {} # String -> int turns remaining
 
 @export var team: Team = Team.ALLY
 @export var footprint_size: Vector2i = Vector2i(1, 1)
@@ -51,6 +53,36 @@ func take_damage(dmg: int) -> void:
 
 	if hp <= 0:
 		_die()
+
+func can_use_special(id: String) -> bool:
+	return int(special_cd.get(id, 0)) <= 0
+
+
+func mark_special_used(id: String, cd_turns: int = 1) -> void:
+	special_cd[id] = max(0, cd_turns)
+
+
+func tick_special_cooldowns() -> void:
+	for k in special_cd.keys():
+		special_cd[k] = max(0, int(special_cd[k]) - 1)
+
+func await_die() -> void:
+	# If already dying, just wait until freed (best-effort)
+	if _dying:
+		var t := 0.0
+		while is_instance_valid(self) and t < 2.0:
+			await get_tree().process_frame
+			t += get_process_delta_time()
+		return
+
+	# If not dying yet, force death (plays anim) then wait for free
+	hp = 0
+	_die()
+
+	var tt := 0.0
+	while is_instance_valid(self) and tt < 2.0:
+		await get_tree().process_frame
+		tt += get_process_delta_time()
 
 func _die() -> void:
 	if _dying:

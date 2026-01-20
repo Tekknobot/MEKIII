@@ -84,6 +84,8 @@ var structure_blocked := {}
 @onready var overlays_root: Node2D = get_node("Overlays") as Node2D
 @onready var map_controller: MapController = get_node("MapController") as MapController
 
+@onready var turn_manager: TurnManager = get_node_or_null("TurnManager") as TurnManager
+
 func _ready() -> void:
 	rng.randomize()
 
@@ -104,6 +106,10 @@ func _ready() -> void:
 	map_controller.overlay_root_path = overlays_root.get_path()
 	map_controller.setup(self)
 	map_controller.spawn_units()
+	
+	# ✅ now units exist, so selection + buttons can initialize
+	if turn_manager != null:
+		turn_manager.on_units_spawned()
 
 
 func _input(event: InputEvent) -> void:

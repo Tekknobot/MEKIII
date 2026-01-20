@@ -4,3 +4,10 @@ res://scripts/map_controller.gd
 res://scripts/turnmanager.gd
 res://scenes/mech.tscn
 res://scenes/humantwo.tscn
+res://scripts/unit.gd
+res://scripts/human.gd
+res://scripts/humantwo.gd
+res://scripts/mech.gd
+res://scripts/game.gd
+res://scenes/human.tscn
+res://scenes/explosion.tscn

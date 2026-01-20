@@ -1,4 +1,4 @@
-[gd_scene load_steps=62 format=3 uid="uid://bmtwqbsx674eo"]
+[gd_scene load_steps=63 format=3 uid="uid://bmtwqbsx674eo"]
 
 [ext_resource type="Script" uid="uid://bn08mhcoceqg" path="res://scripts/game.gd" id="1_400sg"]
 [ext_resource type="Texture2D" uid="uid://by1nnygq8fbib" path="res://sprites/Terrain/dirt.png" id="6_mcffj"]
@@ -31,6 +31,7 @@
 [ext_resource type="Texture2D" uid="uid://bp4obyr2a6lhr" path="res://sprites/Terrain/roads/17.png" id="31_m2g6u"]
 [ext_resource type="FontFile" uid="uid://buw362wjb8o8d" path="res://fonts/magofonts/mago2.ttf" id="32_1gdd5"]
 [ext_resource type="Texture2D" uid="uid://bkcixujm222r0" path="res://sprites/Terrain/roads/18.png" id="32_27c7x"]
+[ext_resource type="PackedScene" uid="uid://bulgypadw5war" path="res://scenes/explosion.tscn" id="32_426vi"]
 [ext_resource type="Texture2D" uid="uid://bsyc60b8surhm" path="res://sprites/Tiles_UI/mek3/1x1_no_attack.png" id="41_evnk2"]
 
 [sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_g4kob"]
@@ -319,6 +320,9 @@ script = ExtResource("8_400sg")
 script = ExtResource("24_jai3c")
 map_controller_path = NodePath("../MapController")
 end_turn_button_path = NodePath("../CanvasLayer/EndTurnButton")
+hellfire_button_path = NodePath("../CanvasLayer/Hellfire")
+blade_button_path = NodePath("../CanvasLayer/Blade")
+mines_button_path = NodePath("../CanvasLayer/Mines")
 
 [node name="Pickups" type="Node2D" parent="."]
 z_index = 2
@@ -335,6 +339,7 @@ move_tile_scene = ExtResource("27_0bq3a")
 attack_tile_scene = ExtResource("26_jhsr3")
 attack_flash_time = 0.48
 max_zombies = 16
+explosion_scene = ExtResource("32_426vi")
 
 [node name="CanvasLayer" type="CanvasLayer" parent="."]
 
@@ -345,3 +350,28 @@ offset_right = 1119.0
 offset_bottom = 626.0
 theme_override_fonts/font = ExtResource("32_1gdd5")
 text = "End Turn"
+
+[node name="Hellfire" type="Button" parent="CanvasLayer"]
+offset_left = 886.0
+offset_top = 605.0
+offset_right = 934.0
+offset_bottom = 626.0
+theme_override_fonts/font = ExtResource("32_1gdd5")
+text = "Hellfire"
+
+[node name="Blade" type="Button" parent="CanvasLayer"]
+offset_left = 996.0
+offset_top = 605.0
+offset_right = 1044.0
+offset_bottom = 626.0
+theme_override_fonts/font = ExtResource("32_1gdd5")
+text = "Blade"
+
+[node name="Mines" type="Button" parent="CanvasLayer"]
+offset_left = 941.0
+offset_top = 605.0
+offset_right = 989.0
+offset_bottom = 626.0
+theme_override_fonts/font = ExtResource("32_1gdd5")
+text = "Mines
+"

@@ -22,7 +22,14 @@ var selected: Unit = null
 
 var game_ref: Node = null
 
-enum AimMode { MOVE, ATTACK }
+enum AimMode { MOVE, ATTACK, SPECIAL }
+
+var special_id: StringName = &""
+var valid_special_cells: Dictionary = {} # Vector2i -> true
+
+# --- Mines (logical) ---
+var mines_by_cell: Dictionary = {} # Vector2i -> {"team": int, "damage": int}
+
 var aim_mode: AimMode = AimMode.MOVE
 
 @export var mouse_offset := Vector2(0, 8)
@@ -40,6 +47,15 @@ var _is_moving := false
 
 @export var turn_manager_path: NodePath
 @onready var TM: TurnManager = get_node_or_null(turn_manager_path) as TurnManager
+
+signal selection_changed(unit: Unit)
+signal aim_changed(mode: int, special_id: StringName)
+
+@export var explosion_scene: PackedScene
+
+@export var explosion_y_offset_px := -16.0
+@export var explosion_anim_name := "explode"
+@export var explosion_fallback_seconds := 9.0
 
 func _ready() -> void:
 	terrain = get_node_or_null(terrain_path) as TileMap
@@ -130,6 +146,11 @@ func spawn_units() -> void:
 	_spawn_zombies_in_clusters(enemy_zone_cells, max_zombies)
 
 	print("Spawned allies:", ally_count, "zombies:", max_zombies)
+
+	# ✅ Now that units exist, auto-select + update buttons
+	if TM != null and TM.has_method("on_units_spawned"):
+		TM.on_units_spawned()
+
 
 func _pick_far_center(cells: Array[Vector2i], from_center: Vector2i) -> Vector2i:
 	if cells.is_empty():
@@ -315,7 +336,7 @@ func _find_nearest_open_walkable(start: Vector2i) -> Vector2i:
 # --------------------------
 # Input: select + attack
 # --------------------------
-func _input(event: InputEvent) -> void:
+func _unhandled_input(event: InputEvent) -> void:
 	if _is_moving:
 		return
 
@@ -324,6 +345,7 @@ func _input(event: InputEvent) -> void:
 		if event.button_index == MOUSE_BUTTON_RIGHT:
 			aim_mode = AimMode.ATTACK
 			_refresh_overlays()
+			emit_signal("aim_changed", int(aim_mode), special_id)
 			return
 
 		# Only left click below
@@ -354,13 +376,44 @@ func _input(event: InputEvent) -> void:
 					await _do_attack(selected, clicked)
 					aim_mode = AimMode.MOVE
 					_refresh_overlays()
+					emit_signal("aim_changed", int(aim_mode), special_id)
 					return
 
 			# anything else: just DISARM (no move, no select switching)
 			aim_mode = AimMode.MOVE
 			_refresh_overlays()
+			emit_signal("aim_changed", int(aim_mode), special_id)
 			return
 
+		# -------------------------
+		# SPECIAL MODE: left click uses special, never moves
+		# -------------------------
+		if aim_mode == AimMode.SPECIAL:
+			if valid_special_cells.has(cell) and selected != null and is_instance_valid(selected):
+				var u := selected
+
+				# ✅ only block execution here (not preview)
+				if u.has_method("can_use_special") and not u.can_use_special(String(special_id)):
+					# just disarm, keep it simple
+					aim_mode = AimMode.MOVE
+					special_id = &""
+					_refresh_overlays()
+					emit_signal("aim_changed", int(aim_mode), special_id)
+					return
+
+				await _perform_special(u, String(special_id), cell)
+
+				if TM != null and TM.has_method("notify_player_attacked"):
+					TM.notify_player_attacked(u)
+
+			aim_mode = AimMode.MOVE
+			special_id = &""
+			_refresh_overlays()
+			emit_signal("aim_changed", int(aim_mode), special_id)
+			return
+
+
+			
 		# -------------------------
 		# MOVE MODE behavior
 		# -------------------------
@@ -371,11 +424,39 @@ func _input(event: InputEvent) -> void:
 		if clicked != null:
 			if clicked == selected:
 				_refresh_overlays()
+				emit_signal("aim_changed", int(aim_mode), special_id)
 				return
 			_select(clicked)
 			return
 
 		_unselect()
+
+func _perform_special(u: Unit, id: String, target_cell: Vector2i) -> void:
+	if u == null or not is_instance_valid(u):
+		return
+
+	id = id.to_lower()
+
+	_is_moving = true
+	_clear_overlay()
+
+	# mark cooldowns (tweak numbers)
+	if u.has_method("mark_special_used"):
+		if id == "hellfire":
+			u.mark_special_used(id, 2)
+		elif id == "blade":
+			u.mark_special_used(id, 2)
+		elif id == "mines":
+			u.mark_special_used(id, 1)
+
+	if id == "hellfire" and u.has_method("perform_hellfire"):
+		await u.call("perform_hellfire", self, target_cell)
+	elif id == "blade" and u.has_method("perform_blade"):
+		await u.call("perform_blade", self, target_cell)
+	elif id == "mines" and u.has_method("perform_place_mine"):
+		await u.call("perform_place_mine", self, target_cell)
+
+	_is_moving = false
 
 func _mouse_to_cell() -> Vector2i:
 	if terrain == null:
@@ -407,17 +488,24 @@ func _select(u: Unit) -> void:
 		return
 	if selected == u:
 		return
+
 	_unselect()
 	selected = u
 	selected.set_selected(true)
 	_refresh_overlays()
 
+	emit_signal("selection_changed", selected)
+	emit_signal("aim_changed", int(aim_mode), special_id)
 
 func _unselect() -> void:
 	if selected and is_instance_valid(selected):
 		selected.set_selected(false)
 	selected = null
 	_clear_overlay()
+
+	emit_signal("selection_changed", null)
+	emit_signal("aim_changed", int(aim_mode), special_id)
+
 
 func _in_attack_range(attacker: Unit, target_cell: Vector2i) -> bool:
 	var d = abs(attacker.cell.x - target_cell.x) + abs(attacker.cell.y - target_cell.y)
@@ -673,12 +761,93 @@ func _draw_attack_range(u: Unit) -> void:
 
 func _refresh_overlays() -> void:
 	_clear_overlay()
+	valid_move_cells.clear()
+	valid_special_cells.clear()
+
 	if selected == null or not is_instance_valid(selected):
 		return
+
 	if aim_mode == AimMode.MOVE:
 		_draw_move_range(selected)
-	else:
+	elif aim_mode == AimMode.ATTACK:
 		_draw_attack_range(selected)
+	else:
+		_draw_special_range(selected, String(special_id))
+
+	if TM != null:
+		TM._update_special_buttons()
+		
+
+func _draw_special_range(u: Unit, special: String) -> void:
+	if overlay_root == null or attack_tile_scene == null:
+		return
+	if u == null or not is_instance_valid(u):
+		return
+
+	var id := special.to_lower()
+
+	var r := 0
+	match id:
+		"hellfire":
+			r = 6
+		"blade":
+			r = 6
+		"mines":
+			r = 6
+		_:
+			return
+
+	var origin := u.cell
+
+	var structure_blocked: Dictionary = {}
+	if game_ref != null and "structure_blocked" in game_ref:
+		structure_blocked = game_ref.structure_blocked
+
+	for dx in range(-r, r + 1):
+		for dy in range(-r, r + 1):
+			var c := origin + Vector2i(dx, dy)
+
+			# bounds
+			if grid != null and grid.has_method("in_bounds") and not grid.in_bounds(c):
+				continue
+
+			# manhattan radius
+			if abs(dx) + abs(dy) > r:
+				continue
+
+			# must be walkable land
+			if not _is_walkable(c):
+				continue
+
+			# ------------------------------------------------
+			# Per-special validity
+			# ------------------------------------------------
+			if id == "blade":
+				var tgt := unit_at_cell(c)
+				if tgt == null:
+					continue
+				if tgt.team == u.team:
+					continue
+
+			elif id == "mines":
+				# mines can't be on structures
+				if structure_blocked.has(c):
+					continue
+				# must be empty and not already mined
+				if units_by_cell.has(c):
+					continue
+				if mines_by_cell.has(c):
+					continue
+
+			# hellfire: any walkable tile is OK (even if structure is there)
+
+			valid_special_cells[c] = true
+
+			var t := attack_tile_scene.instantiate() as Node2D
+			overlay_root.add_child(t)
+			t.global_position = terrain.to_global(terrain.map_to_local(c))
+			t.z_as_relative = false
+			t.z_index = 1 + (c.x + c.y)
 
 func _is_valid_move_target(c: Vector2i) -> bool:
 	return selected != null and is_instance_valid(selected) and valid_move_cells.has(c)
@@ -780,11 +949,15 @@ func _move_selected_to(target: Vector2i) -> void:
 		await tw.finished
 
 	u.set_cell(target, terrain)
+	
+	_trigger_mine_if_present(u)
+	
 	_play_move_anim(u, false)
 
 	_is_moving = false
 
 	_refresh_overlays()
+	emit_signal("aim_changed", int(aim_mode), special_id)
 
 func _face_unit_for_step(u: Unit, from_world: Vector2, to_world: Vector2) -> void:
 	if u == null or not is_instance_valid(u):
@@ -1378,3 +1551,162 @@ func _remove_unit_from_board(u: Unit) -> void:
 
 	if is_instance_valid(u):
 		u.queue_free()
+
+func activate_special(id: String) -> void:
+	if selected == null or not is_instance_valid(selected):
+		return
+	if _is_moving:
+		return
+	if TM != null and not TM.player_input_allowed():
+		return
+
+	id = id.to_lower()
+
+	# ✅ Only require "unit supports this special" for preview
+	if not _unit_can_use_special(selected, id):
+		return
+
+	# ✅ Toggle off if same special pressed again
+	if aim_mode == AimMode.SPECIAL and String(special_id).to_lower() == id:
+		aim_mode = AimMode.MOVE
+		special_id = &""
+		_refresh_overlays()
+		return
+
+	# ✅ Turn on SPECIAL aim + show range immediately
+	aim_mode = AimMode.SPECIAL
+	special_id = StringName(id)
+	_refresh_overlays()
+	emit_signal("aim_changed", int(aim_mode), special_id)
+
+func _unit_can_use_special(u: Unit, id: String) -> bool:
+	if u == null or not is_instance_valid(u):
+		return false
+
+	match id:
+		"hellfire":
+			return u.has_method("perform_hellfire")
+		"blade":
+			return u.has_method("perform_blade")
+		"mines":
+			return u.has_method("perform_place_mine")
+	return false
+
+
+func _trigger_mine_if_present(u: Unit) -> void:
+	if u == null or not is_instance_valid(u):
+		return
+
+	var c := u.cell
+	if not mines_by_cell.has(c):
+		return
+
+	var data = mines_by_cell[c]
+	mines_by_cell.erase(c)
+
+	# mines hit ONLY enemies of the mine owner (optional)
+	var mine_team := int(data.get("team", Unit.Team.ALLY))
+	if u.team == mine_team:
+		return
+
+	var dmg := int(data.get("damage", 2))
+
+	_flash_unit_white(u, max(attack_flash_time, 0.12))
+	_jitter_unit(u, 3.5, 6, 0.14)
+	u.take_damage(dmg)
+
+	_cleanup_dead_at(c)
+
+func select_unit(u: Unit) -> void:
+	_select(u)
+
+func spawn_explosion_at_cell(cell: Vector2i) -> void:
+	if explosion_scene == null or terrain == null:
+		return
+
+	var fx := explosion_scene.instantiate() as Node2D
+	if fx == null:
+		return
+
+	if overlay_root != null:
+		overlay_root.add_child(fx)
+	else:
+		add_child(fx)
+
+	# Position in world (+16px feet offset)
+	var world_pos := terrain.to_global(terrain.map_to_local(cell))
+	world_pos += Vector2(0, explosion_y_offset_px)
+	fx.global_position = world_pos
+
+	# Depth using grid-space (recomputed after offset)
+	var local := terrain.to_local(world_pos)
+	var depth_cell := terrain.local_to_map(local)
+
+	fx.z_as_relative = false
+	fx.z_index = 2 + (depth_cell.x + depth_cell.y)
+
+	# Play animation and wait for it to finish
+	var a := fx.get_node_or_null("AnimatedSprite2D") as AnimatedSprite2D
+	if a != null and a.sprite_frames != null and a.sprite_frames.has_animation(explosion_anim_name):
+		a.play(explosion_anim_name)
+		await a.animation_finished
+	else:
+		# fallback if no anim
+		await get_tree().create_timer(explosion_fallback_seconds).timeout
+
+	if fx != null and is_instance_valid(fx):
+		fx.queue_free()
+
+func launch_projectile_arc(
+	from_cell: Vector2i,
+	to_cell: Vector2i,
+	projectile_scene: PackedScene,
+	flight_time := 0.35,
+	arc_height_px := 42.0,
+	spin_turns := 1.25,
+) -> void:
+	if projectile_scene == null or terrain == null:
+		return
+
+	var p := projectile_scene.instantiate() as Node2D
+	if p == null:
+		return
+
+	# Put it in overlays so it's above terrain
+	if overlay_root != null:
+		overlay_root.add_child(p)
+	else:
+		add_child(p)
+
+	var start := terrain.to_global(terrain.map_to_local(from_cell)) + Vector2(0, 0)
+	var end := terrain.to_global(terrain.map_to_local(to_cell)) + Vector2(0, -8)
+
+	# Ensure consistent depth system while moving
+	p.z_as_relative = false
+
+	var start_rot := p.rotation
+	var tw := create_tween()
+	tw.set_trans(Tween.TRANS_LINEAR)
+	tw.set_ease(Tween.EASE_IN_OUT)
+
+	tw.tween_method(func(t: float) -> void:
+		# Parabola arc: peaks in the middle
+		var pos := start.lerp(end, t)
+		var peak := 4.0 * t * (1.0 - t)          # 0..1..0
+		pos.y -= arc_height_px * peak
+
+		p.global_position = pos
+
+		# Depth from grid (local_to_map), so it sorts like everything else
+		var local := terrain.to_local(pos)
+		var c := terrain.local_to_map(local)
+		p.z_index = 1 + (c.x + c.y)
+
+		# Spin while flying
+		p.rotation = start_rot + (TAU * spin_turns * t)
+	, 0.0, 1.0, max(0.01, flight_time))
+
+	await tw.finished
+
+	if p != null and is_instance_valid(p):
+		p.queue_free()
