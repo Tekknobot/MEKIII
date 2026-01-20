@@ -1243,21 +1243,37 @@ func _move_selected_to(target: Vector2i) -> void:
 		tw.set_trans(Tween.TRANS_LINEAR)
 		tw.set_ease(Tween.EASE_IN_OUT)
 
+		var uid := u.get_instance_id()
+
 		tw.tween_method(func(p: Vector2):
-			u.global_position = p
-			_set_unit_depth_from_world(u, p)
+			var uu := instance_from_id(uid) as Unit
+			if uu == null or not is_instance_valid(uu):
+				return
+			uu.global_position = p
+			_set_unit_depth_from_world(uu, p)
 		, from_world, to_world, step_time)
+
 
 		if is_overwatching(u):
 			_update_overwatch_ghost_pos(u)
 
 		await tw.finished
 
+		# Unit may have died/freed during the step
+		if u == null or not is_instance_valid(u):
+			_is_moving = false
+			_refresh_overlays()
+			emit_signal("aim_changed", int(aim_mode), special_id)
+			return
+
 		# Overwatch trigger: enemy entering a new step cell
-		await _check_overwatch_trigger(u, step_cell)
+		#await _check_overwatch_trigger(u, step_cell)
 
 	u.set_cell(target, terrain)
 	
+	# ✅ Overwatch triggers once, when mover finishes movement
+	await _check_overwatch_trigger(u, target)
+
 	await _trigger_mine_if_present(u)
 
 	# Mine might have killed / freed the mover (knockback, collision, etc.)
