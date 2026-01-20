@@ -63,6 +63,8 @@ func _ready() -> void:
 # Phase control
 # -----------------------
 func start_player_phase() -> void:
+	M.reset_turn_flags_for_allies()
+	
 	phase = Phase.PLAYER
 	_moved.clear()
 	_attacked.clear()
@@ -77,7 +79,8 @@ func start_player_phase() -> void:
 
 func start_enemy_phase() -> void:
 	phase = Phase.ENEMY
-
+	M.reset_turn_flags_for_enemies()
+	
 	_tick_buffs_enemy_phase_start() # ✅ stim expires here (and UI refreshes)
 
 	_update_end_turn_button()
@@ -91,12 +94,14 @@ func start_enemy_phase() -> void:
 			
 	start_player_phase()
 
-
 func _on_end_turn_pressed() -> void:
 	if phase != Phase.PLAYER:
 		return
 
-	# Auto-finish any allies that haven't made their move/attack decisions
+	phase = Phase.BUSY
+	_update_end_turn_button()
+
+	# Auto-finish allies
 	for u in _moved.keys():
 		if u == null or not is_instance_valid(u):
 			continue
@@ -106,8 +111,6 @@ func _on_end_turn_pressed() -> void:
 			_attacked[u] = true
 			M.set_unit_exhausted(u, true)
 
-	phase = Phase.BUSY
-	_update_end_turn_button()
 	await start_enemy_phase()
 
 func _on_selection_changed(_u: Unit) -> void:
@@ -434,13 +437,16 @@ func _update_special_buttons() -> void:
 		has_suppress = has_suppress and specials.has("suppress")
 		has_stim = has_stim and specials.has("stim")
 
-	# Show
-	if hellfire_button: hellfire_button.visible = has_hellfire
-	if blade_button: blade_button.visible = has_blade
-	if mines_button: mines_button.visible = has_mines
-	if overwatch_button: overwatch_button.visible = has_overwatch
-	if suppress_button: suppress_button.visible = has_suppress
-	if stim_button: stim_button.visible = has_stim
+	# ✅ Show ONLY if unit still has an attack action available
+	var show_specials := (not spent_attack)
+
+	if hellfire_button: hellfire_button.visible = show_specials and has_hellfire
+	if blade_button: blade_button.visible = show_specials and has_blade
+	if mines_button: mines_button.visible = show_specials and has_mines
+	if overwatch_button: overwatch_button.visible = show_specials and has_overwatch
+	if suppress_button: suppress_button.visible = show_specials and has_suppress
+	if stim_button: stim_button.visible = show_specials and has_stim
+
 
 	# Cooldowns
 	var ok_hellfire := true

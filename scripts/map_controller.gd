@@ -560,11 +560,14 @@ func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventMouseButton and event.pressed:
 		# Right click = ATTACK mode (arm)
 		if event.button_index == MOUSE_BUTTON_RIGHT:
-			aim_mode = AimMode.ATTACK
-			_sfx(&"ui_arm_attack", sfx_volume_ui, 1.0)
-			_refresh_overlays()
-			emit_signal("aim_changed", int(aim_mode), special_id)
+			# Toggle attack preview on/off
+			if aim_mode == AimMode.ATTACK:
+				_set_aim_mode(AimMode.MOVE)
+			else:
+				_set_aim_mode(AimMode.ATTACK)
+				_sfx(&"ui_arm_attack", sfx_volume_ui, 1.0)
 			return
+
 
 		# Only left click below
 		if event.button_index != MOUSE_BUTTON_LEFT:
@@ -588,43 +591,62 @@ func _unhandled_input(event: InputEvent) -> void:
 		# ATTACK MODE: left click ONLY attacks, never moves
 		# -------------------------
 		if aim_mode == AimMode.ATTACK:
-			# valid target -> attack
-			if clicked != null and selected != null and is_instance_valid(selected):
-				if clicked.team != selected.team and _in_attack_range(selected, clicked.cell):
-					await _do_attack(selected, clicked)
-					aim_mode = AimMode.MOVE
-					_refresh_overlays()
-					emit_signal("aim_changed", int(aim_mode), special_id)
-					return
-					
-			# anything else: just DISARM (no move, no select switching)
-			aim_mode = AimMode.MOVE
-			_sfx(&"ui_disarm", sfx_volume_ui, 1.0)
+			# If nothing valid happens, we still consume the click and go back to MOVE preview.
+			if selected == null or not is_instance_valid(selected):
+				_set_aim_mode(AimMode.MOVE)
+				return
 
-			_refresh_overlays()
-			emit_signal("aim_changed", int(aim_mode), special_id)
+			# Gate phase + per-turn attack
+			if TM != null:
+				if not TM.player_input_allowed() or not TM.can_attack(selected):
+					_set_aim_mode(AimMode.MOVE)
+					return
+
+			# If clicked an enemy in range -> attack
+			if clicked != null and clicked.team != selected.team and _in_attack_range(selected, clicked.cell):
+				if _unit_has_attacked(selected):
+					_sfx(&"ui_denied", sfx_volume_ui, 1.0)
+					_set_aim_mode(AimMode.MOVE)
+					return
+
+				await _do_attack(selected, clicked)
+				_set_unit_attacked(selected, true)
+
+				if TM != null and TM.has_method("notify_player_attacked"):
+					TM.notify_player_attacked(selected)
+
+			# ✅ Always cancel attack preview on ANY left-click
+			_set_aim_mode(AimMode.MOVE)
 			return
 
 		# -------------------------
 		# SPECIAL MODE: left click uses special, never moves
 		# -------------------------
 		if aim_mode == AimMode.SPECIAL:
-			if valid_special_cells.has(cell) and selected != null and is_instance_valid(selected):
-				var u := selected
+			if selected == null or not is_instance_valid(selected):
+				_set_aim_mode(AimMode.MOVE)
+				return
 
-				# ✅ only block execution here (not preview)
-				if u.has_method("can_use_special") and not u.can_use_special(String(special_id)):
-					# just disarm, keep it simple
-					aim_mode = AimMode.MOVE
-					special_id = &""
-					_refresh_overlays()
-					emit_signal("aim_changed", int(aim_mode), special_id)
+			var u := selected
+
+			# Gate phase + special counts as attack action
+			if TM != null:
+				if not TM.player_input_allowed() or not TM.can_attack(u):
+					_set_aim_mode(AimMode.MOVE)
 					return
 
+			# Only fire if clicked a valid special cell
+			if valid_special_cells.has(cell):
 				await _perform_special(u, String(special_id), cell)
 
+				_set_unit_attacked(u, true)
 				if TM != null and TM.has_method("notify_player_attacked"):
 					TM.notify_player_attacked(u)
+
+			# ✅ Always exit special mode on left-click (even if invalid cell)
+			_set_aim_mode(AimMode.MOVE)
+			return
+
 
 			aim_mode = AimMode.MOVE
 			special_id = &""
@@ -1070,16 +1092,36 @@ func _refresh_overlays() -> void:
 	if selected == null or not is_instance_valid(selected):
 		return
 
-	if aim_mode == AimMode.MOVE:
-		_draw_move_range(selected)
-	elif aim_mode == AimMode.ATTACK:
-		_draw_attack_range(selected)
-	else:
-		_draw_special_range(selected, String(special_id))
+	# 🚫 If unit already attacked, NEVER show special tiles
+	if _unit_has_attacked(selected) and aim_mode == AimMode.SPECIAL:
+		return
 
-	if TM != null:
-		TM._update_special_buttons()
-		
+	# SPECIAL aim
+	if aim_mode == AimMode.SPECIAL:
+		_draw_special_range(selected, String(special_id))
+		return
+
+	# ATTACK preview
+	if aim_mode == AimMode.ATTACK:
+		if not _unit_has_attacked(selected):
+			_draw_attack_range(selected)
+
+	# MOVE preview
+	else:
+		if not _unit_has_moved(selected):
+			_draw_move_range(selected)
+		elif not _unit_has_attacked(selected):
+			_draw_attack_range(selected)
+
+
+
+func _set_aim_mode(m: AimMode) -> void:
+	aim_mode = m
+	if m != AimMode.SPECIAL:
+		special_id = &""
+		valid_special_cells.clear()
+	_refresh_overlays()
+	emit_signal("aim_changed", int(aim_mode), special_id)
 
 func _draw_special_range(u: Unit, special: String) -> void:
 	if overlay_root == null or attack_tile_scene == null:
@@ -1197,11 +1239,18 @@ func _set_unit_depth_from_world(u: Unit, world_pos: Vector2) -> void:
 	u.z_index = base + ((c.x + c.y) * per)
 
 func _move_selected_to(target: Vector2i) -> void:
-	# Hard gates FIRST
-	if TM != null:
+	# ✅ Per-unit move lock
+	if selected != null and is_instance_valid(selected) and selected.team == Unit.Team.ALLY:
+		if _unit_has_moved(selected):
+			_sfx(&"ui_denied", sfx_volume_ui, 1.0)
+			return
+
+		
+	# Hard gates FIRST (PLAYER ONLY)
+	if TM != null and selected != null and is_instance_valid(selected) and selected.team == Unit.Team.ALLY:
 		if not TM.player_input_allowed():
 			return
-		if selected != null and is_instance_valid(selected) and not TM.can_move(selected):
+		if not TM.can_move(selected):
 			return
 
 	if _is_moving:
@@ -1212,6 +1261,7 @@ func _move_selected_to(target: Vector2i) -> void:
 		return
 
 	var u := selected
+	var uid := u.get_instance_id()
 	var from_cell := u.cell
 
 	# L path
@@ -1243,7 +1293,7 @@ func _move_selected_to(target: Vector2i) -> void:
 		tw.set_trans(Tween.TRANS_LINEAR)
 		tw.set_ease(Tween.EASE_IN_OUT)
 
-		var uid := u.get_instance_id()
+		uid = u.get_instance_id()
 
 		tw.tween_method(func(p: Vector2):
 			var uu := instance_from_id(uid) as Unit
@@ -1270,11 +1320,13 @@ func _move_selected_to(target: Vector2i) -> void:
 		#await _check_overwatch_trigger(u, step_cell)
 
 	u.set_cell(target, terrain)
-	
+	if u.team == Unit.Team.ALLY:
+		_set_unit_moved(u, true)
+
 	# ✅ Overwatch triggers once, when mover finishes movement
 	await _check_overwatch_trigger(u, target)
 
-	await _trigger_mine_if_present(u)
+	await _trigger_mine_if_present_id(uid)
 
 	# Mine might have killed / freed the mover (knockback, collision, etc.)
 	if u == null or not is_instance_valid(u):
@@ -1288,10 +1340,29 @@ func _move_selected_to(target: Vector2i) -> void:
 	
 	_is_moving = false
 
+	# ✅ Mark move spent (IMPORTANT)
+	if u.team == Unit.Team.ALLY and TM != null and TM.has_method("notify_player_moved"):
+		TM.notify_player_moved(u)
+
 	if u and u.team != Unit.Team.ENEMY:
 		_refresh_overlays()
 
 	emit_signal("aim_changed", int(aim_mode), special_id)
+
+
+func reset_turn_flags_for_enemies() -> void:
+	for u in get_all_units():
+		if u != null and is_instance_valid(u) and u.team == Unit.Team.ENEMY:
+			_set_unit_moved(u, false)
+			_set_unit_attacked(u, false)
+
+func _trigger_mine_if_present_id(uid: int) -> void:
+	var obj := instance_from_id(uid)
+	if obj == null or not is_instance_valid(obj):
+		return
+	if not (obj is Unit):
+		return
+	_trigger_mine_if_present(obj as Unit)
 
 func _face_unit_for_step(u: Unit, from_world: Vector2, to_world: Vector2) -> void:
 	if u == null or not is_instance_valid(u):
@@ -1951,6 +2022,20 @@ func activate_special(id: String) -> void:
 			return
 
 		await _perform_special(u, id, u.cell) # dummy cell
+
+		if _unit_has_attacked(u):
+			aim_mode = AimMode.MOVE
+			special_id = &""
+			_sfx(&"ui_denied", sfx_volume_ui, 1.0)
+			_refresh_overlays()
+			emit_signal("aim_changed", int(aim_mode), special_id)
+			return
+		
+		_set_unit_attacked(u, true)
+				
+		if TM != null and TM.has_method("notify_player_attacked"):
+			TM.notify_player_attacked(u)
+		
 		_refresh_overlays()
 		emit_signal("aim_changed", int(aim_mode), special_id)
 		return
@@ -2821,3 +2906,38 @@ func tick_overwatch_turn() -> void:
 
 	for u in to_clear:
 		clear_overwatch(u)
+
+const META_MOVED := &"turn_moved"
+const META_ATTACKED := &"turn_attacked"
+
+func _unit_has_moved(u: Unit) -> bool:
+	return u != null and is_instance_valid(u) and u.has_meta(META_MOVED) and bool(u.get_meta(META_MOVED))
+
+func _unit_has_attacked(u: Unit) -> bool:
+	return u != null and is_instance_valid(u) and u.has_meta(META_ATTACKED) and bool(u.get_meta(META_ATTACKED))
+
+func _set_unit_moved(u: Unit, v: bool) -> void:
+	if u != null and is_instance_valid(u):
+		u.set_meta(META_MOVED, v)
+
+func _set_unit_attacked(u: Unit, v: bool) -> void:
+	if u != null and is_instance_valid(u):
+		u.set_meta(META_ATTACKED, v)
+
+func reset_turn_flags_for_allies() -> void:
+	for u in get_all_units():
+		if u != null and is_instance_valid(u) and u.team == Unit.Team.ALLY:
+			_set_unit_moved(u, false)
+			_set_unit_attacked(u, false)
+			# optional tint reset
+			set_unit_exhausted(u, false)
+
+func _all_allies_done() -> bool:
+	for u in get_all_units():
+		if u == null or not is_instance_valid(u):
+			continue
+		if u.team != Unit.Team.ALLY:
+			continue
+		if not _unit_has_moved(u) or not _unit_has_attacked(u):
+			return false
+	return true
