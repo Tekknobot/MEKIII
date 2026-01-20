@@ -26,9 +26,12 @@ func _ready() -> void:
 @export var hellfire_spin_turns := 1.25
 
 func perform_hellfire(M: MapController, target: Vector2i) -> void:
-	# ✅ Launch TNT arc to target first
+	# Face the target first
+	M._face_unit_toward_world(self, M._cell_world(target))
+
+	# ✅ Launch arc
 	await M.launch_projectile_arc(
-		cell,                         # from THIS unit's cell
+		cell,
 		target,
 		hellfire_projectile_scene,
 		hellfire_flight_time,
@@ -36,19 +39,21 @@ func perform_hellfire(M: MapController, target: Vector2i) -> void:
 		hellfire_spin_turns,
 	)
 
-	# ✅ Then trigger the hellfire bombardment (3x3)
+	# ✅ Then bombardment (3x3)
 	var cells: Array[Vector2i] = []
 	for dx in range(-1, 2):
 		for dy in range(-1, 2):
 			cells.append(target + Vector2i(dx, dy))
 
 	for c in cells:
+		# Optional: keep facing the center while firing
+		M._face_unit_toward_world(self, M._cell_world(target))
+
 		if M.grid != null and M.grid.has_method("in_bounds") and not M.grid.in_bounds(c):
 			continue
 		if not M._is_walkable(c):
 			continue
 
-		# Explosion visuals
 		M.spawn_explosion_at_cell(c)
 
 		var victim := M.unit_at_cell(c)

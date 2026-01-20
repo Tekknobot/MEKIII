@@ -369,13 +369,13 @@ sfx_streams = {
 "unit_hurt": ExtResource("40_27c7x")
 }
 tnt_unit_splash_damage = 1
-bubble_y_offset_px = -48.0
+bubble_enabled = false
 bubble_ui_root_path = NodePath("../CanvasLayer/Bubbles")
 bubble_font = ExtResource("32_1gdd5")
 bubble_font_size = 16
 bubble_voice_player_path = NodePath("../CanvasLayer/Bubbles/BubbleVoice")
 bubble_voice_stream = ExtResource("43_evnk2")
-bubble_voice_volume = 0.135
+bubble_voice_volume = 0.235
 
 [node name="AudioStreamPlayer2D" type="AudioStreamPlayer2D" parent="MapController"]
 

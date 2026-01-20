@@ -97,7 +97,7 @@ var mine_nodes_by_cell: Dictionary = {} # Vector2i -> Node2D
 @export var bubble_enabled := true
 @export var bubble_duration := 0.75
 @export var bubble_fade_time := 0.12
-@export var bubble_y_offset_px := -44.0   # above unit
+@export var bubble_y_offset_px := -52.0   # above unit
 @export var bubble_min_width := 90.0
 
 # Lines (edit in Inspector)
@@ -1136,7 +1136,7 @@ func _move_selected_to(target: Vector2i) -> void:
 	_is_moving = true
 	_sfx(&"move_start", sfx_volume_world, 1.0, _cell_world(from_cell))
 	_say(u) # <-- NEW: say something before moving
-	await get_tree().create_timer(0.38).timeout
+	#await get_tree().create_timer(0.38).timeout
 	_clear_overlay()
 
 	# Reserve destination
