@@ -947,7 +947,14 @@ func _move_selected_to(target: Vector2i) -> void:
 
 	u.set_cell(target, terrain)
 	
-	_trigger_mine_if_present(u)
+	await _trigger_mine_if_present(u)
+
+	# Mine might have killed / freed the mover (knockback, collision, etc.)
+	if u == null or not is_instance_valid(u):
+		_is_moving = false
+		_refresh_overlays()
+		emit_signal("aim_changed", int(aim_mode), special_id)
+		return
 	
 	_play_move_anim(u, false)
 
@@ -1340,29 +1347,31 @@ func _push_unit_to_cell(u: Unit, to_cell: Vector2i) -> void:
 	if from_cell == to_cell:
 		return
 
-	# World points for animation math
 	var from_world := _cell_world(from_cell)
 	var to_world := _cell_world(to_cell)
 
-	# --- Update occupancy + LOGICAL position first (so any snap-to-cell code agrees) ---
 	if units_by_cell.has(from_cell) and units_by_cell[from_cell] == u:
 		units_by_cell.erase(from_cell)
 	units_by_cell[to_cell] = u
 
-	# Commit the cell immediately (this usually sets u.cell AND u.global_position)
 	u.set_cell(to_cell, terrain)
 	_set_unit_depth_from_world(u, to_world)
 
-	# --- Animate as a visual offset back to zero ---
+	await _trigger_mine_if_present(u)
+
+	# ✅ IMPORTANT: u may be dead/freed now
+	if u == null or not is_instance_valid(u):
+		if units_by_cell.has(to_cell):
+			var v = units_by_cell[to_cell]
+			if v == null or not (v is Object) or not is_instance_valid(v):
+				units_by_cell.erase(to_cell)
+		return
+
 	var visual := _get_unit_visual_node(u)
 	if visual == null or not is_instance_valid(visual):
 		return
 
-	# If we’re animating a child (Sprite/Anim/Visual), we want it to start “back” at the old spot.
-	# Since the parent snapped to to_world, the offset that visually places it at from_world is:
 	var offset := from_world - to_world
-
-	# Apply offset in local space (works great for child visuals)
 	visual.position += offset
 
 	var step_time = max(0.04, 1.0 / move_speed_cells_per_sec) * 0.6
@@ -1536,6 +1545,20 @@ func _play_death_and_wait(u: Unit) -> void:
 		a.animation_finished.disconnect(callable)
 
 
+func _remove_unit_from_board_at_cell(cell: Vector2i) -> void:
+	if not units_by_cell.has(cell):
+		return
+
+	var v = units_by_cell[cell] # don't cast yet
+	units_by_cell.erase(cell)
+
+	if v == null or not (v is Object) or not is_instance_valid(v):
+		return
+
+	var u := v as Unit
+	if u != null and is_instance_valid(u):
+		u.queue_free()
+
 func _remove_unit_from_board(u: Unit) -> void:
 	if u == null:
 		return
@@ -1603,13 +1626,9 @@ func _trigger_mine_if_present(u: Unit) -> void:
 	var data = mines_by_cell[c]
 	mines_by_cell.erase(c)
 
-	# Remove mine prop first
 	remove_mine_visual(c)
+	spawn_explosion_at_cell(c)
 
-	# ✅ Explosion at the mine cell (plays full anim in your helper)
-	spawn_mine_explosion_at_cell(c)
-
-	# mines hit ONLY enemies of the mine owner (optional)
 	var mine_team := int(data.get("team", Unit.Team.ALLY))
 	if u.team == mine_team:
 		return
@@ -1620,40 +1639,12 @@ func _trigger_mine_if_present(u: Unit) -> void:
 	_jitter_unit(u, 3.5, 6, 0.14)
 	u.take_damage(dmg)
 
+	if u != null and is_instance_valid(u) and u.hp <= 0:
+		await _play_death_and_wait(u)
+		_remove_unit_from_board_at_cell(c)
+		return
+
 	_cleanup_dead_at(c)
-
-@export var mine_explosion_scene: PackedScene
-@export var mine_explosion_y_offset_px := -8.0
-@export var mine_explosion_lifetime := 9
-
-func spawn_mine_explosion_at_cell(cell: Vector2i) -> void:
-	if mine_explosion_scene == null or terrain == null:
-		return
-
-	var fx := mine_explosion_scene.instantiate() as Node2D
-	if fx == null:
-		return
-
-	(overlay_root if overlay_root != null else self).add_child(fx)
-
-	# Position (+16px feet offset)
-	fx.global_position = terrain.to_global(terrain.map_to_local(cell)) + Vector2(0, mine_explosion_y_offset_px)
-
-	# ✅ Layering: big base + (x+y) so it sorts above everything in that tile
-	fx.z_as_relative = false
-	fx.z_index = 10000 + (cell.x + cell.y)
-
-	# Play animation if present
-	var a := fx.get_node_or_null("AnimatedSprite2D") as AnimatedSprite2D
-	if a != null and a.sprite_frames != null:
-		if a.sprite_frames.has_animation("explode"):
-			a.play("explode")
-
-	# Simple cleanup
-	get_tree().create_timer(mine_explosion_lifetime).timeout.connect(func():
-		if fx != null and is_instance_valid(fx):
-			fx.queue_free()
-	)
 
 func spawn_explosion_at_cell(cell: Vector2i) -> void:
 	if explosion_scene == null or terrain == null:

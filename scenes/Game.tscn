@@ -343,7 +343,6 @@ max_zombies = 16
 explosion_scene = ExtResource("32_426vi")
 mine_scene = ExtResource("33_naigu")
 mine_y_offset_px = 0.0
-mine_explosion_scene = ExtResource("32_426vi")
 
 [node name="CanvasLayer" type="CanvasLayer" parent="."]
 

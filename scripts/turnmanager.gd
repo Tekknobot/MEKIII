@@ -209,20 +209,29 @@ func _run_enemy_turns() -> void:
 		await _enemy_take_turn(z)
 
 func _enemy_take_turn(z: Unit) -> void:
-	# Simple + intelligent:
-	# 1) If can attack now -> attack lowest HP ally in range
-	# 2) Else move toward nearest ally (best reachable tile)
-	# 3) After moving, if can attack -> attack
+	if z == null or not is_instance_valid(z):
+		return
 
 	var target := _pick_best_attack_target(z)
 	if target != null:
 		await M.ai_attack(z, target)
 		return
 
+	# z might die from something else between frames
+	if z == null or not is_instance_valid(z):
+		return
+
 	var move_cell := _best_move_toward_nearest_ally(z)
+	if z == null or not is_instance_valid(z):
+		return
+
 	var z_cell := z.cell
 	if move_cell != z_cell:
 		await M.ai_move(z, move_cell)
+
+	# ✅ after movement, z could have stepped on a mine and died
+	if z == null or not is_instance_valid(z):
+		return
 
 	target = _pick_best_attack_target(z)
 	if target != null:
