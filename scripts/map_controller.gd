@@ -227,7 +227,7 @@ func spawn_units() -> void:
 	var enemy_center := _pick_far_center(valid_cells, cluster_center)
 
 	# Build an enemy-zone pool near enemy_center (tweak radius)
-	var enemy_zone_radius := 6
+	var enemy_zone_radius := 16
 	var enemy_zone_cells := _cells_within_radius(valid_cells, enemy_center, enemy_zone_radius)
 
 	# If the zone is too small, fall back to all remaining valid cells
@@ -272,37 +272,37 @@ func _spawn_zombies_in_clusters(zone_cells: Array[Vector2i], total: int) -> void
 
 	zone_cells.shuffle()
 
-	# 2–3 clusters depending on zombie count
-	var cluster_count = clamp(int(ceil(float(total) / 2.0)), 2, 3)
+	# Build multiple clusters, but keep spawning until we hit TOTAL
+	var remaining := total
+	var max_cluster_size := 4  # tweak: bigger = tighter blobs
 
-	for k in range(cluster_count):
-		if total <= 0 or zone_cells.is_empty():
+	while remaining > 0 and not zone_cells.is_empty():
+		# pick an anchor
+		var anchor = zone_cells.pop_back()
+		_spawn_unit_walkable(anchor, Unit.Team.ENEMY)
+		remaining -= 1
+		if remaining <= 0:
 			break
 
-		# pick an anchor for this cluster
-		var anchor = zone_cells.pop_back()
+		# decide how many more for this cluster
+		var want = min(remaining, randi_range(1, max_cluster_size - 1))
 
-		# spawn size: 1–3 (but not more than remaining)
-		var size = min(total, randi_range(1, 3))
+		# pick nearest cells to anchor from remaining pool
+		var near := _neighbors_sorted_by_distance(zone_cells, anchor, 6)
 
-		# spawn anchor first
-		_spawn_unit_walkable(anchor, Unit.Team.ENEMY)
-		total -= 1
-
-		# find nearby cells for the rest of this cluster (tight radius)
-		var near := _neighbors_sorted_by_distance(zone_cells, anchor, 3)
-
-		for i in range(size - 1):
-			if total <= 0 or near.is_empty():
-				break
+		while want > 0 and not near.is_empty():
 			var c = near.pop_front()
 			_spawn_unit_walkable(c, Unit.Team.ENEMY)
-			total -= 1
+			remaining -= 1
+			want -= 1
 
-			# remove used cell from the zone pool
+			# remove from zone pool so it can't be used again
 			var idx := zone_cells.find(c)
 			if idx != -1:
 				zone_cells.remove_at(idx)
+
+			if remaining <= 0:
+				break
 
 
 func _neighbors_sorted_by_distance(cells: Array[Vector2i], anchor: Vector2i, max_r: int) -> Array[Vector2i]:

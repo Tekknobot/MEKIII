@@ -13,3 +13,5 @@ res://scenes/human.tscn
 res://scenes/explosion.tscn
 res://scenes/structures/building.tscn
 res://scripts/structure.gd
+res://scenes/zombie.tscn
+res://scripts/zombie.gd

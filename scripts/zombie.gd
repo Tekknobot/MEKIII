@@ -13,7 +13,7 @@ func _ready() -> void:
 	attack_damage = 1
 
 	# --- Health baseline ---
-	max_hp = max(max_hp, 3)
+	max_hp = max(max_hp, 6)
 	hp = clamp(hp, 0, max_hp)
 
 	# --- Call base Unit init (sets depth + clamps hp again safely) ---

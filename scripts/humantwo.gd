@@ -24,89 +24,161 @@ func _ready() -> void:
 @export var blade_cleave_damage := 1
 
 func perform_blade(M: MapController, target_cell: Vector2i) -> void:
-	var target := M.unit_at_cell(target_cell)
-	if target == null or not is_instance_valid(target):
-		return
-	if target.team == team:
-		return
-
-	# Range check (manhattan)
-	if abs(target_cell.x - cell.x) + abs(target_cell.y - cell.y) > blade_range:
+	if M == null or not is_instance_valid(M):
 		return
 
 	# -----------------------------
-	# 1) Move to adjacent open tile
+	# 0) Build target list: all enemies in blade_range
+	# - includes the clicked target first (if valid)
+	# - then nearest enemies outward
 	# -----------------------------
-	var adj: Array[Vector2i] = [
-		target_cell + Vector2i(1, 0),
-		target_cell + Vector2i(-1, 0),
-		target_cell + Vector2i(0, 1),
-		target_cell + Vector2i(0, -1),
-	]
+	var enemies: Array[Unit] = []
+	var clicked := M.unit_at_cell(target_cell)
 
-	var best := Vector2i(-1, -1)
-	var best_d := 999999
-	for c in adj:
-		if M.grid != null and M.grid.has_method("in_bounds") and not M.grid.in_bounds(c):
-			continue
-		if not M._is_walkable(c):
-			continue
-		if M.units_by_cell.has(c):
-			continue
-		var d = abs(c.x - cell.x) + abs(c.y - cell.y)
-		if d < best_d:
-			best_d = d
-			best = c
+	# Helper: in range + enemy + alive
+	var _is_valid_enemy := func(u: Unit) -> bool:
+		if u == null or not is_instance_valid(u):
+			return false
+		if u.team == team:
+			return false
+		if u.hp <= 0:
+			return false
+		# manhattan range from CURRENT cell at time of building list
+		var d = abs(u.cell.x - cell.x) + abs(u.cell.y - cell.y)
+		return d <= blade_range
 
-	if best.x < 0:
+	# Add clicked target first if valid
+	if _is_valid_enemy.call(clicked):
+		enemies.append(clicked)
+
+	# Add all other enemies in range
+	for u in M.get_all_units():
+		if u == null or not is_instance_valid(u):
+			continue
+		if u == clicked:
+			continue
+		if _is_valid_enemy.call(u):
+			enemies.append(u)
+
+	# Sort remaining by distance to us (keeps the chain feeling snappy)
+	enemies.sort_custom(func(a: Unit, b: Unit) -> bool:
+		var da = abs(a.cell.x - cell.x) + abs(a.cell.y - cell.y)
+		var db = abs(b.cell.x - cell.x) + abs(b.cell.y - cell.y)
+		return da < db
+	)
+
+	if enemies.is_empty():
 		return
 
-	# Dash into position
-	if cell != best:
-		await M._push_unit_to_cell(self, best)
+	# -----------------------------
+	# Helpers
+	# -----------------------------
+	var _adjacent_open_to := func(tcell: Vector2i) -> Vector2i:
+		# Prefer tiles closest to our current cell so dashes look natural
+		var adj: Array[Vector2i] = [
+			tcell + Vector2i(1, 0),
+			tcell + Vector2i(-1, 0),
+			tcell + Vector2i(0, 1),
+			tcell + Vector2i(0, -1),
+		]
 
-	# Re-acquire target after dash
-	target = M.unit_at_cell(target_cell)
-	if target == null or not is_instance_valid(target) or target.team == team:
-		return
+		var best := Vector2i(-1, -1)
+		var best_d := 999999
 
-	# Helper: do one animated hit + wait a full anim cycle
-	var hit_once := func(v: Unit, dmg: int, flash_time: float, cleanup_cell: Vector2i) -> void:
+		# Structures block (so we don't dash into a building)
+		var structure_blocked: Dictionary = {}
+		if M.game_ref != null and "structure_blocked" in M.game_ref:
+			structure_blocked = M.game_ref.structure_blocked
+
+		for c in adj:
+			if M.grid != null and M.grid.has_method("in_bounds") and not M.grid.in_bounds(c):
+				continue
+			if not M._is_walkable(c):
+				continue
+			if structure_blocked.has(c):
+				continue
+			if M.units_by_cell.has(c):
+				continue
+
+			var d = abs(c.x - cell.x) + abs(c.y - cell.y)
+			if d < best_d:
+				best_d = d
+				best = c
+
+		return best
+
+	var _hit_once := func(v: Unit, dmg: int, flash_time: float, cleanup_cell: Vector2i) -> void:
 		if v == null or not is_instance_valid(v) or v.team == team:
 			return
 
 		M._face_unit_toward_world(self, v.global_position)
 		M._play_attack_anim(self)
+		M._sfx(&"attack_swing", M.sfx_volume_world, randf_range(0.95, 1.05), global_position)
 
 		M._flash_unit_white(v, flash_time)
 		v.take_damage(dmg)
 
-		# ✅ FULL animation cycle per target
+		# Full cycle
 		await M._wait_for_attack_anim(self)
 		await M.get_tree().create_timer(M.attack_anim_lock_time).timeout
 
 		M._cleanup_dead_at(cleanup_cell)
 
 	# -----------------------------
-	# 2) Primary hit (1 full cycle)
+	# 1) For EACH target: move adjacent -> hit -> cleave
 	# -----------------------------
-	await hit_once.call(target, blade_damage, 0.12, target_cell)
+	var seen: Dictionary = {} # Unit -> true (prevents double-processing)
 
-	# -----------------------------
-	# 3) Cleave hits (each full cycle)
-	# -----------------------------
-	var around := [
-		target_cell + Vector2i(1, 0),
-		target_cell + Vector2i(-1, 0),
-		target_cell + Vector2i(0, 1),
-		target_cell + Vector2i(0, -1),
-	]
+	for t in enemies:
+		if t == null or not is_instance_valid(t):
+			continue
+		if t.team == team:
+			continue
+		if seen.has(t):
+			continue
+		seen[t] = true
 
-	for c in around:
-		var v := M.unit_at_cell(c)
-		if v != null and is_instance_valid(v) and v.team != team:
-			await hit_once.call(v, blade_cleave_damage, 0.10, c)
+		# Target might have moved/died since list creation; reacquire by cell
+		var tcell := t.cell
+		var target := M.unit_at_cell(tcell)
+		if target == null or not is_instance_valid(target) or target.team == team:
+			continue
 
+		# Still in range from our *current* position?
+		if abs(tcell.x - cell.x) + abs(tcell.y - cell.y) > blade_range:
+			continue
+
+		# Find open adjacent tile to dash into
+		var dash_to = _adjacent_open_to.call(tcell)
+		if dash_to.x < 0:
+			# no adjacent open tile, skip this target
+			continue
+
+		# Dash into position
+		if cell != dash_to:
+			await M._push_unit_to_cell(self, dash_to)
+
+		# Reacquire after dash (target could die to something else, etc.)
+		target = M.unit_at_cell(tcell)
+		if target == null or not is_instance_valid(target) or target.team == team:
+			continue
+
+		# Primary hit
+		await _hit_once.call(target, blade_damage, 0.12, tcell)
+
+		# Cleave around target cell (each is its own full cycle)
+		var around := [
+			tcell + Vector2i(1, 0),
+			tcell + Vector2i(-1, 0),
+			tcell + Vector2i(0, 1),
+			tcell + Vector2i(0, -1),
+		]
+		for c in around:
+			var v := M.unit_at_cell(c)
+			if v != null and is_instance_valid(v) and v.team != team:
+				await _hit_once.call(v, blade_cleave_damage, 0.10, c)
+
+	# Return to idle at end
 	M._play_idle_anim(self)
 
 # Human.gd (example)

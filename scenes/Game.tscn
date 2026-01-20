@@ -363,6 +363,7 @@ sfx_streams = {
 "ui_disarm": ExtResource("35_kbe8o"),
 "ui_select": ExtResource("34_m1oc7")
 }
+tnt_unit_splash_damage = 1
 
 [node name="AudioStreamPlayer2D" type="AudioStreamPlayer2D" parent="MapController"]
 
