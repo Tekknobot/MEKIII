@@ -38,6 +38,9 @@ var _is_moving := false
 @export var max_zombies: int = 4
 @export var ally_count: int = 3
 
+@export var turn_manager_path: NodePath
+@onready var TM: TurnManager = get_node_or_null(turn_manager_path) as TurnManager
+
 func _ready() -> void:
 	terrain = get_node_or_null(terrain_path) as TileMap
 	units_root = get_node_or_null(units_root_path) as Node2D
@@ -348,6 +351,11 @@ func _input(event: InputEvent) -> void:
 			# valid target -> attack
 			if clicked != null and selected != null and is_instance_valid(selected):
 				if clicked.team != selected.team and _in_attack_range(selected, clicked.cell):
+					if TM != null and not TM.can_attack(selected):
+						aim_mode = AimMode.MOVE
+						_refresh_overlays()
+						return
+
 					await _do_attack(selected, clicked)
 					# after attacking, disarm back to MOVE
 					aim_mode = AimMode.MOVE
@@ -401,6 +409,8 @@ func unit_at_cell(c: Vector2i) -> Unit:
 	return null
 
 func _select(u: Unit) -> void:
+	if TM != null and not TM.can_select(u):
+		return
 	if selected == u:
 		return
 	_unselect()
@@ -563,6 +573,9 @@ func _do_attack(attacker: Unit, defender: Unit) -> void:
 	await _wait_for_attack_anim(attacker)
 	await get_tree().create_timer(attack_anim_lock_time).timeout
 
+	if TM != null and attacker.team == Unit.Team.ALLY:
+		TM.notify_player_attacked(attacker)
+
 	# ✅ defender might be freed now, so never pass it as a typed arg
 	_cleanup_dead_at(def_cell)
 
@@ -666,13 +679,24 @@ func _refresh_overlays() -> void:
 	_clear_overlay()
 	if selected == null or not is_instance_valid(selected):
 		return
+
+	# ✅ If unit already moved this turn, don't show move range again
 	if aim_mode == AimMode.MOVE:
+		if TM != null and not TM.can_move(selected):
+			return
 		_draw_move_range(selected)
 	else:
 		_draw_attack_range(selected)
 
 func _is_valid_move_target(c: Vector2i) -> bool:
-	return selected != null and is_instance_valid(selected) and valid_move_cells.has(c)
+	if selected == null or not is_instance_valid(selected):
+		return false
+	if not valid_move_cells.has(c):
+		return false
+	if TM != null and not TM.can_move(selected):
+		return false
+	return true
+
 
 func _play_move_anim(u: Unit, moving: bool) -> void:
 	if u == null or not is_instance_valid(u):
@@ -720,6 +744,13 @@ func _set_unit_depth_from_world(u: Unit, world_pos: Vector2) -> void:
 	u.z_index = base + ((c.x + c.y) * per)
 
 func _move_selected_to(target: Vector2i) -> void:
+	# Hard gates FIRST
+	if TM != null:
+		if not TM.player_input_allowed():
+			return
+		if selected != null and is_instance_valid(selected) and not TM.can_move(selected):
+			return
+
 	if _is_moving:
 		return
 	if selected == null or not is_instance_valid(selected):
@@ -730,28 +761,26 @@ func _move_selected_to(target: Vector2i) -> void:
 	var u := selected
 	var from_cell := u.cell
 
-	# ✅ L-turn pathfinding (X then Y OR Y then X)
+	# L path
 	var path := _pick_clear_L_path(from_cell, target)
 	if path.is_empty():
-		# No clear L path -> don't move
 		return
 
 	_is_moving = true
+
 	_clear_overlay()
 
-	# Reserve destination early (prevents other moves into it)
+	# Reserve destination
 	units_by_cell.erase(from_cell)
 	units_by_cell[target] = u
 
 	_play_move_anim(u, true)
 
-	# Move step-by-step along the L path
 	var step_time := _duration_for_step()
-
 	for step_cell in path:
 		var from_world := u.global_position
 		var to_world := _cell_world(step_cell)
-		
+
 		_face_unit_for_step(u, from_world, to_world)
 
 		var tw := create_tween()
@@ -765,14 +794,18 @@ func _move_selected_to(target: Vector2i) -> void:
 
 		await tw.finished
 
-	# Commit final logical cell (and let Unit do any final snaps)
 	u.set_cell(target, terrain)
-
 	_play_move_anim(u, false)
 
-	_refresh_overlays()
 	_is_moving = false
-	
+
+	if TM != null:
+		TM.notify_player_moved(u)
+
+	# Optional: once moved, force attack mode overlays or clear selection
+	# aim_mode = AimMode.ATTACK
+	# _refresh_overlays()
+
 func _face_unit_for_step(u: Unit, from_world: Vector2, to_world: Vector2) -> void:
 	if u == null or not is_instance_valid(u):
 		return
@@ -990,3 +1023,99 @@ func _wait_for_attack_anim(u: Unit) -> void:
 	# Disconnect safely
 	if a != null and is_instance_valid(a) and a.animation_finished.is_connected(callable):
 		a.animation_finished.disconnect(callable)
+
+func get_all_units() -> Array[Unit]:
+	var out: Array[Unit] = []
+	for u in units_by_cell.values():
+		if u != null and is_instance_valid(u):
+			out.append(u)
+	return out
+
+# used by TurnManager AI
+func can_attack_cell(attacker: Unit, target_cell: Vector2i) -> bool:
+	return _in_attack_range(attacker, target_cell)
+
+func ai_reachable_cells(u: Unit) -> Array[Vector2i]:
+	var out: Array[Vector2i] = []
+	if u == null or not is_instance_valid(u):
+		return out
+
+	var r := u.move_range
+	var origin := u.cell
+
+	var structure_blocked: Dictionary = {}
+	if game_ref != null and "structure_blocked" in game_ref:
+		structure_blocked = game_ref.structure_blocked
+
+	for dx in range(-r, r + 1):
+		for dy in range(-r, r + 1):
+			var c := origin + Vector2i(dx, dy)
+
+			if grid != null and grid.has_method("in_bounds") and not grid.in_bounds(c):
+				continue
+			if abs(dx) + abs(dy) > r:
+				continue
+			if not _is_walkable(c):
+				continue
+			if structure_blocked.has(c):
+				continue
+			if c != origin and units_by_cell.has(c):
+				continue
+			if _pick_clear_L_path(origin, c).is_empty():
+				continue
+
+			out.append(c)
+
+	return out
+
+func ai_move(u: Unit, target: Vector2i) -> void:
+	# Drive the existing move logic safely:
+	if u == null or not is_instance_valid(u):
+		return
+	if _is_moving:
+		return
+
+	# Temporarily select the unit so _move_selected_to works
+	var prev := selected
+	selected = u
+	_clear_overlay()
+	valid_move_cells.clear()
+	valid_move_cells[target] = true
+
+	_move_selected_to(target)
+	# wait until movement finishes
+	while _is_moving:
+		await get_tree().process_frame
+
+	selected = prev
+
+func ai_attack(attacker: Unit, defender: Unit) -> void:
+	if attacker == null or defender == null:
+		return
+	if not is_instance_valid(attacker) or not is_instance_valid(defender):
+		return
+	await _do_attack(attacker, defender)
+
+func set_unit_exhausted(u: Unit, exhausted: bool) -> void:
+	if u == null or not is_instance_valid(u):
+		return
+
+	var mul := 0.55 if exhausted else 1.0
+	var tint := Color(mul, mul, mul, 1.0)
+
+	# Try common visuals
+	var spr := u.get_node_or_null("Sprite2D") as Sprite2D
+	if spr != null:
+		spr.modulate = tint
+		return
+
+	var anim := u.get_node_or_null("AnimatedSprite2D") as AnimatedSprite2D
+	if anim != null:
+		anim.modulate = tint
+		return
+
+	# Fallback: first CanvasItem child
+	for ch in u.get_children():
+		if ch is CanvasItem:
+			(ch as CanvasItem).modulate = tint
+			return

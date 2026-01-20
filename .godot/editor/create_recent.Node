@@ -1,3 +1,5 @@
+Button
+CanvasLayer
 Node2D
 AudioStreamPlayer2D
 Line2D
@@ -10,5 +12,4 @@ Label
 Sprite2D
 Camera2D
 ColorRect
-CanvasLayer
 TileMap
