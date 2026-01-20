@@ -57,6 +57,11 @@ signal aim_changed(mode: int, special_id: StringName)
 @export var explosion_anim_name := "explode"
 @export var explosion_fallback_seconds := 9.0
 
+@export var mine_scene: PackedScene
+@export var mine_y_offset_px := -16.0
+
+var mine_nodes_by_cell: Dictionary = {} # Vector2i -> Node2D
+
 func _ready() -> void:
 	terrain = get_node_or_null(terrain_path) as TileMap
 	units_root = get_node_or_null(units_root_path) as Node2D
@@ -260,6 +265,13 @@ func clear_all() -> void:
 	units_by_cell.clear()
 	_clear_overlay()
 	selected = null
+
+	for n in mine_nodes_by_cell.values():
+		if n != null and is_instance_valid(n):
+			n.queue_free()
+	mine_nodes_by_cell.clear()
+	mines_by_cell.clear()
+	
 
 func _spawn_unit_walkable(preferred: Vector2i, team: int) -> void:
 	var c := _find_nearest_open_walkable(preferred)
@@ -786,16 +798,12 @@ func _draw_special_range(u: Unit, special: String) -> void:
 
 	var id := special.to_lower()
 
+	# ✅ range comes from the unit class
 	var r := 0
-	match id:
-		"hellfire":
-			r = 6
-		"blade":
-			r = 6
-		"mines":
-			r = 6
-		_:
-			return
+	if u.has_method("get_special_range"):
+		r = int(u.get_special_range(id))
+	if r <= 0:
+		return
 
 	var origin := u.cell
 
@@ -807,21 +815,14 @@ func _draw_special_range(u: Unit, special: String) -> void:
 		for dy in range(-r, r + 1):
 			var c := origin + Vector2i(dx, dy)
 
-			# bounds
 			if grid != null and grid.has_method("in_bounds") and not grid.in_bounds(c):
 				continue
-
-			# manhattan radius
 			if abs(dx) + abs(dy) > r:
 				continue
-
-			# must be walkable land
 			if not _is_walkable(c):
 				continue
 
-			# ------------------------------------------------
-			# Per-special validity
-			# ------------------------------------------------
+			# --- per-special validity (your existing logic) ---
 			if id == "blade":
 				var tgt := unit_at_cell(c)
 				if tgt == null:
@@ -830,16 +831,12 @@ func _draw_special_range(u: Unit, special: String) -> void:
 					continue
 
 			elif id == "mines":
-				# mines can't be on structures
 				if structure_blocked.has(c):
 					continue
-				# must be empty and not already mined
 				if units_by_cell.has(c):
 					continue
 				if mines_by_cell.has(c):
 					continue
-
-			# hellfire: any walkable tile is OK (even if structure is there)
 
 			valid_special_cells[c] = true
 
@@ -847,7 +844,7 @@ func _draw_special_range(u: Unit, special: String) -> void:
 			overlay_root.add_child(t)
 			t.global_position = terrain.to_global(terrain.map_to_local(c))
 			t.z_as_relative = false
-			t.z_index = 1 + (c.x + c.y)
+			t.z_index = 0 + (c.x + c.y)
 
 func _is_valid_move_target(c: Vector2i) -> bool:
 	return selected != null and is_instance_valid(selected) and valid_move_cells.has(c)
@@ -1592,6 +1589,8 @@ func _unit_can_use_special(u: Unit, id: String) -> bool:
 			return u.has_method("perform_place_mine")
 	return false
 
+func select_unit(u: Unit) -> void:
+	_select(u)
 
 func _trigger_mine_if_present(u: Unit) -> void:
 	if u == null or not is_instance_valid(u):
@@ -1603,6 +1602,12 @@ func _trigger_mine_if_present(u: Unit) -> void:
 
 	var data = mines_by_cell[c]
 	mines_by_cell.erase(c)
+
+	# Remove mine prop first
+	remove_mine_visual(c)
+
+	# ✅ Explosion at the mine cell (plays full anim in your helper)
+	spawn_mine_explosion_at_cell(c)
 
 	# mines hit ONLY enemies of the mine owner (optional)
 	var mine_team := int(data.get("team", Unit.Team.ALLY))
@@ -1617,8 +1622,38 @@ func _trigger_mine_if_present(u: Unit) -> void:
 
 	_cleanup_dead_at(c)
 
-func select_unit(u: Unit) -> void:
-	_select(u)
+@export var mine_explosion_scene: PackedScene
+@export var mine_explosion_y_offset_px := -8.0
+@export var mine_explosion_lifetime := 9
+
+func spawn_mine_explosion_at_cell(cell: Vector2i) -> void:
+	if mine_explosion_scene == null or terrain == null:
+		return
+
+	var fx := mine_explosion_scene.instantiate() as Node2D
+	if fx == null:
+		return
+
+	(overlay_root if overlay_root != null else self).add_child(fx)
+
+	# Position (+16px feet offset)
+	fx.global_position = terrain.to_global(terrain.map_to_local(cell)) + Vector2(0, mine_explosion_y_offset_px)
+
+	# ✅ Layering: big base + (x+y) so it sorts above everything in that tile
+	fx.z_as_relative = false
+	fx.z_index = 10000 + (cell.x + cell.y)
+
+	# Play animation if present
+	var a := fx.get_node_or_null("AnimatedSprite2D") as AnimatedSprite2D
+	if a != null and a.sprite_frames != null:
+		if a.sprite_frames.has_animation("explode"):
+			a.play("explode")
+
+	# Simple cleanup
+	get_tree().create_timer(mine_explosion_lifetime).timeout.connect(func():
+		if fx != null and is_instance_valid(fx):
+			fx.queue_free()
+	)
 
 func spawn_explosion_at_cell(cell: Vector2i) -> void:
 	if explosion_scene == null or terrain == null:
@@ -1710,3 +1745,38 @@ func launch_projectile_arc(
 
 	if p != null and is_instance_valid(p):
 		p.queue_free()
+
+func place_mine_visual(cell: Vector2i) -> void:
+	if mine_scene == null or terrain == null:
+		return
+	if mine_nodes_by_cell.has(cell):
+		return
+
+	var mine := mine_scene.instantiate() as Node2D
+	if mine == null:
+		return
+
+	# Put mines under overlays (so overlays still show on top), but above terrain
+	# If you have a dedicated root for props/mines, use it; otherwise units_root is OK.
+	var parent: Node = units_root if units_root != null else self
+	parent.add_child(mine)
+
+	var world := terrain.to_global(terrain.map_to_local(cell)) + Vector2(0, mine_y_offset_px)
+	mine.global_position = world
+
+	# Depth from grid (local_to_map) so it matches iso sorting
+	var local := terrain.to_local(world)
+	var depth_cell := terrain.local_to_map(local)
+
+	mine.z_as_relative = false
+	mine.z_index = 1 + (depth_cell.x + depth_cell.y)  # tweak base if needed
+
+	mine_nodes_by_cell[cell] = mine
+
+func remove_mine_visual(cell: Vector2i) -> void:
+	if not mine_nodes_by_cell.has(cell):
+		return
+	var n := mine_nodes_by_cell[cell] as Node2D
+	mine_nodes_by_cell.erase(cell)
+	if n != null and is_instance_valid(n):
+		n.queue_free()

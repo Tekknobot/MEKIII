@@ -1,4 +1,4 @@
-[gd_scene load_steps=63 format=3 uid="uid://bmtwqbsx674eo"]
+[gd_scene load_steps=64 format=3 uid="uid://bmtwqbsx674eo"]
 
 [ext_resource type="Script" uid="uid://bn08mhcoceqg" path="res://scripts/game.gd" id="1_400sg"]
 [ext_resource type="Texture2D" uid="uid://by1nnygq8fbib" path="res://sprites/Terrain/dirt.png" id="6_mcffj"]
@@ -32,6 +32,7 @@
 [ext_resource type="FontFile" uid="uid://buw362wjb8o8d" path="res://fonts/magofonts/mago2.ttf" id="32_1gdd5"]
 [ext_resource type="Texture2D" uid="uid://bkcixujm222r0" path="res://sprites/Terrain/roads/18.png" id="32_27c7x"]
 [ext_resource type="PackedScene" uid="uid://bulgypadw5war" path="res://scenes/explosion.tscn" id="32_426vi"]
+[ext_resource type="PackedScene" uid="uid://caymwfgfg5si7" path="res://scenes/landmine.tscn" id="33_naigu"]
 [ext_resource type="Texture2D" uid="uid://bsyc60b8surhm" path="res://sprites/Tiles_UI/mek3/1x1_no_attack.png" id="41_evnk2"]
 
 [sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_g4kob"]
@@ -340,6 +341,9 @@ attack_tile_scene = ExtResource("26_jhsr3")
 attack_flash_time = 0.48
 max_zombies = 16
 explosion_scene = ExtResource("32_426vi")
+mine_scene = ExtResource("33_naigu")
+mine_y_offset_px = 0.0
+mine_explosion_scene = ExtResource("32_426vi")
 
 [node name="CanvasLayer" type="CanvasLayer" parent="."]
 

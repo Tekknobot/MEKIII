@@ -140,3 +140,6 @@ func _play_death_anim_fallback() -> void:
 	tw.parallel().tween_property(self, "scale", scale * 0.85, 0.18)
 
 	await tw.finished
+
+func get_special_range(id: String) -> int:
+	return 0

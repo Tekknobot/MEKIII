@@ -6,7 +6,7 @@ func _ready() -> void:
 	set_meta("display_name", "Robodog")
 			
 	footprint_size = Vector2i(1, 1)
-	move_range = 5
+	move_range = 6
 	attack_range = 1
 	
 	# ✅ Do NOT hard reset hp/max_hp here.
@@ -35,6 +35,9 @@ func perform_place_mine(M: MapController, target_cell: Vector2i) -> void:
 		return
 
 	M.mines_by_cell[target_cell] = {"team": team, "damage": mine_damage}
+	
+	# ✅ spawn mine scene visual
+	M.place_mine_visual(target_cell)
 
 # Human.gd (example)
 func get_available_specials() -> Array[String]:
@@ -43,3 +46,9 @@ func get_available_specials() -> Array[String]:
 func can_use_special(id: String) -> bool:
 	# your cooldown logic here
 	return true
+
+func get_special_range(id: String) -> int:
+	id = id.to_lower()
+	if id == "mines":
+		return mine_place_range
+	return 0

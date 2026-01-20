@@ -6,8 +6,8 @@ func _ready() -> void:
 	set_meta("display_name", "Soldier")
 
 	footprint_size = Vector2i(1, 1)
-	move_range = 3
-	attack_range = 4
+	move_range = 4
+	attack_range = 5
 	attack_damage = 1
 
 	# Do NOT hard reset; clamp up
@@ -66,3 +66,9 @@ func get_available_specials() -> Array[String]:
 func can_use_special(id: String) -> bool:
 	# your cooldown logic here
 	return true
+
+func get_special_range(id: String) -> int:
+	id = id.to_lower()
+	if id == "hellfire":
+		return hellfire_range
+	return 0

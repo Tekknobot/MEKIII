@@ -6,7 +6,7 @@ func _ready() -> void:
 	set_meta("display_name", "Mercenary")
 		
 	footprint_size = Vector2i(1, 1)
-	move_range = 4
+	move_range = 5
 	attack_range = 1
 
 	tnt_throw_range = 4
@@ -19,7 +19,7 @@ func _ready() -> void:
 	# ✅ Run Unit setup (hp=max_hp + sprite base pos)
 	super._ready()	
 
-@export var blade_range := 4
+@export var blade_range := 5
 @export var blade_damage := 2
 @export var blade_cleave_damage := 1
 
@@ -34,15 +34,18 @@ func perform_blade(M: MapController, target_cell: Vector2i) -> void:
 	if abs(target_cell.x - cell.x) + abs(target_cell.y - cell.y) > blade_range:
 		return
 
-	# Find an adjacent open cell to dash into
+	# -----------------------------
+	# 1) Move to adjacent open tile
+	# -----------------------------
 	var adj: Array[Vector2i] = [
-		target_cell + Vector2i(1,0),
-		target_cell + Vector2i(-1,0),
-		target_cell + Vector2i(0,1),
-		target_cell + Vector2i(0,-1),
+		target_cell + Vector2i(1, 0),
+		target_cell + Vector2i(-1, 0),
+		target_cell + Vector2i(0, 1),
+		target_cell + Vector2i(0, -1),
 	]
-	var best := Vector2i(-1,-1)
-	var best_d := 9999
+
+	var best := Vector2i(-1, -1)
+	var best_d := 999999
 	for c in adj:
 		if M.grid != null and M.grid.has_method("in_bounds") and not M.grid.in_bounds(c):
 			continue
@@ -58,27 +61,53 @@ func perform_blade(M: MapController, target_cell: Vector2i) -> void:
 	if best.x < 0:
 		return
 
-	# Dash (uses MapController shove tween)
-	await M._push_unit_to_cell(self, best)
+	# Dash into position
+	if cell != best:
+		await M._push_unit_to_cell(self, best)
 
-	# Primary hit
-	M._flash_unit_white(target, 0.12)
-	target.take_damage(blade_damage)
-	M._cleanup_dead_at(target_cell)
+	# Re-acquire target after dash
+	target = M.unit_at_cell(target_cell)
+	if target == null or not is_instance_valid(target) or target.team == team:
+		return
 
-	# Cleave around target cell
+	# Helper: do one animated hit + wait a full anim cycle
+	var hit_once := func(v: Unit, dmg: int, flash_time: float, cleanup_cell: Vector2i) -> void:
+		if v == null or not is_instance_valid(v) or v.team == team:
+			return
+
+		M._face_unit_toward_world(self, v.global_position)
+		M._play_attack_anim(self)
+
+		M._flash_unit_white(v, flash_time)
+		v.take_damage(dmg)
+
+		# ✅ FULL animation cycle per target
+		await M._wait_for_attack_anim(self)
+		await M.get_tree().create_timer(M.attack_anim_lock_time).timeout
+
+		M._cleanup_dead_at(cleanup_cell)
+
+	# -----------------------------
+	# 2) Primary hit (1 full cycle)
+	# -----------------------------
+	await hit_once.call(target, blade_damage, 0.12, target_cell)
+
+	# -----------------------------
+	# 3) Cleave hits (each full cycle)
+	# -----------------------------
 	var around := [
-		target_cell + Vector2i(1,0),
-		target_cell + Vector2i(-1,0),
-		target_cell + Vector2i(0,1),
-		target_cell + Vector2i(0,-1),
+		target_cell + Vector2i(1, 0),
+		target_cell + Vector2i(-1, 0),
+		target_cell + Vector2i(0, 1),
+		target_cell + Vector2i(0, -1),
 	]
+
 	for c in around:
 		var v := M.unit_at_cell(c)
 		if v != null and is_instance_valid(v) and v.team != team:
-			M._flash_unit_white(v, 0.10)
-			v.take_damage(blade_cleave_damage)
-			M._cleanup_dead_at(c)
+			await hit_once.call(v, blade_cleave_damage, 0.10, c)
+
+	M._play_idle_anim(self)
 
 # Human.gd (example)
 func get_available_specials() -> Array[String]:
@@ -87,3 +116,9 @@ func get_available_specials() -> Array[String]:
 func can_use_special(id: String) -> bool:
 	# your cooldown logic here
 	return true
+
+func get_special_range(id: String) -> int:
+	id = id.to_lower()
+	if id == "blade":
+		return blade_range
+	return 0

@@ -187,6 +187,8 @@ animations = [{
 
 [node name="Unit" type="CharacterBody2D"]
 script = ExtResource("1_ttoxp")
+move_range = 5
+attack_range = 1
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="."]
 position = Vector2(0, -9)
