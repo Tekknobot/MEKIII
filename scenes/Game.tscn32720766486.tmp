@@ -373,11 +373,12 @@ bubble_y_offset_px = -48.0
 bubble_ui_root_path = NodePath("../CanvasLayer/Bubbles")
 bubble_font = ExtResource("32_1gdd5")
 bubble_font_size = 16
-bubble_voice_player_path = NodePath("../CanvasLayer/Bubbles/BubbleVoice")
+bubble_voice_player_path = NodePath("Bubbles")
 bubble_voice_stream = ExtResource("43_evnk2")
-bubble_voice_volume = 0.135
 
 [node name="AudioStreamPlayer2D" type="AudioStreamPlayer2D" parent="MapController"]
+
+[node name="Bubbles" type="AudioStreamPlayer2D" parent="MapController"]
 
 [node name="CanvasLayer" type="CanvasLayer" parent="."]
 
@@ -419,5 +420,3 @@ layout_mode = 3
 anchors_preset = 0
 offset_right = 40.0
 offset_bottom = 40.0
-
-[node name="BubbleVoice" type="AudioStreamPlayer2D" parent="CanvasLayer/Bubbles"]

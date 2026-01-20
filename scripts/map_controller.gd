@@ -91,6 +91,65 @@ var mine_nodes_by_cell: Dictionary = {} # Vector2i -> Node2D
 @export var tnt_structure_damage := 2           # per TNT hit to structures
 @export var tnt_unit_splash_damage := 2         # per TNT hit to units (or set from your TNT item)
 
+# --------------------------
+# Speech bubbles
+# --------------------------
+@export var bubble_enabled := true
+@export var bubble_duration := 0.75
+@export var bubble_fade_time := 0.12
+@export var bubble_y_offset_px := -44.0   # above unit
+@export var bubble_min_width := 90.0
+
+# Lines (edit in Inspector)
+@export var ally_lines: Array[String] = [
+	"On it!",
+	"Moving!",
+	"Here We go!",
+	"Copy that.",
+	"Advancing!"
+]
+
+@export var ally_select_lines: Array[String] = [
+	"Awaiting orders.",
+	"Ready.",
+	"Standing by.",
+	"Yes, sir.",
+	"Command?"
+]
+
+@export var enemy_lines: Array[String] = [
+	"GRRR!",
+	"RAAAH!",
+	"Fresh meat!",
+	"....",
+	"HSSSS!"
+]
+
+# Track 1 bubble per unit (prevents spam)
+var _bubble_by_unit: Dictionary = {} # Unit -> CanvasItem
+# Speech bubbles (UI)
+@export var bubble_ui_root_path: NodePath   # assign to a Control under a CanvasLayer (ex: /root/MapManager/UILayer/Bubbles)
+@onready var bubble_ui_root: Control = get_node_or_null(bubble_ui_root_path) as Control
+
+@export var bubble_font: Font               # drag your .ttf/.otf or FontFile here
+@export var bubble_font_size := 14
+
+@export var bubble_board_color := Color(1, 1, 1, 0.95)  # white board
+@export var bubble_text_color := Color(1, 1, 1, 1.0)     # white font
+@export var bubble_type_speed_cps := 40.0                # chars per second
+@export var bubble_max_width := 180.0                    # wrap width (px)
+
+@export var bubble_voice_player_path: NodePath
+@onready var bubble_voice_player := get_node_or_null(bubble_voice_player_path) as AudioStreamPlayer
+
+@export var bubble_voice_stream: AudioStream  # assign a short "blip" wav/ogg (20–80ms)
+@export var bubble_voice_volume := 0.65
+@export var bubble_voice_pitch_base := 1.0
+@export var bubble_voice_pitch_jitter := 0.12
+@export var bubble_voice_space_chance := 0.15
+@export var bubble_voice_punct_chance := 0.55
+@export var bubble_voice_bus := "Master"
+
 func _sfx(cue: StringName, vol := 1.0, pitch := 1.0, world_pos: Variant = null) -> void:
 	if SFX == null:
 		return
@@ -149,6 +208,15 @@ func _sfx(cue: StringName, vol := 1.0, pitch := 1.0, world_pos: Variant = null) 
 		return
 
 func _ready() -> void:
+	# --------------------------
+	# Speech blip audio setup
+	# --------------------------
+	if bubble_voice_player == null or not is_instance_valid(bubble_voice_player):
+		bubble_voice_player = AudioStreamPlayer.new()
+		bubble_voice_player.name = "BubbleVoicePlayer"
+		bubble_voice_player.bus = bubble_voice_bus
+		add_child(bubble_voice_player)
+	
 	add_to_group("MapController")
 	
 	terrain = get_node_or_null(terrain_path) as TileMap
@@ -595,10 +663,13 @@ func _select(u: Unit) -> void:
 	_unselect()
 	selected = u
 	selected.set_selected(true)
-	
-	_sfx(&"ui_select", sfx_volume_ui, 1.0)
-	_refresh_overlays()
 
+	_sfx(&"ui_select", sfx_volume_ui, 1.0)
+
+	if u.team == Unit.Team.ALLY and not ally_select_lines.is_empty():
+		_say(u, ally_select_lines.pick_random())
+
+	_refresh_overlays()
 	emit_signal("selection_changed", selected)
 	emit_signal("aim_changed", int(aim_mode), special_id)
 
@@ -1064,7 +1135,8 @@ func _move_selected_to(target: Vector2i) -> void:
 
 	_is_moving = true
 	_sfx(&"move_start", sfx_volume_world, 1.0, _cell_world(from_cell))
-
+	_say(u) # <-- NEW: say something before moving
+	await get_tree().create_timer(0.38).timeout
 	_clear_overlay()
 
 	# Reserve destination
@@ -1108,8 +1180,9 @@ func _move_selected_to(target: Vector2i) -> void:
 	
 	_is_moving = false
 
-	#_refresh_overlays()
-	selected = null
+	if u and u.team != Unit.Team.ENEMY:
+		_refresh_overlays()
+
 	emit_signal("aim_changed", int(aim_mode), special_id)
 
 func _face_unit_for_step(u: Unit, from_world: Vector2, to_world: Vector2) -> void:
@@ -2103,3 +2176,202 @@ func _damage_structure_only_at_cell(cell: Vector2i, dmg: int) -> void:
 		# ✅ DO NOT free occupancy when demolished.
 		# Leave game_ref.structure_blocked as-is so rubble still blocks movement/LOS.
 		return
+
+func _pick_bubble_line(u: Unit) -> String:
+	# Optional override per-unit:
+	# u.set_meta("bubble_lines", ["hi", "lol"])  (Array[String])
+	if u != null and u.has_meta("bubble_lines"):
+		var v = u.get_meta("bubble_lines")
+		if v is Array and not (v as Array).is_empty():
+			return String((v as Array).pick_random())
+
+	# Default by team
+	if u != null and u.team == Unit.Team.ENEMY:
+		return enemy_lines.pick_random() if not enemy_lines.is_empty() else ""
+	return ally_lines.pick_random() if not ally_lines.is_empty() else ""
+
+
+func _kill_bubble(u: Unit) -> void:
+	if not _bubble_by_unit.has(u):
+		return
+	var b = _bubble_by_unit[u]
+	_bubble_by_unit.erase(u)
+	if b != null and (b is Object) and is_instance_valid(b):
+		b.queue_free()
+
+func _say(u: Unit, text: String = "") -> void:
+	if not bubble_enabled:
+		return
+	if u == null or not is_instance_valid(u):
+		return
+	if bubble_ui_root == null or not is_instance_valid(bubble_ui_root):
+		push_warning("SpeechBubble: bubble_ui_root_path not set / invalid")
+		return
+
+	_kill_bubble(u)
+
+	if text.strip_edges() == "":
+		text = _pick_bubble_line(u)
+	text = text.strip_edges()
+	if text == "":
+		return
+
+	# -------------------------
+	# Build UI bubble
+	# -------------------------
+	var panel := PanelContainer.new()
+	panel.name = "SpeechBubble"
+	panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	panel.modulate = bubble_board_color
+
+	# Padding (bubble margins)
+	panel.add_theme_constant_override("padding_left", 7)
+	panel.add_theme_constant_override("padding_right", 7)
+	panel.add_theme_constant_override("padding_top", 5)
+	panel.add_theme_constant_override("padding_bottom", 5)
+
+	# Content wrapper so PanelContainer sizes itself
+	var vb := VBoxContainer.new()
+	vb.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	panel.add_child(vb)
+
+	var label := Label.new()
+	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+
+	# Font + white text
+	if bubble_font != null:
+		label.add_theme_font_override("font", bubble_font)
+	label.add_theme_font_size_override("font_size", bubble_font_size)
+	label.add_theme_color_override("font_color", bubble_text_color)
+
+	# Start empty for typewriter
+	label.text = ""
+	
+	vb.add_child(label)
+	label.custom_minimum_size = Vector2(bubble_min_width, 0)
+
+	bubble_ui_root.add_child(panel)
+	_bubble_by_unit[u] = panel
+
+	# -------------------------
+	# Position (world -> UI)
+	# -------------------------
+	var ui_pos := _world_to_ui(u.global_position + Vector2(0, bubble_y_offset_px))
+	panel.position = ui_pos
+
+	# Wait one frame so Control sizes itself, then center it
+	await get_tree().process_frame
+	panel.position.x -= panel.size.x * 0.5
+
+	# -------------------------
+	# Typewriter effect
+	# -------------------------
+	var cps = max(1.0, bubble_type_speed_cps)
+	var delay = 1.0 / cps
+
+	var wrapped := false
+
+	# Reveal characters over time.
+	# If unit gets freed, stop cleanly.
+	for i in range(text.length()):
+		# pre-check
+		if u == null or not is_instance_valid(u):
+			break
+		if panel == null or not is_instance_valid(panel):
+			break
+
+		label.text = text.substr(0, i + 1)
+
+		# Choose style based on unit type (infantry vs merc)
+		var style := 0
+		if u != null and is_instance_valid(u) and u.has_meta("voice_style"):
+			style = int(u.get_meta("voice_style")) # 0 infantry, 1 merc
+
+		_bubble_voice_tick(text.substr(i, 1), style)
+
+		await get_tree().process_frame
+
+		# ✅ post-await re-check (panel can die during await)
+		if u == null or not is_instance_valid(u):
+			break
+		if panel == null or not is_instance_valid(panel):
+			break
+
+		# If it grows too wide, clamp width once and let autowrap handle the rest
+		if not wrapped and bubble_max_width > 0.0:
+			var w := panel.size.x
+			if w > bubble_max_width:
+				wrapped = true
+				label.custom_minimum_size.x = bubble_max_width
+				await get_tree().process_frame
+
+				# ✅ re-check again after await
+				if u == null or not is_instance_valid(u):
+					break
+				if panel == null or not is_instance_valid(panel):
+					break
+
+		# Reposition + center
+		panel.position = _world_to_ui(u.global_position + Vector2(0, bubble_y_offset_px))
+		panel.position.x -= panel.size.x * 0.5
+
+		await get_tree().create_timer(delay).timeout
+
+	# -------------------------
+	# Hold + fade + cleanup
+	# -------------------------
+	if panel == null or not is_instance_valid(panel):
+		return
+
+	if panel == null or not is_instance_valid(panel):
+		return
+
+	var tw := create_tween()
+	tw.tween_interval(max(0.01, bubble_duration))
+	tw.tween_property(panel, "modulate:a", 0.0, max(0.01, bubble_fade_time))
+	tw.finished.connect(func():
+		if u != null and is_instance_valid(u):
+			_kill_bubble(u)
+		elif panel != null and is_instance_valid(panel):
+			panel.queue_free()
+	)
+
+func _world_to_ui(p_world: Vector2) -> Vector2:
+	# world -> canvas (screen-ish) coords
+	var canvas_pos := get_viewport().get_canvas_transform() * p_world
+	# canvas -> bubble_ui_root local coords
+	return bubble_ui_root.get_global_transform_with_canvas().affine_inverse() * canvas_pos
+
+func _bubble_voice_tick(ch: String, voice_style := 0) -> void:
+	if bubble_voice_stream == null:
+		return
+
+	if ch == " " and randf() > bubble_voice_space_chance:
+		return
+	if (ch == "." or ch == "!" or ch == "?" or ch == ",") and randf() > bubble_voice_punct_chance:
+		return
+
+	var p := AudioStreamPlayer.new()
+	p.stream = bubble_voice_stream
+	p.bus = bubble_voice_bus
+	p.volume_db = linear_to_db(clamp(bubble_voice_volume, 0.0, 2.0))
+
+	var base := bubble_voice_pitch_base * (0.98 if voice_style == 0 else 0.92)
+	var jitter := randf_range(-bubble_voice_pitch_jitter, bubble_voice_pitch_jitter)
+
+	var lower := ch.to_lower()
+	if lower in ["a","e","i","o","u"]:
+		jitter += 0.05
+
+	p.pitch_scale = max(0.05, base + jitter)
+
+	add_child(p)
+	p.finished.connect(func():
+		if p != null and is_instance_valid(p):
+			p.queue_free()
+	)
+
+	p.play()
