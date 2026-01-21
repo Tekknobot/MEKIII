@@ -230,16 +230,50 @@ func skip_attack_for_selected(u: Unit) -> void:
 # Enemy AI
 # -----------------------
 func _run_enemy_turns() -> void:
-	# No infinite loops: each enemy gets exactly one turn.
 	var enemies: Array[Unit] = []
+	var allies: Array[Unit] = []
+
 	for u in M.get_all_units():
+		if u == null or not is_instance_valid(u):
+			continue
 		if u.team == Unit.Team.ENEMY:
 			enemies.append(u)
+		elif u.team == Unit.Team.ALLY:
+			allies.append(u)
+
+	if enemies.is_empty() or allies.is_empty():
+		return
 
 	for z in enemies:
 		if z == null or not is_instance_valid(z):
 			continue
+
+		# ✅ Only act if within "vision" of any ally
+		if not _enemy_in_ally_vision(z, allies):
+			continue
+
 		await _enemy_take_turn(z)
+
+func _enemy_in_ally_vision(z: Unit, allies: Array[Unit]) -> bool:
+	var zc := z.cell
+
+	for a in allies:
+		if a == null or not is_instance_valid(a):
+			continue
+
+		# vision distance = ally movement + 3
+		var vis := 0
+		if "move_range" in a:
+			vis = int(a.move_range) + 3
+		else:
+			vis = 3
+
+		# Manhattan distance on your grid
+		var d = abs(zc.x - a.cell.x) + abs(zc.y - a.cell.y)
+		if d <= vis:
+			return true
+
+	return false
 
 func _enemy_take_turn(z: Unit) -> void:
 	if z == null or not is_instance_valid(z):
