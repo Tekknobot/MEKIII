@@ -3100,80 +3100,94 @@ func _all_allies_done() -> bool:
 			return false
 	return true
 
+func _edge_spawn_ok(c: Vector2i, structure_blocked: Dictionary) -> bool:
+	if not _is_walkable(c):
+		return false
+	if structure_blocked.has(c):
+		return false
+	if units_by_cell.has(c):
+		return false
+	return true
+
 func spawn_edge_road_zombie() -> void:
-	if enemy_zombie_scene == null:
-		return
-	if units_root == null or terrain == null or grid == null:
+	if enemy_zombie_scene == null or units_root == null or terrain == null or grid == null:
 		return
 
-	# If you track structure blockers, use them too
 	var structure_blocked: Dictionary = {}
 	if game_ref != null and "structure_blocked" in game_ref:
 		structure_blocked = game_ref.structure_blocked
 
-	# 1) Use the whole map bounds from grid (more reliable than get_used_cells)
-	var min_x := 0
-	var min_y := 0
-	var max_x := int(grid.w) - 1
-	var max_y := int(grid.h) - 1
-	if max_x < 0 or max_y < 0:
+	var w := int(grid.w)
+	var h := int(grid.h)
+	if w <= 0 or h <= 0:
 		return
 
-	# 2) Collect all EDGE road tiles that are walkable + free
-	var road_cells: Array[Vector2i] = []
+	# -----------------------------------------
+	# 1) Search rings from edge -> inward
+	# -----------------------------------------
+	var best_cell := Vector2i(-1, -1)
+	var max_inset := int(min(w, h) / 2)
 
-	for x in range(min_x, max_x + 1):
-		for y in range(min_y, max_y + 1):
-			# edge only
-			if x != min_x and x != max_x and y != min_y and y != max_y:
-				continue
+	for inset in range(max_inset + 1):
+		var min_x := inset
+		var min_y := inset
+		var max_x := (w - 1) - inset
+		var max_y := (h - 1) - inset
 
-			var c := Vector2i(x, y)
+		if min_x > max_x or min_y > max_y:
+			break
 
-			# must be walkable terrain (not water)
-			if not _is_walkable(c):
-				continue
+		var ring: Array[Vector2i] = []
 
-			# must be a road tile (your own logic)
-			if not _is_road_tile(c):
-				continue
+		# Top + Bottom rows
+		for x in range(min_x, max_x + 1):
+			ring.append(Vector2i(x, min_y))
+			if max_y != min_y:
+				ring.append(Vector2i(x, max_y))
 
-			# structures block spawns too
-			if structure_blocked.has(c):
-				continue
+		# Left + Right cols (excluding corners already added)
+		for y in range(min_y + 1, max_y):
+			ring.append(Vector2i(min_x, y))
+			if max_x != min_x:
+				ring.append(Vector2i(max_x, y))
 
-			# must be empty
-			if units_by_cell.has(c):
-				continue
+		var valid: Array[Vector2i] = []
+		for c in ring:
+			if _edge_spawn_ok(c, structure_blocked):
+				valid.append(c)
 
-			road_cells.append(c)
+		if not valid.is_empty():
+			best_cell = valid.pick_random()
+			break
 
-	if road_cells.is_empty():
+	if best_cell.x < 0:
 		return
 
-	# 3) Pick a random edge-road cell
-	var spawn_cell = road_cells.pick_random()
-
-	# 4) Instantiate zombie (spawn invisible)
+	# -----------------------------------------
+	# 2) Spawn + fade in (fade the render node)
+	# -----------------------------------------
 	var z := enemy_zombie_scene.instantiate() as Unit
 	if z == null:
 		return
-
-	z.modulate = Color(1, 1, 1, 0.0)
 
 	units_root.add_child(z)
 	z.team = Unit.Team.ENEMY
 	z.hp = z.max_hp
 
-	z.set_cell(spawn_cell, terrain)
-	units_by_cell[spawn_cell] = z
+	z.set_cell(best_cell, terrain)
+	units_by_cell[best_cell] = z
 	_set_unit_depth_from_world(z, z.global_position)
 
-	# 5) Fade in
-	var tw := create_tween()
-	tw.set_trans(Tween.TRANS_SINE)
-	tw.set_ease(Tween.EASE_OUT)
-	tw.tween_property(z, "modulate:a", 1.0, enemy_fade_time)
+	var ci := _get_unit_render_node(z)
+	if ci != null and is_instance_valid(ci):
+		var m := ci.modulate
+		m.a = 0.0
+		ci.modulate = m
+
+		var tw := create_tween()
+		tw.set_trans(Tween.TRANS_SINE)
+		tw.set_ease(Tween.EASE_OUT)
+		tw.tween_property(ci, "modulate:a", 1.0, enemy_fade_time)
 
 func _is_road_tile(cell: Vector2i) -> bool:
 	# Roads are tracked logically in Game.gd (terrain cell coverage).
