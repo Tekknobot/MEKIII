@@ -1175,7 +1175,7 @@ func _draw_attack_range(u: Unit) -> void:
 			overlay_tiles_root.add_child(t) # ✅ IMPORTANT
 			t.global_position = terrain.to_global(terrain.map_to_local(c))
 			t.z_as_relative = false
-			t.z_index = 1 + (c.x + c.y)
+			t.z_index = 0 + (c.x + c.y)
 
 func _refresh_overlays() -> void:
 	_clear_overlay()
