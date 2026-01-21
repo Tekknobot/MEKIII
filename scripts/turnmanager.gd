@@ -29,6 +29,7 @@ var phase: Phase = Phase.PLAYER
 var _moved: Dictionary = {}   # Unit -> bool
 var _attacked: Dictionary = {}# Unit -> bool
 
+var enemy_spawn_count := 1   # how many edge zombies to spawn per round
 
 func _ready() -> void:
 	if end_turn_button:
@@ -92,9 +93,13 @@ func start_enemy_phase() -> void:
 	if M != null:
 		M.tick_overwatch_turn()
 
-	# ✅ Endless survival spawn
+	# ✅ Endless survival spawn — now scalable
 	if M != null and M.has_method("spawn_edge_road_zombie"):
-		M.spawn_edge_road_zombie()
+		for i in enemy_spawn_count:
+			M.spawn_edge_road_zombie()
+
+	# ✅ Increase spawn count for next round
+	enemy_spawn_count += 1
 
 	start_player_phase()
 
