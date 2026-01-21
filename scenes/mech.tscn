@@ -212,6 +212,24 @@ animations = [{
 
 [node name="Unit" type="CharacterBody2D"]
 script = ExtResource("1_0w1yf")
+missile_range = null
+missile_flight_time = null
+missile_arc_height_px = null
+missile_splash_radius = null
+missile_damage = null
+team = null
+footprint_size = null
+move_range = null
+attack_range = null
+attack_damage = null
+tnt_throw_range = null
+max_hp = null
+hp = null
+z_base = null
+z_per_cell = null
+sprite_path = null
+sfx_hurt = null
+sfx_death = null
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="."]
 position = Vector2(0, -9)

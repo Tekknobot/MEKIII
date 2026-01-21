@@ -186,6 +186,13 @@ var overlay_ghosts_root: Node2D = null
 @export var recruit_sfx: StringName = &"recruit_spawn"
 var recruit_round_stamp: int = 0
 
+@export var recruit_bot_scene: PackedScene   # drag RecruitBot.tscn here
+
+@export var sfx_missile_launch := &"missile_launch"
+@export var sfx_missile_whizz := &"missile_whizz" # optional
+@export var missile_line_alpha_start := 0.85
+@export var missile_line_alpha_end := 0.10
+
 func _sfx(cue: StringName, vol := 1.0, pitch := 1.0, world_pos: Variant = null) -> void:
 	if SFX == null:
 		return
@@ -1088,10 +1095,6 @@ func _do_attack(attacker: Unit, defender: Unit) -> void:
 
 	await _wait_for_attack_anim(attacker)
 	await get_tree().create_timer(attack_anim_lock_time).timeout
-
-	# ✅ NEW: melee knockback for HumanTwo + Mech (only if defender survived)
-	if defender != null and is_instance_valid(defender) and defender.hp > 0:
-		await _try_melee_knockback(attacker, defender)
 
 	# ✅ defender might be freed now, so never pass it as a typed arg
 	_cleanup_dead_at(def_cell)
@@ -3354,14 +3357,18 @@ func _find_open_adjacent_to_structure(s_cell: Vector2i) -> Vector2i:
 	# Prefer closer-to-player-ish: pick random is fine, but you can sort if you want
 	return candidates.pick_random()
 
-
 func _spawn_recruited_ally_fadein(spawn_cell: Vector2i) -> void:
-	var scene = ally_scenes.pick_random()
-	if scene == null:
+	if recruit_bot_scene == null:
+		push_warning("Recruit: recruit_bot_scene not assigned.")
+		return
+	if terrain == null or units_root == null:
+		return
+	if units_by_cell.has(spawn_cell):
 		return
 
-	var u := scene.instantiate() as Unit
+	var u := recruit_bot_scene.instantiate() as Unit
 	if u == null:
+		push_warning("Recruit: recruit_bot_scene root must extend Unit.")
 		return
 
 	units_root.add_child(u)
@@ -3373,7 +3380,7 @@ func _spawn_recruited_ally_fadein(spawn_cell: Vector2i) -> void:
 	units_by_cell[spawn_cell] = u
 	_set_unit_depth_from_world(u, u.global_position)
 
-	# Get render node AFTER set_cell (safer if scenes swap visuals etc.)
+	# Fade in (fade the render node, not the Unit)
 	var ci := _get_unit_render_node(u)
 	if ci != null and is_instance_valid(ci):
 		var m := ci.modulate
@@ -3381,16 +3388,14 @@ func _spawn_recruited_ally_fadein(spawn_cell: Vector2i) -> void:
 		ci.modulate = m
 
 	_sfx(recruit_sfx, sfx_volume_world, randf_range(0.95, 1.05), _cell_world(spawn_cell))
-	_say(u, "Reinforcements!")
+	_say(u, "Recruited!")
 
-	# Fade in
 	if ci != null and is_instance_valid(ci):
 		var tw := create_tween()
 		tw.set_trans(Tween.TRANS_SINE)
 		tw.set_ease(Tween.EASE_OUT)
 		tw.tween_property(ci, "modulate:a", 1.0, max(0.01, recruit_fade_time))
 
-		# ✅ Apply indicators AFTER fade (so they can't override alpha)
 		tw.finished.connect(func():
 			_apply_turn_indicators_all_allies()
 			if TM != null:
@@ -3400,10 +3405,185 @@ func _spawn_recruited_ally_fadein(spawn_cell: Vector2i) -> void:
 					TM._update_special_buttons()
 		)
 	else:
-		# No render node => just do tracking immediately
 		_apply_turn_indicators_all_allies()
 		if TM != null:
 			if TM.has_method("on_units_spawned"):
 				TM.on_units_spawned()
 			if TM.has_method("_update_special_buttons"):
 				TM._update_special_buttons()
+
+func get_all_enemies() -> Array[Unit]:
+	var out: Array[Unit] = []
+	for u in get_all_units():
+		if u != null and is_instance_valid(u) and u.team == Unit.Team.ENEMY:
+			out.append(u)
+	return out
+
+
+func fire_support_missile_line_async(
+	from_cell: Vector2i,
+	to_cell: Vector2i,
+	flight_time := 1.35,
+	arc_height_px := 54.0
+) -> void:
+	if terrain == null:
+		return
+
+	var line := Line2D.new()
+	line.width = 1.0
+	line.antialiased = true
+	line.z_as_relative = false
+
+	# Start slightly transparent (you can tweak)
+	line.modulate.a = missile_line_alpha_start
+
+	if overlay_root != null:
+		overlay_root.add_child(line)
+	else:
+		add_child(line)
+
+	var start := terrain.to_global(terrain.map_to_local(from_cell))
+	var end := terrain.to_global(terrain.map_to_local(to_cell))
+
+	line.add_point(start)
+	line.add_point(start)
+
+	# SFX at launch
+	_sfx(sfx_missile_launch, sfx_volume_world, randf_range(0.95, 1.05), start)
+
+	var tw := create_tween()
+	tw.set_trans(Tween.TRANS_LINEAR)
+	tw.set_ease(Tween.EASE_IN_OUT)
+
+	# Fade line a bit while flying (optional)
+	tw.parallel().tween_property(line, "modulate:a", missile_line_alpha_end, max(0.01, flight_time))
+
+	tw.parallel().tween_method(func(t: float) -> void:
+		if line == null or not is_instance_valid(line):
+			return
+
+		var pos := start.lerp(end, t)
+		var peak := 4.0 * t * (1.0 - t)
+		pos.y -= arc_height_px * peak
+
+		line.set_point_position(0, start)
+		line.set_point_position(1, pos)
+
+		# Depth from moving tip
+		var local := terrain.to_local(pos)
+		var c := terrain.local_to_map(local)
+		line.z_index = 10 + (c.x + c.y)
+	, 0.0, 1.0, max(0.01, flight_time))
+
+	tw.finished.connect(func():
+		if line != null and is_instance_valid(line):
+			line.queue_free()
+	)
+
+func fire_support_missile_curve_async(
+	from_cell: Vector2i,
+	to_cell: Vector2i,
+	flight_time := 0.35,
+	arc_height_px := 54.0,
+	steps := 28
+) -> void:
+	if terrain == null:
+		return
+
+	var parent_node: Node2D = overlay_root if (overlay_root != null and is_instance_valid(overlay_root)) else self
+
+	var line := Line2D.new()
+	line.width = 1.0
+	line.antialiased = true
+	line.z_as_relative = false
+	line.default_color = Color(1, 1, 1, 1) # make sure it actually draws
+	line.modulate.a = missile_line_alpha_start
+	parent_node.add_child(line)
+
+	# WORLD positions
+	var start_w := terrain.to_global(terrain.map_to_local(from_cell))
+	var end_w := terrain.to_global(terrain.map_to_local(to_cell))
+
+	# Convert to LOCAL (Line2D points are local-to-parent)
+	var start := parent_node.to_local(start_w)
+	var end := parent_node.to_local(end_w)
+
+	steps = max(8, int(steps))
+
+	# Precompute curve points in LOCAL space
+	var curve: Array[Vector2] = []
+	curve.resize(steps + 1)
+	for i in range(steps + 1):
+		var t := float(i) / float(steps)
+		var pos := start.lerp(end, t)
+		var peak := 4.0 * t * (1.0 - t)  # 0..1..0
+		pos.y -= arc_height_px * peak     # curve "up" in screen space
+		curve[i] = pos
+
+	# Seed (needs 2 points to show)
+	line.clear_points()
+	line.add_point(curve[0])
+	line.add_point(curve[0])
+
+	# Launch SFX in WORLD
+	_sfx(sfx_missile_launch, sfx_volume_world, randf_range(0.95, 1.05), start_w)
+
+	var tw := create_tween()
+	tw.set_trans(Tween.TRANS_LINEAR)
+	tw.set_ease(Tween.EASE_IN_OUT)
+
+	tw.parallel().tween_property(line, "modulate:a", missile_line_alpha_end, max(0.01, flight_time))
+
+	tw.parallel().tween_method(func(tt: float) -> void:
+		if line == null or not is_instance_valid(line):
+			return
+
+		var last_i = clamp(int(floor(tt * steps)), 0, steps)
+		var need = last_i + 1
+
+		# Ensure enough revealed points
+		while line.get_point_count() < need:
+			line.add_point(curve[line.get_point_count()])
+
+		# Smooth tip between samples (LOCAL)
+		var tip := start.lerp(end, tt)
+		var peak := 4.0 * tt * (1.0 - tt)
+		tip.y -= arc_height_px * peak
+		line.set_point_position(line.get_point_count() - 1, tip)
+
+		# Depth from tip in WORLD (convert tip local->world)
+		var tip_w := parent_node.to_global(tip)
+		var local_in_terrain := terrain.to_local(tip_w)
+		var c := terrain.local_to_map(local_in_terrain)
+		line.z_index = 10 + (c.x + c.y)
+	, 0.0, 1.0, max(0.01, flight_time))
+
+	tw.finished.connect(func():
+		if line != null and is_instance_valid(line):
+			line.queue_free()
+	)
+
+
+func run_recruit_support_phase() -> void:
+	var recruits: Array[RecruitBot] = []
+	for u in get_all_units():
+		if u != null and is_instance_valid(u) and u is RecruitBot:
+			recruits.append(u as RecruitBot)
+
+	if recruits.is_empty():
+		return
+
+	# Optional: stable order
+	recruits.sort_custom(func(a: RecruitBot, b: RecruitBot) -> bool:
+		return (a.cell.x + a.cell.y) < (b.cell.x + b.cell.y)
+	)
+
+	# Run each recruit once
+	for r in recruits:
+		if r == null or not is_instance_valid(r):
+			continue
+		# Don’t double-fire if already acted (in case you call this twice)
+		if _unit_has_attacked(r):
+			continue
+
+		await r.auto_support_action(self)

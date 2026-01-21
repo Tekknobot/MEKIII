@@ -120,7 +120,12 @@ func _on_end_turn_pressed() -> void:
 			_attacked[u] = true
 			M.set_unit_exhausted(u, true)
 
+	# ✅ NEW: support bots act here (before enemies)
+	await _run_support_bots_phase()
+
+	# ✅ then enemies
 	await start_enemy_phase()
+
 
 func _on_selection_changed(_u: Unit) -> void:
 	_update_special_buttons()
@@ -634,3 +639,34 @@ func _tick_buffs_enemy_phase_start() -> void:
 	# ✅ If any buff state changed, refresh special buttons now
 	if changed:
 		_update_special_buttons()
+
+func _try_end_player_phase_if_done() -> void:
+	if M == null:
+		return
+	if _all_allies_done():
+		await _run_support_bots_phase()
+		await start_enemy_phase()
+
+func _run_support_bots_phase() -> void:
+	var prev := phase
+	phase = Phase.BUSY
+	_update_end_turn_button()
+	_update_special_buttons()
+
+	for u in M.get_all_units():
+		if u == null or not is_instance_valid(u):
+			continue
+		if u.team != Unit.Team.ALLY:
+			continue
+		if not (u is RecruitBot):
+			continue
+		if M.get_all_enemies().is_empty():
+			break
+
+		await (u as RecruitBot).auto_support_action(M)
+
+	# leave it BUSY if we're transitioning to enemy anyway,
+	# but restore if caller wasn’t doing a transition
+	phase = prev
+	_update_end_turn_button()
+	_update_special_buttons()

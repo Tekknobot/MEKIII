@@ -1,4 +1,4 @@
-[gd_scene load_steps=75 format=3 uid="uid://bmtwqbsx674eo"]
+[gd_scene load_steps=74 format=3 uid="uid://bmtwqbsx674eo"]
 
 [ext_resource type="Script" uid="uid://bn08mhcoceqg" path="res://scripts/game.gd" id="1_400sg"]
 [ext_resource type="Texture2D" uid="uid://by1nnygq8fbib" path="res://sprites/Terrain/dirt.png" id="6_mcffj"]
@@ -42,7 +42,6 @@
 [ext_resource type="AudioStream" uid="uid://dpslt5sraa3ko" path="res://audio/Zombie/zombie_massacre_vocal_impact_pain_hurt_01.wav" id="40_27c7x"]
 [ext_resource type="Texture2D" uid="uid://bsyc60b8surhm" path="res://sprites/Tiles_UI/mek3/1x1_no_attack.png" id="41_evnk2"]
 [ext_resource type="AudioStream" uid="uid://8c083clar0gj" path="res://audio/Zombie/human_death.wav" id="41_ho5ir"]
-[ext_resource type="AudioStream" uid="uid://bmery8486ov70" path="res://audio/SFX/missile_launch.wav" id="42_lscvm"]
 [ext_resource type="AudioStream" uid="uid://dvauweeh0mxu1" path="res://audio/SFX/Blip3.wav" id="43_evnk2"]
 [ext_resource type="PackedScene" uid="uid://b3mmncyiyeetr" path="res://scenes/mechtwo.tscn" id="44_ca228"]
 
@@ -363,7 +362,6 @@ sfx_streams = {
 "attack_swing": ExtResource("37_27c7x"),
 "explosion_small": ExtResource("39_evnk2"),
 "mine_place": null,
-"missile_launch": ExtResource("42_lscvm"),
 "move_end": null,
 "move_start": ExtResource("36_m2g6u"),
 "move_step": ExtResource("36_m2g6u"),
