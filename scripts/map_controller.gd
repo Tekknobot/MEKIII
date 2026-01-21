@@ -180,6 +180,12 @@ var overlay_ghosts_root: Node2D = null
 @export var ringout_fade_time := 0.22        # optional fade out after shove
 @export var ringout_drop_px := 10.0          # optional little drop while leaving
 
+@export var recruit_enabled: bool = true
+@export var recruit_once_per_structure_per_round: bool = true
+@export var recruit_fade_time: float = 1.55
+@export var recruit_sfx: StringName = &"recruit_spawn"
+var recruit_round_stamp: int = 0
+
 func _sfx(cue: StringName, vol := 1.0, pitch := 1.0, world_pos: Variant = null) -> void:
 	if SFX == null:
 		return
@@ -362,6 +368,7 @@ func spawn_units() -> void:
 		return
 
 	clear_all()
+	recruit_round_stamp += 1
 
 	# Structure-blocked cells from Game
 	var structure_blocked: Dictionary = {}
@@ -1195,24 +1202,39 @@ func _refresh_overlays() -> void:
 	if _unit_has_attacked(selected) and aim_mode == AimMode.SPECIAL:
 		return
 
-	# SPECIAL aim
+	# SPECIAL aim stays SPECIAL
 	if aim_mode == AimMode.SPECIAL:
 		_draw_special_range(selected, String(special_id))
 		return
 
-	# ATTACK preview
-	if aim_mode == AimMode.ATTACK:
-		if not _unit_has_attacked(selected):
-			_draw_attack_range(selected)
+	# -----------------------------------
+	# Decide what we SHOULD show, then force aim_mode to match
+	# -----------------------------------
+	var should_show_attack := false
+	var should_show_move := false
 
-	# MOVE preview
+	if _unit_has_attacked(selected):
+		# nothing to show (or you could show none)
+		should_show_attack = false
+		should_show_move = false
+	elif not _unit_has_moved(selected):
+		# still has move -> show move tiles
+		should_show_move = true
 	else:
-		if not _unit_has_moved(selected):
-			_draw_move_range(selected)
-		elif not _unit_has_attacked(selected):
-			_draw_attack_range(selected)
+		# moved but not attacked -> show attack tiles
+		should_show_attack = true
 
+	# ✅ If attack tiles will be shown, switch to ATTACK mode automatically
+	if should_show_attack:
+		aim_mode = AimMode.ATTACK
+	else:
+		aim_mode = AimMode.MOVE
 
+	# Draw overlays based on the final mode
+	if aim_mode == AimMode.ATTACK and should_show_attack:
+		_draw_attack_range(selected)
+	elif aim_mode == AimMode.MOVE and should_show_move:
+		_draw_move_range(selected)
 
 func _set_aim_mode(m: AimMode) -> void:
 	aim_mode = m
@@ -1419,6 +1441,11 @@ func _move_selected_to(target: Vector2i) -> void:
 		#await _check_overwatch_trigger(u, step_cell)
 
 	u.set_cell(target, terrain)
+	
+	# After move complete + mines resolved:
+	if u != null and is_instance_valid(u) and u.team == Unit.Team.ALLY:
+		_try_recruit_near_structure(u)
+
 	if u.team == Unit.Team.ALLY:
 		_set_unit_moved(u, true)
 
@@ -3223,3 +3250,139 @@ func _ringout_push_and_die(attacker: Unit, defender: Unit) -> void:
 	_remove_unit_from_board_at_cell(def_cell)
 
 	_is_moving = false
+
+func _try_recruit_near_structure(mover: Unit) -> void:
+	if not recruit_enabled:
+		return
+	if mover == null or not is_instance_valid(mover):
+		return
+	if mover.team != Unit.Team.ALLY:
+		return
+	if ally_scenes.is_empty():
+		return
+	if terrain == null or units_root == null or grid == null:
+		return
+
+	# Find an adjacent structure cell (8-neighbors)
+	var s_cell := _find_adjacent_structure_cell(mover.cell)
+	if s_cell.x < -100:
+		return
+
+	# Optional: only recruit once per structure per round
+	if recruit_once_per_structure_per_round:
+		var s := _structure_at_cell(s_cell)
+		if s != null and is_instance_valid(s):
+			var stamp: int = int(s.get_meta("recruit_stamp", -999))
+			if stamp == recruit_round_stamp:
+				return
+			s.set_meta("recruit_stamp", recruit_round_stamp)
+
+	# Find an open adjacent tile to the structure (spawn location)
+	var spawn_cell := _find_open_adjacent_to_structure(s_cell)
+	if spawn_cell.x < 0:
+		return
+
+	_spawn_recruited_ally_fadein(spawn_cell)
+
+
+func _find_adjacent_structure_cell(cell: Vector2i) -> Vector2i:
+	# check 8-neighbors around the mover to see if any is occupied by a structure footprint
+	for dx in [-1, 0, 1]:
+		for dy in [-1, 0, 1]:
+			if dx == 0 and dy == 0:
+				continue
+			var c := cell + Vector2i(dx, dy)
+			if grid != null and grid.has_method("in_bounds") and not grid.in_bounds(c):
+				continue
+			var s := _structure_at_cell(c)
+			if s != null and is_instance_valid(s):
+				return c
+	return Vector2i(-999, -999)
+
+
+func _find_open_adjacent_to_structure(s_cell: Vector2i) -> Vector2i:
+	# Use structure-blocked dict if you have it
+	var structure_blocked: Dictionary = {} as Dictionary
+
+	if game_ref != null and "structure_blocked" in game_ref:
+		structure_blocked = game_ref.structure_blocked
+
+	var candidates: Array[Vector2i] = []
+	for dx in [-1, 0, 1]:
+		for dy in [-1, 0, 1]:
+			if dx == 0 and dy == 0:
+				continue
+			var c := s_cell + Vector2i(dx, dy)
+
+			if grid != null and grid.has_method("in_bounds") and not grid.in_bounds(c):
+				continue
+			if not _is_walkable(c):
+				continue
+			if structure_blocked.has(c):
+				continue
+			if units_by_cell.has(c):
+				continue
+			if mines_by_cell.has(c):
+				continue
+
+			candidates.append(c)
+
+	if candidates.is_empty():
+		return Vector2i(-1, -1)
+
+	# Prefer closer-to-player-ish: pick random is fine, but you can sort if you want
+	return candidates.pick_random()
+
+
+func _spawn_recruited_ally_fadein(spawn_cell: Vector2i) -> void:
+	var scene = ally_scenes.pick_random()
+	if scene == null:
+		return
+
+	var u := scene.instantiate() as Unit
+	if u == null:
+		return
+
+	units_root.add_child(u)
+	u.team = Unit.Team.ALLY
+	u.hp = u.max_hp
+
+	# Put on grid first
+	u.set_cell(spawn_cell, terrain)
+	units_by_cell[spawn_cell] = u
+	_set_unit_depth_from_world(u, u.global_position)
+
+	# Get render node AFTER set_cell (safer if scenes swap visuals etc.)
+	var ci := _get_unit_render_node(u)
+	if ci != null and is_instance_valid(ci):
+		var m := ci.modulate
+		m.a = 0.0
+		ci.modulate = m
+
+	_sfx(recruit_sfx, sfx_volume_world, randf_range(0.95, 1.05), _cell_world(spawn_cell))
+	_say(u, "Reinforcements!")
+
+	# Fade in
+	if ci != null and is_instance_valid(ci):
+		var tw := create_tween()
+		tw.set_trans(Tween.TRANS_SINE)
+		tw.set_ease(Tween.EASE_OUT)
+		tw.tween_property(ci, "modulate:a", 1.0, max(0.01, recruit_fade_time))
+
+		# ✅ Apply indicators AFTER fade (so they can't override alpha)
+		tw.finished.connect(func():
+			_apply_turn_indicators_all_allies()
+			if TM != null:
+				if TM.has_method("on_units_spawned"):
+					TM.on_units_spawned()
+				if TM.has_method("_update_special_buttons"):
+					TM._update_special_buttons()
+		)
+	else:
+		# No render node => just do tracking immediately
+		_apply_turn_indicators_all_allies()
+		if TM != null:
+			if TM.has_method("on_units_spawned"):
+				TM.on_units_spawned()
+			if TM.has_method("_update_special_buttons"):
+				TM._update_special_buttons()

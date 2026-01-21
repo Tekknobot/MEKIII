@@ -3,3 +3,4 @@ res://shaders/outline_1px.gdshader
 res://scripts/map_controller.gd
 res://scripts/turnmanager.gd
 res://scenes/enemy_move_tile.tscn
+res://scenes/human.tscn

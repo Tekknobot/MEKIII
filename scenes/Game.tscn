@@ -372,7 +372,6 @@ sfx_streams = {
 "unit_hurt": ExtResource("40_27c7x")
 }
 tnt_unit_splash_damage = 1
-bubble_enabled = false
 bubble_ui_root_path = NodePath("../CanvasLayer/Bubbles")
 bubble_font = ExtResource("32_1gdd5")
 bubble_font_size = 16
