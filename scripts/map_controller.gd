@@ -3438,12 +3438,13 @@ func fire_support_missile_curve_async(
 	line.z_as_relative = false
 	line.default_color = Color(1, 1, 1, 1)
 	line.modulate.a = missile_line_alpha_start
-	line.z_index = 9999999
+	line.z_index = 2 + (from_cell.x + from_cell.y)
 	parent_node.add_child(line)
 
 	var start_w := terrain.to_global(terrain.map_to_local(from_cell))
 	var end_w := terrain.to_global(terrain.map_to_local(to_cell))
 	var start := parent_node.to_local(start_w)
+	start.y -= 8
 	var end := parent_node.to_local(end_w)
 
 	var steps_i = max(8, int(steps))

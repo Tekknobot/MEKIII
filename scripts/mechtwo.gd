@@ -3,7 +3,7 @@ class_name RecruitBot
 
 @export var missile_range := 8
 @export var missile_flight_time := 1.65
-@export var missile_arc_height_px := 84.0
+@export var missile_arc_height_px := 104.0
 @export var missile_splash_radius := 1
 @export var missile_damage := 2   # “hellfire-like”
 
