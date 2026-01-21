@@ -1446,6 +1446,7 @@ func _move_selected_to(target: Vector2i) -> void:
 		TM.notify_player_moved(u)
 
 	if u and u.team != Unit.Team.ENEMY:
+		aim_mode = AimMode.ATTACK
 		_refresh_overlays()
 
 	emit_signal("aim_changed", int(aim_mode), special_id)

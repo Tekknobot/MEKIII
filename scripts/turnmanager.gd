@@ -29,7 +29,7 @@ var phase: Phase = Phase.PLAYER
 var _moved: Dictionary = {}   # Unit -> bool
 var _attacked: Dictionary = {}# Unit -> bool
 
-var enemy_spawn_count := 1   # how many edge zombies to spawn per round
+var enemy_spawn_count := 2   # how many edge zombies to spawn per round
 
 func _ready() -> void:
 	if end_turn_button:
@@ -99,7 +99,7 @@ func start_enemy_phase() -> void:
 			M.spawn_edge_road_zombie()
 
 	# ✅ Increase spawn count for next round
-	enemy_spawn_count += 1
+	enemy_spawn_count *= 2
 
 	start_player_phase()
 
