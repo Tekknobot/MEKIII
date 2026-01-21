@@ -88,10 +88,14 @@ func start_enemy_phase() -> void:
 
 	await _run_enemy_turns()
 
-	# ✅ Overwatch expires after the enemy phase (1 round)
+	# overwatch tick
 	if M != null:
 		M.tick_overwatch_turn()
-			
+
+	# ✅ Endless survival spawn
+	if M != null and M.has_method("spawn_edge_road_zombie"):
+		M.spawn_edge_road_zombie()
+
 	start_player_phase()
 
 func _on_end_turn_pressed() -> void:

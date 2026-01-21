@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3 uid="uid://q7jjld351y04"]
+
+[ext_resource type="Texture2D" path="res://sprites/Tiles_UI/mek3/1x1_enemy_move.png" id="1_fayxp"]
+
+[node name="EnemyMoveTile" type="Sprite2D"]
+texture = ExtResource("1_fayxp")

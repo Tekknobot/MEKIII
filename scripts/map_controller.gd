@@ -173,6 +173,12 @@ var overlay_ghosts_root: Node2D = null
 @export var pulse_scale := 1.08
 @export var pulse_time := 0.22
 
+@export var enemy_fade_time := 1.6
+
+@export var ringout_push_px := 16.0          # how far to shove off-map visually
+@export var ringout_push_time := 0.18        # shove duration
+@export var ringout_fade_time := 0.22        # optional fade out after shove
+@export var ringout_drop_px := 10.0          # optional little drop while leaving
 
 func _sfx(cue: StringName, vol := 1.0, pitch := 1.0, world_pos: Variant = null) -> void:
 	if SFX == null:
@@ -1907,9 +1913,40 @@ func _try_melee_knockback(attacker: Unit, defender: Unit) -> void:
 
 	var dest := _knockback_destination(attacker.cell, defender.cell)
 
-	# Bounds + water + structures still block knockback
-	if grid != null and grid.has_method("in_bounds") and not grid.in_bounds(dest):
+	# -----------------------------------------
+	# ✅ NEW: zombies can be shoved OFF-MAP
+	# -----------------------------------------
+	var in_bounds := true
+	if grid != null and grid.has_method("in_bounds"):
+		in_bounds = grid.in_bounds(dest)
+
+	if not in_bounds:
+		# Only zombies get "ring-out" death
+		if _is_zombie(defender):
+			await _ringout_push_and_die(attacker, defender)
+			_is_moving = true
+
+			# Small hit feedback before dying
+			_flash_unit_white(defender, max(attack_flash_time, 0.12))
+			_jitter_unit(defender, 3.5, 6, 0.14)
+
+			# Kill + play death anim, then remove from board
+			defender.hp = 0
+
+			var victim := defender  # keep a local ref
+			await _play_death_and_wait(victim)
+
+			# ✅ If the death function freed it, don't touch it anymore
+			if victim == null or not is_instance_valid(victim):
+				_is_moving = false
+				return
+
+			_remove_unit_from_board(victim)
+
+			_is_moving = false
 		return
+
+	# Normal knockback rules still apply in-bounds
 	if not _is_walkable(dest):
 		return
 
@@ -1920,35 +1957,25 @@ func _try_melee_knockback(attacker: Unit, defender: Unit) -> void:
 		return
 
 	# -------------------------
-	# NEW: allow "collision" only into OTHER ZOMBIES
+	# Allow "collision" only into OTHER ZOMBIES
 	# -------------------------
 	var occupant := unit_at_cell(dest)
 
-	# If occupied by something:
 	if occupant != null and is_instance_valid(occupant):
 		# Only allow knockback INTO a zombie, and ONLY when defender is also a zombie
 		if _is_zombie(defender) and _is_zombie(occupant):
 			_is_moving = true
 
-			# Snap defender onto the occupied cell (optional, but makes collision feel real)
 			await _push_unit_to_cell(defender, dest)
 
-			# Flash both on impact (quick + readable)
 			_flash_unit_white(defender, max(attack_flash_time, 0.12))
 			_flash_unit_white(occupant, max(attack_flash_time, 0.12))
 
-			# Optional: add a tiny impact pause so the flash registers
 			await get_tree().create_timer(0.06).timeout
 
-			# Kill both instantly, but let death anims play fully
 			defender.hp = 0
 			occupant.hp = 0
 
-			# Kill both instantly, but let death anims play fully
-			defender.hp = 0
-			occupant.hp = 0
-
-			# Play both death anims (sequential keeps it simple + reliable)
 			await _play_death_and_wait(defender)
 			await _play_death_and_wait(occupant)
 
@@ -1956,7 +1983,6 @@ func _try_melee_knockback(attacker: Unit, defender: Unit) -> void:
 			_remove_unit_from_board(occupant)
 
 			_is_moving = false
-		# Occupied by non-zombie (or defender not a zombie) => blocked
 		return
 
 	# Empty destination => normal shove
@@ -3038,3 +3064,161 @@ func _all_allies_done() -> bool:
 		if not _unit_has_moved(u) or not _unit_has_attacked(u):
 			return false
 	return true
+
+func spawn_edge_road_zombie() -> void:
+	if enemy_zombie_scene == null:
+		return
+	if units_root == null or terrain == null or grid == null:
+		return
+
+	# If you track structure blockers, use them too
+	var structure_blocked: Dictionary = {}
+	if game_ref != null and "structure_blocked" in game_ref:
+		structure_blocked = game_ref.structure_blocked
+
+	# 1) Use the whole map bounds from grid (more reliable than get_used_cells)
+	var min_x := 0
+	var min_y := 0
+	var max_x := int(grid.w) - 1
+	var max_y := int(grid.h) - 1
+	if max_x < 0 or max_y < 0:
+		return
+
+	# 2) Collect all EDGE road tiles that are walkable + free
+	var road_cells: Array[Vector2i] = []
+
+	for x in range(min_x, max_x + 1):
+		for y in range(min_y, max_y + 1):
+			# edge only
+			if x != min_x and x != max_x and y != min_y and y != max_y:
+				continue
+
+			var c := Vector2i(x, y)
+
+			# must be walkable terrain (not water)
+			if not _is_walkable(c):
+				continue
+
+			# must be a road tile (your own logic)
+			if not _is_road_tile(c):
+				continue
+
+			# structures block spawns too
+			if structure_blocked.has(c):
+				continue
+
+			# must be empty
+			if units_by_cell.has(c):
+				continue
+
+			road_cells.append(c)
+
+	if road_cells.is_empty():
+		return
+
+	# 3) Pick a random edge-road cell
+	var spawn_cell = road_cells.pick_random()
+
+	# 4) Instantiate zombie (spawn invisible)
+	var z := enemy_zombie_scene.instantiate() as Unit
+	if z == null:
+		return
+
+	z.modulate = Color(1, 1, 1, 0.0)
+
+	units_root.add_child(z)
+	z.team = Unit.Team.ENEMY
+	z.hp = z.max_hp
+
+	z.set_cell(spawn_cell, terrain)
+	units_by_cell[spawn_cell] = z
+	_set_unit_depth_from_world(z, z.global_position)
+
+	# 5) Fade in
+	var tw := create_tween()
+	tw.set_trans(Tween.TRANS_SINE)
+	tw.set_ease(Tween.EASE_OUT)
+	tw.tween_property(z, "modulate:a", 1.0, enemy_fade_time)
+
+func _is_road_tile(cell: Vector2i) -> bool:
+	# Roads are tracked logically in Game.gd (terrain cell coverage).
+	if game_ref == null:
+		return false
+	if not ("road_blocked" in game_ref):
+		return false
+	var rb: Dictionary = game_ref.road_blocked
+	return rb.has(cell)
+
+func _ringout_dir_world(attacker: Unit, defender: Unit) -> Vector2:
+	# Direction from attacker -> defender, in world space
+	var a := _cell_world(attacker.cell)
+	var d := _cell_world(defender.cell)
+	var v := (d - a)
+	if v.length() < 0.001:
+		v = Vector2(1, 0)
+	return v.normalized()
+
+func _ringout_push_and_die(attacker: Unit, defender: Unit) -> void:
+	if attacker == null or defender == null:
+		return
+	if not is_instance_valid(attacker) or not is_instance_valid(defender):
+		return
+
+	_is_moving = true
+
+	var def_cell: Vector2i = defender.cell          # ✅ capture BEFORE awaits
+	var def_id: int = defender.get_instance_id()     # ✅ capture BEFORE awaits
+
+	_flash_unit_white(defender, max(attack_flash_time, 0.12))
+
+	var visual := _get_unit_visual_node(defender)
+	if visual == null or not is_instance_valid(visual):
+		visual = defender
+
+	var from := visual.global_position
+	var dir := _ringout_dir_world(attacker, defender)
+	var to := from + dir * ringout_push_px + Vector2(0, ringout_drop_px)
+
+	var tw := create_tween()
+	tw.set_trans(Tween.TRANS_SINE)
+	tw.set_ease(Tween.EASE_OUT)
+
+	tw.tween_method(func(p: Vector2) -> void:
+		var uu := instance_from_id(def_id)
+		if uu == null or not is_instance_valid(uu):
+			return
+		if not (uu is Unit):
+			return
+		var uuu := uu as Unit
+
+		var vv := _get_unit_visual_node(uuu)
+		if vv == null or not is_instance_valid(vv):
+			vv = uuu
+
+		vv.global_position = p
+		_set_unit_depth_from_world(uuu, p)
+	, from, to, max(0.01, ringout_push_time))
+
+	# Optional fade (safe: re-check inside)
+	var ci := _get_unit_render_node(defender)
+	if ci != null and is_instance_valid(ci):
+		tw.parallel().tween_property(ci, "modulate:a", 0.0, max(0.01, ringout_fade_time))
+
+	await tw.finished
+
+	# ✅ Re-acquire defender safely AFTER await
+	var obj := instance_from_id(def_id)
+	if obj == null or not is_instance_valid(obj) or not (obj is Unit):
+		_is_moving = false
+		# If dictionary still has junk, this cleans it:
+		_cleanup_dead_at(def_cell)
+		return
+
+	var d := obj as Unit
+	d.hp = 0
+	await _play_death_and_wait(d)
+
+	# ✅ Remove by CELL (does not pass freed Unit into typed function)
+	_remove_unit_from_board_at_cell(def_cell)
+
+	_is_moving = false
