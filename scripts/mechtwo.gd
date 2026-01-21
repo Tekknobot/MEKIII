@@ -12,37 +12,69 @@ class_name RecruitBot
 @export var min_safe_distance := 2              # min Manhattan distance from any ALLY to target cell
 @export var avoid_self_splash := true           # don’t target cells that splash-hit the bot
 
-@export var shot_stagger := 0.0          # time between launches
-@export var impact_time_factor := 0.90    # impact happens at flight_time * this
+@export var shot_stagger := 0.3          # time between launches
+@export var impact_time_factor := 0.0    # impact happens at flight_time * this
+
+signal support_impacts_done
+var _pending_impacts := 0
 
 func auto_support_action(M: MapController) -> void:
-	if M == null or M.grid == null:
+	if M == null or not is_instance_valid(M) or M.grid == null:
 		return
 
 	var targets := _pick_all_safe_targets_in_range(M)
 	if targets.is_empty():
-		# (your reposition logic here if you want)
 		return
 
 	var shots = min(int(max_shots_per_action), targets.size())
-	var from_cell := cell
-	var impact_delay = max(0.01, missile_flight_time * impact_time_factor)
 
-	# ✅ LAUNCH ALL MISSILES IMMEDIATELY (same frame)
+	_pending_impacts = 0
+
 	for i in range(shots):
 		var t := targets[i]
 		if t == null or not is_instance_valid(t) or t.hp <= 0:
 			continue
 
-		var to_cell := t.cell # capture now
-		M.fire_support_missile_curve_async(cell, t.cell, missile_flight_time, missile_arc_height_px, 32)
+		var impact_cell := t.cell # capture now
 
-		# schedule impact without blocking
-		_schedule_impact(M, to_cell, impact_delay)
-		
-		await get_tree().create_timer(0.2).timeout
+		var tw := M.fire_support_missile_curve_async(
+			cell,
+			impact_cell,
+			missile_flight_time,
+			missile_arc_height_px,
+			32
+		)
 
-	M._set_unit_attacked(self, true)
+		if tw != null and is_instance_valid(tw):
+			_pending_impacts += 1
+			# when THIS missile tween finishes, do THIS impact
+			tw.finished.connect(Callable(self, "_on_support_missile_arrived").bind(M, impact_cell))
+
+		if shot_stagger > 0.0:
+			await get_tree().create_timer(shot_stagger).timeout
+
+	# wait until all impacts have actually resolved
+	if _pending_impacts > 0:
+		await support_impacts_done
+
+	if M != null and is_instance_valid(M):
+		M._set_unit_attacked(self, true)
+
+func _on_support_missile_arrived(M: MapController, impact_cell: Vector2i) -> void:
+	# M might be gone / scene changed
+	if M == null or not is_instance_valid(M):
+		_pending_impacts = max(0, _pending_impacts - 1)
+		if _pending_impacts == 0:
+			emit_signal("support_impacts_done")
+		return
+
+	await M._apply_splash_damage(impact_cell, missile_splash_radius, missile_damage)
+	M._apply_structure_splash_damage(impact_cell, missile_splash_radius, M.structure_hit_damage)
+	M.spawn_explosion_at_cell(impact_cell)
+
+	_pending_impacts = max(0, _pending_impacts - 1)
+	if _pending_impacts == 0:
+		emit_signal("support_impacts_done")
 
 func _schedule_impact(M: MapController, impact_cell: Vector2i, delay: float) -> void:
 	# fire-and-forget coroutine

@@ -3420,75 +3420,15 @@ func get_all_enemies() -> Array[Unit]:
 	return out
 
 
-func fire_support_missile_line_async(
-	from_cell: Vector2i,
-	to_cell: Vector2i,
-	flight_time := 1.35,
-	arc_height_px := 54.0
-) -> void:
-	if terrain == null:
-		return
-
-	var line := Line2D.new()
-	line.width = 1.0
-	line.antialiased = true
-	line.z_as_relative = false
-
-	# Start slightly transparent (you can tweak)
-	line.modulate.a = missile_line_alpha_start
-
-	if overlay_root != null:
-		overlay_root.add_child(line)
-	else:
-		add_child(line)
-
-	var start := terrain.to_global(terrain.map_to_local(from_cell))
-	var end := terrain.to_global(terrain.map_to_local(to_cell))
-
-	line.add_point(start)
-	line.add_point(start)
-
-	# SFX at launch
-	_sfx(sfx_missile_launch, sfx_volume_world, randf_range(0.95, 1.05), start)
-
-	var tw := create_tween()
-	tw.set_trans(Tween.TRANS_LINEAR)
-	tw.set_ease(Tween.EASE_IN_OUT)
-
-	# Fade line a bit while flying (optional)
-	tw.parallel().tween_property(line, "modulate:a", missile_line_alpha_end, max(0.01, flight_time))
-
-	tw.parallel().tween_method(func(t: float) -> void:
-		if line == null or not is_instance_valid(line):
-			return
-
-		var pos := start.lerp(end, t)
-		var peak := 4.0 * t * (1.0 - t)
-		pos.y -= arc_height_px * peak
-
-		line.set_point_position(0, start)
-		line.set_point_position(1, pos)
-
-		# Depth from moving tip
-		var local := terrain.to_local(pos)
-		var c := terrain.local_to_map(local)
-		line.z_index = 10 + (c.x + c.y)
-	, 0.0, 1.0, max(0.01, flight_time))
-
-	tw.finished.connect(func():
-		if line != null and is_instance_valid(line):
-			line.queue_free()
-	)
-
 func fire_support_missile_curve_async(
 	from_cell: Vector2i,
 	to_cell: Vector2i,
-	flight_time := 0.35,
-	arc_height_px := 54.0,
+	flight_time := 1.35,
+	arc_height_px := 84.0,
 	steps := 28
-) -> void:
+) -> Tween:
 	if terrain == null:
-		return
+		return null
 
 	var parent_node: Node2D = overlay_root if (overlay_root != null and is_instance_valid(overlay_root)) else self
 
@@ -3496,36 +3436,31 @@ func fire_support_missile_curve_async(
 	line.width = 1.0
 	line.antialiased = true
 	line.z_as_relative = false
-	line.default_color = Color(1, 1, 1, 1) # make sure it actually draws
+	line.default_color = Color(1, 1, 1, 1)
 	line.modulate.a = missile_line_alpha_start
+	line.z_index = 9999999
 	parent_node.add_child(line)
 
-	# WORLD positions
 	var start_w := terrain.to_global(terrain.map_to_local(from_cell))
 	var end_w := terrain.to_global(terrain.map_to_local(to_cell))
-
-	# Convert to LOCAL (Line2D points are local-to-parent)
 	var start := parent_node.to_local(start_w)
 	var end := parent_node.to_local(end_w)
 
-	steps = max(8, int(steps))
+	var steps_i = max(8, int(steps))
 
-	# Precompute curve points in LOCAL space
 	var curve: Array[Vector2] = []
-	curve.resize(steps + 1)
-	for i in range(steps + 1):
-		var t := float(i) / float(steps)
+	curve.resize(steps_i + 1)
+	for i in range(steps_i + 1):
+		var t := float(i) / float(steps_i)
 		var pos := start.lerp(end, t)
-		var peak := 4.0 * t * (1.0 - t)  # 0..1..0
-		pos.y -= arc_height_px * peak     # curve "up" in screen space
+		var peak := 4.0 * t * (1.0 - t)
+		pos.y -= arc_height_px * peak
 		curve[i] = pos
 
-	# Seed (needs 2 points to show)
 	line.clear_points()
 	line.add_point(curve[0])
 	line.add_point(curve[0])
 
-	# Launch SFX in WORLD
 	_sfx(sfx_missile_launch, sfx_volume_world, randf_range(0.95, 1.05), start_w)
 
 	var tw := create_tween()
@@ -3538,24 +3473,21 @@ func fire_support_missile_curve_async(
 		if line == null or not is_instance_valid(line):
 			return
 
-		var last_i = clamp(int(floor(tt * steps)), 0, steps)
-		var need = last_i + 1
+		var last_i = clamp(int(floor(tt * steps_i)), 0, steps_i)
 
-		# Ensure enough revealed points
-		while line.get_point_count() < need:
-			line.add_point(curve[line.get_point_count()])
+		# keep last point as tip
+		while (line.get_point_count() - 1) < (last_i + 1):
+			line.add_point(curve[line.get_point_count() - 1])
 
-		# Smooth tip between samples (LOCAL)
 		var tip := start.lerp(end, tt)
 		var peak := 4.0 * tt * (1.0 - tt)
 		tip.y -= arc_height_px * peak
 		line.set_point_position(line.get_point_count() - 1, tip)
 
-		# Depth from tip in WORLD (convert tip local->world)
 		var tip_w := parent_node.to_global(tip)
 		var local_in_terrain := terrain.to_local(tip_w)
 		var c := terrain.local_to_map(local_in_terrain)
-		line.z_index = 10 + (c.x + c.y)
+		line.z_index = 10000 + (c.x + c.y)
 	, 0.0, 1.0, max(0.01, flight_time))
 
 	tw.finished.connect(func():
@@ -3563,6 +3495,7 @@ func fire_support_missile_curve_async(
 			line.queue_free()
 	)
 
+	return tw
 
 func run_recruit_support_phase() -> void:
 	var recruits: Array[RecruitBot] = []
