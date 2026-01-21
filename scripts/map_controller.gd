@@ -689,12 +689,17 @@ func _unhandled_input(event: InputEvent) -> void:
 			return
 
 		# -------------------------
-		# ATTACK MODE: left click ONLY attacks, never moves
+		# ATTACK MODE: left click attacks OR selects friendlies
 		# -------------------------
 		if aim_mode == AimMode.ATTACK:
-			# If nothing valid happens, we still consume the click and go back to MOVE preview.
 			if selected == null or not is_instance_valid(selected):
 				_set_aim_mode(AimMode.MOVE)
+				return
+
+			# ✅ NEW: allow selecting other ALLIES while in attack mode
+			if clicked != null and is_instance_valid(clicked) and clicked.team == selected.team:
+				_select(clicked)              # selection_changed + refresh_overlays happens inside
+				_set_aim_mode(AimMode.MOVE)   # optional: makes selection feel normal
 				return
 
 			# Gate phase + per-turn attack
@@ -703,8 +708,8 @@ func _unhandled_input(event: InputEvent) -> void:
 					_set_aim_mode(AimMode.MOVE)
 					return
 
-			# If clicked an enemy in range -> attack
-			if clicked != null and clicked.team != selected.team and _in_attack_range(selected, clicked.cell):
+			# Enemy in range -> attack
+			if clicked != null and is_instance_valid(clicked) and clicked.team != selected.team and _in_attack_range(selected, clicked.cell):
 				if _unit_has_attacked(selected):
 					_sfx(&"ui_denied", sfx_volume_ui, 1.0)
 					_set_aim_mode(AimMode.MOVE)
@@ -717,7 +722,7 @@ func _unhandled_input(event: InputEvent) -> void:
 				if TM != null and TM.has_method("notify_player_attacked"):
 					TM.notify_player_attacked(selected)
 
-			# ✅ Always cancel attack preview on ANY left-click
+			# ✅ Always cancel attack preview on ANY left-click that didn't select a friendly
 			_set_aim_mode(AimMode.MOVE)
 			return
 
@@ -1235,6 +1240,8 @@ func _refresh_overlays() -> void:
 		_draw_attack_range(selected)
 	elif aim_mode == AimMode.MOVE and should_show_move:
 		_draw_move_range(selected)
+		
+	emit_signal("aim_changed", int(aim_mode), special_id)	
 
 func _set_aim_mode(m: AimMode) -> void:
 	aim_mode = m
