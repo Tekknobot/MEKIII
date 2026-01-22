@@ -1,14 +1,2 @@
-res://scenes/mechtwo.tscn
-res://shaders/outline_1px.gdshader
 res://scenes/Game.tscn
-res://scripts/unit.gd
-res://scenes/mech.tscn
-res://scripts/mech.gd
-res://scripts/mechtwo.gd
-res://scripts/game.gd
-res://scripts/map_controller.gd
-res://scripts/turnmanager.gd
-res://scenes/floppy.tscn
-res://scripts/floppy.gd
-res://scenes/zombie.tscn
-res://scenes/beacon.tscn
+res://shaders/outline_1px.gdshader
