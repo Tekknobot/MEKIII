@@ -42,7 +42,8 @@ var _is_moving := false
 @export var attack_flash_time := 0.10
 @export var attack_anim_lock_time := 0.18   # small pause so attack feels visible
 
-@export var max_zombies: int = 4
+@export var max_zombies: int = 8
+var _start_max_zombies := 8
 @export var ally_count: int = 3
 
 @export var turn_manager_path: NodePath
@@ -355,6 +356,7 @@ func _stop_pulse(u: Unit) -> void:
 		visual.scale = visual.get_meta("pulse_base_scale")
 
 func _ready() -> void:
+	_start_max_zombies = max_zombies
 	# --------------------------
 	# Speech blip audio setup
 	# --------------------------
@@ -3837,24 +3839,25 @@ func _run_satellite_sweep_async() -> void:
 	await satellite_sweep()
 
 func _spawn_sat_beam(world_hit: Vector2) -> void:
-	# Put beam on overlay_root if possible (so it renders above terrain)
 	var parent_node: Node2D = overlay_root if (overlay_root != null and is_instance_valid(overlay_root)) else self
 
 	var line := Line2D.new()
 	line.width = 1.0
 	line.antialiased = false
 	line.z_as_relative = false
-
-	# ✅ red beam
 	line.default_color = Color(1, 0, 0, 1)
 
-	# Depth: huge so it’s always on top, but still stable
-	# (optional: also add (cell.x+cell.y) if you want)
-	line.z_index = sat_beam_z_boost
+	# ✅ compute cell from world_hit
+	var cell := Vector2i.ZERO
+	if terrain != null and is_instance_valid(terrain):
+		var local := terrain.to_local(world_hit)
+		cell = terrain.local_to_map(local)
+
+	# ✅ depth (or keep sat_beam_z_boost if you want ALWAYS on top)
+	line.z_index = 1 + (cell.x + cell.y)
 
 	parent_node.add_child(line)
 
-	# Convert points into parent's local space
 	var start_w := world_hit + Vector2(0, -sat_beam_height_px)
 	var a := parent_node.to_local(start_w)
 	var b := parent_node.to_local(world_hit)
@@ -3863,7 +3866,6 @@ func _spawn_sat_beam(world_hit: Vector2) -> void:
 	line.add_point(a)
 	line.add_point(b)
 
-	# Flash then fade out
 	line.modulate.a = 1.0
 	var tw := create_tween()
 	tw.tween_interval(max(0.01, sat_beam_flash_time))

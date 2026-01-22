@@ -86,7 +86,11 @@ var structure_blocked := {}
 
 @onready var turn_manager: TurnManager = get_node_or_null("TurnManager") as TurnManager
 
+var _start_max_zombies := 0
+
 func _ready() -> void:
+	_start_max_zombies = map_controller.max_zombies
+	
 	rng.randomize()
 
 	if randomize_season_each_generation:
@@ -111,10 +115,10 @@ func _ready() -> void:
 	if turn_manager != null:
 		turn_manager.on_units_spawned()
 
-
 func _input(event: InputEvent) -> void:
 	if event is InputEventKey and event.pressed and not event.echo:
 		if event.keycode == KEY_R:
+			map_controller.max_zombies = _start_max_zombies
 			regenerate_map()
 
 func regenerate_map() -> void:

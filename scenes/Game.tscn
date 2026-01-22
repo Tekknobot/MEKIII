@@ -356,7 +356,6 @@ enemy_zombie_scene = ExtResource("26_0bq3a")
 move_tile_scene = ExtResource("27_0bq3a")
 attack_tile_scene = ExtResource("26_jhsr3")
 attack_flash_time = 0.48
-max_zombies = 8
 explosion_scene = ExtResource("32_426vi")
 mine_scene = ExtResource("33_naigu")
 mine_y_offset_px = 0.0
