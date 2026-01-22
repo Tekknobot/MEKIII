@@ -671,8 +671,10 @@ func _unhandled_input(event: InputEvent) -> void:
 			# Toggle attack preview on/off
 			if aim_mode == AimMode.ATTACK:
 				_set_aim_mode(AimMode.MOVE)
+				_refresh_overlays()
 			else:
 				_set_aim_mode(AimMode.ATTACK)
+				_refresh_overlays()
 				_sfx(&"ui_arm_attack", sfx_volume_ui, 1.0)
 			return
 
@@ -1213,38 +1215,36 @@ func _refresh_overlays() -> void:
 	# SPECIAL aim stays SPECIAL
 	if aim_mode == AimMode.SPECIAL:
 		_draw_special_range(selected, String(special_id))
+		emit_signal("aim_changed", int(aim_mode), special_id)
 		return
 
+	var has_moved := _unit_has_moved(selected)
+	var has_attacked := _unit_has_attacked(selected)
+
+	# What overlays are even possible?
+	var can_show_move := (not has_moved) and (not has_attacked)
+	var can_show_attack := (not has_attacked) # ✅ allow attack preview even if not moved
+
 	# -----------------------------------
-	# Decide what we SHOULD show, then force aim_mode to match
+	# Respect player's chosen aim_mode when possible
 	# -----------------------------------
-	var should_show_attack := false
-	var should_show_move := false
+	if aim_mode == AimMode.ATTACK:
+		if can_show_attack:
+			_draw_attack_range(selected)
+		else:
+			# nothing meaningful to show; fall back
+			aim_mode = AimMode.MOVE
+			if can_show_move:
+				_draw_move_range(selected)
+	elif aim_mode == AimMode.MOVE:
+		if can_show_move:
+			_draw_move_range(selected)
+		elif can_show_attack:
+			# ✅ auto-switch only when move is no longer possible
+			aim_mode = AimMode.ATTACK
+			_draw_attack_range(selected)
 
-	if _unit_has_attacked(selected):
-		# nothing to show (or you could show none)
-		should_show_attack = false
-		should_show_move = false
-	elif not _unit_has_moved(selected):
-		# still has move -> show move tiles
-		should_show_move = true
-	else:
-		# moved but not attacked -> show attack tiles
-		should_show_attack = true
-
-	# ✅ If attack tiles will be shown, switch to ATTACK mode automatically
-	if should_show_attack:
-		aim_mode = AimMode.ATTACK
-	else:
-		aim_mode = AimMode.MOVE
-
-	# Draw overlays based on the final mode
-	if aim_mode == AimMode.ATTACK and should_show_attack:
-		_draw_attack_range(selected)
-	elif aim_mode == AimMode.MOVE and should_show_move:
-		_draw_move_range(selected)
-		
-	emit_signal("aim_changed", int(aim_mode), special_id)	
+	emit_signal("aim_changed", int(aim_mode), special_id)
 
 func _set_aim_mode(m: AimMode) -> void:
 	aim_mode = m
