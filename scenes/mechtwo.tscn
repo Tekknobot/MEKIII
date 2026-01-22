@@ -124,6 +124,7 @@ animations = [{
 script = ExtResource("1_p85fo")
 missile_arc_height_px = 64.0
 missile_splash_radius = 2
+death_fx_offset = Vector2(0, -8)
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="."]
 position = Vector2(0, -9)

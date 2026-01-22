@@ -30,12 +30,16 @@ var _dying := false
 @export var sfx_hurt := &"unit_hurt"
 @export var sfx_death := &"unit_death"
 
+var _terrain_ref: TileMap = null
+@export var death_fx_offset := Vector2.ZERO  # tweak per-unit if needed
+
 func _ready() -> void:
 	hp = clamp(hp, 0, max_hp)
 	_update_depth()
 
 func set_cell(c: Vector2i, terrain: TileMap) -> void:
 	cell = c
+	_terrain_ref = terrain
 	if terrain and is_instance_valid(terrain):
 		global_position = terrain.to_global(terrain.map_to_local(c))
 	_update_depth()
@@ -175,3 +179,8 @@ func get_attack_damage() -> int:
 	if has_meta("stim_turns") and int(get_meta("stim_turns")) > 0:
 		d += int(get_meta("stim_damage_bonus"))
 	return d
+
+func get_tile_world_pos() -> Vector2:
+	if _terrain_ref != null and is_instance_valid(_terrain_ref):
+		return _terrain_ref.to_global(_terrain_ref.map_to_local(cell))
+	return global_position

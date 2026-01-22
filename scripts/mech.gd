@@ -60,3 +60,32 @@ func perform_overwatch(M: MapController) -> void:
 		return
 	M.set_overwatch(self, true, overwatch_range, 1) # ✅ 1 round
 	mark_special_used("overwatch", 2)
+
+func play_death_anim() -> void:
+	var M := get_tree().get_first_node_in_group("MapController")
+	var fx_parent: Node = M if M != null else get_tree().current_scene
+
+	var p := get_tile_world_pos() + death_fx_offset
+
+	# ✅ explosion sound at the correct tile anchor
+	if M != null and M.has_method("_sfx"):
+		M.call("_sfx", &"explosion_small", 1.0, randf_range(0.95, 1.05), p)
+	# or, if you already have a cue name for it:
+	# M.call("_sfx", &"mech_explode", 1.0, randf_range(0.95, 1.05), p)
+	
+	var boom = preload("res://scenes/explosion.tscn").instantiate()
+	fx_parent.add_child(boom)
+	boom.global_position = p
+
+	# Optional: keep it on same depth layer as the unit
+	if boom is Node2D:
+		boom.z_as_relative = false
+		boom.z_index = z_index + 5
+
+	# wait for boom to finish (adjust to your scene)
+	if boom.has_signal("finished"):
+		await boom.finished
+	else:
+		await get_tree().create_timer(0.6).timeout
+
+	queue_free()

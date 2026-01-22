@@ -1,2 +1,7 @@
 res://scenes/mechtwo.tscn
 res://shaders/outline_1px.gdshader
+res://scenes/Game.tscn
+res://scripts/unit.gd
+res://scenes/mech.tscn
+res://scripts/mech.gd
+res://scripts/mechtwo.gd
