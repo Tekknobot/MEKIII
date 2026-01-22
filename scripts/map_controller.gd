@@ -3027,22 +3027,40 @@ func _ensure_overlay_subroots() -> void:
 		overlay_root.add_child(overlay_ghosts_root)
 
 func _prune_overwatch_dicts() -> void:
-	# Clean overwatch_by_unit keys
-	for k in overwatch_by_unit.keys():
-		var u := k as Unit
-		if u == null or not is_instance_valid(u):
+	# ----- overwatch_by_unit -----
+	var keys1: Array = overwatch_by_unit.keys() # snapshot
+	for k in keys1:
+		# If the key isn't even an Object, remove it
+		if not (k is Object):
 			overwatch_by_unit.erase(k)
+			continue
 
-	# Clean ghost dict
-	for k in overwatch_ghost_by_unit.keys():
-		var u := k as Unit
-		var g := overwatch_ghost_by_unit[k] as CanvasItem
-		if u == null or not is_instance_valid(u):
+		var obj := k as Object
+		if not is_instance_valid(obj):
+			overwatch_by_unit.erase(k)
+			continue
+
+		# Only now is it safe to treat it like a Unit (optional)
+		# if not (obj is Unit):
+		#     overwatch_by_unit.erase(k)
+
+	# ----- overwatch_ghost_by_unit -----
+	var keys2: Array = overwatch_ghost_by_unit.keys() # snapshot
+	for k in keys2:
+		# Grab ghost first using the raw key (doesn't require casting)
+		var g := overwatch_ghost_by_unit.get(k, null) as CanvasItem
+
+		# Key validity checks WITHOUT casting to Unit
+		if not (k is Object) or not is_instance_valid(k as Object):
 			overwatch_ghost_by_unit.erase(k)
 			if g != null and is_instance_valid(g):
 				g.queue_free()
-		elif g == null or not is_instance_valid(g):
+			continue
+
+		# Now validate the ghost
+		if g == null or not is_instance_valid(g):
 			overwatch_ghost_by_unit.erase(k)
+			continue
 
 func _sync_ghost_facing(u: Unit) -> void:
 	if u == null or not is_instance_valid(u):
