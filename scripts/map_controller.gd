@@ -3178,9 +3178,6 @@ func spawn_edge_road_zombie() -> bool:
 	if w <= 0 or h <= 0:
 		return false
 
-	# -----------------------------------------
-	# 1) Search rings from edge -> inward
-	# -----------------------------------------
 	var best_cell := Vector2i(-1, -1)
 	var max_inset := int(min(w, h) / 2)
 
@@ -3195,13 +3192,11 @@ func spawn_edge_road_zombie() -> bool:
 
 		var ring: Array[Vector2i] = []
 
-		# Top + Bottom rows
 		for x in range(min_x, max_x + 1):
 			ring.append(Vector2i(x, min_y))
 			if max_y != min_y:
 				ring.append(Vector2i(x, max_y))
 
-		# Left + Right cols (excluding corners already added)
 		for y in range(min_y + 1, max_y):
 			ring.append(Vector2i(min_x, y))
 			if max_x != min_x:
@@ -3219,14 +3214,15 @@ func spawn_edge_road_zombie() -> bool:
 	if best_cell.x < 0:
 		return false
 
-	# -----------------------------------------
-	# 2) Spawn + fade in (fade the render node)
-	# -----------------------------------------
 	var z := enemy_zombie_scene.instantiate() as Unit
 	if z == null:
 		return false
 
 	units_root.add_child(z)
+
+	# ✅ FIX: connect died signal so parts/pickups can drop
+	_wire_unit_signals(z)
+
 	z.team = Unit.Team.ENEMY
 	z.hp = z.max_hp
 
