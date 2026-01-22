@@ -94,6 +94,9 @@ animations = [{
 "frames": [{
 "duration": 1.0,
 "texture": ExtResource("4_3g83e")
+}, {
+"duration": 1.0,
+"texture": ExtResource("2_p85fo")
 }],
 "loop": true,
 "name": &"idle",

@@ -1,7 +1,2 @@
-res://scenes/Game.tscn
-res://shaders/outline_1px.gdshader
-res://scripts/map_controller.gd
 res://scenes/mechtwo.tscn
-res://scripts/mechtwo.gd
-res://scripts/unit.gd
-res://scripts/turnmanager.gd
+res://shaders/outline_1px.gdshader
