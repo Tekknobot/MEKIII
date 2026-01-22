@@ -32,6 +32,17 @@ var _attacked: Dictionary = {}# Unit -> bool
 var enemy_spawn_count := 2   # how many edge zombies to spawn per round
 var round_index := 1  # Round 1 at game start
 
+# --- Beacon pacing ---
+@export var beacon_parts_required := 6
+@export var beacon_deadline_round := 12  # "must be done by end of Round 12" (tune this)
+
+# --- Enemy wave spawning ---
+@export var spawn_base := 3              # Round 1 adds +3 (tune)
+@export var spawn_per_round := 1         # +1 per round
+@export var spawn_bonus_every := 3       # every 3 rounds add extra
+@export var spawn_bonus_amount := 2      # how many extra on bonus rounds
+@export var spawn_cap := 32              # hard safety cap
+
 func _ready() -> void:
 	if end_turn_button:
 		end_turn_button.pressed.connect(_on_end_turn_pressed)
@@ -94,24 +105,47 @@ func start_enemy_phase() -> void:
 	if M != null:
 		M.tick_overwatch_turn()
 
-	# ✅ spawn edge zombies
+	# ✅ spawn wave for next round (standard curve)
 	if M != null and M.has_method("spawn_edge_road_zombie"):
-		for i in enemy_spawn_count:
-			M.spawn_edge_road_zombie()
+		var to_spawn := _calc_spawn_count_for_round(round_index)
+		var spawned := 0
 
-	# ✅ Increase spawn count for next round
-	enemy_spawn_count *= 2
+		for i in range(to_spawn):
+			# Make spawn_edge_road_zombie() return bool if it can; otherwise assume it worked.
+			var ok := true
+			if M.has_method("spawn_edge_road_zombie"):
+				ok = M.call("spawn_edge_road_zombie")
+			if ok:
+				spawned += 1
+			else:
+				break # no more valid edge cells
+
+		print("Spawned %d/%d enemies for Round %d" % [spawned, to_spawn, round_index])
 
 	# ✅ Advance round counter NOW (enemy phase finished)
 	round_index += 1
 
-	# ✅ DEADLINE: must be ready by end of Round 5
-	# (meaning: when we are ABOUT to start Round 6)
-	if round_index >= 8 and M != null and (not M.beacon_ready):
-		game_over("Beacon not completed by end of Round 5!")
-		return
+	# ✅ deadline check (tune for 6 parts)
+	if M != null and M.has_meta("beacon_ready"):
+		if round_index > beacon_deadline_round and (not M.beacon_ready):
+			game_over("Beacon not completed by end of Round %d!" % beacon_deadline_round)
+			return
 
 	start_player_phase()
+
+func _calc_spawn_count_for_round(r: int) -> int:
+	# r is the round that just finished / or current round_index before increment (your current usage)
+	# Example curve:
+	# Round 1: spawn_base
+	# Round 2: spawn_base + 1
+	# Round 3: spawn_base + 2 (+bonus if divisible)
+	var n = spawn_base + (max(0, r - 1) * spawn_per_round)
+
+	if spawn_bonus_every > 0 and r > 0 and (r % spawn_bonus_every == 0):
+		n += spawn_bonus_amount
+
+	n = clamp(n, 0, spawn_cap)
+	return n
 
 func _on_end_turn_pressed() -> void:
 	if phase != Phase.PLAYER:

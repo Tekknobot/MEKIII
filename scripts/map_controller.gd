@@ -199,7 +199,7 @@ var pickups_by_cell: Dictionary = {} # Vector2i -> Node (pickup instance)
 signal pickup_collected(u: Unit, cell: Vector2i)
 
 @export var floppy_pickup_scene: PackedScene
-@export var beacon_parts_needed := 3
+@export var beacon_parts_needed := 6
 var beacon_parts_collected := 0
 
 @export var beacon_cell := Vector2i(7, 7) # set in inspector or choose at runtime
@@ -3165,9 +3165,9 @@ func _edge_spawn_ok(c: Vector2i, structure_blocked: Dictionary) -> bool:
 		return false
 	return true
 
-func spawn_edge_road_zombie() -> void:
+func spawn_edge_road_zombie() -> bool:
 	if enemy_zombie_scene == null or units_root == null or terrain == null or grid == null:
-		return
+		return false
 
 	var structure_blocked: Dictionary = {}
 	if game_ref != null and "structure_blocked" in game_ref:
@@ -3176,7 +3176,7 @@ func spawn_edge_road_zombie() -> void:
 	var w := int(grid.w)
 	var h := int(grid.h)
 	if w <= 0 or h <= 0:
-		return
+		return false
 
 	# -----------------------------------------
 	# 1) Search rings from edge -> inward
@@ -3217,14 +3217,14 @@ func spawn_edge_road_zombie() -> void:
 			break
 
 	if best_cell.x < 0:
-		return
+		return false
 
 	# -----------------------------------------
 	# 2) Spawn + fade in (fade the render node)
 	# -----------------------------------------
 	var z := enemy_zombie_scene.instantiate() as Unit
 	if z == null:
-		return
+		return false
 
 	units_root.add_child(z)
 	z.team = Unit.Team.ENEMY
@@ -3244,6 +3244,8 @@ func spawn_edge_road_zombie() -> void:
 		tw.set_trans(Tween.TRANS_SINE)
 		tw.set_ease(Tween.EASE_OUT)
 		tw.tween_property(ci, "modulate:a", 1.0, enemy_fade_time)
+
+	return true
 
 func _is_road_tile(cell: Vector2i) -> bool:
 	# Roads are tracked logically in Game.gd (terrain cell coverage).
@@ -3636,7 +3638,7 @@ func on_unit_died(u: Unit) -> void:
 		return
 
 	# drop chance (or guarantee)
-	var drop_chance := 1.0
+	var drop_chance := 0.55
 	if randf() <= drop_chance:
 		spawn_pickup_at(u.cell, floppy_pickup_scene)
 
