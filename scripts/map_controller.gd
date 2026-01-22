@@ -199,7 +199,7 @@ var pickups_by_cell: Dictionary = {} # Vector2i -> Node (pickup instance)
 signal pickup_collected(u: Unit, cell: Vector2i)
 
 @export var floppy_pickup_scene: PackedScene
-@export var beacon_parts_needed := 6
+@export var beacon_parts_needed := 3
 var beacon_parts_collected := 0
 
 @export var beacon_cell := Vector2i(7, 7) # set in inspector or choose at runtime

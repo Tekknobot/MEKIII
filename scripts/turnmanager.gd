@@ -33,7 +33,7 @@ var enemy_spawn_count := 2   # how many edge zombies to spawn per round
 var round_index := 1  # Round 1 at game start
 
 # --- Beacon pacing ---
-@export var beacon_parts_required := 6
+@export var beacon_parts_required := 3
 @export var beacon_deadline_round := 12  # "must be done by end of Round 12" (tune this)
 
 # --- Enemy wave spawning ---
