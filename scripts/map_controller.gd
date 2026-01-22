@@ -3604,10 +3604,13 @@ func spawn_pickup_at(cell: Vector2i, pickup_scene: PackedScene) -> void:
 		n.z_as_relative = false
 		n.z_index = 1 + (cell.x + cell.y) + 3
 
-func try_collect_pickup(u: Unit) -> void:
-	if u == null or not is_instance_valid(u):
+func try_collect_pickup(u: Variant) -> void:
+	# ✅ accept freed references safely
+	if u == null or not (u is Unit) or not is_instance_valid(u):
 		return
-	var c := u.cell
+	var uu := u as Unit
+
+	var c := uu.cell
 	if not pickups_by_cell.has(c):
 		return
 
@@ -3616,7 +3619,7 @@ func try_collect_pickup(u: Unit) -> void:
 	if p != null and is_instance_valid(p):
 		p.queue_free()
 
-	emit_signal("pickup_collected", u, c) # we'll use this for beacon progress
+	emit_signal("pickup_collected", uu, c)
 
 func on_unit_died(u: Unit) -> void:
 	if u == null:
