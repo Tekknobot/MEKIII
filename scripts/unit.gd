@@ -33,6 +33,9 @@ var _dying := false
 var _terrain_ref: TileMap = null
 @export var death_fx_offset := Vector2.ZERO  # tweak per-unit if needed
 
+var floppy_parts: int = 0
+signal died(u: Unit)
+
 func _ready() -> void:
 	hp = clamp(hp, 0, max_hp)
 	_update_depth()
@@ -101,7 +104,8 @@ func _die() -> void:
 	_dying = true
 
 	_play_sfx(sfx_death)
-
+	emit_signal("died", self)
+	
 	# Prefer unit-specific death behavior if you add it later.
 	# IMPORTANT: your custom play_death_anim should NOT queue_free immediately,
 	# it should play, then queue_free at the end (or emit a signal).

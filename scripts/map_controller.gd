@@ -193,6 +193,34 @@ var recruit_round_stamp: int = 0
 @export var missile_line_alpha_start := 0.85
 @export var missile_line_alpha_end := 0.10
 
+# --- Pickups (logical) ---
+var pickups_by_cell: Dictionary = {} # Vector2i -> Node (pickup instance)
+signal pickup_collected(u: Unit, cell: Vector2i)
+
+@export var floppy_pickup_scene: PackedScene
+@export var beacon_parts_needed := 3
+var beacon_parts_collected := 0
+
+@export var beacon_cell := Vector2i(7, 7) # set in inspector or choose at runtime
+var beacon_ready := false
+
+@export var beacon_marker_scene: PackedScene   # assign BeaconMarker.tscn (Node2D) in Inspector
+@export var beacon_marker_y_offset_px := -8.0
+@export var beacon_marker_z_base := 2          # above terrain, below units if you want
+var beacon_marker_node: Node2D = null
+var _beacon_sweep_started := false
+
+@export var sat_beam_height_px := 600.0     # how far "space" is above the map
+@export var sat_beam_flash_time := 0.06     # how long beam stays visible
+@export var sat_beam_fade_time := 0.10      # fade-out duration
+@export var sat_beam_z_boost := 100000      # ensure beam is above everything
+
+var _beacon_pulse_tw: Tween = null
+
+@export var beacon_pulse_min_a := 0.25
+@export var beacon_pulse_max_a := 1.0
+@export var beacon_pulse_time := 0.35
+
 func _sfx(cue: StringName, vol := 1.0, pitch := 1.0, world_pos: Variant = null) -> void:
 	if SFX == null:
 		return
@@ -339,7 +367,8 @@ func _ready() -> void:
 		add_child(bubble_voice_player)
 	
 	add_to_group("MapController")
-	
+	pickup_collected.connect(_on_pickup_collected)
+		
 	terrain = get_node_or_null(terrain_path) as TileMap
 	units_root = get_node_or_null(units_root_path) as Node2D
 	overlay_root = get_node_or_null(overlay_root_path) as Node2D
@@ -365,6 +394,7 @@ func _ready() -> void:
 
 	overlay_root = get_node_or_null(overlay_root_path) as Node2D
 	_ensure_overlay_subroots()
+	_ensure_beacon_marker()
 	
 func setup(game) -> void:
 	game_ref = game
@@ -375,8 +405,10 @@ func spawn_units() -> void:
 		return
 
 	clear_all()
+	reset_beacon_state()
 	recruit_round_stamp += 1
-
+	_randomize_beacon_cell()
+	
 	# Structure-blocked cells from Game
 	var structure_blocked: Dictionary = {}
 	if game_ref != null and "structure_blocked" in game_ref:
@@ -469,6 +501,7 @@ func spawn_units() -> void:
 	if TM != null and TM.has_method("on_units_spawned"):
 		TM.on_units_spawned()
 
+	_ensure_beacon_marker()
 
 func _pick_far_center(cells: Array[Vector2i], from_center: Vector2i) -> Vector2i:
 	if cells.is_empty():
@@ -563,7 +596,8 @@ func _spawn_specific_ally(preferred: Vector2i, scene: PackedScene) -> void:
 		return
 
 	units_root.add_child(u)
-
+	_wire_unit_signals(u)
+	
 	u.team = Unit.Team.ALLY
 	u.hp = u.max_hp
 	u.set_cell(c, terrain)
@@ -584,7 +618,7 @@ func clear_all() -> void:
 			n.queue_free()
 	mine_nodes_by_cell.clear()
 	mines_by_cell.clear()
-	
+	_clear_beacon_marker()
 
 func _spawn_unit_walkable(preferred: Vector2i, team: int) -> void:
 	var c := _find_nearest_open_walkable(preferred)
@@ -612,7 +646,8 @@ func _spawn_unit_walkable(preferred: Vector2i, team: int) -> void:
 		return
 
 	units_root.add_child(u)
-
+	_wire_unit_signals(u)
+	
 	u.team = team
 	u.hp = u.max_hp
 
@@ -1466,6 +1501,9 @@ func _move_selected_to(target: Vector2i) -> void:
 
 	await _trigger_mine_if_present_id(uid)
 
+	try_collect_pickup(u)
+	_check_and_trigger_beacon_sweep()
+	
 	# Mine might have killed / freed the mover (knockback, collision, etc.)
 	if u == null or not is_instance_valid(u):
 		_is_moving = false
@@ -3384,6 +3422,7 @@ func _spawn_recruited_ally_fadein(spawn_cell: Vector2i) -> void:
 		return
 
 	units_root.add_child(u)
+	_wire_unit_signals(u)
 	u.team = Unit.Team.ALLY
 	u.hp = u.max_hp
 
@@ -3533,3 +3572,386 @@ func run_recruit_support_phase() -> void:
 			continue
 
 		await r.auto_support_action(self)
+
+func spawn_pickup_at(cell: Vector2i, pickup_scene: PackedScene) -> void:
+	if pickup_scene == null:
+		return
+	if cell.x < 0:
+		return
+	if pickups_by_cell.has(cell):
+		return
+
+	# ✅ Allow spawning on a cell that is currently occupied by a unit that is dying/dead
+	if units_by_cell.has(cell):
+		var v = units_by_cell[cell]
+		if v != null and (v is Unit) and is_instance_valid(v):
+			var uu := v as Unit
+			# if still alive, don't spawn on top of it
+			if uu.hp > 0:
+				return
+		# if it's invalid / freed / hp<=0, allow
+
+	var p := pickup_scene.instantiate()
+	add_child(p) # or pickups_root if you have one
+	p.global_position = _cell_world(cell)
+	p.global_position.y -= 16
+	p.set_meta("cell", cell)
+	pickups_by_cell[cell] = p
+
+	# depth align (same rule as units)
+	if p is Node2D:
+		var n := p as Node2D
+		n.z_as_relative = false
+		n.z_index = 1 + (cell.x + cell.y) + 3
+
+func try_collect_pickup(u: Unit) -> void:
+	if u == null or not is_instance_valid(u):
+		return
+	var c := u.cell
+	if not pickups_by_cell.has(c):
+		return
+
+	var p = pickups_by_cell[c]
+	pickups_by_cell.erase(c)
+	if p != null and is_instance_valid(p):
+		p.queue_free()
+
+	emit_signal("pickup_collected", u, c) # we'll use this for beacon progress
+
+func on_unit_died(u: Unit) -> void:
+	if u == null:
+		return
+	# only zombies
+	if u.team != Unit.Team.ENEMY:
+		return
+
+	# only drop until beacon is complete
+	if beacon_parts_collected >= beacon_parts_needed:
+		return
+
+	# drop chance (or guarantee)
+	var drop_chance := 1.0
+	if randf() <= drop_chance:
+		spawn_pickup_at(u.cell, floppy_pickup_scene)
+
+func _on_pickup_collected(u: Unit, cell: Vector2i) -> void:
+	# give the unit a floppy
+	u.floppy_parts += 1
+	_sfx(&"pickup_floppy", 1.0, randf_range(0.95, 1.05), _cell_world(u.cell))
+
+	_check_and_trigger_beacon_sweep()
+
+func try_deliver_to_beacon(u: Unit) -> void:
+	if u == null or not is_instance_valid(u):
+		return
+	if u.team != Unit.Team.ALLY:
+		return
+	if u.cell != beacon_cell:
+		return
+	if u.floppy_parts <= 0:
+		return
+	if beacon_ready:
+		return
+
+	# deliver everything the unit has
+	beacon_parts_collected += u.floppy_parts
+	u.floppy_parts = 0
+
+	_sfx(&"beacon_upload", 1.0, 1.0, _cell_world(beacon_cell))
+
+	if beacon_parts_collected >= beacon_parts_needed:
+		beacon_ready = true
+		_update_beacon_marker()
+		_sfx(&"beacon_ready", 1.0, 1.0, _cell_world(beacon_cell))
+
+func satellite_sweep() -> void:
+	# snapshot the list (important)
+	var zombies: Array = []
+	for u in get_all_units():
+		if u != null and is_instance_valid(u) and u.team == Unit.Team.ENEMY:
+			zombies.append(u)
+
+	# preload once
+	var boom_scene := preload("res://scenes/explosion.tscn")
+
+	# dramatic sequence
+	for z in zombies:
+		if z == null or not is_instance_valid(z):
+			continue
+
+		var p := _cell_world(z.cell)
+
+		# ✅ beam from space down to zombie
+		_spawn_sat_beam(p)
+
+		# laser sfx + optional laser fx scene
+		_sfx(&"sat_laser", 1.0, randf_range(0.95, 1.05), p)
+
+		# explosion (your existing explosion scene)
+		var boom = boom_scene.instantiate()
+		add_child(boom)
+		boom.global_position = p
+
+		# kill zombie
+		z.take_damage(999)
+
+		# small delay so it reads
+		await get_tree().create_timer(0.05).timeout
+
+func _wire_unit_signals(u: Unit) -> void:
+	if u == null or not is_instance_valid(u):
+		return
+
+	# If you used "on_unit_died" (no underscore), connect to that.
+	if u.has_signal("died"):
+		var cb := Callable(self, "on_unit_died")
+		if not u.died.is_connected(cb):
+			u.died.connect(cb)
+
+func _ensure_beacon_marker() -> void:
+	if terrain == null:
+		return
+	if beacon_cell.x < 0:
+		return
+	if beacon_marker_scene == null:
+		return
+
+	# If it exists, just update position/depth
+	if beacon_marker_node != null and is_instance_valid(beacon_marker_node):
+		_update_beacon_marker()
+		return
+
+	var n := beacon_marker_scene.instantiate() as Node2D
+	if n == null:
+		return
+
+	# Parent choice:
+	# - overlay_root if you want it above roads/terrain overlays
+	# - units_root if you want it to depth-sort with units
+	var parent: Node = overlay_root if (overlay_root != null and is_instance_valid(overlay_root)) else self
+	parent.add_child(n)
+
+	beacon_marker_node = n
+	beacon_marker_node.name = "BeaconMarker"
+
+	# Tell marker the authoritative cell if it wants it
+	beacon_marker_node.set_meta("beacon_cell", beacon_cell)
+
+	_update_beacon_marker()
+
+func _update_beacon_marker() -> void:
+	if beacon_marker_node == null or not is_instance_valid(beacon_marker_node):
+		return
+	if terrain == null:
+		return
+
+	var world := _cell_world(beacon_cell) + Vector2(0, beacon_marker_y_offset_px)
+	beacon_marker_node.global_position = world
+
+	# Depth: x+y sum, consistent with everything else
+	beacon_marker_node.z_as_relative = false
+	beacon_marker_node.z_index = int(beacon_marker_z_base + beacon_cell.x + beacon_cell.y)
+
+	# Optional: visually indicate "ready"
+	if beacon_marker_node.has_method("set_ready"):
+		beacon_marker_node.call("set_ready", beacon_ready)
+
+	# ✅ Pulse when ready
+	if beacon_ready:
+		_start_beacon_pulse()
+	else:
+		_stop_beacon_pulse()
+
+func _clear_beacon_marker() -> void:
+	if beacon_marker_node != null and is_instance_valid(beacon_marker_node):
+		beacon_marker_node.queue_free()
+	beacon_marker_node = null
+	_stop_beacon_pulse()
+	
+func _team_floppy_total_allies() -> int:
+	var total := 0
+	for u in get_all_units():
+		if u == null or not is_instance_valid(u):
+			continue
+		if u.team != Unit.Team.ALLY:
+			continue
+		# only count if the property exists
+		if "floppy_parts" in u:
+			total += int(u.get("floppy_parts"))
+	return total
+
+func _any_ally_on_beacon() -> Unit:
+	for u in get_all_units():
+		if u == null or not is_instance_valid(u):
+			continue
+		if u.team != Unit.Team.ALLY:
+			continue
+		if u.cell == beacon_cell:
+			return u
+	return null
+
+func _check_and_trigger_beacon_sweep() -> void:
+	# Already fired? stop
+	if _beacon_sweep_started:
+		return
+
+	# ----------------------------
+	# 1) ARM the beacon if enough parts collected
+	# ----------------------------
+	if not beacon_ready:
+		var team_total := _team_floppy_total_allies()
+		if team_total >= beacon_parts_needed:
+			beacon_ready = true
+			_sfx(&"beacon_ready", 1.0, 1.0, _cell_world(beacon_cell))
+			_update_beacon_marker()   # start pulsing
+		else:
+			return   # not armed yet, nothing else to do
+
+	# ----------------------------
+	# 2) If armed, check for ally standing on beacon
+	# ----------------------------
+	var carrier := _any_ally_on_beacon()
+	if carrier == null:
+		return
+
+	# ----------------------------
+	# 3) Trigger sweep
+	# ----------------------------
+	_beacon_sweep_started = true
+
+	_sfx(&"beacon_upload", 1.0, 1.0, _cell_world(beacon_cell))
+
+	# Optional: clear floppy parts after upload
+	for u in get_all_units():
+		if u != null and is_instance_valid(u) and u.team == Unit.Team.ALLY and ("floppy_parts" in u):
+			u.set("floppy_parts", 0)
+
+	# Fire sweep async
+	call_deferred("_run_satellite_sweep_async")
+
+func _run_satellite_sweep_async() -> void:
+	await satellite_sweep()
+
+func _spawn_sat_beam(world_hit: Vector2) -> void:
+	# Put beam on overlay_root if possible (so it renders above terrain)
+	var parent_node: Node2D = overlay_root if (overlay_root != null and is_instance_valid(overlay_root)) else self
+
+	var line := Line2D.new()
+	line.width = 1.0
+	line.antialiased = false
+	line.z_as_relative = false
+
+	# ✅ red beam
+	line.default_color = Color(1, 0, 0, 1)
+
+	# Depth: huge so it’s always on top, but still stable
+	# (optional: also add (cell.x+cell.y) if you want)
+	line.z_index = sat_beam_z_boost
+
+	parent_node.add_child(line)
+
+	# Convert points into parent's local space
+	var start_w := world_hit + Vector2(0, -sat_beam_height_px)
+	var a := parent_node.to_local(start_w)
+	var b := parent_node.to_local(world_hit)
+
+	line.clear_points()
+	line.add_point(a)
+	line.add_point(b)
+
+	# Flash then fade out
+	line.modulate.a = 1.0
+	var tw := create_tween()
+	tw.tween_interval(max(0.01, sat_beam_flash_time))
+	tw.tween_property(line, "modulate:a", 0.0, max(0.01, sat_beam_fade_time))
+	tw.finished.connect(func():
+		if line != null and is_instance_valid(line):
+			line.queue_free()
+	)
+
+func _stop_beacon_pulse() -> void:
+	if _beacon_pulse_tw != null and is_instance_valid(_beacon_pulse_tw):
+		_beacon_pulse_tw.kill()
+	_beacon_pulse_tw = null
+
+	if beacon_marker_node != null and is_instance_valid(beacon_marker_node):
+		beacon_marker_node.modulate.a = 1.0
+
+
+func _start_beacon_pulse() -> void:
+	if beacon_marker_node == null or not is_instance_valid(beacon_marker_node):
+		return
+
+	_stop_beacon_pulse()
+
+	# Ensure visible start
+	beacon_marker_node.modulate.a = beacon_pulse_max_a
+
+	var tw := create_tween()
+	tw.set_loops()
+	tw.set_trans(Tween.TRANS_SINE)
+	tw.set_ease(Tween.EASE_IN_OUT)
+
+	tw.tween_property(beacon_marker_node, "modulate:a", beacon_pulse_min_a, max(0.01, beacon_pulse_time))
+	tw.tween_property(beacon_marker_node, "modulate:a", beacon_pulse_max_a, max(0.01, beacon_pulse_time))
+
+	_beacon_pulse_tw = tw
+
+func reset_beacon_state() -> void:
+	# logical counters
+	beacon_parts_collected = 0
+	beacon_ready = false
+	_beacon_sweep_started = false
+
+	# clear any carried parts on allies (optional but usually desired on reset)
+	for u in get_all_units():
+		if u != null and is_instance_valid(u) and u.team == Unit.Team.ALLY and ("floppy_parts" in u):
+			u.set("floppy_parts", 0)
+
+	# visuals
+	_update_beacon_marker()  # will stop pulsing because beacon_ready=false
+
+func _pick_random_walkable_beacon_cell() -> Vector2i:
+	if grid == null:
+		return Vector2i(-1, -1)
+
+	# Structure-blocked cells from Game
+	var structure_blocked: Dictionary = {}
+	if game_ref != null and "structure_blocked" in game_ref:
+		structure_blocked = game_ref.structure_blocked
+
+	var w := int(grid.w)
+	var h := int(grid.h)
+	if w <= 0 or h <= 0:
+		return Vector2i(-1, -1)
+
+	var candidates: Array[Vector2i] = []
+	for x in range(w):
+		for y in range(h):
+			var c := Vector2i(x, y)
+			if not _is_walkable(c):
+				continue
+			if structure_blocked.has(c):
+				continue
+			if units_by_cell.has(c): # don't place beacon under units
+				continue
+			if mines_by_cell.has(c): # optional: don't overlap mines
+				continue
+			candidates.append(c)
+
+	if candidates.is_empty():
+		return Vector2i(-1, -1)
+
+	return candidates.pick_random()
+
+
+func _randomize_beacon_cell() -> void:
+	var c := _pick_random_walkable_beacon_cell()
+	if c.x < 0:
+		return
+
+	beacon_cell = c
+
+	# keep marker in sync
+	_clear_beacon_marker()     # ensures old marker is removed if any
+	_ensure_beacon_marker()    # spawns marker at new beacon_cell (and pulses if ready)

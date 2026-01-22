@@ -1,0 +1,10 @@
+[gd_scene load_steps=3 format=3 uid="uid://2ov7kvfue6bm"]
+
+[ext_resource type="Texture2D" uid="uid://crvvxjrr7m4dg" path="res://sprites/Items/floppy-disk.png" id="1_8dy1h"]
+[ext_resource type="Script" uid="uid://bbu40r8sfqpla" path="res://scripts/floppy.gd" id="1_ug6im"]
+
+[node name="Floppy" type="Node2D"]
+script = ExtResource("1_ug6im")
+
+[node name="Sprite2D" type="Sprite2D" parent="."]
+texture = ExtResource("1_8dy1h")

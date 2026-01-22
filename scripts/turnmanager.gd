@@ -30,6 +30,7 @@ var _moved: Dictionary = {}   # Unit -> bool
 var _attacked: Dictionary = {}# Unit -> bool
 
 var enemy_spawn_count := 2   # how many edge zombies to spawn per round
+var round_index := 1  # Round 1 at game start
 
 func _ready() -> void:
 	if end_turn_button:
@@ -81,8 +82,8 @@ func start_player_phase() -> void:
 func start_enemy_phase() -> void:
 	phase = Phase.ENEMY
 	M.reset_turn_flags_for_enemies()
-	
-	_tick_buffs_enemy_phase_start() # ✅ stim expires here (and UI refreshes)
+
+	_tick_buffs_enemy_phase_start()
 
 	_update_end_turn_button()
 	_update_special_buttons()
@@ -93,13 +94,22 @@ func start_enemy_phase() -> void:
 	if M != null:
 		M.tick_overwatch_turn()
 
-	# ✅ Endless survival spawn — now scalable
+	# ✅ spawn edge zombies
 	if M != null and M.has_method("spawn_edge_road_zombie"):
 		for i in enemy_spawn_count:
 			M.spawn_edge_road_zombie()
 
 	# ✅ Increase spawn count for next round
 	enemy_spawn_count *= 2
+
+	# ✅ Advance round counter NOW (enemy phase finished)
+	round_index += 1
+
+	# ✅ DEADLINE: must be ready by end of Round 5
+	# (meaning: when we are ABOUT to start Round 6)
+	if round_index >= 8 and M != null and (not M.beacon_ready):
+		game_over("Beacon not completed by end of Round 5!")
+		return
 
 	start_player_phase()
 
@@ -663,3 +673,12 @@ func _run_support_bots_phase() -> void:
 	phase = prev
 	_update_end_turn_button()
 	_update_special_buttons()
+
+func game_over(msg: String) -> void:
+	print(msg)
+	phase = Phase.BUSY
+	_update_end_turn_button()
+	_update_special_buttons()
+	# Optional: if you have a Game node, call it:
+	# var G := get_tree().get_first_node_in_group("Game")
+	# if G and G.has_method("game_over"): G.call("game_over", msg)
