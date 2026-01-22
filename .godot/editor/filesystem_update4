@@ -4,3 +4,4 @@ res://scripts/map_controller.gd
 res://scenes/mechtwo.tscn
 res://scripts/mechtwo.gd
 res://scripts/unit.gd
+res://scripts/turnmanager.gd

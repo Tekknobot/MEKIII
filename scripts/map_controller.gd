@@ -1740,6 +1740,11 @@ func ai_reachable_cells(u: Unit) -> Array[Vector2i]:
 	var out: Array[Vector2i] = []
 	if u == null or not is_instance_valid(u):
 		return out
+	if u.hp <= 0:
+		return out
+
+	if u == null or not is_instance_valid(u):
+		return out
 
 	var r := u.get_move_range() if u.has_method("get_move_range") else u.move_range
 	var origin := u.cell
@@ -1770,6 +1775,13 @@ func ai_reachable_cells(u: Unit) -> Array[Vector2i]:
 	return out
 
 func ai_move(u: Unit, target: Vector2i) -> void:
+	if u == null or not is_instance_valid(u):
+		return
+	if u.hp <= 0:
+		return
+	if _is_moving:
+		return
+		
 	# Drive the existing move logic safely:
 	if u == null or not is_instance_valid(u):
 		return

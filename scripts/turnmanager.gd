@@ -241,6 +241,8 @@ func _run_enemy_turns() -> void:
 	for u in M.get_all_units():
 		if u == null or not is_instance_valid(u):
 			continue
+		if u.hp <= 0:
+			continue
 		if u.team == Unit.Team.ENEMY:
 			enemies.append(u)
 		elif u.team == Unit.Team.ALLY:
@@ -250,10 +252,10 @@ func _run_enemy_turns() -> void:
 		return
 
 	for z in enemies:
-		if z == null or not is_instance_valid(z):
+		# ✅ re-check every time (support missiles could have killed it)
+		if z == null or not is_instance_valid(z) or z.hp <= 0:
 			continue
 
-		# ✅ Only act if within "vision" of any ally
 		if not _enemy_in_ally_vision(z, allies):
 			continue
 
@@ -281,23 +283,13 @@ func _enemy_in_ally_vision(z: Unit, allies: Array[Unit]) -> bool:
 	return false
 
 func _enemy_take_turn(z: Unit) -> void:
-	if z == null or not is_instance_valid(z):
+	# ✅ hard dead gate
+	if z == null or not is_instance_valid(z) or z.hp <= 0:
 		return
 
-	# SUPPRESSION: skip turn + tick down
+	# SUPPRESSION...
 	if z.has_meta("suppress_turns") and int(z.get_meta("suppress_turns")) > 0:
-		var t := int(z.get_meta("suppress_turns")) - 1
-		if t <= 0:
-			z.set_meta("suppress_turns", 0)
-			z.set_meta("suppress_move_penalty", 0)
-		else:
-			z.set_meta("suppress_turns", t)
-
-		# optional impact twitch sound
-		M._flash_unit_white(z, 0.12)
-		M._jitter_unit(z, 2.5, 6, 0.18)
-
-		# skip this zombie’s turn
+		# (your existing suppression code)
 		await get_tree().create_timer(0.12).timeout
 		return
 
@@ -306,26 +298,27 @@ func _enemy_take_turn(z: Unit) -> void:
 		await M.ai_attack(z, target)
 		return
 
-	# z might die from something else between frames
-	if z == null or not is_instance_valid(z):
+	# ✅ after awaits / damage events, check again
+	if z == null or not is_instance_valid(z) or z.hp <= 0:
 		return
 
 	var move_cell := _best_move_toward_nearest_ally(z)
-	if z == null or not is_instance_valid(z):
+
+	# ✅ check again before moving
+	if z == null or not is_instance_valid(z) or z.hp <= 0:
 		return
 
-	var z_cell := z.cell
-	if move_cell != z_cell:
+	if move_cell != z.cell:
 		await M.ai_move(z, move_cell)
 
-	# ✅ after movement, z could have stepped on a mine and died
-	if z == null or not is_instance_valid(z):
+	# ✅ mine could have killed it
+	if z == null or not is_instance_valid(z) or z.hp <= 0:
 		return
 
 	target = _pick_best_attack_target(z)
 	if target != null:
 		await M.ai_attack(z, target)
-
+		
 func _pick_best_attack_target(z: Unit) -> Unit:
 	var best: Unit = null
 	var best_score := -999999
