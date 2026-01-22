@@ -281,33 +281,31 @@ func _sfx(cue: StringName, vol := 1.0, pitch := 1.0, world_pos: Variant = null) 
 var _pulse_tw_by_unit: Dictionary = {} # Unit -> Tween
 
 func _apply_turn_indicator(u: Unit) -> void:
-	if u == null or not is_instance_valid(u):
-		return
-	if u.team != Unit.Team.ALLY:
-		return
+	if u == null or not is_instance_valid(u): return
+	if u.team != Unit.Team.ALLY: return
 
-	# Grab state from meta flags
 	var moved := _unit_has_moved(u)
 	var attacked := _unit_has_attacked(u)
 
-	# What is still available?
 	var has_move_left := not moved
-	var has_attack_left := moved and (not attacked)  # your rules: attack after move
+	var has_attack_left := not attacked
 
-	# Decide tint
-	if moved and attacked:
+	if (not has_move_left) and (not has_attack_left):
 		_set_unit_tint(u, tint_exhausted)
 		_stop_pulse(u)
-	elif has_attack_left:
-		# attack left = highlight more + pulse
+		return
+
+	# both left: your choice — I’d pulse + warm tint (feels “ready”)
+	if has_move_left and has_attack_left:
+		_set_unit_tint(u, Color(1,1,1,1)) # or pick a special “ready” tint
+		_start_pulse(u)
+		return
+
+	if has_attack_left:
 		_set_unit_tint(u, tint_attack_left)
 		_start_pulse(u)
-	elif has_move_left:
-		_set_unit_tint(u, tint_move_left)
-		_stop_pulse(u)
 	else:
-		# fallback
-		_set_unit_tint(u, Color(1,1,1,1))
+		_set_unit_tint(u, tint_move_left)
 		_stop_pulse(u)
 
 func _apply_turn_indicators_all_allies() -> void:
@@ -1257,8 +1255,8 @@ func _refresh_overlays() -> void:
 	var has_attacked := _unit_has_attacked(selected)
 
 	# What overlays are even possible?
-	var can_show_move := (not has_moved) and (not has_attacked)
-	var can_show_attack := (not has_attacked) # ✅ allow attack preview even if not moved
+	var can_show_move := (not has_moved)
+	var can_show_attack := (not has_attacked)
 
 	# -----------------------------------
 	# Respect player's chosen aim_mode when possible
@@ -1520,8 +1518,11 @@ func _move_selected_to(target: Vector2i) -> void:
 	if u.team == Unit.Team.ALLY and TM != null and TM.has_method("notify_player_moved"):
 		TM.notify_player_moved(u)
 
-	if u and u.team != Unit.Team.ENEMY:
-		aim_mode = AimMode.ATTACK
+	if u != null and is_instance_valid(u) and u.team == Unit.Team.ALLY:
+		if not _unit_has_attacked(u):
+			aim_mode = AimMode.ATTACK
+		else:
+			aim_mode = AimMode.MOVE
 		_refresh_overlays()
 
 	emit_signal("aim_changed", int(aim_mode), special_id)
