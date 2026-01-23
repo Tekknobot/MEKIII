@@ -320,20 +320,35 @@ func _apply_turn_indicator(u: Unit) -> void:
 
 func _stop_all_pulses() -> void:
 	var keys := _pulse_tw_by_unit.keys() # snapshot
+
 	for k in keys:
-		# ✅ key might be a freed Object (or not even an Object anymore)
-		if not (k is Object) or not is_instance_valid(k as Object):
-			# still kill its tween if present
-			var tw = _pulse_tw_by_unit.get(k, null)
+		# IMPORTANT: don't do `k is Object` because k might be a freed instance
+		if typeof(k) != TYPE_OBJECT:
+			var tw0 = _pulse_tw_by_unit.get(k, null)
 			_pulse_tw_by_unit.erase(k)
-			if tw != null and (tw is Tween) and is_instance_valid(tw):
-				(tw as Tween).kill()
+			if tw0 != null and (tw0 is Tween) and is_instance_valid(tw0):
+				(tw0 as Tween).kill()
 			continue
 
-		# safe to treat as Unit now
-		_stop_pulse(k as Unit)
+		var obj := k as Object
+		if obj == null or not is_instance_valid(obj):
+			var tw1 = _pulse_tw_by_unit.get(k, null)
+			_pulse_tw_by_unit.erase(k)
+			if tw1 != null and (tw1 is Tween) and is_instance_valid(tw1):
+				(tw1 as Tween).kill()
+			continue
+
+		# now it's safe to use `is` / cast
+		if obj is Unit:
+			_stop_pulse(obj as Unit)
+		else:
+			var tw2 = _pulse_tw_by_unit.get(k, null)
+			_pulse_tw_by_unit.erase(k)
+			if tw2 != null and (tw2 is Tween) and is_instance_valid(tw2):
+				(tw2 as Tween).kill()
 
 	_pulse_tw_by_unit.clear()
+
 
 func _prune_pulse_dict() -> void:
 	var keys := _pulse_tw_by_unit.keys()
@@ -3903,7 +3918,9 @@ func _spawn_sat_beam(world_hit: Vector2) -> void:
 	line.z_index = 1 + (cell.x + cell.y)
 
 	parent_node.add_child(line)
-
+	
+	world_hit.y -= 8
+	
 	var start_w := world_hit + Vector2(0, -sat_beam_height_px)
 	var a := parent_node.to_local(start_w)
 	var b := parent_node.to_local(world_hit)
