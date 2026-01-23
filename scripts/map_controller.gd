@@ -762,6 +762,8 @@ func _unhandled_input(event: InputEvent) -> void:
 				_set_aim_mode(AimMode.ATTACK)
 				_refresh_overlays()
 				_sfx(&"ui_arm_attack", sfx_volume_ui, 1.0)
+				# --- Tutorial hook ---
+				emit_signal("tutorial_event", &"attack_mode_armed", {"cell": (selected.cell if (selected != null and is_instance_valid(selected)) else Vector2i(-1, -1))})
 			return
 
 
@@ -810,7 +812,11 @@ func _unhandled_input(event: InputEvent) -> void:
 					_set_aim_mode(AimMode.MOVE)
 					return
 
+				var atk_from := selected.cell
+				var atk_to := clicked.cell
 				await _do_attack(selected, clicked)
+				# --- Tutorial hook ---
+				emit_signal("tutorial_event", &"ally_attacked", {"from": atk_from, "to": atk_to})
 				_set_unit_attacked(selected, true)
 				_apply_turn_indicator(selected)
 
@@ -971,6 +977,9 @@ func _select(u: Unit) -> void:
 	_apply_turn_indicators_all_allies()
 	emit_signal("selection_changed", selected)
 	emit_signal("aim_changed", int(aim_mode), special_id)
+
+	# --- Tutorial hook ---
+	emit_signal("tutorial_event", &"ally_selected", {"cell": u.cell})
 
 
 func _unselect() -> void:
@@ -1570,6 +1579,10 @@ func _move_selected_to(target: Vector2i) -> void:
 	# ✅ Mark move spent (IMPORTANT)
 	if u.team == Unit.Team.ALLY and TM != null and TM.has_method("notify_player_moved"):
 		TM.notify_player_moved(u)
+
+	# --- Tutorial hook ---
+	if u != null and is_instance_valid(u) and u.team == Unit.Team.ALLY:
+		emit_signal("tutorial_event", &"ally_moved", {"from": from_cell, "to": target})
 
 	if u != null and is_instance_valid(u) and u.team == Unit.Team.ALLY:
 		if not _unit_has_attacked(u):
@@ -3593,6 +3606,8 @@ func try_collect_pickup(u: Variant) -> void:
 		p.queue_free()
 
 	emit_signal("pickup_collected", uu, c)
+	# --- Tutorial hook ---
+	emit_signal("tutorial_event", &"pickup_collected", {"cell": c})
 
 func on_unit_died(u: Unit) -> void:
 	if u == null:
@@ -3600,6 +3615,9 @@ func on_unit_died(u: Unit) -> void:
 	# only zombies
 	if u.team != Unit.Team.ENEMY:
 		return
+
+	# --- Tutorial hook ---
+	emit_signal("tutorial_event", &"enemy_died", {"cell": u.cell})
 
 	# only drop until beacon is complete
 	if beacon_parts_collected >= beacon_parts_needed:
@@ -3781,6 +3799,8 @@ func _check_and_trigger_beacon_sweep() -> void:
 			beacon_ready = true
 			_sfx(&"beacon_ready", 1.0, 1.0, _cell_world(beacon_cell))
 			_update_beacon_marker()   # start pulsing
+			# --- Tutorial hook ---
+			emit_signal("tutorial_event", &"beacon_ready", {"cell": beacon_cell, "parts_needed": beacon_parts_needed})
 		else:
 			return   # not armed yet, nothing else to do
 
@@ -3795,6 +3815,8 @@ func _check_and_trigger_beacon_sweep() -> void:
 	# 3) Trigger sweep
 	# ----------------------------
 	_beacon_sweep_started = true
+	# --- Tutorial hook ---
+	emit_signal("tutorial_event", &"beacon_upload_started", {"cell": beacon_cell})
 
 	_sfx(&"beacon_upload", 1.0, 1.0, _cell_world(beacon_cell))
 
@@ -3808,6 +3830,8 @@ func _check_and_trigger_beacon_sweep() -> void:
 
 func _run_satellite_sweep_async() -> void:
 	await satellite_sweep()
+	# --- Tutorial hook ---
+	emit_signal("tutorial_event", &"satellite_sweep_finished", {})
 
 func _spawn_sat_beam(world_hit: Vector2) -> void:
 	var parent_node: Node2D = overlay_root if (overlay_root != null and is_instance_valid(overlay_root)) else self

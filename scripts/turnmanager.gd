@@ -155,6 +155,8 @@ func _calc_spawn_count_for_round(r: int) -> int:
 func _on_end_turn_pressed() -> void:
 	if phase != Phase.PLAYER:
 		return
+	# --- Tutorial hook ---
+	emit_signal("tutorial_event", &"end_turn_pressed", {"round": round_index})
 
 	phase = Phase.BUSY
 	_update_end_turn_button()
@@ -419,6 +421,7 @@ func player_input_allowed() -> bool:
 func _on_hellfire_pressed() -> void:
 	if phase != Phase.PLAYER:
 		return
+	emit_signal("tutorial_event", &"special_button_pressed", {"id": "hellfire"})
 	var u := M.selected
 	if u == null or not is_instance_valid(u):
 		return
@@ -433,6 +436,7 @@ func _on_hellfire_pressed() -> void:
 func _on_blade_pressed() -> void:
 	if phase != Phase.PLAYER:
 		return
+	emit_signal("tutorial_event", &"special_button_pressed", {"id": "blade"})
 	var u := M.selected
 	if u == null or not is_instance_valid(u):
 		return
@@ -447,6 +451,7 @@ func _on_blade_pressed() -> void:
 func _on_mines_pressed() -> void:
 	if phase != Phase.PLAYER:
 		return
+	emit_signal("tutorial_event", &"special_button_pressed", {"id": "mines"})
 	var u := M.selected
 	if u == null or not is_instance_valid(u):
 		return
@@ -617,6 +622,7 @@ func _ensure_unit_tracked(u: Unit) -> void:
 func _on_overwatch_pressed() -> void:
 	if phase != Phase.PLAYER:
 		return
+	emit_signal("tutorial_event", &"special_button_pressed", {"id": "overwatch"})
 	var u := M.selected
 	if u == null or not is_instance_valid(u):
 		return
@@ -631,6 +637,7 @@ func _on_overwatch_pressed() -> void:
 func _on_suppress_pressed() -> void:
 	if phase != Phase.PLAYER:
 		return
+	emit_signal("tutorial_event", &"special_button_pressed", {"id": "suppress"})
 	var u := M.selected
 	if u == null or not is_instance_valid(u):
 		return
@@ -645,6 +652,7 @@ func _on_suppress_pressed() -> void:
 func _on_stim_pressed() -> void:
 	if phase != Phase.PLAYER:
 		return
+	emit_signal("tutorial_event", &"special_button_pressed", {"id": "stim"})
 	var u := M.selected
 	if u == null or not is_instance_valid(u):
 		return
