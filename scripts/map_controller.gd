@@ -3652,7 +3652,7 @@ func on_unit_died(u: Unit) -> void:
 		return
 
 	# drop chance (or guarantee)
-	var drop_chance := 0.35
+	var drop_chance := 0.25
 	if randf() <= drop_chance:
 		spawn_pickup_at(u.cell, floppy_pickup_scene)
 
