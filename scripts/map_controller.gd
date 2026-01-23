@@ -330,22 +330,16 @@ func _stop_all_pulses() -> void:
 				(tw0 as Tween).kill()
 			continue
 
-		var obj := k as Object
-		if obj == null or not is_instance_valid(obj):
-			var tw1 = _pulse_tw_by_unit.get(k, null)
+		if not is_instance_valid(k):
+			var tw = _pulse_tw_by_unit.get(k, null)
 			_pulse_tw_by_unit.erase(k)
-			if tw1 != null and (tw1 is Tween) and is_instance_valid(tw1):
-				(tw1 as Tween).kill()
+			if is_instance_valid(tw):
+				(tw as Tween).kill()
 			continue
 
-		# now it's safe to use `is` / cast
-		if obj is Unit:
-			_stop_pulse(obj as Unit)
-		else:
-			var tw2 = _pulse_tw_by_unit.get(k, null)
-			_pulse_tw_by_unit.erase(k)
-			if tw2 != null and (tw2 is Tween) and is_instance_valid(tw2):
-				(tw2 as Tween).kill()
+		# k is live
+		var u := k as Unit
+		_stop_pulse(u)
 
 	_pulse_tw_by_unit.clear()
 
