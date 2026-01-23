@@ -291,25 +291,49 @@ func _apply_turn_indicator(u: Unit) -> void:
 	var has_move_left := not moved
 	var has_attack_left := not attacked
 
+	# Fully exhausted
 	if (not has_move_left) and (not has_attack_left):
 		_set_unit_tint(u, tint_exhausted)
 		_stop_pulse(u)
 		return
 
-	# both left: your choice — I’d pulse + warm tint (feels “ready”)
+	# ✅ BOTH left: do NOT pulse (this is the “start of turn / just selected” state)
 	if has_move_left and has_attack_left:
-		_set_unit_tint(u, Color(1,1,1,1)) # or pick a special “ready” tint
+		_set_unit_tint(u, Color(1, 1, 1, 1))
+		_stop_pulse(u)
+		return
+
+	# ✅ Attack left ONLY (meaning they must have moved already): PULSE
+	if has_attack_left and moved:
+		_set_unit_tint(u, tint_attack_left)
 		_start_pulse(u)
 		return
 
-	if has_attack_left:
-		_set_unit_tint(u, tint_attack_left)
-		_start_pulse(u)
-	else:
+	# Move left ONLY (they attacked without moving, or whatever your rules allow)
+	if has_move_left:
 		_set_unit_tint(u, tint_move_left)
 		_stop_pulse(u)
+		return
+
+	# Fallback safety
+	_stop_pulse(u)
+
+func _stop_all_pulses() -> void:
+	for k in _pulse_tw_by_unit.keys():
+		_stop_pulse(k as Unit)
+	_pulse_tw_by_unit.clear()
+
+func _prune_pulse_dict() -> void:
+	var keys := _pulse_tw_by_unit.keys()
+	for k in keys:
+		if not (k is Object) or not is_instance_valid(k as Object):
+			var tw = _pulse_tw_by_unit[k]
+			_pulse_tw_by_unit.erase(k)
+			if tw != null and (tw is Tween) and is_instance_valid(tw):
+				(tw as Tween).kill()
 
 func _apply_turn_indicators_all_allies() -> void:
+	_prune_pulse_dict()
 	for u in get_all_units():
 		if u != null and is_instance_valid(u) and u.team == Unit.Team.ALLY:
 			_apply_turn_indicator(u)
@@ -3155,6 +3179,8 @@ func _set_unit_attacked(u: Unit, v: bool) -> void:
 		u.set_meta(META_ATTACKED, v)
 
 func reset_turn_flags_for_allies() -> void:
+	_stop_all_pulses()
+	
 	for u in get_all_units():
 		if u != null and is_instance_valid(u) and u.team == Unit.Team.ALLY:
 			_set_unit_moved(u, false)
