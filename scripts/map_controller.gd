@@ -758,6 +758,7 @@ func _unhandled_input(event: InputEvent) -> void:
 			if aim_mode == AimMode.ATTACK:
 				_set_aim_mode(AimMode.MOVE)
 				_refresh_overlays()
+				emit_signal("tutorial_event", &"attack_mode_disarmed", {})
 			else:
 				_set_aim_mode(AimMode.ATTACK)
 				_refresh_overlays()
@@ -802,6 +803,7 @@ func _unhandled_input(event: InputEvent) -> void:
 			# Gate phase + per-turn attack
 			if TM != null:
 				if not TM.player_input_allowed() or not TM.can_attack(selected):
+					emit_signal("tutorial_event", &"attack_denied_tm_gate", {"cell": selected.cell})
 					_set_aim_mode(AimMode.MOVE)
 					return
 
@@ -809,6 +811,7 @@ func _unhandled_input(event: InputEvent) -> void:
 			if clicked != null and is_instance_valid(clicked) and clicked.team != selected.team and _in_attack_range(selected, clicked.cell):
 				if _unit_has_attacked(selected):
 					_sfx(&"ui_denied", sfx_volume_ui, 1.0)
+					emit_signal("tutorial_event", &"attack_denied_already_attacked", {"cell": selected.cell})
 					_set_aim_mode(AimMode.MOVE)
 					return
 
@@ -1469,14 +1472,17 @@ func _move_selected_to(target: Vector2i) -> void:
 	if selected != null and is_instance_valid(selected) and selected.team == Unit.Team.ALLY:
 		if _unit_has_moved(selected):
 			_sfx(&"ui_denied", sfx_volume_ui, 1.0)
+			emit_signal("tutorial_event", &"move_denied_already_moved", {"cell": selected.cell})
 			return
 
 		
 	# Hard gates FIRST (PLAYER ONLY)
 	if TM != null and selected != null and is_instance_valid(selected) and selected.team == Unit.Team.ALLY:
 		if not TM.player_input_allowed():
+			emit_signal("tutorial_event", &"move_denied_input_locked", {"cell": selected.cell})
 			return
 		if not TM.can_move(selected):
+			emit_signal("tutorial_event", &"move_denied_tm_gate", {"cell": selected.cell})
 			return
 
 	if _is_moving:
@@ -2248,6 +2254,7 @@ func activate_special(id: String) -> void:
 	special_id = StringName(id)
 	_refresh_overlays()
 	emit_signal("aim_changed", int(aim_mode), special_id)
+	emit_signal("tutorial_event", &"special_mode_armed", {"id": id, "cell": selected.cell})
 
 func _unit_can_use_special(u: Unit, id: String) -> bool:
 	if u == null or not is_instance_valid(u):
@@ -2310,6 +2317,7 @@ func _trigger_mine_if_present(u: Unit) -> void:
 			u.call("add_special_ammo", "mines", 1)
 		# else: silently just pick it up (still useful even without inventory)
 
+		emit_signal("tutorial_event", &"mine_picked_up", {"cell": c, "team": mine_team})
 		return
 
 	# -------------------------
@@ -2817,13 +2825,15 @@ func set_overwatch(u: Unit, enabled: bool, r: int = 0, turns := 1) -> void:
 	if not enabled:
 		overwatch_by_unit.erase(u)
 		_remove_overwatch_ghost(u)
+		emit_signal("tutorial_event", &"overwatch_cleared", {"cell": u.cell})
 		return
 
 	if r <= 0:
 		r = u.attack_range + 3
 
 	overwatch_by_unit[u] = {"range": r, "turns": int(turns)}
-
+	emit_signal("tutorial_event", &"overwatch_set", {"cell": u.cell, "range": r, "turns": int(turns)})
+	
 	_add_overwatch_ghost(u)
 	_update_overwatch_ghost_pos(u)
 
@@ -3415,6 +3425,7 @@ func _spawn_recruited_ally_fadein(spawn_cell: Vector2i) -> void:
 	# Put on grid first
 	u.set_cell(spawn_cell, terrain)
 	units_by_cell[spawn_cell] = u
+	emit_signal("tutorial_event", &"recruit_spawned", {"cell": spawn_cell})
 	_set_unit_depth_from_world(u, u.global_position)
 
 	# Fade in (fade the render node, not the Unit)
@@ -3952,7 +3963,8 @@ func _randomize_beacon_cell() -> void:
 		return
 
 	beacon_cell = c
-
+	emit_signal("tutorial_event", &"beacon_cell_set", {"cell": beacon_cell})
+	
 	# keep marker in sync
 	_clear_beacon_marker()     # ensures old marker is removed if any
 	_ensure_beacon_marker()    # spawns marker at new beacon_cell (and pulses if ready)
