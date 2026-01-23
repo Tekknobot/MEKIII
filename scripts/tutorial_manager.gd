@@ -83,11 +83,8 @@ func _show_step() -> void:
 				"FIELD OPS"
 			)
 		Step.FIRST_PICKUP:
-			var need := 3
-			if M != null and "beacon_parts_needed" in M:
-				need = int(M.beacon_parts_needed)
 			_toast(
-				"Pick up a floppy disk by stepping on it.\n\nCollect %d total to arm the beacon." % need,
+				"Pick up a floppy disk by stepping on it.\nCollect 3 to arm the beacon.",
 				"FIELD OPS"
 			)
 		Step.BEACON_READY:
@@ -108,24 +105,26 @@ func _toast(msg: String, header: String = "TIP") -> void:
 	if toast == null:
 		return
 
+	# If your toast has its own show_message(), use it
 	if toast.has_method("show_message"):
 		toast.call("show_message", msg, header)
-		return
 
+	# Ensure it's visually shown without changing layout
 	if toast is CanvasItem:
-		(toast as CanvasItem).visible = true
-		if toast.has_node("Label"):
-			var L := toast.get_node("Label")
-			if L != null and L.has_method("set_text"):
-				L.text = msg
+		(toast as CanvasItem).modulate.a = 1.0
 
+	if toast is Control:
+		(toast as Control).mouse_filter = Control.MOUSE_FILTER_STOP
 
 func _hide_toast() -> void:
 	if toast == null:
 		return
-	if toast is CanvasItem:
-		(toast as CanvasItem).visible = false
 
+	if toast is CanvasItem:
+		(toast as CanvasItem).modulate.a = 0.0
+
+	if toast is Control:
+		(toast as Control).mouse_filter = Control.MOUSE_FILTER_IGNORE
 
 func _advance(to_step: Step) -> void:
 	if to_step <= step:
@@ -141,7 +140,7 @@ func _hint_once(id: StringName, msg: String) -> void:
 		return
 	_last_hint_id = id
 	_last_hint_time_ms = now
-	_toast(msg, "TUTORIAL")
+	_toast(msg, "FIELD OPS")
 
 
 # -------------------------------------------------
@@ -177,20 +176,12 @@ func _on_tutorial_event(id: StringName, payload: Dictionary) -> void:
 				_advance(Step.FIRST_KILL)
 
 		"enemy_died":
-			if step == Step.FIRST_KILL:
+			# ✅ If they kill on their first attack, we won't miss the kill event.
+			if step == Step.INTRO_ATTACK:
+				_advance(Step.FIRST_PICKUP) # or FIRST_KILL first if you prefer
+			elif step == Step.FIRST_KILL:
 				_advance(Step.FIRST_PICKUP)
-
-		"pickup_collected":
-			if step == Step.FIRST_PICKUP and M != null and ("beacon_parts_needed" in M) and ("beacon_parts_collected" in M):
-				var need := int(M.beacon_parts_needed)
-				var got := int(M.beacon_parts_collected)
-
-				if got >= need:
-					# If your game emits beacon_ready separately, great; but this keeps tutorial flowing even if not.
-					_advance(Step.BEACON_READY)
-				else:
-					_toast("Floppy collected: %d/%d\n\nKeep collecting to arm the beacon." % [got, need], "TUTORIAL")
-
+				
 		"beacon_ready":
 			if step < Step.BEACON_READY:
 				_advance(Step.BEACON_READY)
