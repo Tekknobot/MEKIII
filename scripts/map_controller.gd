@@ -3079,25 +3079,36 @@ func _prune_overwatch_dicts() -> void:
 	# ----- overwatch_by_unit -----
 	var keys1 := overwatch_by_unit.keys() # snapshot
 	for k in keys1:
-		if not (k is Object) or not is_instance_valid(k as Object):
+		# SAFE: no `is`, no `as` yet
+		if not is_instance_valid(k):
+			overwatch_by_unit.erase(k)
+			continue
+
+		# (Optional) If you want to ensure keys are actually Units:
+		# Now safe to use `is`
+		if not (k is Unit):
 			overwatch_by_unit.erase(k)
 			continue
 
 	# ----- overwatch_ghost_by_unit -----
 	var keys2 := overwatch_ghost_by_unit.keys() # snapshot
 	for k in keys2:
-		# ✅ validate key BEFORE any dictionary access with k
-		if not (k is Object) or not is_instance_valid(k as Object):
-			# Can't safely fetch the ghost by this freed key; just erase mapping.
+		# SAFE: validate key BEFORE doing anything else with it
+		if not is_instance_valid(k):
 			overwatch_ghost_by_unit.erase(k)
 			continue
 
-		# Now it's safe to read the value
-		var g := overwatch_ghost_by_unit[k] as CanvasItem
-
-		if g == null or not is_instance_valid(g):
+		# (Optional) enforce Unit keys
+		if not (k is Unit):
 			overwatch_ghost_by_unit.erase(k)
 			continue
+
+		# Now it's safe to read the value using k
+		var g := overwatch_ghost_by_unit.get(k, null) as CanvasItem
+		if not is_instance_valid(g):
+			overwatch_ghost_by_unit.erase(k)
+			continue
+
 
 func _sync_ghost_facing(u: Unit) -> void:
 	if u == null or not is_instance_valid(u):
@@ -3752,6 +3763,7 @@ func satellite_sweep() -> void:
 		var boom = boom_scene.instantiate()
 		add_child(boom)
 		boom.global_position = p
+		boom.global_position.y -= 8
 
 		# kill zombie
 		z.take_damage(999)
@@ -3909,11 +3921,9 @@ func _spawn_sat_beam(world_hit: Vector2) -> void:
 		cell = terrain.local_to_map(local)
 
 	# ✅ depth (or keep sat_beam_z_boost if you want ALWAYS on top)
-	line.z_index = 1 + (cell.x + cell.y)
+	line.z_index = 2 + (cell.x + cell.y)
 
 	parent_node.add_child(line)
-	
-	world_hit.y -= 8
 	
 	var start_w := world_hit + Vector2(0, -sat_beam_height_px)
 	var a := parent_node.to_local(start_w)
