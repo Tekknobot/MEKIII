@@ -72,6 +72,11 @@ const ROAD_SIZE := 2
 @export var avoid_roads := true
 @export var avoid_water := true
 
+# ✅ Add: put your Tower / Stadium / District scenes here (each can spawn max once)
+@export var unique_building_scenes: Array[PackedScene] = []
+
+var _unique_used: Dictionary = {} # scene_key -> true
+
 var grid: GridData
 var rng := RandomNumberGenerator.new()
 
@@ -392,8 +397,6 @@ func _add_roads() -> void:
 
 	_sync_roads_transform()
 
-	# This matches your old approach:
-	# 16x16 terrain + ROAD_SIZE=2 => road grid is (width/2)*2-1 by (height/2)*2-1
 	var cols := int(map_width / ROAD_SIZE) * 2 - 1
 	var rows := int(map_height / ROAD_SIZE) * 2 - 1
 	if cols <= 0 or rows <= 0:
@@ -403,7 +406,6 @@ func _add_roads() -> void:
 	var road_col := rng.randi_range(margin, cols - 1 - margin)
 	var road_row := rng.randi_range(margin, rows - 1 - margin)
 
-	# connection mask: 1 = vertical (DL), 2 = horizontal (DR), 3 = intersection (X)
 	var conn := {}
 
 	# main vertical lane
@@ -416,8 +418,36 @@ func _add_roads() -> void:
 		var rc := Vector2i(rx, road_row)
 		conn[rc] = int(conn.get(rc, 0)) | 2
 
-	# ensure intersection
-	conn[Vector2i(road_col, road_row)] = 3
+	# -----------------------------------------
+	# EXTRA ROAD: 50% chance, separated by >= 3 tiles
+	# -----------------------------------------
+	if rng.randf() < 0.5:
+		var add_vertical := rng.randi_range(0, 1) == 0
+		var min_sep := 3
+
+		if add_vertical:
+			var col2 := road_col
+			var tries := 64
+			while tries > 0 and abs(col2 - road_col) < min_sep:
+				col2 = rng.randi_range(margin, cols - 1 - margin)
+				tries -= 1
+
+			# only add if we actually found a far-enough column
+			if abs(col2 - road_col) >= min_sep:
+				for ry in range(rows):
+					var rc2 := Vector2i(col2, ry)
+					conn[rc2] = int(conn.get(rc2, 0)) | 1
+		else:
+			var row2 := road_row
+			var tries := 64
+			while tries > 0 and abs(row2 - road_row) < min_sep:
+				row2 = rng.randi_range(margin, rows - 1 - margin)
+				tries -= 1
+
+			if abs(row2 - road_row) >= min_sep:
+				for rx in range(cols):
+					var rc2 := Vector2i(rx, row2)
+					conn[rc2] = int(conn.get(rc2, 0)) | 2
 
 	# paint tiles into the 3 maps
 	for rc in conn.keys():
@@ -466,23 +496,20 @@ func _cell_has_road(c: Vector2i) -> bool:
 # -------------------------------------------------
 func spawn_structures() -> void:
 	structure_blocked.clear()
+	_unique_used.clear() # ✅ reset per regen
 
 	if structures_root == null:
-		# if you forgot the node, just parent under Game
 		structures_root = self
 
-	# clear previous buildings
 	for ch in structures_root.get_children():
 		ch.queue_free()
 
 	if building_scenes == null or building_scenes.is_empty():
-		# nothing to spawn
 		return
 
 	var size := building_footprint
 	var candidates: Array[Vector2i] = []
 
-	# build candidate origins
 	for x in range(map_width - size.x + 1):
 		for y in range(map_height - size.y + 1):
 			var origin := Vector2i(x, y)
@@ -490,6 +517,8 @@ func spawn_structures() -> void:
 				candidates.append(origin)
 
 	candidates.shuffle()
+
+	building_count = rng.randi_range(6, building_count)
 
 	var placed := 0
 	var tries := 0
@@ -500,7 +529,25 @@ func spawn_structures() -> void:
 		if _is_structure_blocked(origin, size):
 			continue
 
-		var scene := building_scenes[rng.randi_range(0, building_scenes.size() - 1)]
+		# ✅ pick a scene that respects "unique once"
+		var scene: PackedScene = null
+		var pick_tries := 32
+		while pick_tries > 0:
+			pick_tries -= 1
+			var s := building_scenes[rng.randi_range(0, building_scenes.size() - 1)]
+			if s == null:
+				continue
+
+			if _is_unique_scene(s):
+				var key := _scene_key(s)
+				if _unique_used.has(key):
+					continue # already placed once
+				scene = s
+				break
+			else:
+				scene = s
+				break
+
 		if scene == null:
 			continue
 
@@ -509,17 +556,19 @@ func spawn_structures() -> void:
 		if b == null:
 			continue
 
-
-		b.add_to_group("Structures") # ✅ tag for easy queries / damage lookup
+		b.add_to_group("Structures")
 		structures_root.add_child(b)
 
-		# prefer Structure.set_origin(cell, terrain) if available
 		if b.has_method("set_origin"):
 			b.call("set_origin", origin, terrain)
 		else:
 			b.global_position = terrain.to_global(terrain.map_to_local(origin))
 
 		_mark_structure_blocked(origin, size)
+
+		# ✅ mark unique as used AFTER successful placement
+		if _is_unique_scene(scene):
+			_unique_used[_scene_key(scene)] = true
 
 		placed += 1
 
@@ -563,3 +612,22 @@ func _mark_structure_blocked(origin: Vector2i, size: Vector2i) -> void:
 		for dy in range(size.y):
 			var c := origin + Vector2i(dx, dy)
 			structure_blocked[c] = true
+
+func _scene_key(scene: PackedScene) -> String:
+	if scene == null:
+		return ""
+	# resource_path is stable + unique for a scene file
+	return scene.resource_path
+
+func _is_unique_scene(scene: PackedScene) -> bool:
+	if scene == null:
+		return false
+	# membership check (fast)
+	if unique_building_scenes.has(scene):
+		return true
+	# fallback: compare by path in case of different PackedScene instances
+	var key := _scene_key(scene)
+	for s in unique_building_scenes:
+		if s != null and s.resource_path == key:
+			return true
+	return false
