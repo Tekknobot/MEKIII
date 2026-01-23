@@ -11,14 +11,15 @@ title_path = NodePath("Panel/Margin/VBox/Title")
 body_path = NodePath("Panel/Margin/VBox/Body")
 
 [node name="Panel" type="Control" parent="."]
+custom_minimum_size = Vector2(240, 120)
 layout_mode = 3
 anchors_preset = 2
 anchor_top = 1.0
 anchor_bottom = 1.0
 offset_left = 27.0
-offset_top = -149.0
-offset_right = 67.0
-offset_bottom = -99.0
+offset_top = -147.0
+offset_right = 267.0
+offset_bottom = -27.0
 grow_vertical = 0
 
 [node name="Margin" type="MarginContainer" parent="Panel"]
@@ -34,7 +35,7 @@ layout_mode = 2
 theme_override_fonts/font = ExtResource("2_c3lbd")
 
 [node name="Body" type="RichTextLabel" parent="Panel/Margin/VBox"]
-custom_minimum_size = Vector2(200, 100)
+custom_minimum_size = Vector2(240, 120)
 layout_mode = 2
 theme_override_fonts/normal_font = ExtResource("3_7epdg")
 

@@ -54,7 +54,7 @@ func _show_step() -> void:
 		Step.INTRO_ATTACK:
 			_toast("Attack a zombie.\n\nTip: Right-click to arm ATTACK, then left-click a zombie.", "TUTORIAL")
 		Step.FIRST_KILL:
-			_toast("Nice. Zombies can drop floppy disks.\n\nKill one to find parts.", "TUTORIAL")
+			_toast("Nice. Zombies sometimes drop floppy disks.\n\nThey appear about 1 in 4 kills.\nCollect them to power the beacon.", "TUTORIAL")
 		Step.FIRST_PICKUP:
 			var need := 3
 			if M != null:
