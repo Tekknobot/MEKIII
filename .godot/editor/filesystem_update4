@@ -1,3 +1,4 @@
 res://scripts/map_controller.gd
 res://scenes/Game.tscn
 res://shaders/outline_1px.gdshader
+res://scripts/turnmanager.gd

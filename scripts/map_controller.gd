@@ -319,8 +319,20 @@ func _apply_turn_indicator(u: Unit) -> void:
 	_stop_pulse(u)
 
 func _stop_all_pulses() -> void:
-	for k in _pulse_tw_by_unit.keys():
+	var keys := _pulse_tw_by_unit.keys() # snapshot
+	for k in keys:
+		# ✅ key might be a freed Object (or not even an Object anymore)
+		if not (k is Object) or not is_instance_valid(k as Object):
+			# still kill its tween if present
+			var tw = _pulse_tw_by_unit.get(k, null)
+			_pulse_tw_by_unit.erase(k)
+			if tw != null and (tw is Tween) and is_instance_valid(tw):
+				(tw as Tween).kill()
+			continue
+
+		# safe to treat as Unit now
 		_stop_pulse(k as Unit)
+
 	_pulse_tw_by_unit.clear()
 
 func _prune_pulse_dict() -> void:
@@ -369,6 +381,10 @@ func _start_pulse(u: Unit) -> void:
 	_pulse_tw_by_unit[u] = tw
 
 func _stop_pulse(u: Unit) -> void:
+	if u == null or not is_instance_valid(u):
+		# still try to kill tween if dictionary uses a dead key elsewhere
+		return
+
 	if _pulse_tw_by_unit.has(u):
 		var tw = _pulse_tw_by_unit[u]
 		_pulse_tw_by_unit.erase(u)
