@@ -1,3 +1,4 @@
+res://scripts
 res://scenes
 res://sprites/Tiles_UI/mek3
 res://sprites/Bots/Blue
@@ -11,7 +12,6 @@ res://sprites/Structures/stadium
 res://scenes/structures
 res://sprites/Structures/building_c/demolished
 res://sprites/Structures/building_c
-res://scripts
 res://fonts/magofonts
 res://sprites/Terrain/roads
 res://sprites/Dog

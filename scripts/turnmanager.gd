@@ -43,6 +43,8 @@ var round_index := 1  # Round 1 at game start
 @export var spawn_bonus_amount := 2      # how many extra on bonus rounds
 @export var spawn_cap := 32              # hard safety cap
 
+signal tutorial_event(id: StringName, payload: Dictionary)
+
 func _ready() -> void:
 	if end_turn_button:
 		end_turn_button.pressed.connect(_on_end_turn_pressed)
@@ -69,6 +71,9 @@ func _ready() -> void:
 
 		if M.has_signal("aim_changed") and not M.aim_changed.is_connected(_on_aim_changed):
 			M.aim_changed.connect(_on_aim_changed)
+
+	if M != null and M.has_signal("tutorial_event"):
+		M.tutorial_event.connect(func(id, payload): emit_signal("tutorial_event", id, payload))
 
 	_update_special_buttons()
 	

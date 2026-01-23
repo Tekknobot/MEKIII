@@ -1,0 +1,37 @@
+[gd_scene load_steps=3 format=3 uid="uid://de5lsm2hud7v7"]
+
+[ext_resource type="Script" uid="uid://cscwovvysyadd" path="res://scripts/tutorial_toast.gd" id="1_xl5dp"]
+[ext_resource type="FontFile" uid="uid://csnhk3q4gx0" path="res://fonts/magofonts/mago1.ttf" id="2_c3lbd"]
+
+[node name="TutorialToast" type="CanvasLayer"]
+script = ExtResource("1_xl5dp")
+panel_path = NodePath("Panel")
+title_path = NodePath("Panel/Margin/VBox/Title")
+body_path = NodePath("Panel/Margin/VBox/Body")
+
+[node name="Panel" type="Control" parent="."]
+layout_mode = 3
+anchors_preset = 2
+anchor_top = 1.0
+anchor_bottom = 1.0
+offset_top = -50.0
+offset_right = 40.0
+grow_vertical = 0
+
+[node name="Margin" type="MarginContainer" parent="Panel"]
+layout_mode = 0
+offset_right = 40.0
+offset_bottom = 50.0
+
+[node name="VBox" type="VBoxContainer" parent="Panel/Margin"]
+layout_mode = 2
+
+[node name="Title" type="Label" parent="Panel/Margin/VBox"]
+layout_mode = 2
+theme_override_fonts/font = ExtResource("2_c3lbd")
+
+[node name="Body" type="RichTextLabel" parent="Panel/Margin/VBox"]
+custom_minimum_size = Vector2(200, 32)
+layout_mode = 2
+
+[node name="TweenHost" type="Node" parent="."]

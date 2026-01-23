@@ -222,6 +222,8 @@ var _beacon_pulse_tw: Tween = null
 @export var beacon_pulse_max_a := 1.0
 @export var beacon_pulse_time := 0.35
 
+signal tutorial_event(id: StringName, payload: Dictionary)
+
 func _sfx(cue: StringName, vol := 1.0, pitch := 1.0, world_pos: Variant = null) -> void:
 	if SFX == null:
 		return

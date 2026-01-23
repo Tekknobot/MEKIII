@@ -1,4 +1,4 @@
-[gd_scene load_steps=78 format=3 uid="uid://bmtwqbsx674eo"]
+[gd_scene load_steps=80 format=3 uid="uid://bmtwqbsx674eo"]
 
 [ext_resource type="Script" uid="uid://bn08mhcoceqg" path="res://scripts/game.gd" id="1_400sg"]
 [ext_resource type="Texture2D" uid="uid://by1nnygq8fbib" path="res://sprites/Terrain/dirt.png" id="6_mcffj"]
@@ -48,6 +48,8 @@
 [ext_resource type="PackedScene" uid="uid://b3mmncyiyeetr" path="res://scenes/mechtwo.tscn" id="44_ca228"]
 [ext_resource type="PackedScene" uid="uid://2ov7kvfue6bm" path="res://scenes/floppy.tscn" id="46_xfjuk"]
 [ext_resource type="PackedScene" uid="uid://c6mcd4ogd1jyq" path="res://scenes/beacon.tscn" id="47_6h74c"]
+[ext_resource type="Script" uid="uid://dsiq3cf4mv8kx" path="res://scripts/tutorial_manager.gd" id="49_0wf52"]
+[ext_resource type="PackedScene" uid="uid://de5lsm2hud7v7" path="res://scenes/tutorial_toast.tscn" id="50_3pold"]
 
 [sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_g4kob"]
 texture = ExtResource("11_2rd6h")
@@ -395,6 +397,14 @@ beacon_marker_y_offset_px = 0.0
 beacon_marker_z_base = 0
 
 [node name="AudioStreamPlayer2D" type="AudioStreamPlayer2D" parent="MapController"]
+
+[node name="TutorialManager" type="Node2D" parent="."]
+script = ExtResource("49_0wf52")
+map_controller_path = NodePath("../MapController")
+turn_manager_path = NodePath("../TurnManager")
+toast_path = NodePath("../TutorialToast")
+
+[node name="TutorialToast" parent="." instance=ExtResource("50_3pold")]
 
 [node name="CanvasLayer" type="CanvasLayer" parent="."]
 

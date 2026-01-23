@@ -4,3 +4,6 @@ res://shaders/outline_1px.gdshader
 res://scripts/turnmanager.gd
 res://scripts/game.gd
 res://scenes/zombie.tscn
+res://scripts/tutorial_toast.gd
+res://scripts/tutorial_manager.gd
+res://scenes/tutorial_toast.tscn
