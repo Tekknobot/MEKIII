@@ -518,7 +518,7 @@ func spawn_structures() -> void:
 
 	candidates.shuffle()
 
-	building_count = rng.randi_range(6, building_count)
+	building_count = rng.randi_range(6, 12)
 
 	var placed := 0
 	var tries := 0
