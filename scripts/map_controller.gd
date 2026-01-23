@@ -3621,7 +3621,7 @@ func spawn_pickup_at(cell: Vector2i, pickup_scene: PackedScene) -> void:
 	if p is Node2D:
 		var n := p as Node2D
 		n.z_as_relative = false
-		n.z_index = 1 + (cell.x + cell.y) + 3
+		n.z_index = 1 + (cell.x + cell.y)
 
 func try_collect_pickup(u: Variant) -> void:
 	# ✅ accept freed references safely
@@ -3652,7 +3652,7 @@ func on_unit_died(u: Unit) -> void:
 		return
 
 	# drop chance (or guarantee)
-	var drop_chance := 0.55
+	var drop_chance := 0.35
 	if randf() <= drop_chance:
 		spawn_pickup_at(u.cell, floppy_pickup_scene)
 

@@ -1,22 +1,10 @@
-[gd_scene load_steps=6 format=3 uid="uid://c6mcd4ogd1jyq"]
+[gd_scene load_steps=3 format=3 uid="uid://c6mcd4ogd1jyq"]
 
-[ext_resource type="Texture2D" uid="uid://bk1x58ebptsgc" path="res://sprites/Tiles_UI/mek3/1x1_beacon1.png" id="1_gotfa"]
-[ext_resource type="Texture2D" uid="uid://bqkk5gbxcxgph" path="res://sprites/Tiles_UI/mek3/1x1_beacon2.png" id="2_q6tmv"]
-[ext_resource type="Texture2D" uid="uid://dk71biqtno4dr" path="res://sprites/Tiles_UI/mek3/1x1_beacon3.png" id="3_ys75u"]
 [ext_resource type="Texture2D" uid="uid://bbg3458x06rys" path="res://sprites/Tiles_UI/mek3/1x1_beacon4.png" id="4_3jkwu"]
 
 [sub_resource type="SpriteFrames" id="SpriteFrames_r47l1"]
 animations = [{
 "frames": [{
-"duration": 1.0,
-"texture": ExtResource("1_gotfa")
-}, {
-"duration": 1.0,
-"texture": ExtResource("2_q6tmv")
-}, {
-"duration": 1.0,
-"texture": ExtResource("3_ys75u")
-}, {
 "duration": 1.0,
 "texture": ExtResource("4_3jkwu")
 }],
@@ -29,3 +17,16 @@ animations = [{
 
 [node name="AnimatedSprite2D" type="AnimatedSprite2D" parent="."]
 sprite_frames = SubResource("SpriteFrames_r47l1")
+
+[node name="CPUParticles2D" type="CPUParticles2D" parent="."]
+position = Vector2(0, -16)
+amount = 16
+lifetime = 2.8
+preprocess = 3.0
+randomness = 1.0
+emission_shape = 1
+emission_sphere_radius = 15.81
+spread = 180.0
+gravity = Vector2(0, 0)
+initial_velocity_min = 2.0
+initial_velocity_max = 2.0
