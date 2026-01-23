@@ -3769,7 +3769,7 @@ func satellite_sweep() -> void:
 		z.take_damage(999)
 
 		# small delay so it reads
-		await get_tree().create_timer(0.05).timeout
+		await get_tree().create_timer(0.1).timeout
 
 func _wire_unit_signals(u: Unit) -> void:
 	if u == null or not is_instance_valid(u):
