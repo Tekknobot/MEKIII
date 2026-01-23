@@ -65,22 +65,22 @@ func _show_step() -> void:
 		Step.INTRO_SELECT:
 			_toast(
 				"Click an ally to select them.\n\nTip: Left-click selects. Right-click arms attack mode.",
-				"TUTORIAL"
+				"FIELD OPS"
 			)
 		Step.INTRO_MOVE:
 			_toast(
 				"Move your selected ally.\n\nTip: Click a green tile to move.",
-				"TUTORIAL"
+				"FIELD OPS"
 			)
 		Step.INTRO_ATTACK:
 			_toast(
 				"Attack a zombie.\n\nTip: Right-click to arm ATTACK, then left-click a zombie.",
-				"TUTORIAL"
+				"FIELD OPS"
 			)
 		Step.FIRST_KILL:
 			_toast(
 				"Nice. Zombies sometimes drop floppy disks.\n\nThey appear about 1 in 4 kills.\nCollect them to power the beacon.",
-				"TUTORIAL"
+				"FIELD OPS"
 			)
 		Step.FIRST_PICKUP:
 			var need := 3
@@ -88,17 +88,17 @@ func _show_step() -> void:
 				need = int(M.beacon_parts_needed)
 			_toast(
 				"Pick up a floppy disk by stepping on it.\n\nCollect %d total to arm the beacon." % need,
-				"TUTORIAL"
+				"FIELD OPS"
 			)
 		Step.BEACON_READY:
 			_toast(
 				"Beacon armed!\n\nMove an ally onto the beacon tile to upload.",
-				"TUTORIAL"
+				"FIELD OPS"
 			)
 		Step.BEACON_UPLOAD:
 			_toast(
 				"Uploading…\n\nSatellite sweep incoming!",
-				"TUTORIAL"
+				"FIELD OPS"
 			)
 		Step.DONE:
 			_hide_toast()
