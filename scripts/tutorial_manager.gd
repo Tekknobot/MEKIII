@@ -64,7 +64,6 @@ func _ready() -> void:
 	# If nothing is hooked, still show the first hint so you notice
 	call_deferred("_show_step")
 
-
 func _show_step() -> void:
 	match step:
 		Step.INTRO_SELECT:
@@ -107,8 +106,6 @@ func _show_step() -> void:
 				"Zombies cleared!\nYou WIN!",
 				"FIELD OPS"
 			)		
-			
-			
 		Step.DONE:
 			_hide_toast()
 
@@ -169,7 +166,7 @@ func _on_tutorial_event(id: StringName, payload: Dictionary) -> void:
 		"ally_selected":
 			if step == Step.INTRO_SELECT:
 				_advance(Step.INTRO_MOVE)
-				_on_you_win()
+				#_on_you_win()
 
 		"ally_moved":
 			if step == Step.INTRO_MOVE:
@@ -287,13 +284,44 @@ func _on_you_win() -> void:
 			# fallback: just make it visible
 			end_panel.visible = true
 
+	if end_panel != null and is_instance_valid(end_panel):
+		if end_panel.has_signal("continue_pressed"):
+			end_panel.continue_pressed.connect(func():
+				if M != null and is_instance_valid(M) and M.game_ref != null and is_instance_valid(M.game_ref):
+					var G = M.game_ref
+					if G.has_method("regenerate_map"):
+						G.call("regenerate_map")
+			)
+
 func _roll_3_upgrades() -> Array:
 	var pool: Array = [
-		{"id": &"hp_plus_1", "title": "ARMOR PLATING", "desc": "+1 Max HP to all allies (heal +1 too)."},
-		{"id": &"beacon_cheaper", "title": "SIGNAL BOOST", "desc": "Beacon needs 1 fewer floppy disk (min 1)."},
-		{"id": &"recruit_now", "title": "EMERGENCY RECRUIT", "desc": "Spawn a Recruit Bot ally near center."},
-		{"id": &"overwatch_drill", "title": "OVERWATCH DRILL", "desc": "All allies gain Overwatch immediately."},
-		{"id": &"stim_pack", "title": "STIM CACHE", "desc": "Allies get Stim at start of next turn."},
+		# -------------------------
+		# GLOBAL TEAM UPGRADES
+		# -------------------------
+		{"id": &"all_hp_plus_1", "title": "ARMOR PLATING", "desc": "+1 Max HP to all allies."},
+		{"id": &"all_move_plus_1", "title": "FIELD DRILLS", "desc": "+1 Move to all allies."},
+		{"id": &"all_dmg_plus_1", "title": "HOT LOADS", "desc": "+1 Attack Damage to all allies."},
+
+		# -------------------------
+		# SOLDIER (Human)
+		# -------------------------
+		{"id": &"soldier_move_plus_1", "title": "SPRINT TRAINING", "desc": "+1 Move for Soldier."},
+		{"id": &"soldier_range_plus_1", "title": "MARKSMAN KIT", "desc": "+1 Attack Range for Soldier."},
+		{"id": &"soldier_dmg_plus_1", "title": "HOLLOW POINTS", "desc": "+1 Damage for Soldier."},
+
+		# -------------------------
+		# MERCENARY (HumanTwo)
+		# -------------------------
+		{"id": &"merc_move_plus_1", "title": "QUICK CONTRACT", "desc": "+1 Move for Mercenary."},
+		{"id": &"merc_range_plus_1", "title": "LONG SIGHT", "desc": "+1 Attack Range for Mercenary."},
+		{"id": &"merc_dmg_plus_1", "title": "OVERCHARGED ROUNDS", "desc": "+1 Damage for Mercenary."},
+
+		# -------------------------
+		# ROBODOG (Mech)
+		# -------------------------
+		{"id": &"dog_hp_plus_2", "title": "REINFORCED ARMOR", "desc": "+2 Max HP for Robodog."},
+		{"id": &"dog_move_plus_1", "title": "HYDRAULIC LEGS", "desc": "+1 Move for Robodog."},
+		{"id": &"dog_dmg_plus_1", "title": "SERVO STRIKE", "desc": "+1 Damage for Robodog."},
 	]
 
 	var picked: Array = []
@@ -301,4 +329,5 @@ func _roll_3_upgrades() -> Array:
 		var i := randi() % pool.size()
 		picked.append(pool[i])
 		pool.remove_at(i)
+
 	return picked

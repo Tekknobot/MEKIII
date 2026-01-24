@@ -16,6 +16,10 @@ config/features=PackedStringArray("4.5", "Forward Plus")
 boot_splash/bg_color=Color(0.044557855, 0.044557855, 0.044557832, 1)
 config/icon="res://icon.svg"
 
+[autoload]
+
+RunStateNode="*res://scripts/RunState.gd"
+
 [display]
 
 window/size/mode=3

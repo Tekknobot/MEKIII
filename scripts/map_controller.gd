@@ -548,6 +548,8 @@ func spawn_units() -> void:
 
 	print("Spawned allies:", ally_count, "zombies:", max_zombies)
 
+	apply_run_upgrades()
+
 	# ✅ Now that units exist, auto-select + update buttons
 	if TM != null and TM.has_method("on_units_spawned"):
 		TM.on_units_spawned()
@@ -3968,3 +3970,54 @@ func _randomize_beacon_cell() -> void:
 	# keep marker in sync
 	_clear_beacon_marker()     # ensures old marker is removed if any
 	_ensure_beacon_marker()    # spawns marker at new beacon_cell (and pulses if ready)
+
+func apply_run_upgrades() -> void:
+	var upgrades: Array[StringName] = RunStateNode.run_upgrades
+	if upgrades.is_empty():
+		return
+	else:
+		# fallback for old behavior if you want
+		if game_ref != null and is_instance_valid(game_ref) and ("run_upgrades" in game_ref):
+			upgrades = game_ref.run_upgrades
+
+	if upgrades.is_empty():
+		return
+
+	for u in get_all_units():
+		if u == null or not is_instance_valid(u): 
+			continue
+		if u.team != Unit.Team.ALLY:
+			continue
+
+		for id in upgrades:
+			match id:
+				&"all_hp_plus_1":
+					u.max_hp += 1
+					u.hp = min(u.hp + 1, u.max_hp)
+				&"all_move_plus_1":
+					u.move_range += 1
+				&"all_dmg_plus_1":
+					u.attack_damage += 1
+
+				&"soldier_move_plus_1":
+					if u is Human: u.move_range += 1
+				&"soldier_range_plus_1":
+					if u is Human: u.attack_range += 1
+				&"soldier_dmg_plus_1":
+					if u is Human: u.attack_damage += 1
+
+				&"merc_move_plus_1":
+					if u is HumanTwo: u.move_range += 1
+				&"merc_range_plus_1":
+					if u is HumanTwo: u.attack_range += 1
+				&"merc_dmg_plus_1":
+					if u is HumanTwo: u.attack_damage += 1
+
+				&"dog_hp_plus_2":
+					if u is Mech:
+						u.max_hp += 2
+						u.hp = min(u.hp + 2, u.max_hp)
+				&"dog_move_plus_1":
+					if u is Mech: u.move_range += 1
+				&"dog_dmg_plus_1":
+					if u is Mech: u.attack_damage += 1

@@ -32,6 +32,9 @@ var restart_button: Button
 
 var _shown_upgrades: Array = []   # Array[Dictionary] {id,title,desc}
 
+var _picked := false
+var _picked_upgrade: StringName = &""
+
 func _ready() -> void:
 	_build_ui()
 	hide_panel()
@@ -221,20 +224,23 @@ func _build_ui() -> void:
 	continue_button = Button.new()
 	continue_button.name = "Continue"
 	continue_button.text = "Continue"
+	continue_button.disabled = true  # locked until upgrade picked
 	continue_button.pressed.connect(func():
+		if not _picked:
+			return
 		emit_signal("continue_pressed")
 		hide_panel()
 	)
 	footer.add_child(continue_button)
 
-	restart_button = Button.new()
-	restart_button.name = "Restart"
-	restart_button.text = "Restart"
-	restart_button.pressed.connect(func():
-		emit_signal("restart_pressed")
-		hide_panel()
-	)
-	footer.add_child(restart_button)
+	#restart_button = Button.new()
+	#restart_button.name = "Restart"
+	#restart_button.text = "Restart"
+	#restart_button.pressed.connect(func():
+	#	emit_signal("restart_pressed")
+	#	hide_panel()
+	#)
+	#footer.add_child(restart_button)
 
 	# Apply font overrides after all nodes exist
 	refresh_fonts()
@@ -244,12 +250,20 @@ func _build_ui() -> void:
 # -------------------------
 func show_win(rounds_survived: int, upgrades: Array) -> void:
 	_shown_upgrades = upgrades
+
+	_picked = false
+	_picked_upgrade = &""
+	if continue_button != null:
+		continue_button.disabled = true
+
 	if title_label != null:
 		title_label.text = "MISSION COMPLETE"
 	if body_label != null:
 		body_label.text = "Satellite sweep confirmed.\nRounds survived: %d\n\nChoose ONE upgrade:" % rounds_survived
+
 	_apply_upgrade_ui()
 	show_panel()
+
 
 func show_loss(msg: String) -> void:
 	_shown_upgrades = []
@@ -287,6 +301,15 @@ func _pick_upgrade(i: int) -> void:
 	# lock after pick
 	for b in upgrade_buttons:
 		b.disabled = true
+
+	_picked = true
+	_picked_upgrade = id
+	
+	RunStateNode.add_upgrade(id)
+
+	# allow continue now
+	if continue_button != null:
+		continue_button.disabled = false
 
 	emit_signal("upgrade_selected", id)
 

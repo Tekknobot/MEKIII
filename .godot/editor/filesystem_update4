@@ -14,3 +14,4 @@ res://scripts/human.gd
 res://scripts/round_end_ui.gd
 res://scenes/round_end_ui.tscn
 res://scripts/end_game_panel_runtime.gd
+res://scripts/RunState.gd

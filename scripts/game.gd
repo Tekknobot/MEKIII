@@ -93,6 +93,15 @@ var structure_blocked := {}
 
 var _start_max_zombies := 0
 
+func add_upgrade(id: StringName) -> void:
+	RunStateNode.add_upgrade(id)
+
+func has_upgrade(id: StringName) -> bool:
+	return RunStateNode.has_upgrade(id)
+
+func clear_upgrades() -> void:
+	RunStateNode.clear()
+
 func _ready() -> void:
 	_start_max_zombies = map_controller.max_zombies
 	
@@ -144,9 +153,13 @@ func regenerate_map() -> void:
 
 	spawn_structures()
 
+	# Re-setup + respawn units
 	map_controller.setup(self)
 	map_controller.spawn_units()
 
+	# ✅ IMPORTANT: after regen, tell TurnManager units exist again
+	if turn_manager != null and is_instance_valid(turn_manager):
+		turn_manager.on_units_spawned()
 
 # -------------------------------------------------
 # Map Generation (terrain only)

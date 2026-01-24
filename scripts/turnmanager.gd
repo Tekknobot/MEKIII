@@ -48,6 +48,8 @@ signal tutorial_event(id: StringName, payload: Dictionary)
 
 var end_panel: EndGamePanelRuntime
 
+@export var end_game_panel_path: NodePath
+
 func _ready() -> void:
 	end_panel = EndGamePanelRuntime.new()
 	add_child(end_panel)
