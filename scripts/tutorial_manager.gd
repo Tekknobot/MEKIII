@@ -166,7 +166,7 @@ func _on_tutorial_event(id: StringName, payload: Dictionary) -> void:
 		"ally_selected":
 			if step == Step.INTRO_SELECT:
 				_advance(Step.INTRO_MOVE)
-				_on_you_win()
+				#_on_you_win()
 
 		"ally_moved":
 			if step == Step.INTRO_MOVE:

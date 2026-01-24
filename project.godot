@@ -14,7 +14,9 @@ config/name="MEK3"
 run/main_scene="uid://bmtwqbsx674eo"
 config/features=PackedStringArray("4.5", "Forward Plus")
 boot_splash/bg_color=Color(0.044557855, 0.044557855, 0.044557832, 1)
-config/icon="res://icon.svg"
+boot_splash/fullsize=false
+boot_splash/image="uid://bkxqe2u5ibt8v"
+config/icon="uid://chr7hpqn7573j"
 
 [autoload]
 

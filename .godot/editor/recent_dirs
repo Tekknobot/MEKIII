@@ -1,3 +1,4 @@
+res://icon
 res://scripts
 res://scenes
 res://sprites/Tiles_UI/mek3
@@ -19,4 +20,3 @@ res://sprites/Dog/attack
 res://sprites/Dog/default
 res://sprites/Humans/merc
 res://sprites/Humans/merc/idle
-res://sprites/Humans/merc/attack
