@@ -302,16 +302,6 @@ offset_bottom = 475.0
 theme_override_fonts/normal_font = ExtResource("3_mgrm8")
 theme_override_font_sizes/normal_font_size = 16
 
-[node name="Fade" type="ColorRect" parent="."]
-visible = false
-z_index = 4096
-layout_mode = 0
-offset_left = -26.0
-offset_top = -27.0
-offset_right = 1176.0
-offset_bottom = 674.0
-color = Color(0, 0, 0, 1)
-
 [node name="Weather" type="Node2D" parent="."]
 visible = false
 position = Vector2(534, 6)
@@ -328,33 +318,44 @@ building_scenes = Array[PackedScene]([null, ExtResource("15_htdhw"), ExtResource
 unique_building_scenes = Array[PackedScene]([ExtResource("16_12ga3"), ExtResource("17_yrrko"), ExtResource("18_aidx5")])
 
 [node name="Structures" type="Node2D" parent="Map"]
+modulate = Color(0.33163944, 0.33163944, 0.3316394, 1)
 
 [node name="RoadsDL" type="TileMap" parent="Map"]
-modulate = Color(0.60784316, 0.60784316, 0.60784316, 1)
+modulate = Color(0.32915837, 0.3291584, 0.3291583, 1)
 tile_set = SubResource("TileSet_fef8d")
 format = 2
 layer_0/modulate = Color(0.60784316, 0.60784316, 0.60784316, 1)
 layer_1/name = "Layer1"
 
 [node name="RoadsDR" type="TileMap" parent="Map"]
-modulate = Color(0.60784316, 0.60784316, 0.60784316, 1)
+modulate = Color(0.32915837, 0.3291584, 0.3291583, 1)
 tile_set = SubResource("TileSet_fef8d")
 format = 2
 layer_0/modulate = Color(0.60784316, 0.60784316, 0.60784316, 1)
 layer_1/name = "Layer1"
 
 [node name="RoadsX" type="TileMap" parent="Map"]
-modulate = Color(0.60784316, 0.60784316, 0.60784316, 1)
+modulate = Color(0.32915837, 0.3291584, 0.3291583, 1)
 tile_set = SubResource("TileSet_fef8d")
 format = 2
 layer_0/modulate = Color(0.60784316, 0.60784316, 0.60784316, 1)
 layer_1/name = "Layer1"
 
 [node name="Terrain" type="TileMap" parent="Map"]
-modulate = Color(0.60784316, 0.60784316, 0.60784316, 1)
+modulate = Color(0.32915837, 0.3291584, 0.3291583, 1)
 z_index = -1
 z_as_relative = false
 tile_set = SubResource("TileSet_cm2a4")
 format = 2
 layer_0/modulate = Color(0.60784316, 0.60784316, 0.60784316, 1)
 layer_1/name = "Layer1"
+
+[node name="Fade" type="ColorRect" parent="."]
+visible = false
+z_index = 4096
+layout_mode = 0
+offset_left = -26.0
+offset_top = -27.0
+offset_right = 1176.0
+offset_bottom = 674.0
+color = Color(0, 0, 0, 1)
