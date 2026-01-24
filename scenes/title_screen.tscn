@@ -1,0 +1,76 @@
+[gd_scene load_steps=5 format=3 uid="uid://rriol7fhna81"]
+
+[ext_resource type="Script" uid="uid://q37bmmrkofy5" path="res://scripts/TitleScreen.gd" id="1_fgkus"]
+[ext_resource type="FontFile" uid="uid://dgugahs6bc7so" path="res://fonts/magofonts/mago3.ttf" id="2_s4lrb"]
+[ext_resource type="FontFile" uid="uid://buw362wjb8o8d" path="res://fonts/magofonts/mago2.ttf" id="2_sa3yf"]
+[ext_resource type="FontFile" uid="uid://csnhk3q4gx0" path="res://fonts/magofonts/mago1.ttf" id="3_mgrm8"]
+
+[node name="TitleScreen" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_fgkus")
+type_chars_per_sec = 25.0
+
+[node name="Fade" type="ColorRect" parent="."]
+layout_mode = 0
+offset_right = 1151.0
+offset_bottom = 659.0
+color = Color(0, 0, 0, 1)
+
+[node name="Copyright" type="Label" parent="."]
+layout_mode = 0
+offset_left = 288.0
+offset_top = 114.0
+offset_right = 800.0
+offset_bottom = 127.0
+theme_override_fonts/font = ExtResource("2_sa3yf")
+text = "© 2026 -- All Brains Reserved -- Into the Brains anyone?"
+
+[node name="Center" type="VBoxContainer" parent="."]
+layout_mode = 0
+offset_left = 288.0
+offset_top = 125.0
+offset_right = 800.0
+offset_bottom = 242.0
+
+[node name="Title" type="Label" parent="Center"]
+custom_minimum_size = Vector2(120, 64)
+layout_mode = 2
+theme_override_fonts/font = ExtResource("2_s4lrb")
+theme_override_font_sizes/font_size = 64
+text = "ZEDD: ZOMBIE TACTICS"
+
+[node name="Buttons" type="HBoxContainer" parent="Center"]
+layout_mode = 2
+
+[node name="StartButton" type="Button" parent="Center/Buttons"]
+custom_minimum_size = Vector2(120, 32)
+layout_mode = 2
+theme_override_fonts/font = ExtResource("2_sa3yf")
+text = "Start"
+
+[node name="QuitButton" type="Button" parent="Center/Buttons"]
+custom_minimum_size = Vector2(120, 32)
+layout_mode = 2
+theme_override_fonts/font = ExtResource("2_sa3yf")
+text = "Quit"
+
+[node name="StoryClip" type="Control" parent="."]
+custom_minimum_size = Vector2(120, 120)
+anchors_preset = 0
+offset_left = 28.0
+offset_top = 26.0
+offset_right = 222.0
+offset_bottom = 146.0
+
+[node name="Story" type="RichTextLabel" parent="StoryClip"]
+custom_minimum_size = Vector2(120, 120)
+layout_mode = 0
+offset_top = 1.0
+offset_right = 245.0
+offset_bottom = 598.0
+theme_override_fonts/normal_font = ExtResource("3_mgrm8")

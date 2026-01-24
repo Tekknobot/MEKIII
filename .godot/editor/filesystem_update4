@@ -5,3 +5,5 @@ res://scripts/game.gd
 res://scripts/tutorial_manager.gd
 res://scripts/RunState.gd
 res://scenes/camera.gd
+res://scripts/TitleScreen.gd
+res://scenes/title_screen.tscn
