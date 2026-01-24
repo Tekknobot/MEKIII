@@ -1,4 +1,4 @@
-[gd_scene load_steps=13 format=3 uid="uid://rriol7fhna81"]
+[gd_scene load_steps=14 format=3 uid="uid://rriol7fhna81"]
 
 [ext_resource type="Script" uid="uid://q37bmmrkofy5" path="res://scripts/TitleScreen.gd" id="1_fgkus"]
 [ext_resource type="FontFile" uid="uid://dgugahs6bc7so" path="res://fonts/magofonts/mago3.ttf" id="2_s4lrb"]
@@ -12,6 +12,7 @@
 [ext_resource type="PackedScene" uid="uid://bm1g128j70kea" path="res://scenes/StarNight.tscn" id="10_tklts"]
 [ext_resource type="Texture2D" uid="uid://sh0qp53v5skq" path="res://sprites/Clouds/Re_ Indie Developer from Toronto, Canada looking for pixel mech artist_/layer2.png" id="11_ib7db"]
 [ext_resource type="Texture2D" uid="uid://bkumpbg4gebvj" path="res://sprites/Clouds/Re_ Indie Developer from Toronto, Canada looking for pixel mech artist_/layer1.png" id="12_frs5l"]
+[ext_resource type="Script" uid="uid://dc2tnq1wwbdig" path="res://scripts/weather_particles.gd" id="13_frs5l"]
 
 [node name="TitleScreen" type="Control"]
 layout_mode = 3
@@ -75,9 +76,9 @@ stretch_mode = 2
 
 [node name="Center" type="VBoxContainer" parent="."]
 layout_mode = 0
-offset_left = 305.0
+offset_left = 181.0
 offset_top = 37.0
-offset_right = 817.0
+offset_right = 693.0
 offset_bottom = 154.0
 
 [node name="Title" type="Label" parent="Center"]
@@ -105,9 +106,9 @@ text = "Quit"
 [node name="StoryClip" type="Control" parent="."]
 custom_minimum_size = Vector2(120, 120)
 anchors_preset = 0
-offset_left = 305.0
+offset_left = 181.0
 offset_top = 153.0
-offset_right = 499.0
+offset_right = 375.0
 offset_bottom = 273.0
 
 [node name="Story" type="RichTextLabel" parent="StoryClip"]
@@ -126,3 +127,10 @@ offset_top = -27.0
 offset_right = 1176.0
 offset_bottom = 674.0
 color = Color(0, 0, 0, 1)
+
+[node name="Weather" type="Node2D" parent="."]
+position = Vector2(534, 6)
+script = ExtResource("13_frs5l")
+weather = 2
+intensity = 0.5
+follow_camera = false
