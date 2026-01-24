@@ -1,9 +1,17 @@
-[gd_scene load_steps=5 format=3 uid="uid://rriol7fhna81"]
+[gd_scene load_steps=13 format=3 uid="uid://rriol7fhna81"]
 
 [ext_resource type="Script" uid="uid://q37bmmrkofy5" path="res://scripts/TitleScreen.gd" id="1_fgkus"]
 [ext_resource type="FontFile" uid="uid://dgugahs6bc7so" path="res://fonts/magofonts/mago3.ttf" id="2_s4lrb"]
 [ext_resource type="FontFile" uid="uid://buw362wjb8o8d" path="res://fonts/magofonts/mago2.ttf" id="2_sa3yf"]
 [ext_resource type="FontFile" uid="uid://csnhk3q4gx0" path="res://fonts/magofonts/mago1.ttf" id="3_mgrm8"]
+[ext_resource type="Texture2D" uid="uid://b8ydvfeaxe1yj" path="res://sprites/Dog/dog2.png" id="5_3yumr"]
+[ext_resource type="Texture2D" uid="uid://wm8nrbekb2d0" path="res://sprites/Humans/soldier5.png" id="6_cs5ya"]
+[ext_resource type="Texture2D" uid="uid://dd1d72gdlqw0h" path="res://sprites/Humans/merc/idle/rambo_idle1.png" id="7_mykxm"]
+[ext_resource type="Texture2D" uid="uid://di6lcgxxpn653" path="res://sprites/Zombies/move/zomb1.png" id="8_tklts"]
+[ext_resource type="Texture2D" uid="uid://bp3lio7u3wkso" path="res://sprites/Bots/Blue/robo2-export3.png" id="9_mykxm"]
+[ext_resource type="PackedScene" uid="uid://bm1g128j70kea" path="res://scenes/StarNight.tscn" id="10_tklts"]
+[ext_resource type="Texture2D" uid="uid://sh0qp53v5skq" path="res://sprites/Clouds/Re_ Indie Developer from Toronto, Canada looking for pixel mech artist_/layer2.png" id="11_ib7db"]
+[ext_resource type="Texture2D" uid="uid://bkumpbg4gebvj" path="res://sprites/Clouds/Re_ Indie Developer from Toronto, Canada looking for pixel mech artist_/layer1.png" id="12_frs5l"]
 
 [node name="TitleScreen" type="Control"]
 layout_mode = 3
@@ -13,36 +21,71 @@ anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
 script = ExtResource("1_fgkus")
+fade_time = 1.25
 type_chars_per_sec = 25.0
+title_font = ExtResource("2_s4lrb")
+body_font = ExtResource("3_mgrm8")
+body_font_size = 16
+button_font = ExtResource("2_sa3yf")
+button_font_size = 16
+bg_texture_rect_path = NodePath("Thumbnail")
+bg_textures = Array[Texture2D]([ExtResource("5_3yumr"), ExtResource("6_cs5ya"), ExtResource("7_mykxm"), ExtResource("8_tklts"), ExtResource("9_mykxm")])
+clouds_a_path = NodePath("CloudsA")
+clouds_b_path = NodePath("CloudsB")
+cloud_textures = Array[Texture2D]([ExtResource("11_ib7db"), ExtResource("12_frs5l")])
+cloud_swap_every = 2.0
 
-[node name="Fade" type="ColorRect" parent="."]
-layout_mode = 0
-offset_right = 1151.0
-offset_bottom = 659.0
-color = Color(0, 0, 0, 1)
+[node name="StarryNight" parent="." instance=ExtResource("10_tklts")]
 
 [node name="Copyright" type="Label" parent="."]
 layout_mode = 0
-offset_left = 288.0
-offset_top = 114.0
-offset_right = 800.0
-offset_bottom = 127.0
+offset_left = 22.0
+offset_top = 6.0
+offset_right = 534.0
+offset_bottom = 19.0
 theme_override_fonts/font = ExtResource("2_sa3yf")
 text = "© 2026 -- All Brains Reserved -- Into the Brains anyone?"
 
+[node name="CloudsA" type="TextureRect" parent="."]
+modulate = Color(0.2508181, 0.25081813, 0.2508181, 1)
+layout_mode = 0
+offset_left = -87.0
+offset_top = 306.0
+offset_right = 1175.222
+offset_bottom = 663.0
+texture = ExtResource("11_ib7db")
+
+[node name="CloudsB" type="TextureRect" parent="."]
+modulate = Color(0.2508181, 0.25081813, 0.2508181, 1)
+layout_mode = 0
+offset_left = -96.0
+offset_top = 304.0
+offset_right = 1166.222
+offset_bottom = 661.0
+texture = ExtResource("12_frs5l")
+
+[node name="Thumbnail" type="TextureRect" parent="."]
+layout_mode = 0
+offset_left = 1016.0
+offset_top = 512.0
+offset_right = 1056.0
+offset_bottom = 552.0
+scale = Vector2(3, 3)
+stretch_mode = 2
+
 [node name="Center" type="VBoxContainer" parent="."]
 layout_mode = 0
-offset_left = 288.0
-offset_top = 125.0
-offset_right = 800.0
-offset_bottom = 242.0
+offset_left = 305.0
+offset_top = 37.0
+offset_right = 817.0
+offset_bottom = 154.0
 
 [node name="Title" type="Label" parent="Center"]
 custom_minimum_size = Vector2(120, 64)
 layout_mode = 2
 theme_override_fonts/font = ExtResource("2_s4lrb")
 theme_override_font_sizes/font_size = 64
-text = "ZEDD: ZOMBIE TACTICS"
+text = "Z-DEAD: TACTICS"
 
 [node name="Buttons" type="HBoxContainer" parent="Center"]
 layout_mode = 2
@@ -62,15 +105,24 @@ text = "Quit"
 [node name="StoryClip" type="Control" parent="."]
 custom_minimum_size = Vector2(120, 120)
 anchors_preset = 0
-offset_left = 28.0
-offset_top = 26.0
-offset_right = 222.0
-offset_bottom = 146.0
+offset_left = 305.0
+offset_top = 153.0
+offset_right = 499.0
+offset_bottom = 273.0
 
 [node name="Story" type="RichTextLabel" parent="StoryClip"]
 custom_minimum_size = Vector2(120, 120)
 layout_mode = 0
 offset_top = 1.0
 offset_right = 245.0
-offset_bottom = 598.0
+offset_bottom = 475.0
 theme_override_fonts/normal_font = ExtResource("3_mgrm8")
+theme_override_font_sizes/normal_font_size = 16
+
+[node name="Fade" type="ColorRect" parent="."]
+layout_mode = 0
+offset_left = -26.0
+offset_top = -27.0
+offset_right = 1176.0
+offset_bottom = 674.0
+color = Color(0, 0, 0, 1)

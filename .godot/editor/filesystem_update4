@@ -7,3 +7,4 @@ res://scripts/RunState.gd
 res://scenes/camera.gd
 res://scripts/TitleScreen.gd
 res://scenes/title_screen.tscn
+res://scenes/StarNight.tscn

@@ -36,6 +36,52 @@ var _tw: Tween = null
 var _title_tw: Tween = null
 var _sick_tw: Tween = null
 
+# --- Fonts (pick in Inspector) ---
+@export var title_font: Font
+@export var title_font_size := 64
+
+@export var body_font: Font
+@export var body_font_size := 18
+
+@export var button_font: Font
+@export var button_font_size := 20
+
+# Optional: story text color (default pure white)
+@export var story_color := Color(1, 1, 1, 1)
+
+# --- Background slideshow ---
+@export var bg_texture_rect_path: NodePath
+@onready var bg: TextureRect = get_node_or_null(bg_texture_rect_path)
+
+@export var bg_textures: Array[Texture2D] = []   # drag your PNGs in Inspector
+@export var bg_change_every := 2.0               # seconds between swaps
+@export var bg_fade_time := 0.6                  # fade duration
+
+var _bg_timer: SceneTreeTimer = null
+var _bg_tw: Tween = null
+var _bg_last_index := -1
+
+# --- Clouds (2-layer crossfade + drift) ---
+@export var clouds_a_path: NodePath
+@export var clouds_b_path: NodePath
+@onready var clouds_a: TextureRect = get_node_or_null(clouds_a_path)
+@onready var clouds_b: TextureRect = get_node_or_null(clouds_b_path)
+
+@export var cloud_textures: Array[Texture2D] = []  # drag cloud PNGs here
+@export var cloud_swap_every := 4.0               # seconds between cloud changes
+@export var cloud_crossfade_time := 1.0
+
+@export var cloud_drift_px := Vector2(40, 0)      # how far it drifts before looping back
+@export var cloud_drift_time := 12.0              # seconds to drift that far
+
+var _cloud_timer: SceneTreeTimer = null
+var _cloud_tw: Tween = null
+var _cloud_drift_tw: Tween = null
+var _cloud_last_index := -1
+var _cloud_showing_a := true
+var _cloud_base_pos_a := Vector2.ZERO
+var _cloud_base_pos_b := Vector2.ZERO
+
 func _ready() -> void:
 	# Fade in from black
 	fade.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -55,12 +101,18 @@ func _ready() -> void:
 	_story_full = _default_story_bbcode()
 	story.text = "" # start empty
 
+	_apply_fonts()
+	
 	# Start animations
 	_start_title_anim()
 	_start_sick_color_anim()
 
 	# Start typewriter
 	_start_typewriter()
+
+	_start_bg_cycle()
+	_start_clouds()
+
 
 func _process(delta: float) -> void:
 	if _busy:
@@ -162,12 +214,9 @@ func _start_sick_color_anim() -> void:
 		_sick_tw.tween_property(title, "modulate", sick_color_b, sick_pulse_time)
 
 	# Story tied to same vibe (slightly dimmer)
-	var story_a := sick_color_a * Color(1, 1, 1, 0.90)
-	var story_b := sick_color_b * Color(1, 1, 1, 0.90)
-
 	if story != null:
-		_sick_tw.tween_property(story, "modulate", story_a, sick_pulse_time)
-		_sick_tw.tween_property(story, "modulate", story_b, sick_pulse_time)
+		story.modulate = story_color # force pure white
+
 
 # -------------------------
 # Typewriter (NO SCROLLING)
@@ -223,6 +272,41 @@ func _update_typewriter(delta: float) -> void:
 		if ch == "\n":
 			_type_accum += newline_speed_boost
 
+func _apply_fonts() -> void:
+	# Title
+	if title != null:
+		if title_font != null:
+			title.add_theme_font_override("font", title_font)
+		if title_font_size > 0:
+			title.add_theme_font_size_override("font_size", title_font_size)
+
+	# Story (RichTextLabel)
+	if story != null:
+		if body_font != null:
+			story.add_theme_font_override("normal_font", body_font)
+			story.add_theme_font_override("bold_font", body_font)
+			story.add_theme_font_override("italics_font", body_font)
+			story.add_theme_font_override("bold_italics_font", body_font)
+			story.add_theme_font_override("mono_font", body_font)
+		if body_font_size > 0:
+			story.add_theme_font_size_override("normal_font_size", body_font_size)
+
+		# keep story white
+		story.modulate = story_color
+
+	# Buttons
+	_apply_button_font(start_button)
+	_apply_button_font(quit_button)
+
+
+func _apply_button_font(b: Button) -> void:
+	if b == null:
+		return
+	if button_font != null:
+		b.add_theme_font_override("font", button_font)
+	if button_font_size > 0:
+		b.add_theme_font_size_override("font_size", button_font_size)
+
 # -------------------------
 # Story text
 # -------------------------
@@ -254,3 +338,122 @@ func _default_story_bbcode() -> String:
 
 	s += "[i]Static rises. Deployment window open.[/i]\n"
 	return s
+
+func _start_bg_cycle() -> void:
+	if bg == null:
+		return
+	if bg_textures.is_empty():
+		return
+
+	# Ensure we can fade it
+	bg.modulate.a = 1.0
+
+	# Pick an initial texture instantly
+	_bg_last_index = _pick_bg_index()
+	bg.texture = bg_textures[_bg_last_index]
+
+	# Kick the loop
+	_schedule_next_bg_swap()
+
+
+func _schedule_next_bg_swap() -> void:
+	if not is_inside_tree():
+		return
+	_bg_timer = get_tree().create_timer(bg_change_every)
+	_bg_timer.timeout.connect(_on_bg_timer_timeout)
+
+
+func _on_bg_timer_timeout() -> void:
+	# If scene is leaving / busy, stop cycling
+	if _busy:
+		return
+	_bg_swap_random_fade()
+	_schedule_next_bg_swap()
+
+
+func _bg_swap_random_fade() -> void:
+	if bg == null or bg_textures.is_empty():
+		return
+
+	var idx := _pick_bg_index()
+	if idx == _bg_last_index and bg_textures.size() > 1:
+		# try once more to avoid repeats
+		idx = _pick_bg_index()
+
+	_bg_last_index = idx
+	var next_tex := bg_textures[idx]
+
+	# Kill previous tween cleanly
+	if _bg_tw != null and is_instance_valid(_bg_tw):
+		_bg_tw.kill()
+	_bg_tw = null
+
+	_bg_tw = create_tween()
+	_bg_tw.set_trans(Tween.TRANS_SINE)
+	_bg_tw.set_ease(Tween.EASE_IN_OUT)
+
+	# Fade out -> swap -> fade in
+	_bg_tw.tween_property(bg, "modulate:a", 0.0, bg_fade_time)
+	_bg_tw.tween_callback(func():
+		if bg != null and is_instance_valid(bg):
+			bg.texture = next_tex
+	)
+	_bg_tw.tween_property(bg, "modulate:a", 1.0, bg_fade_time)
+
+
+func _pick_bg_index() -> int:
+	if bg_textures.size() == 1:
+		return 0
+	# try a couple times to avoid immediate repeats
+	for attempt in range(4):
+		var idx := randi() % bg_textures.size()
+		if idx != _bg_last_index:
+			return idx
+	return int(max(0, _bg_last_index)) # fallback
+
+func _start_clouds() -> void:
+	if clouds_a == null or clouds_b == null:
+		return
+
+	_cloud_base_pos_a = clouds_a.position
+	_cloud_base_pos_b = clouds_b.position
+
+	# Always visible
+	clouds_a.modulate.a = 1.0
+	clouds_b.modulate.a = 1.0
+
+	# DO NOT set textures here. Set them in the editor on CloudsA/CloudsB.
+	_start_cloud_drift()
+
+func _start_cloud_drift() -> void:
+	if clouds_a == null or clouds_b == null:
+		return
+
+	# Start from base
+	clouds_a.position = _cloud_base_pos_a
+	clouds_b.position = _cloud_base_pos_b
+
+	if _cloud_drift_tw != null and is_instance_valid(_cloud_drift_tw):
+		_cloud_drift_tw.kill()
+
+	_cloud_drift_tw = create_tween()
+	_cloud_drift_tw.set_loops()
+	_cloud_drift_tw.set_trans(Tween.TRANS_SINE)
+	_cloud_drift_tw.set_ease(Tween.EASE_IN_OUT)
+
+	# A: go out and back, forever
+	_cloud_drift_tw.tween_property(clouds_a, "position", _cloud_base_pos_a + cloud_drift_px, cloud_drift_time)
+	_cloud_drift_tw.tween_property(clouds_a, "position", _cloud_base_pos_a, cloud_drift_time)
+
+	# B: go out and back, forever
+	_cloud_drift_tw.tween_property(clouds_b, "position", _cloud_base_pos_b + cloud_drift_px, cloud_drift_time)
+	_cloud_drift_tw.tween_property(clouds_b, "position", _cloud_base_pos_b, cloud_drift_time)
+
+func _pick_cloud_index() -> int:
+	if cloud_textures.size() == 1:
+		return 0
+	for attempt in range(6):
+		var idx := randi() % cloud_textures.size()
+		if idx != _cloud_last_index:
+			return idx
+	return int(max(0, _cloud_last_index))

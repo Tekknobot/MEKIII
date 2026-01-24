@@ -1,3 +1,4 @@
+TextureRect
 Label
 RichTextLabel
 Control
@@ -11,4 +12,3 @@ Node
 MarginContainer
 PanelContainer
 CPUParticles2D
-AnimatedSprite2D

@@ -13,9 +13,9 @@ gravity = Vector3(0, 0, 0)
 color_ramp = SubResource("GradientTexture1D_kt1dj")
 
 [node name="StarryNight" type="GPUParticles2D"]
-position = Vector2(-20, -121)
+position = Vector2(306, 99)
 amount = 1000
-process_material = SubResource("ParticleProcessMaterial_oue2e")
 lifetime = 20.0
 preprocess = 200.0
 visibility_rect = Rect2(-100, -100, 1000, 1000)
+process_material = SubResource("ParticleProcessMaterial_oue2e")
