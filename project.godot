@@ -26,7 +26,7 @@ RunStateNode="*res://scripts/RunState.gd"
 
 window/size/mode=3
 window/stretch/mode="canvas_items"
-window/stretch/scale_mode="integer"
+window/stretch/aspect="expand"
 
 [rendering]
 
