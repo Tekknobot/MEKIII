@@ -17,6 +17,7 @@ enum Step {
 	FIRST_PICKUP,
 	BEACON_READY,
 	BEACON_UPLOAD,
+	YOU_WIN,
 	DONE
 }
 
@@ -51,7 +52,7 @@ func _ready() -> void:
 
 	# Also helpful (non-critical) hooks
 	if M != null and M.has_signal("selection_changed"):
-		M.selection_changed.connect(func(u):
+		M.selection_changed.connect(func(u, _args := []):
 			if u != null and is_instance_valid(u):
 				_on_tutorial_event(&"ally_selected", {"cell": u.cell})
 		)
@@ -97,6 +98,11 @@ func _show_step() -> void:
 				"Uploading…\n\nSatellite sweep incoming!",
 				"FIELD OPS"
 			)
+		Step.YOU_WIN:
+			_toast(
+				"Zombies cleared!\nYou WIN!",
+				"FIELD OPS"
+			)		
 		Step.DONE:
 			_hide_toast()
 
@@ -191,7 +197,7 @@ func _on_tutorial_event(id: StringName, payload: Dictionary) -> void:
 				_advance(Step.BEACON_UPLOAD)
 
 		"satellite_sweep_finished":
-			_advance(Step.DONE)
+			_advance(Step.YOU_WIN)
 
 		# -------------------------
 		# Helpful “deny / stuck” hints

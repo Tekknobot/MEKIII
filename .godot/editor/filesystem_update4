@@ -7,3 +7,7 @@ res://scenes/zombie.tscn
 res://scripts/tutorial_toast.gd
 res://scripts/tutorial_manager.gd
 res://scenes/tutorial_toast.tscn
+res://scenes/humantwo.tscn
+res://scenes/human.tscn
+res://scenes/mech.tscn
+res://scripts/human.gd

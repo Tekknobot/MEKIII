@@ -8,7 +8,7 @@ func _ready() -> void:
 	footprint_size = Vector2i(1, 1)
 	move_range = 4
 	attack_range = 5
-	attack_damage = 1
+	attack_damage = 2
 
 	max_hp = max(max_hp, 3)
 	hp = clamp(hp, 0, max_hp)

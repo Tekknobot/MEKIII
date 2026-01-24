@@ -212,6 +212,7 @@ animations = [{
 
 [node name="Unit" type="CharacterBody2D"]
 script = ExtResource("1_0w1yf")
+attack_damage = 2
 death_fx_offset = Vector2(0, -8)
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="."]
