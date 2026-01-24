@@ -111,7 +111,7 @@ func _build_ui() -> void:
 	center.add_child(panel)
 	# Panel background style (controls transparency)
 	var sb := StyleBoxFlat.new()
-	sb.bg_color = Color(0.05, 0.05, 0.05, 0.85)  # ← last value is alpha
+	sb.bg_color = Color(0.05, 0.05, 0.05, 1.0)  # ← last value is alpha
 	sb.border_color = Color(0.3, 0.3, 0.3, 1.0)
 	sb.border_width_left = 2
 	sb.border_width_right = 2
