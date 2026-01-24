@@ -402,11 +402,11 @@ beacon_marker_z_base = 0
 script = ExtResource("49_0wf52")
 map_controller_path = NodePath("../MapController")
 turn_manager_path = NodePath("../TurnManager")
-toast_path = NodePath("../TutorialToast")
-
-[node name="TutorialToast" parent="." instance=ExtResource("50_3pold")]
+toast_path = NodePath("../CanvasLayer/TutorialToast")
 
 [node name="CanvasLayer" type="CanvasLayer" parent="."]
+
+[node name="TutorialToast" parent="CanvasLayer" instance=ExtResource("50_3pold")]
 
 [node name="EndTurnButton" type="Button" parent="CanvasLayer"]
 offset_left = 1071.0
