@@ -285,13 +285,16 @@ func _on_you_win() -> void:
 			end_panel.visible = true
 
 	if end_panel != null and is_instance_valid(end_panel):
-		if end_panel.has_signal("continue_pressed"):
-			end_panel.continue_pressed.connect(func():
-				if M != null and is_instance_valid(M) and M.game_ref != null and is_instance_valid(M.game_ref):
-					var G = M.game_ref
-					if G.has_method("regenerate_map_faded"):
-						G.call("regenerate_map_faded")
-			)
+		if end_panel.has_signal("continue_pressed") and not end_panel.continue_pressed.is_connected(_on_continue_pressed):
+			end_panel.continue_pressed.connect(_on_continue_pressed)
+
+func _on_continue_pressed() -> void:
+	reset_tutorial(Step.INTRO_SELECT)
+
+	if M != null and is_instance_valid(M) and M.game_ref != null and is_instance_valid(M.game_ref):
+		var G = M.game_ref
+		if G.has_method("regenerate_map_faded"):
+			G.call("regenerate_map_faded")
 
 func _roll_3_upgrades() -> Array:
 	var pool: Array = [
@@ -331,3 +334,16 @@ func _roll_3_upgrades() -> Array:
 		pool.remove_at(i)
 
 	return picked
+
+func reset_tutorial(start_step: Step = Step.INTRO_SELECT) -> void:
+	enabled = true
+	step = start_step
+
+	_last_hint_id = &""
+	_last_hint_time_ms = 0
+
+	# Optional: clear any lingering UI state
+	_hide_toast()
+
+	# Show first prompt again (deferred avoids timing issues if UI/map is mid-refresh)
+	call_deferred("_show_step")
