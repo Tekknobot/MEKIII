@@ -345,15 +345,26 @@ func _stop_all_pulses() -> void:
 
 	_pulse_tw_by_unit.clear()
 
-
 func _prune_pulse_dict() -> void:
-	var keys := _pulse_tw_by_unit.keys()
+	var keys: Array = _pulse_tw_by_unit.keys() # snapshot
+
 	for k in keys:
-		if not (k is Object) or not is_instance_valid(k as Object):
-			var tw = _pulse_tw_by_unit[k]
+		# value first (safe)
+		var tw = _pulse_tw_by_unit.get(k, null)
+
+		# Key validity WITHOUT casting
+		if typeof(k) != TYPE_OBJECT or not is_instance_valid(k):
 			_pulse_tw_by_unit.erase(k)
-			if tw != null and (tw is Tween) and is_instance_valid(tw):
+
+			# Kill tween safely too
+			if typeof(tw) == TYPE_OBJECT and is_instance_valid(tw) and tw is Tween:
 				(tw as Tween).kill()
+			continue
+
+		# Optional: prune dead tween values too
+		if tw != null and (typeof(tw) != TYPE_OBJECT or not is_instance_valid(tw) or not (tw is Tween)):
+			_pulse_tw_by_unit.erase(k)
+
 
 func _apply_turn_indicators_all_allies() -> void:
 	_prune_pulse_dict()
