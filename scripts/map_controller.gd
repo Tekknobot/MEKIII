@@ -3608,6 +3608,8 @@ func spawn_pickup_at(cell: Vector2i, pickup_scene: PackedScene) -> void:
 	p.set_meta("cell", cell)
 	pickups_by_cell[cell] = p
 
+	p.add_to_group("Drops")
+
 	# depth align (same rule as units)
 	if p is Node2D:
 		var n := p as Node2D
@@ -4032,3 +4034,51 @@ func apply_run_upgrades() -> void:
 					if u is Mech: u.move_range += 1
 				&"dog_dmg_plus_1":
 					if u is Mech: u.attack_damage += 1
+
+func reset_for_regen() -> void:
+	# ---------------------------
+	# Stop anything mid-action
+	# ---------------------------
+	_is_moving = false
+	selected = null
+	aim_mode = AimMode.MOVE
+	special_id = &""
+
+	valid_move_cells.clear()
+	valid_special_cells.clear()
+
+	# ---------------------------
+	# Clear PICKUPS / DROPS
+	# ---------------------------
+	for c in pickups_by_cell.keys():
+		var n = pickups_by_cell.get(c, null)
+		if n != null and (typeof(n) == TYPE_OBJECT) and is_instance_valid(n):
+			(n as Node).queue_free()
+	pickups_by_cell.clear()
+
+	# ---------------------------
+	# Clear MINES (logical + nodes)
+	# ---------------------------
+	for c in mine_nodes_by_cell.keys():
+		var n2 = mine_nodes_by_cell.get(c, null)
+		if n2 != null and (typeof(n2) == TYPE_OBJECT) and is_instance_valid(n2):
+			(n2 as Node).queue_free()
+	mine_nodes_by_cell.clear()
+	mines_by_cell.clear()
+
+	# ---------------------------
+	# Reset BEACON state
+	# ---------------------------
+	beacon_parts_collected = 0
+	beacon_ready = false
+	_beacon_sweep_started = false
+
+	# Kill beacon pulse tween if running
+	if _beacon_pulse_tw != null and is_instance_valid(_beacon_pulse_tw):
+		_beacon_pulse_tw.kill()
+	_beacon_pulse_tw = null
+
+	# Remove marker node if exists
+	if beacon_marker_node != null and is_instance_valid(beacon_marker_node):
+		beacon_marker_node.queue_free()
+	beacon_marker_node = null

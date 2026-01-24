@@ -1,3 +1,4 @@
 res://scenes/Game.tscn
 res://shaders/outline_1px.gdshader
 res://scripts/map_controller.gd
+res://scripts/game.gd

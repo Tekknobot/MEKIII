@@ -101,6 +101,13 @@ var structure_blocked := {}
 
 var _start_max_zombies := 0
 
+@export var drops_root_path: NodePath
+@onready var drops_root: Node = get_node_or_null(drops_root_path)
+
+@export var tutorial_manager_path: NodePath
+@onready var tutorial_manager := get_node_or_null(tutorial_manager_path)
+
+
 func add_upgrade(id: StringName) -> void:
 	RunStateNode.add_upgrade(id)
 
@@ -170,8 +177,9 @@ func _is_faded_in() -> bool:
 	return _fade_alpha() <= 0.01
 
 func regenerate_map() -> void:
+	map_controller.reset_for_regen()
+	
 	rng.randomize()
-
 	if randomize_season_each_generation:
 		season = SEASONS[rng.randi_range(0, SEASONS.size() - 1)]
 
@@ -179,7 +187,6 @@ func regenerate_map() -> void:
 		grid = GridData.new()
 	grid.setup(map_width, map_height, T_DIRT)
 
-	# Full pipeline
 	generate_map()
 	spawn_structures()
 
@@ -725,3 +732,21 @@ func _is_unique_scene(scene: PackedScene) -> bool:
 		if s != null and s.resource_path == key:
 			return true
 	return false
+
+func _clear_drops() -> void:
+	# Kill any nodes in the Drops group (anywhere)
+	for n in get_tree().get_nodes_in_group("Drops"):
+		if n != null and is_instance_valid(n):
+			n.queue_free()
+
+	# If you also keep a dedicated Drops parent, clear its children too (belt+suspenders)
+	if drops_root != null and is_instance_valid(drops_root):
+		for ch in drops_root.get_children():
+			ch.queue_free()
+
+	# Clear any logical maps in MapController if they exist
+	if map_controller != null and is_instance_valid(map_controller):
+		if "drops_by_cell" in map_controller:
+			map_controller.drops_by_cell.clear()
+		if "mines_by_cell" in map_controller:
+			map_controller.mines_by_cell.clear()
