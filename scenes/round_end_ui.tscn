@@ -1,0 +1,18 @@
+[gd_scene load_steps=5 format=3 uid="uid://5htdlujw1yqf"]
+
+[ext_resource type="Script" path="res://scripts/round_end_ui.gd" id="1_usd60"]
+[ext_resource type="FontFile" uid="uid://dgugahs6bc7so" path="res://fonts/magofonts/mago3.ttf" id="2_c4gaa"]
+[ext_resource type="FontFile" uid="uid://csnhk3q4gx0" path="res://fonts/magofonts/mago1.ttf" id="3_aeowc"]
+[ext_resource type="FontFile" uid="uid://buw362wjb8o8d" path="res://fonts/magofonts/mago2.ttf" id="4_bs3yo"]
+
+[node name="RoundEndUI" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_usd60")
+title_font = ExtResource("2_c4gaa")
+body_font = ExtResource("3_aeowc")
+button_font = ExtResource("4_bs3yo")

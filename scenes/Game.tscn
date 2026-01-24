@@ -1,4 +1,4 @@
-[gd_scene load_steps=80 format=3 uid="uid://bmtwqbsx674eo"]
+[gd_scene load_steps=83 format=3 uid="uid://bmtwqbsx674eo"]
 
 [ext_resource type="Script" uid="uid://bn08mhcoceqg" path="res://scripts/game.gd" id="1_400sg"]
 [ext_resource type="Texture2D" uid="uid://by1nnygq8fbib" path="res://sprites/Terrain/dirt.png" id="6_mcffj"]
@@ -50,6 +50,9 @@
 [ext_resource type="PackedScene" uid="uid://c6mcd4ogd1jyq" path="res://scenes/beacon.tscn" id="47_6h74c"]
 [ext_resource type="Script" uid="uid://dsiq3cf4mv8kx" path="res://scripts/tutorial_manager.gd" id="49_0wf52"]
 [ext_resource type="PackedScene" uid="uid://de5lsm2hud7v7" path="res://scenes/tutorial_toast.tscn" id="50_3pold"]
+[ext_resource type="Script" uid="uid://bi7op5w7aqis" path="res://scripts/end_game_panel_runtime.gd" id="51_3ugab"]
+[ext_resource type="FontFile" uid="uid://dgugahs6bc7so" path="res://fonts/magofonts/mago3.ttf" id="52_px4p2"]
+[ext_resource type="FontFile" uid="uid://csnhk3q4gx0" path="res://fonts/magofonts/mago1.ttf" id="53_x0rj3"]
 
 [sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_g4kob"]
 texture = ExtResource("11_2rd6h")
@@ -403,10 +406,21 @@ script = ExtResource("49_0wf52")
 map_controller_path = NodePath("../MapController")
 turn_manager_path = NodePath("../TurnManager")
 toast_path = NodePath("../CanvasLayer/TutorialToast")
+end_game_panel_path = NodePath("../CanvasLayer/EndGamePanelRuntime")
 
 [node name="CanvasLayer" type="CanvasLayer" parent="."]
 
 [node name="TutorialToast" parent="CanvasLayer" instance=ExtResource("50_3pold")]
+
+[node name="EndGamePanelRuntime" type="CanvasLayer" parent="CanvasLayer"]
+script = ExtResource("51_3ugab")
+title_font = ExtResource("52_px4p2")
+body_font = ExtResource("53_x0rj3")
+button_font = ExtResource("32_1gdd5")
+title_font_size = 16
+body_font_size = 16
+button_font_size = 16
+desc_font = ExtResource("53_x0rj3")
 
 [node name="EndTurnButton" type="Button" parent="CanvasLayer"]
 offset_left = 1071.0

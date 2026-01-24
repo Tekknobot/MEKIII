@@ -44,7 +44,14 @@ var round_index := 1  # Round 1 at game start
 
 signal tutorial_event(id: StringName, payload: Dictionary)
 
+@export var end_game_panel_script: Script
+
+var end_panel: EndGamePanelRuntime
+
 func _ready() -> void:
+	end_panel = EndGamePanelRuntime.new()
+	add_child(end_panel)
+		
 	if end_turn_button:
 		end_turn_button.pressed.connect(_on_end_turn_pressed)
 

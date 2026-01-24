@@ -4,6 +4,8 @@ class_name TutorialManager
 @export var map_controller_path: NodePath
 @export var turn_manager_path: NodePath
 @export var toast_path: NodePath   # reference to your toast UI scene/node
+@export var end_game_panel_path: NodePath
+var end_panel: CanvasLayer = null
 
 @onready var M := get_node_or_null(map_controller_path)
 @onready var TM := get_node_or_null(turn_manager_path)
@@ -31,6 +33,8 @@ const HINT_COOLDOWN_MS := 900
 
 
 func _ready() -> void:
+	end_panel = get_node_or_null(end_game_panel_path) as CanvasLayer
+	
 	if not enabled:
 		return
 
@@ -103,6 +107,8 @@ func _show_step() -> void:
 				"Zombies cleared!\nYou WIN!",
 				"FIELD OPS"
 			)		
+			
+			
 		Step.DONE:
 			_hide_toast()
 
@@ -163,6 +169,7 @@ func _on_tutorial_event(id: StringName, payload: Dictionary) -> void:
 		"ally_selected":
 			if step == Step.INTRO_SELECT:
 				_advance(Step.INTRO_MOVE)
+				_on_you_win()
 
 		"ally_moved":
 			if step == Step.INTRO_MOVE:
@@ -198,6 +205,7 @@ func _on_tutorial_event(id: StringName, payload: Dictionary) -> void:
 
 		"satellite_sweep_finished":
 			_advance(Step.YOU_WIN)
+			_on_you_win()
 
 		# -------------------------
 		# Helpful “deny / stuck” hints
@@ -259,3 +267,38 @@ func set_enabled(v: bool) -> void:
 		_hide_toast()
 	else:
 		_show_step()
+
+func _on_you_win() -> void:
+	# stop tutorial toast from fighting the UI
+	_hide_toast()
+
+	# If you want to fully lock tutorial after win:
+	enabled = false
+
+	# Show your upgrade panel
+	if end_panel != null and is_instance_valid(end_panel):
+		if end_panel.has_method("show_win"):
+			# try to pass a rounds value if you have it
+			var rounds := 0
+			if TM != null and is_instance_valid(TM) and "round_index" in TM:
+				rounds = int(TM.round_index)
+			end_panel.call("show_win", rounds, _roll_3_upgrades())
+		else:
+			# fallback: just make it visible
+			end_panel.visible = true
+
+func _roll_3_upgrades() -> Array:
+	var pool: Array = [
+		{"id": &"hp_plus_1", "title": "ARMOR PLATING", "desc": "+1 Max HP to all allies (heal +1 too)."},
+		{"id": &"beacon_cheaper", "title": "SIGNAL BOOST", "desc": "Beacon needs 1 fewer floppy disk (min 1)."},
+		{"id": &"recruit_now", "title": "EMERGENCY RECRUIT", "desc": "Spawn a Recruit Bot ally near center."},
+		{"id": &"overwatch_drill", "title": "OVERWATCH DRILL", "desc": "All allies gain Overwatch immediately."},
+		{"id": &"stim_pack", "title": "STIM CACHE", "desc": "Allies get Stim at start of next turn."},
+	]
+
+	var picked: Array = []
+	while picked.size() < 3 and pool.size() > 0:
+		var i := randi() % pool.size()
+		picked.append(pool[i])
+		pool.remove_at(i)
+	return picked
