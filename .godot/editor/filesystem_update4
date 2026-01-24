@@ -3,3 +3,4 @@ res://shaders/outline_1px.gdshader
 res://scripts/map_controller.gd
 res://scripts/game.gd
 res://scripts/tutorial_manager.gd
+res://scripts/RunState.gd

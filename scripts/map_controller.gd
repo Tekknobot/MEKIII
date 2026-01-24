@@ -3985,55 +3985,58 @@ func _randomize_beacon_cell() -> void:
 	_ensure_beacon_marker()    # spawns marker at new beacon_cell (and pulses if ready)
 
 func apply_run_upgrades() -> void:
-	var upgrades: Array[StringName] = RunStateNode.run_upgrades
-	if upgrades.is_empty():
-		return
-	else:
-		# fallback for old behavior if you want
-		if game_ref != null and is_instance_valid(game_ref) and ("run_upgrades" in game_ref):
-			upgrades = game_ref.run_upgrades
+	var counts: Dictionary = {}
 
-	if upgrades.is_empty():
+	if RunStateNode != null and ("run_upgrade_counts" in RunStateNode):
+		counts = RunStateNode.run_upgrade_counts
+
+	if counts.is_empty() and game_ref != null and is_instance_valid(game_ref) and ("run_upgrade_counts" in game_ref):
+		counts = game_ref.run_upgrade_counts
+
+	if counts.is_empty():
 		return
 
 	for u in get_all_units():
-		if u == null or not is_instance_valid(u): 
-			continue
-		if u.team != Unit.Team.ALLY:
-			continue
+		if u == null or not is_instance_valid(u): continue
+		if u.team != Unit.Team.ALLY: continue
 
-		for id in upgrades:
+		for id in counts.keys():
+			var n := int(counts[id])
+
 			match id:
 				&"all_hp_plus_1":
-					u.max_hp += 1
-					u.hp = min(u.hp + 1, u.max_hp)
+					u.max_hp += 1 * n
+					u.hp = min(u.hp + 1 * n, u.max_hp)
+
 				&"all_move_plus_1":
-					u.move_range += 1
+					u.move_range += 1 * n
+
 				&"all_dmg_plus_1":
-					u.attack_damage += 1
+					u.attack_damage += 1 * n
 
 				&"soldier_move_plus_1":
-					if u is Human: u.move_range += 1
+					if u is Human: u.move_range += 1 * n
 				&"soldier_range_plus_1":
-					if u is Human: u.attack_range += 1
+					if u is Human: u.attack_range += 1 * n
 				&"soldier_dmg_plus_1":
-					if u is Human: u.attack_damage += 1
+					if u is Human: u.attack_damage += 1 * n
 
 				&"merc_move_plus_1":
-					if u is HumanTwo: u.move_range += 1
+					if u is HumanTwo: u.move_range += 1 * n
 				&"merc_range_plus_1":
-					if u is HumanTwo: u.attack_range += 1
+					if u is HumanTwo: u.attack_range += 1 * n
 				&"merc_dmg_plus_1":
-					if u is HumanTwo: u.attack_damage += 1
+					if u is HumanTwo: u.attack_damage += 1 * n
 
 				&"dog_hp_plus_2":
 					if u is Mech:
-						u.max_hp += 2
-						u.hp = min(u.hp + 2, u.max_hp)
+						u.max_hp += 2 * n
+						u.hp = min(u.hp + 2 * n, u.max_hp)
+
 				&"dog_move_plus_1":
-					if u is Mech: u.move_range += 1
+					if u is Mech: u.move_range += 1 * n
 				&"dog_dmg_plus_1":
-					if u is Mech: u.attack_damage += 1
+					if u is Mech: u.attack_damage += 1 * n
 
 func reset_for_regen() -> void:
 	# ---------------------------
