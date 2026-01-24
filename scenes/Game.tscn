@@ -258,6 +258,7 @@ sources/1 = SubResource("TileSetAtlasSource_pn7ev")
 
 [node name="Game" type="Node2D" groups=["GameMap"]]
 script = ExtResource("1_400sg")
+fade_rect_path = NodePath("UI/FadeLayer/ColorRect")
 water_patch_count = 1
 building_scenes = Array[PackedScene]([ExtResource("21_1fiys"), ExtResource("22_ho5ir"), ExtResource("23_evnk2"), ExtResource("24_ca228")])
 building_count = 12
@@ -341,13 +342,13 @@ script = ExtResource("8_400sg")
 [node name="TurnManager" type="Node2D" parent="."]
 script = ExtResource("24_jai3c")
 map_controller_path = NodePath("../MapController")
-end_turn_button_path = NodePath("../CanvasLayer/EndTurnButton")
-hellfire_button_path = NodePath("../CanvasLayer/Hellfire")
-blade_button_path = NodePath("../CanvasLayer/Blade")
-mines_button_path = NodePath("../CanvasLayer/Mines")
-overwatch_button_path = NodePath("../CanvasLayer/Overwatch")
-suppress_button_path = NodePath("../CanvasLayer/Supress")
-stim_button_path = NodePath("../CanvasLayer/Stimpack")
+end_turn_button_path = NodePath("../UI/EndTurnButton")
+hellfire_button_path = NodePath("../UI/Hellfire")
+blade_button_path = NodePath("../UI/Blade")
+mines_button_path = NodePath("../UI/Mines")
+overwatch_button_path = NodePath("../UI/Overwatch")
+suppress_button_path = NodePath("../UI/Supress")
+stim_button_path = NodePath("../UI/Stimpack")
 beacon_deadline_round = 99
 
 [node name="Pickups" type="Node2D" parent="."]
@@ -386,10 +387,10 @@ sfx_streams = {
 "unit_hurt": ExtResource("40_27c7x")
 }
 tnt_unit_splash_damage = 1
-bubble_ui_root_path = NodePath("../CanvasLayer/Bubbles")
+bubble_ui_root_path = NodePath("../UI/Bubbles")
 bubble_font = ExtResource("32_1gdd5")
 bubble_font_size = 16
-bubble_voice_player_path = NodePath("../CanvasLayer/Bubbles/BubbleVoice")
+bubble_voice_player_path = NodePath("../UI/Bubbles/BubbleVoice")
 bubble_voice_stream = ExtResource("43_evnk2")
 bubble_voice_volume = 0.235
 overwatch_ghost_offset = Vector2(0, -8)
@@ -405,14 +406,25 @@ beacon_marker_z_base = 0
 script = ExtResource("49_0wf52")
 map_controller_path = NodePath("../MapController")
 turn_manager_path = NodePath("../TurnManager")
-toast_path = NodePath("../CanvasLayer/TutorialToast")
-end_game_panel_path = NodePath("../CanvasLayer/EndGamePanelRuntime")
+toast_path = NodePath("../UI/TutorialToast")
+end_game_panel_path = NodePath("../UI/EndGamePanelRuntime")
 
-[node name="CanvasLayer" type="CanvasLayer" parent="."]
+[node name="UI" type="CanvasLayer" parent="."]
 
-[node name="TutorialToast" parent="CanvasLayer" instance=ExtResource("50_3pold")]
+[node name="FadeLayer" type="CanvasLayer" parent="UI"]
 
-[node name="EndGamePanelRuntime" type="CanvasLayer" parent="CanvasLayer"]
+[node name="ColorRect" type="ColorRect" parent="UI/FadeLayer"]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 1
+color = Color(0, 0, 0, 1)
+
+[node name="TutorialToast" parent="UI" instance=ExtResource("50_3pold")]
+
+[node name="EndGamePanelRuntime" type="CanvasLayer" parent="UI"]
 script = ExtResource("51_3ugab")
 title_font = ExtResource("52_px4p2")
 body_font = ExtResource("53_x0rj3")
@@ -422,7 +434,7 @@ body_font_size = 16
 button_font_size = 16
 desc_font = ExtResource("53_x0rj3")
 
-[node name="EndTurnButton" type="Button" parent="CanvasLayer"]
+[node name="EndTurnButton" type="Button" parent="UI"]
 offset_left = 1071.0
 offset_top = 605.0
 offset_right = 1119.0
@@ -430,7 +442,7 @@ offset_bottom = 626.0
 theme_override_fonts/font = ExtResource("32_1gdd5")
 text = "End Turn"
 
-[node name="Hellfire" type="Button" parent="CanvasLayer"]
+[node name="Hellfire" type="Button" parent="UI"]
 offset_left = 886.0
 offset_top = 605.0
 offset_right = 934.0
@@ -438,7 +450,7 @@ offset_bottom = 626.0
 theme_override_fonts/font = ExtResource("32_1gdd5")
 text = "Hellfire"
 
-[node name="Blade" type="Button" parent="CanvasLayer"]
+[node name="Blade" type="Button" parent="UI"]
 offset_left = 996.0
 offset_top = 605.0
 offset_right = 1044.0
@@ -446,7 +458,7 @@ offset_bottom = 626.0
 theme_override_fonts/font = ExtResource("32_1gdd5")
 text = "Blade"
 
-[node name="Mines" type="Button" parent="CanvasLayer"]
+[node name="Mines" type="Button" parent="UI"]
 offset_left = 941.0
 offset_top = 605.0
 offset_right = 989.0
@@ -455,7 +467,7 @@ theme_override_fonts/font = ExtResource("32_1gdd5")
 text = "Mines
 "
 
-[node name="Supress" type="Button" parent="CanvasLayer"]
+[node name="Supress" type="Button" parent="UI"]
 offset_left = 886.0
 offset_top = 577.0
 offset_right = 934.0
@@ -463,7 +475,7 @@ offset_bottom = 598.0
 theme_override_fonts/font = ExtResource("32_1gdd5")
 text = "Supress"
 
-[node name="Stimpack" type="Button" parent="CanvasLayer"]
+[node name="Stimpack" type="Button" parent="UI"]
 offset_left = 996.0
 offset_top = 577.0
 offset_right = 1044.0
@@ -472,7 +484,7 @@ theme_override_fonts/font = ExtResource("32_1gdd5")
 text = "Stimpack
 "
 
-[node name="Overwatch" type="Button" parent="CanvasLayer"]
+[node name="Overwatch" type="Button" parent="UI"]
 offset_left = 941.0
 offset_top = 577.0
 offset_right = 989.0
@@ -480,10 +492,10 @@ offset_bottom = 598.0
 theme_override_fonts/font = ExtResource("32_1gdd5")
 text = "Watcher"
 
-[node name="Bubbles" type="Control" parent="CanvasLayer"]
+[node name="Bubbles" type="Control" parent="UI"]
 layout_mode = 3
 anchors_preset = 0
 offset_right = 40.0
 offset_bottom = 40.0
 
-[node name="BubbleVoice" type="AudioStreamPlayer2D" parent="CanvasLayer/Bubbles"]
+[node name="BubbleVoice" type="AudioStreamPlayer2D" parent="UI/Bubbles"]

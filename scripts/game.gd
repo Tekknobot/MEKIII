@@ -1,6 +1,14 @@
 extends Node2D
 class_name Game
 
+@export var fade_rect_path: NodePath
+@export var fade_out_time := 0.88
+@export var fade_in_time := 0.88
+@export var fade_hold_time := 0.02
+
+var _fade_rect: ColorRect
+var _regen_in_progress := false
+
 # -------------------------------------------------
 # MAP + ROADS + STRUCTURES ONLY
 # - Generates terrain
@@ -103,20 +111,24 @@ func clear_upgrades() -> void:
 	RunStateNode.clear()
 
 func _ready() -> void:
-	_start_max_zombies = map_controller.max_zombies
-	
-	rng.randomize()
+	_fade_rect = get_node_or_null(fade_rect_path) as ColorRect
+	if _fade_rect != null:
+		_fade_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		_fade_rect.visible = true
+		var c := _fade_rect.color
+		c.a = 1.0 # start black
+		_fade_rect.color = c
 
+	# build the map normally (no fades inside)
+	_start_max_zombies = map_controller.max_zombies
+	rng.randomize()
 	if randomize_season_each_generation:
 		season = SEASONS[rng.randi_range(0, SEASONS.size() - 1)]
 
 	grid = GridData.new()
 	grid.setup(map_width, map_height, T_DIRT)
 
-	# Full pipeline: base -> roads -> water (protected) -> connectivity -> paint
 	generate_map()
-
-	# Structures after terrain+roads are final (avoids roads+water)
 	spawn_structures()
 
 	map_controller.terrain_path = terrain.get_path()
@@ -124,19 +136,38 @@ func _ready() -> void:
 	map_controller.overlay_root_path = overlays_root.get_path()
 	map_controller.setup(self)
 	map_controller.spawn_units()
-	
-	# ✅ now units exist, so selection + buttons can initialize
+
 	if turn_manager != null:
 		turn_manager.on_units_spawned()
+
+	# now reveal the scene
+	await get_tree().process_frame
+	await _fade_to(0.0, fade_in_time)
+
 
 func _input(event: InputEvent) -> void:
 	if event is InputEventKey and event.pressed and not event.echo:
 		if event.keycode == KEY_R:
 			map_controller.max_zombies = _start_max_zombies
-			regenerate_map()
+			await regenerate_map_faded()
 
 		if event.keycode == KEY_1:
-			map_controller.satellite_sweep()			
+			map_controller.satellite_sweep()		
+
+func _fade_alpha() -> float:
+	if _fade_rect == null or not is_instance_valid(_fade_rect):
+		return 0.0
+	return clampf(_fade_rect.color.a, 0.0, 1.0)
+
+
+func _is_faded_out() -> bool:
+	# black
+	return _fade_alpha() >= 0.99
+
+
+func _is_faded_in() -> bool:
+	# transparent
+	return _fade_alpha() <= 0.01
 
 func regenerate_map() -> void:
 	rng.randomize()
@@ -148,18 +179,65 @@ func regenerate_map() -> void:
 		grid = GridData.new()
 	grid.setup(map_width, map_height, T_DIRT)
 
-	# Full pipeline: base -> roads -> water (protected) -> connectivity -> paint
+	# Full pipeline
 	generate_map()
-
 	spawn_structures()
 
-	# Re-setup + respawn units
 	map_controller.setup(self)
 	map_controller.spawn_units()
 
-	# ✅ IMPORTANT: after regen, tell TurnManager units exist again
 	if turn_manager != null and is_instance_valid(turn_manager):
 		turn_manager.on_units_spawned()
+
+func regenerate_map_faded() -> void:
+	if _regen_in_progress:
+		return
+	_regen_in_progress = true
+
+	# Ensure fade rect is click-through no matter what
+	if _fade_rect != null and is_instance_valid(_fade_rect):
+		_fade_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
+
+	# 1) If we're currently visible, fade OUT to black first
+	if not _is_faded_out():
+		await _fade_to(1.0, fade_out_time)
+
+	if fade_hold_time > 0.0:
+		await get_tree().create_timer(fade_hold_time).timeout
+
+	# 2) Do the work while black
+	regenerate_map()
+
+	# let visuals apply
+	await get_tree().process_frame
+
+	# 3) Fade IN back to gameplay
+	await _fade_to(0.0, fade_in_time)
+
+	_regen_in_progress = false
+
+func _fade_to(target_alpha: float, seconds: float) -> void:
+	if _fade_rect == null or not is_instance_valid(_fade_rect):
+		# no fade node wired, just skip
+		return
+
+	_fade_rect.visible = true
+
+	# Kill old tween if you spam R
+	var tw := get_tree().create_tween()
+	tw.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
+
+	var c := _fade_rect.color
+	c.a = clampf(c.a, 0.0, 1.0)
+	_fade_rect.color = c
+
+	tw.tween_property(_fade_rect, "color:a", clampf(target_alpha, 0.0, 1.0), max(seconds, 0.001))
+
+	await tw.finished
+
+	# hide when fully transparent
+	if target_alpha <= 0.001:
+		_fade_rect.visible = false
 
 # -------------------------------------------------
 # Map Generation (terrain only)

@@ -1,3 +1,4 @@
+ColorRect
 CanvasLayer
 RichTextLabel
 Control
@@ -11,4 +12,3 @@ CPUParticles2D
 AnimatedSprite2D
 Sprite2D
 AudioStreamPlayer2D
-Button

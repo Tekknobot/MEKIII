@@ -166,7 +166,7 @@ func _on_tutorial_event(id: StringName, payload: Dictionary) -> void:
 		"ally_selected":
 			if step == Step.INTRO_SELECT:
 				_advance(Step.INTRO_MOVE)
-				#_on_you_win()
+				_on_you_win()
 
 		"ally_moved":
 			if step == Step.INTRO_MOVE:
@@ -289,8 +289,8 @@ func _on_you_win() -> void:
 			end_panel.continue_pressed.connect(func():
 				if M != null and is_instance_valid(M) and M.game_ref != null and is_instance_valid(M.game_ref):
 					var G = M.game_ref
-					if G.has_method("regenerate_map"):
-						G.call("regenerate_map")
+					if G.has_method("regenerate_map_faded"):
+						G.call("regenerate_map_faded")
 			)
 
 func _roll_3_upgrades() -> Array:
