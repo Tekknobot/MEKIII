@@ -78,7 +78,7 @@ func _show_step() -> void:
 			)
 		Step.INTRO_ATTACK:
 			_toast(
-				"Attack a zombie.\n\nTip: Right-click to arm ATTACK, then left-click a zombie.",
+				"Attack a zombie.\n\nTip: Right-click to arm ATTACK, then left-click a zombie. Rapid click for multi-damage",
 				"FIELD OPS"
 			)
 		Step.FIRST_KILL:

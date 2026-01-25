@@ -21,7 +21,7 @@ var _busy := false
 const SQUAD_DATA := [
 	{
 		"name": "Soldier",
-		"hp": 5,
+		"hp": 3,
 		"ability": "HELLFIRE BARRAGE",
 		"portrait": preload("res://sprites/Portraits/soldier_port.png")
 	},
@@ -33,7 +33,7 @@ const SQUAD_DATA := [
 	},
 	{
 		"name": "Robodog",
-		"hp": 3,
+		"hp": 5,
 		"ability": "MINE DEPLOY",
 		"portrait": preload("res://sprites/Portraits/dog_port.png")
 	}

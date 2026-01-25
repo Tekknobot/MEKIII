@@ -9,3 +9,4 @@ res://scenes/mech.tscn
 res://scripts/map_controller.gd
 res://scripts/mech.gd
 res://scripts/unit.gd
+res://scripts/tutorial_manager.gd
