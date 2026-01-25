@@ -985,12 +985,24 @@ func _mouse_to_cell() -> Vector2i:
 	return cell
 
 func unit_at_cell(c: Vector2i) -> Unit:
-	if units_by_cell.has(c):
-		var u := units_by_cell[c] as Unit
-		if u and is_instance_valid(u):
-			return u
+	if not units_by_cell.has(c):
+		return null
+
+	var v = units_by_cell[c]   # DO NOT cast yet
+
+	# If not an object anymore, or freed → clean dictionary
+	if v == null or typeof(v) != TYPE_OBJECT or not is_instance_valid(v):
 		units_by_cell.erase(c)
-	return null
+		return null
+
+	# Now it is safe to cast
+	var u := v as Unit
+	if u == null:
+		units_by_cell.erase(c)
+		return null
+
+	return u
+
 
 func _select(u: Unit) -> void:
 	if TM != null and not TM.can_select(u):
