@@ -259,7 +259,9 @@ sources/1 = SubResource("TileSetAtlasSource_pn7ev")
 [node name="Game" type="Node2D" groups=["GameMap"]]
 script = ExtResource("1_400sg")
 fade_rect_path = NodePath("UI/FadeLayer/ColorRect")
-fade_hold_time = 0.22
+fade_out_time = 1.88
+fade_in_time = 1.88
+fade_hold_time = 0.88
 water_patch_count = 1
 building_scenes = Array[PackedScene]([ExtResource("21_1fiys"), ExtResource("22_ho5ir"), ExtResource("23_evnk2"), ExtResource("24_ca228")])
 building_count = 12

@@ -1,3 +1,5 @@
+MarginContainer
+PanelContainer
 Node2D
 TextureRect
 Label
@@ -9,6 +11,4 @@ VBoxContainer
 ColorRect
 CanvasLayer
 Node
-MarginContainer
-PanelContainer
 CPUParticles2D

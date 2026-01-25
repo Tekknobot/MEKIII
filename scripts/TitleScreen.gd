@@ -11,7 +11,7 @@ extends Control
 
 # --- Story (typewriter) ---
 @onready var story_clip: Control = $StoryClip
-@onready var story: RichTextLabel = $StoryClip/Story
+@onready var story: RichTextLabel = $StoryClip/PanelContainer/MarginContainer/Story
 
 @export var type_chars_per_sec := 45.0
 @export var type_start_delay := 0.35
@@ -30,6 +30,9 @@ var _type_timer: SceneTreeTimer = null
 @export var sick_color_a := Color("#7CFF63") # neon green
 @export var sick_color_b := Color("#B6FF9A") # lighter green
 @export var sick_pulse_time := 0.55
+
+@export var title_outline_size := 8
+@export var title_outline_color := Color(1.0, 0.0, 0.0, 1.0)
 
 var _busy := false
 var _tw: Tween = null
@@ -280,6 +283,11 @@ func _apply_fonts() -> void:
 		if title_font_size > 0:
 			title.add_theme_font_size_override("font_size", title_font_size)
 
+	# Title outline (Label supports this via theme overrides)
+	if title != null:
+		title.add_theme_constant_override("outline_size", title_outline_size)
+		title.add_theme_color_override("font_outline_color", title_outline_color)
+
 	# Story (RichTextLabel)
 	if story != null:
 		if body_font != null:
@@ -312,31 +320,28 @@ func _apply_button_font(b: Button) -> void:
 # -------------------------
 func _default_story_bbcode() -> String:
 	var s := ""
-	s += "[b]SIGNAL 7 // BEACON FALL[/b]\n\n"
+	s += "[b]MISSION: SIGNAL 7 // BEACON FALL[/b]\n\n"
 
-	s += "Uplink cities went dark three days ago.\n"
-	s += "Road relays still hum.\n"
-	s += "Something moves in the static.\n\n"
+	s += "The uplink cities are silent.\n"
+	s += "Only road relays still broadcast.\n"
+	s += "The infection owns everything else.\n\n"
 
-	s += "You are a salvage crew.\n"
-	s += "Last contract still standing.\n\n"
+	s += "You command the last salvage squad.\n"
+	s += "Your job: rebuild the beacon.\n\n"
 
-	s += "Drop in.\n"
-	s += "Recover disk fragments from infected.\n"
-	s += "Assemble the beacon.\n"
-	s += "Hold position until satellite sweep.\n\n"
+	s += "How to win:\n"
+	s += "1. Destroy infected to recover disk fragments.\n"
+	s += "2. Collect enough fragments to assemble the beacon.\n"
+	s += "3. Move a squad member onto the beacon to begin upload.\n"
+	s += "4. Hold position until the satellite sweep completes.\n\n"
 
-	s += "[i]If orbital lock succeeds — everything infected gets erased.[/i]\n\n"
+	s += "[i]When the sweep fires, every infected signal is erased.[/i]\n\n"
 
-	s += "Mission parameters:\n"
-	s += "• Collect parts from fallen infected.\n"
-	s += "• Upload at beacon site.\n"
-	s += "• Survive until sweep completes.\n\n"
+	s += "How to lose:\n"
+	s += "1. All squad members are killed.\n"
+	s += "2. The swarm overruns the zone.\n\n"
 
-	s += "Failure condition:\n"
-	s += "• Squad eliminated.\n\n"
-
-	s += "[i]Static rises. Deployment window open.[/i]\n"
+	s += "[i]Drop window open. Good luck, salvage crew.[/i]\n"
 	return s
 
 func _start_bg_cycle() -> void:

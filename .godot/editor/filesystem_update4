@@ -1,7 +1,5 @@
+res://scripts/TitleScreen.gd
 res://scenes/title_screen.tscn
-res://shaders/outline_1px.gdshader
-res://scripts/title_screen_map.gd
-res://scenes/Game.tscn
-res://scripts/tutorial_manager.gd
-res://scripts/end_game_panel_runtime.gd
 res://shaders/wobble_shimmer.gdshader
+res://shaders/outline_1px.gdshader
+res://scenes/Game.tscn
