@@ -224,6 +224,8 @@ var _beacon_pulse_tw: Tween = null
 
 signal tutorial_event(id: StringName, payload: Dictionary)
 
+var special_unit: Unit = null
+
 func _sfx(cue: StringName, vol := 1.0, pitch := 1.0, world_pos: Variant = null) -> void:
 	if SFX == null:
 		return
@@ -853,30 +855,46 @@ func _unhandled_input(event: InputEvent) -> void:
 
 			var u := selected
 
-			# Gate phase + special counts as attack action
+			# Gate phase (special counts as attack action for most specials)
 			if TM != null:
 				if not TM.player_input_allowed() or not TM.can_attack(u):
+					# For mines, you might still want to stay armed even if gated,
+					# but safest is to bail back to MOVE:
 					_set_aim_mode(AimMode.MOVE)
 					return
 
 			# Only fire if clicked a valid special cell
 			if valid_special_cells.has(cell):
-				await _perform_special(u, String(special_id), cell)
+				var sid := String(special_id).to_lower()
+
+				# ✅ MINES: place repeatedly, DO NOT exit SPECIAL, DO NOT mark attacked
+				if sid == "mines" and (u is Mech):
+					var before := mines_by_cell.size()
+					await _perform_special(u, sid, cell) # calls perform_place_mine
+
+					var placed := mines_by_cell.size() > before
+					if placed:
+						# keep your "mines doesn't consume attacked" system
+						if u.has_method("mine_placed_one"):
+							u.call("mine_placed_one")
+						# stay armed and refresh tiles
+						aim_mode = AimMode.SPECIAL
+						_refresh_overlays()
+						emit_signal("aim_changed", int(aim_mode), special_id)
+
+					# Even if not placed (clicked weirdly), stay in SPECIAL so user can try again
+					return
+
+				# ✅ All other specials: normal behavior (consume attack + exit)
+				await _perform_special(u, sid, cell)
 
 				_set_unit_attacked(u, true)
 				_apply_turn_indicator(u)
 				if TM != null and TM.has_method("notify_player_attacked"):
 					TM.notify_player_attacked(u)
 
-			# ✅ Always exit special mode on left-click (even if invalid cell)
+			# ✅ Exit special mode on left-click for non-mines (or invalid cell)
 			_set_aim_mode(AimMode.MOVE)
-			return
-
-
-			aim_mode = AimMode.MOVE
-			special_id = &""
-			_refresh_overlays()
-			emit_signal("aim_changed", int(aim_mode), special_id)
 			return
 
 		# -------------------------
@@ -2255,16 +2273,33 @@ func activate_special(id: String) -> void:
 		return
 
 	# ✅ Toggle off if same special pressed again
-	if aim_mode == AimMode.SPECIAL and String(special_id).to_lower() == id:
-		aim_mode = AimMode.MOVE
-		special_id = &""
-		_refresh_overlays()
-		emit_signal("aim_changed", int(aim_mode), special_id)
+	if aim_mode == AimMode.SPECIAL and String(special_id).to_lower() == "mines" and selected is Mech:
+		var mech := selected as Mech
+		var c := _mouse_to_cell()
+		if c.x < 0:
+			return
+
+		var before := mines_by_cell.size()
+		mech.perform_place_mine(self, c)
+		var placed := mines_by_cell.size() > before
+
+		if placed:
+			mech.mine_placed_one() # keeps special_cd["mines"]=0
+			# stay in special and refresh tiles
+			aim_mode = AimMode.SPECIAL
+			_refresh_overlays()
+
 		return
 
 	# ✅ Turn on SPECIAL aim + show range immediately
 	aim_mode = AimMode.SPECIAL
 	special_id = StringName(id)
+	special_unit = selected
+	
+	# start the session
+	if special_unit is Mech:
+		(special_unit as Mech).begin_mine_special()
+			
 	_refresh_overlays()
 	emit_signal("aim_changed", int(aim_mode), special_id)
 	emit_signal("tutorial_event", &"special_mode_armed", {"id": id, "cell": selected.cell})
@@ -3132,6 +3167,8 @@ func _unit_has_moved(u: Unit) -> bool:
 	return u != null and is_instance_valid(u) and u.has_meta(META_MOVED) and bool(u.get_meta(META_MOVED))
 
 func _unit_has_attacked(u: Unit) -> bool:
+	if u is Mech and (u as Mech).placing_mines:
+		return false	
 	return u != null and is_instance_valid(u) and u.has_meta(META_ATTACKED) and bool(u.get_meta(META_ATTACKED))
 
 func _set_unit_moved(u: Unit, v: bool) -> void:

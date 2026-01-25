@@ -1,6 +1,10 @@
 extends Unit
 class_name Mech
 
+@export var mine_place_range := 5
+@export var mine_damage := 2
+var placing_mines := false
+
 func _ready() -> void:
 	set_meta("portrait_tex", preload("res://sprites/Portraits/dog_port.png"))
 	set_meta("display_name", "Robodog")
@@ -16,9 +20,6 @@ func _ready() -> void:
 
 	# ✅ Run Unit setup (hp=max_hp + sprite base pos)
 	super._ready()	
-
-@export var mine_place_range := 5
-@export var mine_damage := 2
 
 func perform_place_mine(M: MapController, target_cell: Vector2i) -> void:
 	# range check
@@ -89,3 +90,17 @@ func play_death_anim() -> void:
 		await get_tree().create_timer(0.6).timeout
 
 	queue_free()
+
+func begin_mine_special() -> void:
+	placing_mines = true
+	# keep special usable during the session
+	special_cd["mines"] = 0
+
+func mine_placed_one() -> void:
+	# keep it usable while session is active
+	special_cd["mines"] = 0
+
+func end_mine_special(commit_cooldown: bool = true) -> void:
+	placing_mines = false
+	if commit_cooldown:
+		mark_special_used("mines", 2)
