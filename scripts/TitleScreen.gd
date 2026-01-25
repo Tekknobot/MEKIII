@@ -1,13 +1,13 @@
 extends Control
 
-@export var game_scene: PackedScene = preload("res://scenes/Game.tscn")
+@export var game_scene: PackedScene = preload("res://scenes/squad_deploy_screen.tscn")
 @export var fade_time := 0.25
 
 @onready var fade: ColorRect = $Fade
-@onready var start_button: Button = $Center/Buttons/StartButton
-@onready var quit_button: Button = $Center/Buttons/QuitButton
+@onready var start_button: Button = $Center/PanelContainer/MarginContainer/VBoxContainer/Buttons/StartButton
+@onready var quit_button: Button = $Center/PanelContainer/MarginContainer/VBoxContainer/Buttons/QuitButton
 
-@onready var title: Label = $Center/Title
+@onready var title: Label = $Center/PanelContainer/MarginContainer/VBoxContainer/Title
 
 # --- Story (typewriter) ---
 @onready var story_clip: Control = $StoryClip

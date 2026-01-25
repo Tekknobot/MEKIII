@@ -211,7 +211,6 @@ grow_horizontal = 2
 grow_vertical = 2
 script = ExtResource("1_fgkus")
 fade_time = 1.25
-type_chars_per_sec = 25.0
 title_font = ExtResource("2_s4lrb")
 body_font = ExtResource("3_mgrm8")
 body_font_size = 16
@@ -274,42 +273,63 @@ stretch_mode = 2
 
 [node name="Center" type="VBoxContainer" parent="."]
 z_index = 4096
-layout_mode = 0
-offset_left = 761.0
-offset_top = 526.0
-offset_right = 1137.0
-offset_bottom = 643.0
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -247.5
+offset_top = -65.0
+offset_right = 247.5
+offset_bottom = 65.0
+grow_horizontal = 2
+grow_vertical = 2
 
-[node name="Title" type="Label" parent="Center"]
+[node name="PanelContainer" type="PanelContainer" parent="Center"]
+layout_mode = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_12ga3")
+
+[node name="MarginContainer" type="MarginContainer" parent="Center/PanelContainer"]
+layout_mode = 2
+
+[node name="VBoxContainer" type="VBoxContainer" parent="Center/PanelContainer/MarginContainer"]
+layout_mode = 2
+
+[node name="Title" type="Label" parent="Center/PanelContainer/MarginContainer/VBoxContainer"]
 custom_minimum_size = Vector2(120, 32)
 layout_mode = 2
 theme_override_fonts/font = ExtResource("2_s4lrb")
 theme_override_font_sizes/font_size = 64
 text = "Z-DEAD: TACTICS"
+horizontal_alignment = 1
 
-[node name="Subtext" type="Label" parent="Center"]
+[node name="Subtext" type="Label" parent="Center/PanelContainer/MarginContainer/VBoxContainer"]
 custom_minimum_size = Vector2(120, 16)
 layout_mode = 2
 theme_override_fonts/font = ExtResource("2_s4lrb")
 theme_override_font_sizes/font_size = 32
 text = "Uplink recovery operations."
+horizontal_alignment = 1
 
-[node name="Buttons" type="HBoxContainer" parent="Center"]
+[node name="Buttons" type="HBoxContainer" parent="Center/PanelContainer/MarginContainer/VBoxContainer"]
 layout_mode = 2
+alignment = 1
 
-[node name="StartButton" type="Button" parent="Center/Buttons"]
+[node name="StartButton" type="Button" parent="Center/PanelContainer/MarginContainer/VBoxContainer/Buttons"]
 custom_minimum_size = Vector2(80, 16)
 layout_mode = 2
 theme_override_fonts/font = ExtResource("2_sa3yf")
 text = "Start"
 
-[node name="QuitButton" type="Button" parent="Center/Buttons"]
+[node name="QuitButton" type="Button" parent="Center/PanelContainer/MarginContainer/VBoxContainer/Buttons"]
 custom_minimum_size = Vector2(80, 16)
 layout_mode = 2
 theme_override_fonts/font = ExtResource("2_sa3yf")
 text = "Quit"
 
 [node name="StoryClip" type="Control" parent="."]
+visible = false
 z_index = 4096
 custom_minimum_size = Vector2(120, 120)
 anchors_preset = 0
@@ -338,7 +358,7 @@ theme_override_font_sizes/normal_font_size = 16
 bbcode_enabled = true
 
 [node name="Map" type="Node2D" parent="."]
-position = Vector2(776, 107)
+position = Vector2(578, 37)
 scale = Vector2(3, 3)
 script = ExtResource("14_jr68i")
 building_scenes = Array[PackedScene]([null, ExtResource("15_htdhw"), ExtResource("16_12ga3"), ExtResource("17_yrrko"), ExtResource("18_aidx5")])

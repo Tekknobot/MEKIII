@@ -1,0 +1,184 @@
+[gd_scene load_steps=13 format=3 uid="uid://cc0jtoodfohb7"]
+
+[ext_resource type="Script" uid="uid://bpqdlu5ei0n4s" path="res://scripts/squad_deploy_screen.gd" id="1_ojx2h"]
+[ext_resource type="Texture2D" uid="uid://bkcwqu2daxeth" path="res://sprites/Portraits/soldier_port.png" id="2_5vrpl"]
+[ext_resource type="PackedScene" uid="uid://bmtwqbsx674eo" path="res://scenes/Game.tscn" id="2_jek1g"]
+[ext_resource type="Texture2D" uid="uid://wm8nrbekb2d0" path="res://sprites/Humans/soldier5.png" id="3_jek1g"]
+[ext_resource type="FontFile" uid="uid://dgugahs6bc7so" path="res://fonts/magofonts/mago3.ttf" id="4_5wfc2"]
+[ext_resource type="FontFile" uid="uid://csnhk3q4gx0" path="res://fonts/magofonts/mago1.ttf" id="5_r4wy4"]
+[ext_resource type="Texture2D" uid="uid://cadmv3b6b2dsb" path="res://sprites/Portraits/rambo_port.png" id="6_0ldrx"]
+[ext_resource type="Texture2D" uid="uid://dd1d72gdlqw0h" path="res://sprites/Humans/merc/idle/rambo_idle1.png" id="7_4vcrn"]
+[ext_resource type="Texture2D" uid="uid://bk6yt4vowxo7j" path="res://sprites/Portraits/dog_port.png" id="8_0rt46"]
+[ext_resource type="Texture2D" uid="uid://b8ydvfeaxe1yj" path="res://sprites/Dog/dog2.png" id="9_dv6vw"]
+[ext_resource type="FontFile" uid="uid://buw362wjb8o8d" path="res://fonts/magofonts/mago2.ttf" id="10_iuh7l"]
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_hgnp5"]
+bg_color = Color(0.06743774, 0.067437746, 0.06743769, 1)
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
+corner_radius_top_left = 2
+corner_radius_top_right = 2
+corner_radius_bottom_right = 2
+corner_radius_bottom_left = 2
+expand_margin_left = 12.0
+expand_margin_top = 12.0
+expand_margin_right = 12.0
+expand_margin_bottom = 12.0
+
+[node name="SquadDeployScreen" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_ojx2h")
+game_scene = ExtResource("2_jek1g")
+
+[node name="Fade" type="ColorRect" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 1
+color = Color(0, 0, 0, 1)
+
+[node name="SquadPanel" type="PanelContainer" parent="."]
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -90.0
+offset_top = -205.5
+offset_right = 90.0
+offset_bottom = 205.5
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_hgnp5")
+
+[node name="VBoxContainer" type="VBoxContainer" parent="SquadPanel"]
+layout_mode = 2
+
+[node name="TitleLabel" type="Label" parent="SquadPanel/VBoxContainer"]
+layout_mode = 2
+theme_override_fonts/font = ExtResource("4_5wfc2")
+theme_override_font_sizes/font_size = 32
+text = "Squad Deploy"
+
+[node name="FlavorText" type="RichTextLabel" parent="SquadPanel/VBoxContainer"]
+custom_minimum_size = Vector2(0, 100)
+layout_mode = 2
+theme_override_fonts/normal_font = ExtResource("5_r4wy4")
+text = "LAST UPLINK SQUAD
+Orbital beacon prototype ready.
+Collect 3 data parts.
+Activate the sweep.
+Survive."
+
+[node name="UnitCard_Soldier" type="HBoxContainer" parent="SquadPanel/VBoxContainer"]
+layout_mode = 2
+
+[node name="Portrait" type="TextureRect" parent="SquadPanel/VBoxContainer/UnitCard_Soldier"]
+layout_mode = 2
+texture = ExtResource("2_5vrpl")
+stretch_mode = 2
+
+[node name="Sprite" type="TextureRect" parent="SquadPanel/VBoxContainer/UnitCard_Soldier"]
+layout_mode = 2
+texture = ExtResource("3_jek1g")
+
+[node name="Info" type="VBoxContainer" parent="SquadPanel/VBoxContainer/UnitCard_Soldier"]
+layout_mode = 2
+
+[node name="NameLabel" type="Label" parent="SquadPanel/VBoxContainer/UnitCard_Soldier/Info"]
+layout_mode = 2
+theme_override_fonts/font = ExtResource("4_5wfc2")
+text = "Soldier"
+
+[node name="HPLabel" type="Label" parent="SquadPanel/VBoxContainer/UnitCard_Soldier/Info"]
+layout_mode = 2
+theme_override_fonts/font = ExtResource("5_r4wy4")
+text = "HP 3"
+
+[node name="AbilityLabel" type="Label" parent="SquadPanel/VBoxContainer/UnitCard_Soldier/Info"]
+layout_mode = 2
+theme_override_fonts/font = ExtResource("10_iuh7l")
+
+[node name="UnitCard_Mercenary" type="HBoxContainer" parent="SquadPanel/VBoxContainer"]
+layout_mode = 2
+
+[node name="Portrait" type="TextureRect" parent="SquadPanel/VBoxContainer/UnitCard_Mercenary"]
+layout_mode = 2
+texture = ExtResource("6_0ldrx")
+stretch_mode = 2
+
+[node name="Sprite" type="TextureRect" parent="SquadPanel/VBoxContainer/UnitCard_Mercenary"]
+layout_mode = 2
+texture = ExtResource("7_4vcrn")
+
+[node name="Info" type="VBoxContainer" parent="SquadPanel/VBoxContainer/UnitCard_Mercenary"]
+layout_mode = 2
+
+[node name="NameLabel" type="Label" parent="SquadPanel/VBoxContainer/UnitCard_Mercenary/Info"]
+layout_mode = 2
+theme_override_fonts/font = ExtResource("4_5wfc2")
+text = "Mercenary"
+
+[node name="HPLabel" type="Label" parent="SquadPanel/VBoxContainer/UnitCard_Mercenary/Info"]
+layout_mode = 2
+theme_override_fonts/font = ExtResource("5_r4wy4")
+text = "HP 4"
+
+[node name="AbilityLabel" type="Label" parent="SquadPanel/VBoxContainer/UnitCard_Mercenary/Info"]
+layout_mode = 2
+theme_override_fonts/font = ExtResource("10_iuh7l")
+
+[node name="UnitCard_Robodog" type="HBoxContainer" parent="SquadPanel/VBoxContainer"]
+layout_mode = 2
+
+[node name="Portrait" type="TextureRect" parent="SquadPanel/VBoxContainer/UnitCard_Robodog"]
+layout_mode = 2
+texture = ExtResource("8_0rt46")
+stretch_mode = 2
+
+[node name="Sprite" type="TextureRect" parent="SquadPanel/VBoxContainer/UnitCard_Robodog"]
+layout_mode = 2
+texture = ExtResource("9_dv6vw")
+
+[node name="Info" type="VBoxContainer" parent="SquadPanel/VBoxContainer/UnitCard_Robodog"]
+layout_mode = 2
+
+[node name="NameLabel" type="Label" parent="SquadPanel/VBoxContainer/UnitCard_Robodog/Info"]
+layout_mode = 2
+theme_override_fonts/font = ExtResource("4_5wfc2")
+text = "Robodog"
+
+[node name="HPLabel" type="Label" parent="SquadPanel/VBoxContainer/UnitCard_Robodog/Info"]
+layout_mode = 2
+theme_override_fonts/font = ExtResource("5_r4wy4")
+text = "HP 5"
+
+[node name="AbilityLabel" type="Label" parent="SquadPanel/VBoxContainer/UnitCard_Robodog/Info"]
+layout_mode = 2
+theme_override_fonts/font = ExtResource("10_iuh7l")
+
+[node name="Buttons" type="HBoxContainer" parent="SquadPanel/VBoxContainer"]
+layout_mode = 2
+
+[node name="BackButton" type="Button" parent="SquadPanel/VBoxContainer/Buttons"]
+custom_minimum_size = Vector2(80, 0)
+layout_mode = 2
+theme_override_fonts/font = ExtResource("10_iuh7l")
+text = "Back"
+
+[node name="StartButton" type="Button" parent="SquadPanel/VBoxContainer/Buttons"]
+custom_minimum_size = Vector2(80, 0)
+layout_mode = 2
+theme_override_fonts/font = ExtResource("10_iuh7l")
+text = "Start"
