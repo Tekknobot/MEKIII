@@ -45,7 +45,7 @@
 [ext_resource type="AudioStream" uid="uid://bmery8486ov70" path="res://audio/SFX/missile_launch.wav" id="42_lscvm"]
 [ext_resource type="AudioStream" uid="uid://dvauweeh0mxu1" path="res://audio/SFX/Blip3.wav" id="43_evnk2"]
 [ext_resource type="AudioStream" uid="uid://dd1oh3lohb5yo" path="res://audio/SFX/laser-312360.mp3" id="43_pn7ev"]
-[ext_resource type="PackedScene" uid="uid://b3mmncyiyeetr" path="res://scenes/mechtwo.tscn" id="44_ca228"]
+[ext_resource type="PackedScene" uid="uid://bspxym863egnq" path="res://scenes/M1.tscn" id="46_px4p2"]
 [ext_resource type="PackedScene" uid="uid://2ov7kvfue6bm" path="res://scenes/floppy.tscn" id="46_xfjuk"]
 [ext_resource type="PackedScene" uid="uid://c6mcd4ogd1jyq" path="res://scenes/beacon.tscn" id="47_6h74c"]
 [ext_resource type="Script" uid="uid://dsiq3cf4mv8kx" path="res://scripts/tutorial_manager.gd" id="49_0wf52"]
@@ -353,6 +353,7 @@ mines_button_path = NodePath("../UI/Mines")
 overwatch_button_path = NodePath("../UI/Overwatch")
 suppress_button_path = NodePath("../UI/Supress")
 stim_button_path = NodePath("../UI/Stimpack")
+sunder_button_path = NodePath("../UI/Sunder")
 beacon_deadline_round = 99
 
 [node name="Pickups" type="Node2D" parent="."]
@@ -398,7 +399,7 @@ bubble_voice_player_path = NodePath("../UI/Bubbles/BubbleVoice")
 bubble_voice_stream = ExtResource("43_evnk2")
 bubble_voice_volume = 0.235
 overwatch_ghost_offset = Vector2(0, -8)
-recruit_bot_scene = ExtResource("44_ca228")
+recruit_bot_scene = ExtResource("46_px4p2")
 floppy_pickup_scene = ExtResource("46_xfjuk")
 beacon_marker_scene = ExtResource("47_6h74c")
 beacon_marker_y_offset_px = 0.0
@@ -486,6 +487,15 @@ offset_right = 1044.0
 offset_bottom = 598.0
 theme_override_fonts/font = ExtResource("32_1gdd5")
 text = "Stimpack
+"
+
+[node name="Sunder" type="Button" parent="UI"]
+offset_left = 996.0
+offset_top = 550.0
+offset_right = 1044.0
+offset_bottom = 571.0
+theme_override_fonts/font = ExtResource("32_1gdd5")
+text = "Sunder
 "
 
 [node name="Overwatch" type="Button" parent="UI"]

@@ -928,23 +928,6 @@ func _perform_special(u: Unit, id: String, target_cell: Vector2i) -> void:
 	_clear_overlay()
 
 	# -------------------------
-	# Mark cooldowns (ONLY here)
-	# -------------------------
-	if u.has_method("mark_special_used"):
-		if id == "hellfire":
-			u.mark_special_used(id, 2)
-		elif id == "blade":
-			u.mark_special_used(id, 2)
-		elif id == "mines":
-			u.mark_special_used(id, 1)
-		elif id == "overwatch":
-			u.mark_special_used(id, 2)
-		elif id == "suppress":
-			u.mark_special_used(id, 1)
-		elif id == "stim" and u.has_method("perform_stim"):
-			await u.call("perform_stim", self)
-			
-	# -------------------------
 	# Execute special
 	# -------------------------
 	if id == "hellfire" and u.has_method("perform_hellfire"):
@@ -964,6 +947,9 @@ func _perform_special(u: Unit, id: String, target_cell: Vector2i) -> void:
 
 	elif id == "stim" and u.has_method("perform_stim"):
 		u.mark_special_used(id, 3)
+
+	elif id == "sunder" and u.has_method("perform_sunder"):
+		await u.call("perform_sunder", self, target_cell) # ✅ NEW
 
 	_is_moving = false
 
@@ -1403,7 +1389,6 @@ func _draw_special_range(u: Unit, special: String) -> void:
 
 	var id := special.to_lower()
 
-	# ✅ range comes from the unit class
 	var r := 0
 	if u.has_method("get_special_range"):
 		r = int(u.get_special_range(id))
@@ -1422,10 +1407,28 @@ func _draw_special_range(u: Unit, special: String) -> void:
 
 			if grid != null and grid.has_method("in_bounds") and not grid.in_bounds(c):
 				continue
-			if abs(dx) + abs(dy) > r:
-				continue
+
+			# ✅ SUNDER: straight line only (no diagonals)
+			if id == "sunder":
+				if not (dx == 0 or dy == 0):
+					continue
+				if abs(dx) + abs(dy) <= 0:
+					continue
+				if abs(dx) + abs(dy) > r:
+					continue
+			else:
+				# your existing diamond rule
+				if abs(dx) + abs(dy) > r:
+					continue
+
 			if not _is_walkable(c):
 				continue
+
+			# ✅ for sunder, don’t allow targeting into structure-blocked tiles
+			# (sunder stops on blocked; targeting blocked would “do nothing” and feel broken)
+			if id == "sunder":
+				if structure_blocked.has(c):
+					continue
 
 			# --- per-special validity (your existing logic) ---
 			if id == "blade":
@@ -1444,10 +1447,10 @@ func _draw_special_range(u: Unit, special: String) -> void:
 					continue
 
 			elif id == "suppress":
-				var tgt := unit_at_cell(c)
-				if tgt == null:
+				var tgt2 := unit_at_cell(c)
+				if tgt2 == null:
 					continue
-				if tgt.team == u.team:
+				if tgt2.team == u.team:
 					continue
 
 			valid_special_cells[c] = true
@@ -2333,7 +2336,9 @@ func _unit_can_use_special(u: Unit, id: String) -> bool:
 			return u.has_method("perform_suppress")
 		"stim":
 			return u.has_method("perform_stim")
-
+		"sunder":
+			return u.has_method("perform_sunder")
+			
 	return false
 
 func select_unit(u: Unit) -> void:
