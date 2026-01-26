@@ -1,8 +1,15 @@
-[gd_scene load_steps=6 format=3 uid="uid://b6wrxn53ynbat"]
+[gd_scene load_steps=7 format=3 uid="uid://b6wrxn53ynbat"]
 
 [ext_resource type="Script" uid="uid://vc2m5p8p5r3" path="res://scripts/hud.gd" id="1_qpvh6"]
 [ext_resource type="FontFile" uid="uid://dgugahs6bc7so" path="res://fonts/magofonts/mago3.ttf" id="2_1etfg"]
 [ext_resource type="FontFile" uid="uid://csnhk3q4gx0" path="res://fonts/magofonts/mago1.ttf" id="2_fls4u"]
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_1etfg"]
+bg_color = Color(0.047557652, 0.047557652, 0.047557607, 1)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_7hsmw"]
 bg_color = Color(0, 0, 0, 1)
@@ -23,6 +30,7 @@ offset_top = -125.0
 offset_right = 309.0
 offset_bottom = -14.0
 grow_vertical = 0
+theme_override_styles/panel = SubResource("StyleBoxFlat_1etfg")
 
 [node name="Margin" type="MarginContainer" parent="UnitCard"]
 layout_mode = 2

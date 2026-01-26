@@ -79,7 +79,7 @@ func perform_pounce(M: MapController, _target_cell: Vector2i) -> void:
 		return
 
 	var visited: Dictionary = {} # instance_id -> true
-	const HIT_DELAY := 0.88  # ✅ tweak feel (0.05–0.12 is nice)
+	const HIT_DELAY := 0.55  # ✅ tweak feel (0.05–0.12 is nice)
 
 	while true:
 		var targets: Array[Unit] = []

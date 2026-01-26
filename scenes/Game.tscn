@@ -273,6 +273,7 @@ drops_root_path = NodePath("Pickups")
 
 [node name="StarryNight" parent="." instance=ExtResource("20_sv1m6")]
 z_index = -4096
+position = Vector2(-255, -150)
 
 [node name="Structures" type="Node2D" parent="."]
 
