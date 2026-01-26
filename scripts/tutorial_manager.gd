@@ -175,7 +175,7 @@ func _on_tutorial_event(id: StringName, payload: Dictionary) -> void:
 		"attack_mode_armed":
 			# don't auto-advance, just reinforce if they're stuck
 			if step == Step.INTRO_ATTACK:
-				_hint_once(&"hint_attack_armed", "Attack mode off.\n\nRight-click again to arm ATTACK.")
+				_hint_once(&"hint_attack_armed", "Attack mode auto armed.\n\nLeft-click again to dis-arm.")
 
 		"attack_mode_disarmed":
 			if step == Step.INTRO_ATTACK:
