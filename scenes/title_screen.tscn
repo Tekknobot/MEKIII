@@ -1,7 +1,7 @@
-[gd_scene load_steps=51 format=3 uid="uid://rriol7fhna81"]
+[gd_scene load_steps=52 format=3 uid="uid://rriol7fhna81"]
 
 [ext_resource type="Script" uid="uid://q37bmmrkofy5" path="res://scripts/TitleScreen.gd" id="1_fgkus"]
-[ext_resource type="FontFile" uid="uid://dgugahs6bc7so" path="res://fonts/magofonts/mago3.ttf" id="2_s4lrb"]
+[ext_resource type="FontFile" uid="uid://cegmialmbsk70" path="res://fonts/Boycott/BOYCOTT_.ttf" id="2_aidx5"]
 [ext_resource type="FontFile" uid="uid://buw362wjb8o8d" path="res://fonts/magofonts/mago2.ttf" id="2_sa3yf"]
 [ext_resource type="FontFile" uid="uid://csnhk3q4gx0" path="res://fonts/magofonts/mago1.ttf" id="3_mgrm8"]
 [ext_resource type="Texture2D" uid="uid://b8ydvfeaxe1yj" path="res://sprites/Dog/dog2.png" id="5_3yumr"]
@@ -14,6 +14,7 @@
 [ext_resource type="Texture2D" uid="uid://bkumpbg4gebvj" path="res://sprites/Clouds/Re_ Indie Developer from Toronto, Canada looking for pixel mech artist_/layer1.png" id="12_frs5l"]
 [ext_resource type="Shader" uid="uid://184giwfb5rkg" path="res://shaders/wobble_shimmer.gdshader" id="13_12ga3"]
 [ext_resource type="Script" uid="uid://dc2tnq1wwbdig" path="res://scripts/weather_particles.gd" id="13_frs5l"]
+[ext_resource type="FontFile" path="res://fonts/connection_ii/ConnectionII.otf" id="14_aidx5"]
 [ext_resource type="Script" uid="uid://dkqyh6slusnok" path="res://scripts/title_screen_map.gd" id="14_jr68i"]
 [ext_resource type="Texture2D" uid="uid://by1nnygq8fbib" path="res://sprites/Terrain/dirt.png" id="15_b344i"]
 [ext_resource type="PackedScene" uid="uid://crup4kaqa4cia" path="res://scenes/structures/building.tscn" id="15_htdhw"]
@@ -211,7 +212,8 @@ grow_horizontal = 2
 grow_vertical = 2
 script = ExtResource("1_fgkus")
 fade_time = 1.25
-title_font = ExtResource("2_s4lrb")
+title_font = ExtResource("2_aidx5")
+title_font_size = 48
 body_font = ExtResource("3_mgrm8")
 body_font_size = 16
 button_font = ExtResource("2_sa3yf")
@@ -279,10 +281,10 @@ anchor_left = 0.5
 anchor_top = 0.5
 anchor_right = 0.5
 anchor_bottom = 0.5
-offset_left = -247.5
-offset_top = -65.0
-offset_right = 247.5
-offset_bottom = 65.0
+offset_left = -247.0
+offset_top = -161.0
+offset_right = 251.0
+offset_bottom = -47.0
 grow_horizontal = 2
 grow_vertical = 2
 
@@ -299,17 +301,9 @@ layout_mode = 2
 [node name="Title" type="Label" parent="Center/PanelContainer/MarginContainer/VBoxContainer"]
 custom_minimum_size = Vector2(120, 32)
 layout_mode = 2
-theme_override_fonts/font = ExtResource("2_s4lrb")
+theme_override_fonts/font = ExtResource("14_aidx5")
 theme_override_font_sizes/font_size = 64
-text = "Z-DEAD: TACTICS"
-horizontal_alignment = 1
-
-[node name="Subtext" type="Label" parent="Center/PanelContainer/MarginContainer/VBoxContainer"]
-custom_minimum_size = Vector2(120, 16)
-layout_mode = 2
-theme_override_fonts/font = ExtResource("2_s4lrb")
-theme_override_font_sizes/font_size = 32
-text = "Uplink recovery operations."
+text = "Zombie Tactics"
 horizontal_alignment = 1
 
 [node name="Buttons" type="HBoxContainer" parent="Center/PanelContainer/MarginContainer/VBoxContainer"]

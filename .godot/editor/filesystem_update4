@@ -16,3 +16,4 @@ res://scripts/m_2.gd
 res://scripts/turnmanager.gd
 res://scripts/tutorial_manager.gd
 res://scenes/title_screen.tscn
+res://scripts/game.gd

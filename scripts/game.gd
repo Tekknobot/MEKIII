@@ -659,6 +659,8 @@ func spawn_structures() -> void:
 
 		b.add_to_group("Structures")
 		structures_root.add_child(b)
+		
+		_tint_structure(b, rng)
 
 		if b.has_method("set_origin"):
 			b.call("set_origin", origin, terrain)
@@ -672,6 +674,48 @@ func spawn_structures() -> void:
 			_unique_used[_scene_key(scene)] = true
 
 		placed += 1
+
+# ✅ give every spawned structure a slightly different color tint
+func _tint_structure(root: Node, rng: RandomNumberGenerator) -> void:
+	# Subtle variation range (tweak)
+	var hue_shift := rng.randf_range(-0.06, 0.06)   # small hue wobble
+	var sat_mul   := rng.randf_range(0.90, 1.10)   # tiny saturation
+	var val_mul   := rng.randf_range(0.90, 1.12)   # tiny brightness
+
+	# Start from white (no tint), then generate a mild color
+	var base := Color.from_hsv(0.10 + hue_shift, 0.35 * sat_mul, 1.0 * val_mul, 1.0)
+
+	# Prefer tinting actual visual nodes (safer than tinting the whole root)
+	var applied := false
+
+	# If the structure itself is a CanvasItem (Node2D is), this works,
+	# but it will tint EVERYTHING under it (including labels, shadows, etc.)
+	# so we try children first.
+	for n in root.get_children():
+		if n is Sprite2D:
+			(n as Sprite2D).self_modulate = base
+			applied = true
+		elif n is AnimatedSprite2D:
+			(n as AnimatedSprite2D).self_modulate = base
+			applied = true
+
+	# If no direct children matched, walk deeper and tint any sprites we find.
+	if not applied:
+		var stack: Array[Node] = [root]
+		while not stack.is_empty():
+			var cur = stack.pop_back()
+			for c in cur.get_children():
+				if c is Sprite2D:
+					(c as Sprite2D).self_modulate = base
+					applied = true
+				elif c is AnimatedSprite2D:
+					(c as AnimatedSprite2D).self_modulate = base
+					applied = true
+				stack.append(c)
+
+	# Fallback: tint the whole structure root (useful if your art is one sprite anyway)
+	if not applied and root is CanvasItem:
+		(root as CanvasItem).self_modulate = base
 
 func _is_structure_origin_ok(origin: Vector2i, size: Vector2i) -> bool:
 	# footprint in bounds
