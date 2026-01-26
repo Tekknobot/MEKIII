@@ -6,3 +6,8 @@ res://scenes/HUD.tscn
 res://scripts/hud.gd
 res://scenes/M1.tscn
 res://scripts/m_1.gd
+res://scenes/R1.tscn
+res://scripts/r_1.gd
+res://scenes/Game.tscn
+res://scripts/turnmanager.gd
+res://scripts/map_controller.gd

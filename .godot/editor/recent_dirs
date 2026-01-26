@@ -1,4 +1,5 @@
 res://scripts
+res://sprites/Meks/R1
 res://sprites/Meks/M2
 res://sprites/Meks/M1
 res://scenes
@@ -19,4 +20,3 @@ res://fonts/magofonts
 res://sprites/Terrain/roads
 res://sprites/Dog
 res://sprites/Dog/attack
-res://sprites/Dog/default

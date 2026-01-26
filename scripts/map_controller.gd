@@ -955,6 +955,9 @@ func _perform_special(u: Unit, id: String, target_cell: Vector2i) -> void:
 	elif id == "pounce" and u.has_method("perform_pounce"):
 		await u.call("perform_pounce", self, target_cell)
 
+	elif id == "volley" and u.has_method("perform_volley"):
+		await u.call("perform_volley", self, target_cell)
+
 	_is_moving = false
 
 func _mouse_to_cell() -> Vector2i:
@@ -1442,7 +1445,7 @@ func _draw_special_range(u: Unit, special: String) -> void:
 				if tgt.team == u.team:
 					continue
 
-			elif id == "mines":
+			if id == "mines":
 				if structure_blocked.has(c):
 					continue
 				if units_by_cell.has(c):
@@ -1450,19 +1453,31 @@ func _draw_special_range(u: Unit, special: String) -> void:
 				if mines_by_cell.has(c):
 					continue
 
-			elif id == "suppress":
+			if id == "suppress":
 				var tgt2 := unit_at_cell(c)
 				if tgt2 == null:
 					continue
 				if tgt2.team == u.team:
 					continue
 
-			elif id == "pounce":
+			if id == "pounce":
 				# Must target an enemy
 				var tgtp := unit_at_cell(c)
 				if tgtp == null:
 					continue
 				if tgtp.team == u.team:
+					continue
+
+			if id == "volley":
+				# Must target an enemy (like pounce/suppress)
+				var tgtv := unit_at_cell(c)
+				if tgtv == null:
+					continue
+				if tgtv.team == u.team:
+					continue
+
+				# Recommended: require clear path (structures block)
+				if not _has_clear_attack_path(origin, c):
 					continue
 
 				# Optional but recommended: require clear path (structures block)
@@ -2395,6 +2410,8 @@ func _unit_can_use_special(u: Unit, id: String) -> bool:
 			return u.has_method("perform_sunder")
 		"pounce":
 			return u.has_method("perform_pounce")
+		"volley":
+			return u.has_method("perform_volley")
 			
 	return false
 

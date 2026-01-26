@@ -15,6 +15,7 @@ class_name TurnManager
 @export var stim_button_path: NodePath
 @export var sunder_button_path: NodePath
 @export var pounce_button_path: NodePath
+@export var volley_button_path: NodePath
 
 @onready var suppress_button := get_node_or_null(suppress_button_path)
 @onready var stim_button := get_node_or_null(stim_button_path)
@@ -24,6 +25,7 @@ class_name TurnManager
 @onready var mines_button := get_node_or_null(mines_button_path)
 @onready var sunder_button := get_node_or_null(sunder_button_path)
 @onready var pounce_button := get_node_or_null(pounce_button_path)
+@onready var volley_button := get_node_or_null(volley_button_path)
 
 enum Phase { PLAYER, ENEMY, BUSY }
 var phase: Phase = Phase.PLAYER
@@ -76,7 +78,8 @@ func _ready() -> void:
 		sunder_button.pressed.connect(_on_sunder_pressed)
 	if pounce_button:
 		pounce_button.pressed.connect(_on_pounce_pressed)
-
+	if volley_button:
+		volley_button.pressed.connect(_on_volley_pressed)
 
 	start_player_phase()
 	_update_end_turn_button()
@@ -489,6 +492,7 @@ func _update_special_buttons() -> void:
 	if stim_button: stim_button.toggle_mode = true
 	if sunder_button: sunder_button.toggle_mode = true
 	if pounce_button: pounce_button.toggle_mode = true
+	if volley_button: volley_button.toggle_mode = true
 	
 	# Reset
 	if hellfire_button:
@@ -523,7 +527,11 @@ func _update_special_buttons() -> void:
 		pounce_button.disabled = true
 		pounce_button.button_pressed = false
 		pounce_button.visible = false
-
+	if volley_button:
+		volley_button.disabled = true
+		volley_button.button_pressed = false
+		volley_button.visible = false
+		
 	# Only during player phase
 	if phase != Phase.PLAYER:
 		return
@@ -547,6 +555,7 @@ func _update_special_buttons() -> void:
 	var has_stim := u.has_method("perform_stim")
 	var has_sunder := u.has_method("perform_sunder")
 	var has_pounce := u.has_method("perform_pounce")
+	var has_volley := u.has_method("perform_volley")
 
 	# Optional filter list
 	if u.has_method("get_available_specials"):
@@ -561,7 +570,8 @@ func _update_special_buttons() -> void:
 		has_stim = has_stim and specials.has("stim")
 		has_sunder = has_sunder and specials.has("sunder")
 		has_pounce = has_pounce and specials.has("pounce")
-
+		has_volley = has_volley and specials.has("volley") 
+		
 	# ✅ Show ONLY if unit still has an attack action available
 	var show_specials := (not spent_attack)
 
@@ -573,6 +583,7 @@ func _update_special_buttons() -> void:
 	if stim_button: stim_button.visible = show_specials and has_stim
 	if sunder_button: sunder_button.visible = show_specials and has_sunder
 	if pounce_button: pounce_button.visible = show_specials and has_pounce
+	if volley_button: volley_button.visible = show_specials and has_volley
 
 	# Cooldowns
 	var ok_hellfire := true
@@ -583,6 +594,7 @@ func _update_special_buttons() -> void:
 	var ok_stim := true
 	var ok_sunder := true
 	var ok_pounce := true
+	var ok_volley := true
 	if u.has_method("can_use_special"):
 		ok_hellfire = u.can_use_special("hellfire")
 		ok_blade = u.can_use_special("blade")
@@ -592,7 +604,7 @@ func _update_special_buttons() -> void:
 		ok_stim = u.can_use_special("stim")
 		ok_sunder = u.can_use_special("sunder")
 		ok_pounce = u.can_use_special("pounce")
-
+		ok_volley = u.can_use_special("volley")
 
 	# Enable
 	if hellfire_button: hellfire_button.disabled = spent_attack or (not has_hellfire) or (not ok_hellfire)
@@ -603,6 +615,7 @@ func _update_special_buttons() -> void:
 	if stim_button: stim_button.disabled = spent_attack or (not has_stim) or (not ok_stim)
 	if sunder_button: sunder_button.disabled = spent_attack or (not has_sunder) or (not ok_sunder)
 	if pounce_button: pounce_button.disabled = spent_attack or (not has_pounce) or (not ok_pounce)
+	if volley_button: volley_button.disabled = spent_attack or (not has_volley) or (not ok_volley)
 
 	# Pressed visuals
 	var active := ""
@@ -621,6 +634,8 @@ func _update_special_buttons() -> void:
 		sunder_button.button_pressed = (active == "sunder")
 	if pounce_button and not pounce_button.disabled:
 		pounce_button.button_pressed = (active == "pounce")
+	if volley_button and not volley_button.disabled:
+		volley_button.button_pressed = (active == "volley")
 
 	# Overwatch + Stim are instant toggles
 	if overwatch_button and not overwatch_button.disabled:
@@ -825,4 +840,22 @@ func _on_pounce_pressed() -> void:
 		return
 
 	M.activate_special("pounce")
+	_update_special_buttons()
+
+func _on_volley_pressed() -> void:
+	if phase != Phase.PLAYER:
+		return
+	emit_signal("tutorial_event", &"special_button_pressed", {"id": "volley"})
+
+	var u := M.selected
+	if u == null or not is_instance_valid(u):
+		return
+	if _attacked.get(u, false):
+		return
+
+	# R1 uses perform_volley (or whatever you named it)
+	if not u.has_method("perform_volley"):
+		return
+
+	M.activate_special("volley")
 	_update_special_buttons()

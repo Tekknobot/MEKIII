@@ -1,4 +1,4 @@
-[gd_scene load_steps=86 format=3 uid="uid://bmtwqbsx674eo"]
+[gd_scene load_steps=88 format=3 uid="uid://bmtwqbsx674eo"]
 
 [ext_resource type="Script" uid="uid://bn08mhcoceqg" path="res://scripts/game.gd" id="1_400sg"]
 [ext_resource type="Texture2D" uid="uid://by1nnygq8fbib" path="res://sprites/Terrain/dirt.png" id="6_mcffj"]
@@ -46,11 +46,13 @@
 [ext_resource type="AudioStream" uid="uid://dvauweeh0mxu1" path="res://audio/SFX/Blip3.wav" id="43_evnk2"]
 [ext_resource type="AudioStream" uid="uid://dd1oh3lohb5yo" path="res://audio/SFX/laser-312360.mp3" id="43_pn7ev"]
 [ext_resource type="PackedScene" uid="uid://b3mmncyiyeetr" path="res://scenes/mechtwo.tscn" id="44_ca228"]
+[ext_resource type="AudioStream" uid="uid://cue0f2dfa4w6t" path="res://audio/SFX/rusty_machine_gun_fire_single.wav" id="44_rm8d8"]
 [ext_resource type="PackedScene" uid="uid://bspxym863egnq" path="res://scenes/M1.tscn" id="46_px4p2"]
 [ext_resource type="PackedScene" uid="uid://2ov7kvfue6bm" path="res://scenes/floppy.tscn" id="46_xfjuk"]
 [ext_resource type="PackedScene" uid="uid://c6mcd4ogd1jyq" path="res://scenes/beacon.tscn" id="47_6h74c"]
 [ext_resource type="PackedScene" uid="uid://cp611yvmtvcua" path="res://scenes/M2.tscn" id="48_jpcyn"]
 [ext_resource type="Script" uid="uid://dsiq3cf4mv8kx" path="res://scripts/tutorial_manager.gd" id="49_0wf52"]
+[ext_resource type="PackedScene" uid="uid://chcfqbxh2axhi" path="res://scenes/R1.tscn" id="49_w6oi7"]
 [ext_resource type="PackedScene" uid="uid://de5lsm2hud7v7" path="res://scenes/tutorial_toast.tscn" id="50_3pold"]
 [ext_resource type="Script" uid="uid://bi7op5w7aqis" path="res://scripts/end_game_panel_runtime.gd" id="51_3ugab"]
 [ext_resource type="FontFile" uid="uid://dgugahs6bc7so" path="res://fonts/magofonts/mago3.ttf" id="52_px4p2"]
@@ -363,6 +365,7 @@ suppress_button_path = NodePath("../UI/Supress")
 stim_button_path = NodePath("../UI/Stimpack")
 sunder_button_path = NodePath("../UI/Sunder")
 pounce_button_path = NodePath("../UI/Pounce")
+volley_button_path = NodePath("../UI/Volley")
 beacon_deadline_round = 99
 
 [node name="Pickups" type="Node2D" parent="."]
@@ -398,7 +401,8 @@ sfx_streams = {
 "ui_disarm": ExtResource("35_kbe8o"),
 "ui_select": ExtResource("34_m1oc7"),
 "unit_death": ExtResource("41_ho5ir"),
-"unit_hurt": ExtResource("40_27c7x")
+"unit_hurt": ExtResource("40_27c7x"),
+"volley_fire": ExtResource("44_rm8d8")
 }
 tnt_unit_splash_damage = 1
 bubble_ui_root_path = NodePath("../UI/Bubbles")
@@ -408,7 +412,7 @@ bubble_voice_player_path = NodePath("../UI/Bubbles/BubbleVoice")
 bubble_voice_stream = ExtResource("43_evnk2")
 bubble_voice_volume = 0.235
 overwatch_ghost_offset = Vector2(0, -8)
-recruit_bot_scenes = Array[PackedScene]([ExtResource("44_ca228"), ExtResource("46_px4p2"), ExtResource("48_jpcyn")])
+recruit_bot_scenes = Array[PackedScene]([ExtResource("44_ca228"), ExtResource("46_px4p2"), ExtResource("48_jpcyn"), ExtResource("49_w6oi7")])
 floppy_pickup_scene = ExtResource("46_xfjuk")
 beacon_marker_scene = ExtResource("47_6h74c")
 beacon_marker_y_offset_px = 0.0
@@ -480,6 +484,16 @@ offset_right = 366.0
 offset_bottom = 626.0
 theme_override_fonts/font = ExtResource("32_1gdd5")
 text = "Sunder
+"
+
+[node name="Volley" type="Button" parent="UI"]
+z_index = 4096
+offset_left = 318.0
+offset_top = 605.0
+offset_right = 366.0
+offset_bottom = 626.0
+theme_override_fonts/font = ExtResource("32_1gdd5")
+text = "Volley
 "
 
 [node name="Pounce" type="Button" parent="UI"]
