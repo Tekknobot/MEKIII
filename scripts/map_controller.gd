@@ -188,6 +188,8 @@ var overlay_ghosts_root: Node2D = null
 var recruit_round_stamp: int = 0
 
 @export var recruit_bot_scenes: Array[PackedScene] = []
+var _recruit_pool: Array[PackedScene] = []               # runtime list (mutable)
+var _recruits_spawned_at: Dictionary = {}   # Vector2i -> true
 
 @export var sfx_missile_launch := &"missile_launch"
 @export var sfx_missile_whizz := &"missile_whizz" # optional
@@ -225,6 +227,7 @@ var _beacon_pulse_tw: Tween = null
 signal tutorial_event(id: StringName, payload: Dictionary)
 
 var special_unit: Unit = null
+
 
 
 func _sfx(cue: StringName, vol := 1.0, pitch := 1.0, world_pos: Variant = null) -> void:
@@ -3545,6 +3548,10 @@ func _find_open_adjacent_to_structure(s_cell: Vector2i) -> Vector2i:
 	return candidates.pick_random()
 
 func _spawn_recruited_ally_fadein(spawn_cell: Vector2i) -> void:
+	if _recruits_spawned_at.has(spawn_cell):
+		return
+	_recruits_spawned_at[spawn_cell] = true
+	
 	if recruit_bot_scenes.is_empty():
 		push_warning("Recruit: recruit_bot_scenes is empty (assign at least one scene).")
 		return
@@ -3553,10 +3560,23 @@ func _spawn_recruited_ally_fadein(spawn_cell: Vector2i) -> void:
 	if units_by_cell.has(spawn_cell):
 		return
 
-	# Pick which recruit bot to spawn (random)
-	var scene: PackedScene = recruit_bot_scenes.pick_random()
+	# Ensure pool exists
+	if _recruit_pool.is_empty():
+		# first time (or if you forgot to call reset)
+		_recruit_pool = recruit_bot_scenes.duplicate()
+		_recruit_pool.shuffle()
+
+	if _recruit_pool.is_empty():
+		push_warning("Recruit: pool is empty (no unique recruits left this run).")
+		return
+
+	# Pick one unique recruit and REMOVE it so it can't repeat
+	var idx := randi() % _recruit_pool.size()
+	var scene: PackedScene = _recruit_pool[idx]
+	_recruit_pool.remove_at(idx)
+
 	if scene == null:
-		push_warning("Recruit: recruit_bot_scenes contains a null entry.")
+		push_warning("Recruit: pool had a null entry.")
 		return
 
 	var u := scene.instantiate() as Unit
@@ -4278,3 +4298,7 @@ func reset_for_regen() -> void:
 	if beacon_marker_node != null and is_instance_valid(beacon_marker_node):
 		beacon_marker_node.queue_free()
 	beacon_marker_node = null
+
+func reset_recruit_pool() -> void:
+	_recruit_pool = recruit_bot_scenes.duplicate()
+	_recruit_pool.shuffle()

@@ -11,3 +11,4 @@ res://scripts/r_1.gd
 res://scenes/Game.tscn
 res://scripts/turnmanager.gd
 res://scripts/map_controller.gd
+res://scripts/game.gd

@@ -193,6 +193,9 @@ func regenerate_map() -> void:
 	map_controller.setup(self)
 	map_controller.spawn_units()
 
+	map_controller._recruits_spawned_at.clear()
+	map_controller.reset_recruit_pool()
+
 	if turn_manager != null and is_instance_valid(turn_manager):
 		turn_manager.on_units_spawned()
 
