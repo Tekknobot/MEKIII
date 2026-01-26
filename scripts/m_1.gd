@@ -104,8 +104,11 @@ func perform_sunder(M: MapController, target_cell: Vector2i) -> void:
 	var c := target_cell
 	while _cell_in_bounds(M, c) and not _cell_blocked(structure_blocked, c):
 
-		# ✅ face the direction of THIS strike
-		_face_toward_cell_attack(c)
+		# ✅ face the direction of THIS strike (cell -> world)
+		if M != null and M.terrain != null:
+			var local_pos: Vector2 = M.terrain.map_to_local(c)
+			var world_pos: Vector2 = M.terrain.to_global(local_pos)
+			M._face_unit_toward_world(self, world_pos)
 
 		_play_attack_anim_once()
 		_spawn_explosion(M, c)
@@ -271,18 +274,3 @@ func _wait_attack_anim() -> void:
 
 	# Wait until this specific animation finishes
 	await spr.animation_finished
-
-func _face_toward_cell_attack(target_cell: Vector2i) -> void:
-	var spr := get_node_or_null("AnimatedSprite2D") as AnimatedSprite2D
-	if spr == null:
-		spr = get_node_or_null("Visual/AnimatedSprite2D") as AnimatedSprite2D
-	if spr == null:
-		return
-
-	# Default pose faces LEFT.
-	# So: right = flip on, left = flip off.
-	if target_cell.x > cell.x:
-		spr.flip_h = true
-	elif target_cell.x < cell.x:
-		spr.flip_h = false
-	# same x (vertical): leave flip as-is
