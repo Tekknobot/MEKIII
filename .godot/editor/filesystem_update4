@@ -10,3 +10,4 @@ res://scripts/turnmanager.gd
 res://scenes/humantwo.tscn
 res://shaders/stim_jacked.gdshader
 res://scripts/humantwo.gd
+res://scripts/unit.gd

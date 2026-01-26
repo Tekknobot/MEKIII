@@ -179,10 +179,27 @@ func get_move_range() -> int:
 	return r
 
 func get_attack_damage() -> int:
-	var d := attack_damage
-	if has_meta("stim_turns") and int(get_meta("stim_turns")) > 0:
-		d += int(get_meta("stim_damage_bonus"))
+	var d: int = int(attack_damage)
+
+	# turns
+	var turns := 0
+	if has_meta("stim_turns"):
+		var t = get_meta("stim_turns")
+		if t != null and (typeof(t) == TYPE_INT or typeof(t) == TYPE_FLOAT or typeof(t) == TYPE_STRING):
+			turns = int(t)
+
+	if turns > 0:
+		# bonus
+		var bonus := 0
+		if has_meta("stim_damage_bonus"):
+			var b = get_meta("stim_damage_bonus")
+			if b != null and (typeof(b) == TYPE_INT or typeof(b) == TYPE_FLOAT or typeof(b) == TYPE_STRING):
+				bonus = int(b)
+
+		d += bonus
+
 	return d
+
 
 func get_tile_world_pos() -> Vector2:
 	if _terrain_ref != null and is_instance_valid(_terrain_ref):

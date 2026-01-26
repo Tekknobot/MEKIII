@@ -1,6 +1,11 @@
 extends Unit
 class_name HumanTwo
 
+
+@export var blade_range := 5
+@export var blade_damage := 2
+@export var blade_cleave_damage := 1
+
 @export var stim_duration_turns := 1
 @export var stim_move_bonus := 2
 @export var stim_damage_bonus := 1
@@ -26,11 +31,7 @@ func _ready() -> void:
 
 	# ✅ Run Unit setup (hp=max_hp + sprite base pos)
 	super._ready()	
-
-@export var blade_range := 5
-@export var blade_damage := 2
-@export var blade_cleave_damage := 1
-
+	
 func perform_blade(M: MapController, target_cell: Vector2i) -> void:
 	if M == null or not is_instance_valid(M):
 		return
@@ -58,6 +59,11 @@ func perform_blade(M: MapController, target_cell: Vector2i) -> void:
 	# Add clicked target first if valid
 	if _is_valid_enemy.call(clicked):
 		enemies.append(clicked)
+
+	var stim_bonus := 0
+	if has_meta(&"stim_turns") and int(get_meta(&"stim_turns")) > 0:
+		if has_meta(&"stim_damage_bonus"):
+			stim_bonus = int(get_meta(&"stim_damage_bonus"))
 
 	# Add all other enemies in range
 	for u in M.get_all_units():
@@ -172,7 +178,7 @@ func perform_blade(M: MapController, target_cell: Vector2i) -> void:
 			continue
 
 		# Primary hit
-		await _hit_once.call(target, blade_damage, 0.12, tcell)
+		await _hit_once.call(target, blade_damage + stim_bonus, 0.12, tcell)
 
 		# Cleave around target cell (each is its own full cycle)
 		var around := [
@@ -184,7 +190,7 @@ func perform_blade(M: MapController, target_cell: Vector2i) -> void:
 		for c in around:
 			var v := M.unit_at_cell(c)
 			if v != null and is_instance_valid(v) and v.team != team:
-				await _hit_once.call(v, blade_cleave_damage, 0.10, c)
+				await _hit_once.call(v, blade_cleave_damage + stim_bonus, 0.10, c)
 
 	# Return to idle at end
 	M._play_idle_anim(self)
@@ -224,9 +230,9 @@ func perform_stim(M: MapController) -> void:
 		attack_damage = int(attack_damage) + stim_attack_damage_bonus
 
 	# --- Logical buff stored on the unit ---
-	set_meta(&"stim_turns", stim_duration_turns)
-	set_meta(&"stim_move_bonus", stim_move_bonus)
-	set_meta(&"stim_attack_damage_bonus", stim_attack_damage_bonus)
+	set_meta(&"stim_turns", int(stim_duration_turns))
+	set_meta(&"stim_move_bonus", int(stim_move_bonus))
+	set_meta(&"stim_damage_bonus", int(stim_damage_bonus))
 
 	# --- Feedback ---
 	if M != null and is_instance_valid(M):
@@ -295,3 +301,12 @@ func _get_unit_render_node() -> CanvasItem:
 			return c as CanvasItem
 
 	return null
+
+func is_stim_active() -> bool:
+	return has_meta(&"stim_turns") and int(get_meta(&"stim_turns")) > 0
+
+func get_stim_damage_bonus() -> int:
+	# use the same key you set in perform_stim()
+	if has_meta(&"stim_damage_bonus"):
+		return int(get_meta(&"stim_damage_bonus"))
+	return 0
