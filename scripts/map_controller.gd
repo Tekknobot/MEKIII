@@ -3519,7 +3519,7 @@ func _spawn_recruited_ally_fadein(spawn_cell: Vector2i) -> void:
 		return
 
 	# Pick which recruit bot to spawn (random)
-	var scene = recruit_bot_scenes.pick_random()
+	var scene: PackedScene = recruit_bot_scenes.pick_random()
 	if scene == null:
 		push_warning("Recruit: recruit_bot_scenes contains a null entry.")
 		return
@@ -3529,6 +3529,65 @@ func _spawn_recruited_ally_fadein(spawn_cell: Vector2i) -> void:
 		push_warning("Recruit: recruit_bot scene root must extend Unit.")
 		return
 
+	# -----------------------------
+	# ✅ FORCE a clean display name
+	# -----------------------------
+	# Goal: never allow "@CharacterBody2D:####" style strings.
+	# We try, in order:
+	# 1) existing meta "display_name" if it's String/StringName
+	# 2) existing property display_name if it's String/StringName
+	# 3) if it's a Node/Object, use node.name (NOT str(object))
+	# 4) fallback to scene filename ("RecruitBot", etc.) or "Recruit"
+	var clean_name := ""
+
+	# 1) meta (preferred, super safe)
+	if u.has_meta("display_name"):
+		var m = u.get_meta("display_name")
+		if m is StringName:
+			clean_name = String(m).strip_edges()
+		elif m is String:
+			clean_name = (m as String).strip_edges()
+
+	# 2) property
+	if clean_name == "" and ("display_name" in u):
+		var v = u.get("display_name")
+
+		if v is StringName:
+			clean_name = String(v).strip_edges()
+		elif v is String:
+			clean_name = (v as String).strip_edges()
+		elif v is Node:
+			# someone dragged a node into display_name in the inspector
+			clean_name = (v as Node).name
+		elif typeof(v) == TYPE_OBJECT and v != null:
+			# some other object reference -> DO NOT stringify it
+			clean_name = ""
+
+	# 3) node name (safe)
+	if clean_name == "":
+		clean_name = String(u.name).strip_edges()
+
+	# 4) scene filename fallback (nicer than random node name)
+	# PackedScene doesn't always expose resource_path reliably here, so use the instantiated script path if possible
+	var script_name := ""
+	var sc = u.get_script()
+	if sc != null and "resource_path" in sc:
+		script_name = String(sc.resource_path).get_file().get_basename()
+	if clean_name == "" or clean_name.begins_with("@"):
+		clean_name = (script_name if script_name != "" else "Recruit")
+
+	# Final safety: never allow "@Something"
+	if clean_name.begins_with("@") or clean_name == "":
+		clean_name = "Recruit"
+
+	# Write it back BOTH ways (covers every UI method you might be using)
+	u.set_meta("display_name", clean_name)
+	if "display_name" in u:
+		u.set("display_name", clean_name)
+
+	# -----------------------------
+	# Spawn + wire
+	# -----------------------------
 	units_root.add_child(u)
 	_wire_unit_signals(u)
 	u.team = Unit.Team.ALLY
@@ -3543,9 +3602,9 @@ func _spawn_recruited_ally_fadein(spawn_cell: Vector2i) -> void:
 	# Fade in (fade the render node, not the Unit)
 	var ci := _get_unit_render_node(u)
 	if ci != null and is_instance_valid(ci):
-		var m := ci.modulate
-		m.a = 0.0
-		ci.modulate = m
+		var m2 := ci.modulate
+		m2.a = 0.0
+		ci.modulate = m2
 
 	_sfx(recruit_sfx, sfx_volume_world, randf_range(0.95, 1.05), _cell_world(spawn_cell))
 	_say(u, "Recruited!")

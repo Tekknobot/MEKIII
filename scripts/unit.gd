@@ -200,8 +200,40 @@ func get_attack_damage() -> int:
 
 	return d
 
-
 func get_tile_world_pos() -> Vector2:
 	if _terrain_ref != null and is_instance_valid(_terrain_ref):
 		return _terrain_ref.to_global(_terrain_ref.map_to_local(cell))
 	return global_position
+
+func get_display_name() -> String:
+	# 1) Prefer exported property if subclass has it (like RecruitBot.display_name)
+	#    Godot can access properties by name via get().
+	if has_method("get") and ("display_name" in self):
+		var v = get("display_name")
+		if v != null and str(v) != "":
+			return str(v)
+
+	# 2) Then meta
+	if has_meta("display_name"):
+		var m = get_meta("display_name")
+		if m != null and str(m) != "":
+			return str(m)
+
+	# 3) Fallback: node name
+	return name
+
+
+func get_portrait_texture() -> Texture2D:
+	# 1) Prefer exported property if subclass has it (like RecruitBot.portrait_tex)
+	if has_method("get") and ("portrait_tex" in self):
+		var v = get("portrait_tex")
+		if v is Texture2D:
+			return v
+
+	# 2) Then meta
+	if has_meta("portrait_tex"):
+		var m = get_meta("portrait_tex")
+		if m is Texture2D:
+			return m
+
+	return null

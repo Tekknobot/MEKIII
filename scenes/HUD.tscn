@@ -1,0 +1,111 @@
+[gd_scene load_steps=6 format=3 uid="uid://b6wrxn53ynbat"]
+
+[ext_resource type="Script" uid="uid://vc2m5p8p5r3" path="res://scripts/hud.gd" id="1_qpvh6"]
+[ext_resource type="FontFile" uid="uid://dgugahs6bc7so" path="res://fonts/magofonts/mago3.ttf" id="2_1etfg"]
+[ext_resource type="FontFile" uid="uid://csnhk3q4gx0" path="res://fonts/magofonts/mago1.ttf" id="2_fls4u"]
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_7hsmw"]
+bg_color = Color(0, 0, 0, 1)
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_nysna"]
+bg_color = Color(0, 1, 0, 1)
+
+[node name="HUD" type="CanvasLayer"]
+layer = 10
+script = ExtResource("1_qpvh6")
+
+[node name="UnitCard" type="PanelContainer" parent="."]
+anchors_preset = 2
+anchor_top = 1.0
+anchor_bottom = 1.0
+offset_left = 13.0
+offset_top = -125.0
+offset_right = 309.0
+offset_bottom = -14.0
+grow_vertical = 0
+
+[node name="Margin" type="MarginContainer" parent="UnitCard"]
+layout_mode = 2
+theme_override_constants/margin_left = 10
+theme_override_constants/margin_top = 10
+theme_override_constants/margin_right = 10
+theme_override_constants/margin_bottom = 10
+
+[node name="Row" type="HBoxContainer" parent="UnitCard/Margin"]
+layout_mode = 2
+theme_override_constants/separation = 10
+
+[node name="PortraitFrame" type="PanelContainer" parent="UnitCard/Margin/Row"]
+custom_minimum_size = Vector2(91, 64)
+layout_mode = 2
+
+[node name="Portrait" type="TextureRect" parent="UnitCard/Margin/Row/PortraitFrame"]
+layout_mode = 2
+expand_mode = 1
+stretch_mode = 5
+
+[node name="Right" type="VBoxContainer" parent="UnitCard/Margin/Row"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 6
+
+[node name="Name" type="Label" parent="UnitCard/Margin/Row/Right"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_fonts/font = ExtResource("2_1etfg")
+text = "—"
+
+[node name="Bars" type="HBoxContainer" parent="UnitCard/Margin/Row/Right"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="HPLabel" type="Label" parent="UnitCard/Margin/Row/Right/Bars"]
+layout_mode = 2
+theme_override_fonts/font = ExtResource("2_fls4u")
+text = "HP 0/0"
+
+[node name="HPBar" type="ProgressBar" parent="UnitCard/Margin/Row/Right/Bars"]
+custom_minimum_size = Vector2(0, 13)
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_styles/background = SubResource("StyleBoxFlat_7hsmw")
+theme_override_styles/fill = SubResource("StyleBoxFlat_nysna")
+max_value = 10.0
+value = 10.0
+show_percentage = false
+
+[node name="StatsGrid" type="GridContainer" parent="UnitCard/Margin/Row/Right"]
+layout_mode = 2
+theme_override_constants/h_separation = 14
+theme_override_constants/v_separation = 2
+columns = 2
+
+[node name="MoveKey" type="Label" parent="UnitCard/Margin/Row/Right/StatsGrid"]
+layout_mode = 2
+theme_override_fonts/font = ExtResource("2_fls4u")
+text = "MOVE"
+
+[node name="MoveVal" type="Label" parent="UnitCard/Margin/Row/Right/StatsGrid"]
+layout_mode = 2
+theme_override_fonts/font = ExtResource("2_fls4u")
+text = "-"
+
+[node name="RangeKey" type="Label" parent="UnitCard/Margin/Row/Right/StatsGrid"]
+layout_mode = 2
+theme_override_fonts/font = ExtResource("2_fls4u")
+text = "RANGE"
+
+[node name="RangeVal" type="Label" parent="UnitCard/Margin/Row/Right/StatsGrid"]
+layout_mode = 2
+theme_override_fonts/font = ExtResource("2_fls4u")
+text = "-"
+
+[node name="DmgKey" type="Label" parent="UnitCard/Margin/Row/Right/StatsGrid"]
+layout_mode = 2
+theme_override_fonts/font = ExtResource("2_fls4u")
+text = "DMG"
+
+[node name="DmgVal" type="Label" parent="UnitCard/Margin/Row/Right/StatsGrid"]
+layout_mode = 2
+theme_override_fonts/font = ExtResource("2_fls4u")
+text = "-"
