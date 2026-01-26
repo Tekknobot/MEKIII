@@ -7,3 +7,6 @@ res://scripts/m_1.gd
 res://scenes/mechtwo.tscn
 res://scenes/Game.tscn
 res://scripts/turnmanager.gd
+res://scenes/humantwo.tscn
+res://shaders/stim_jacked.gdshader
+res://scripts/humantwo.gd

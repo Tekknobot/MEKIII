@@ -226,6 +226,7 @@ signal tutorial_event(id: StringName, payload: Dictionary)
 
 var special_unit: Unit = null
 
+
 func _sfx(cue: StringName, vol := 1.0, pitch := 1.0, world_pos: Variant = null) -> void:
 	if SFX == null:
 		return
@@ -946,7 +947,7 @@ func _perform_special(u: Unit, id: String, target_cell: Vector2i) -> void:
 		await u.call("perform_suppress", self, target_cell)
 
 	elif id == "stim" and u.has_method("perform_stim"):
-		u.mark_special_used(id, 3)
+		await u.call("perform_stim", self)
 
 	elif id == "sunder" and u.has_method("perform_sunder"):
 		await u.call("perform_sunder", self, target_cell) # ✅ NEW
@@ -2271,18 +2272,56 @@ func activate_special(id: String) -> void:
 		return
 
 	if id == "stim":
+		# disarm aim + clear tiles (same as you want)
 		aim_mode = AimMode.MOVE
 		special_id = &""
 		valid_special_cells.clear()
 		_clear_overlay()
+
 		var u := selected
 		if u == null or not is_instance_valid(u):
 			return
-		if u.has_method("can_use_special") and not u.can_use_special(id):
+
+		# Optional: check cooldown/permission on the unit itself
+		if u.has_method("can_use_special"):
+			var ok := true
+
+			# try StringName first
+			var r1 = u.call("can_use_special", StringName(id))
+			if r1 is bool:
+				ok = bool(r1)
+			else:
+				# fallback: try String
+				var r2 = u.call("can_use_special", String(id))
+				if r2 is bool:
+					ok = bool(r2)
+
+			if not ok:
+				_refresh_overlays()
+				emit_signal("aim_changed", int(aim_mode), special_id)
+				return
+
+		# ✅ Stim should NOT require "attack available" and should NOT consume attack.
+		# Only gate on input lock / phase.
+		if TM != null and not TM.player_input_allowed():
 			_refresh_overlays()
 			emit_signal("aim_changed", int(aim_mode), special_id)
 			return
+
 		await _perform_special(u, id, u.cell)
+
+		# ✅ DO NOT: _set_unit_attacked(u, true)
+		# ✅ DO NOT: TM.notify_player_attacked(u)
+		# Turn indicator stays based on move/attack flags (unchanged)
+
+		# After stim, keep whatever aim makes sense:
+		# - if they still have attack, default to ATTACK so you can immediately click a zombie
+		# - otherwise MOVE
+		if not _unit_has_attacked(u):
+			aim_mode = AimMode.ATTACK
+		else:
+			aim_mode = AimMode.MOVE
+
 		_refresh_overlays()
 		emit_signal("aim_changed", int(aim_mode), special_id)
 		return

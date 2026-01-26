@@ -1,6 +1,14 @@
 extends Unit
 class_name HumanTwo
 
+@export var stim_duration_turns := 1
+@export var stim_move_bonus := 2
+@export var stim_damage_bonus := 1
+@export var stim_cooldown_turns := 3
+@export var stim_attack_damage_bonus := 1     # +attack_damage while active
+
+@export var stim_shader: Shader = preload("res://shaders/stim_jacked.gdshader")
+
 func _ready() -> void:
 	set_meta("portrait_tex", preload("res://sprites/Portraits/rambo_port.png"))
 	set_meta("display_name", "Mercenary")
@@ -198,27 +206,92 @@ func get_special_range(id: String) -> int:
 	return 0
 
 
-# -----------------------------
-# Special: Stim (instant buff)
-# -----------------------------
-@export var stim_duration_turns := 1          # lasts N enemy turns
-@export var stim_move_bonus := 2              # +move_range while active
-@export var stim_attack_damage_bonus := 1     # +attack_damage while active
-
 func perform_stim(M: MapController) -> void:
-	# Instant: no target cell
 	if not can_use_special("stim"):
 		return
 
-	# Apply as meta so you don’t need new classes
-	set_meta("stim_turns", stim_duration_turns)
-	set_meta("stim_move_bonus", stim_move_bonus)
-	set_meta("stim_damage_bonus", stim_attack_damage_bonus)
+	# prevent double-stacking if pressed again somehow
+	if has_meta(&"stim_turns") and int(get_meta(&"stim_turns")) > 0:
+		return
 
-	# Optional feedback
+	# --- Apply bonuses (ACTUALLY change stats) ---
+	# move_range exists on your unit already
+	move_range += stim_move_bonus
+
+	# attack damage: only if you have a property for it
+	# If your Unit uses "attack_damage" (common), this will work.
+	if "attack_damage" in self:
+		attack_damage = int(attack_damage) + stim_attack_damage_bonus
+
+	# --- Logical buff stored on the unit ---
+	set_meta(&"stim_turns", stim_duration_turns)
+	set_meta(&"stim_move_bonus", stim_move_bonus)
+	set_meta(&"stim_attack_damage_bonus", stim_attack_damage_bonus)
+
+	# --- Feedback ---
 	if M != null and is_instance_valid(M):
 		M._say(self, "Stim!")
 		M._sfx(&"ui_stim", M.sfx_volume_ui, 1.0, global_position)
 
-	# Cooldown example
-	mark_special_used("stim", 3)
+	_apply_stim_fx()
+
+	# --- Cooldown (your system) ---
+	mark_special_used("stim", stim_cooldown_turns)
+
+
+func _apply_stim_fx() -> void:
+	var ci := _get_unit_render_node()
+	if ci == null or not is_instance_valid(ci):
+		return
+	if stim_shader == null:
+		return
+
+	var sm: ShaderMaterial
+
+	# Reuse existing stim material if already applied
+	if ci.material is ShaderMaterial and (ci.material as ShaderMaterial).shader == stim_shader:
+		sm = ci.material as ShaderMaterial
+	else:
+		sm = ShaderMaterial.new()
+		sm.shader = stim_shader
+		ci.material = sm
+
+	# Reset uniforms
+	sm.set_shader_parameter("stim_strength", 0.0)
+	sm.set_shader_parameter("time_scale", 1.0)
+	sm.set_shader_parameter("glow", 0.8)
+	sm.set_shader_parameter("jitter_px", 1.2)
+
+	# Punchy ramp + pulse + settle
+	var tw := create_tween()
+	tw.set_trans(Tween.TRANS_SINE)
+	tw.set_ease(Tween.EASE_OUT)
+
+	tw.tween_property(sm, "shader_parameter/stim_strength", 1.0, 0.08)
+	tw.tween_property(sm, "shader_parameter/time_scale", 1.8, 0.10)
+	tw.tween_property(sm, "shader_parameter/glow", 1.2, 0.10)
+
+	tw.tween_property(sm, "shader_parameter/stim_strength", 0.65, 0.14)
+	tw.tween_property(sm, "shader_parameter/time_scale", 1.25, 0.14)
+	tw.tween_property(sm, "shader_parameter/glow", 0.95, 0.14)
+
+func _get_unit_render_node() -> CanvasItem:
+	# Try common child names first (fast + stable)
+	var n := get_node_or_null("Render")
+	if n != null and n is CanvasItem:
+		return n as CanvasItem
+
+	n = get_node_or_null("Sprite2D")
+	if n != null and n is CanvasItem:
+		return n as CanvasItem
+
+	n = get_node_or_null("AnimatedSprite2D")
+	if n != null and n is CanvasItem:
+		return n as CanvasItem
+
+	# Fallback: first CanvasItem child
+	for c in get_children():
+		if c is CanvasItem:
+			return c as CanvasItem
+
+	return null

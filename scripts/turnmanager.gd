@@ -677,6 +677,7 @@ func _on_stim_pressed() -> void:
 	if phase != Phase.PLAYER:
 		return
 	emit_signal("tutorial_event", &"special_button_pressed", {"id": "stim"})
+
 	var u := M.selected
 	if u == null or not is_instance_valid(u):
 		return
@@ -685,8 +686,11 @@ func _on_stim_pressed() -> void:
 	if not u.has_method("perform_stim"):
 		return
 
-	M.activate_special("stim") # make it instant in MapController like overwatch, OR targeted if you prefer
+	# ✅ Fire instantly
+	M.activate_special("stim")
+
 	_update_special_buttons()
+
 
 func _on_sunder_pressed() -> void:
 	if phase != Phase.PLAYER:
@@ -721,10 +725,29 @@ func _tick_buffs_enemy_phase_start() -> void:
 
 			# When it hits 0, fully clear (so UI + logic read clean)
 			if t <= 0:
-				u.set_meta("stim_turns", 0)
-				u.set_meta("stim_move_bonus", 0)
-				u.set_meta("stim_damage_bonus", 0)
+				# --- revert stats ---
+				var mb := int(u.get_meta(&"stim_move_bonus")) if u.has_meta(&"stim_move_bonus") else 0
+				if mb != 0 and "move_range" in u:
+					u.move_range = int(u.move_range) - mb
+
+				var adb := int(u.get_meta(&"stim_attack_damage_bonus")) if u.has_meta(&"stim_attack_damage_bonus") else 0
+				if adb != 0 and "attack_damage" in u:
+					u.attack_damage = int(u.attack_damage) - adb
+
+				# --- clear shader / material ---
+				var ci: CanvasItem = null
+				if u.has_method("_get_unit_render_node"):
+					ci = u.call("_get_unit_render_node")
+				if ci != null and is_instance_valid(ci):
+					ci.material = null
+
+				# --- clear metas ---
+				u.set_meta(&"stim_turns", 0)
+				u.set_meta(&"stim_move_bonus", 0)
+				u.set_meta(&"stim_attack_damage_bonus", 0)
+				u.set_meta(&"stim_damage_bonus", 0) # keep if you still reference it elsewhere
 				changed = true
+
 
 	# ✅ If any buff state changed, refresh special buttons now
 	if changed:
