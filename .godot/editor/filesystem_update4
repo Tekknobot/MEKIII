@@ -14,3 +14,4 @@ res://scripts/unit.gd
 res://scenes/M2.tscn
 res://scripts/m_2.gd
 res://scripts/turnmanager.gd
+res://scripts/tutorial_manager.gd
