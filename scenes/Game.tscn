@@ -354,7 +354,7 @@ end_turn_button_path = NodePath("../UI/EndTurnButton")
 hellfire_button_path = NodePath("../UI/Hellfire")
 blade_button_path = NodePath("../UI/Blade")
 mines_button_path = NodePath("../UI/Mines")
-overwatch_button_path = NodePath("../UI/Overwatch")
+overwatch_button_path = NodePath("../UI/Watcher")
 suppress_button_path = NodePath("../UI/Supress")
 stim_button_path = NodePath("../UI/Stimpack")
 sunder_button_path = NodePath("../UI/Sunder")
@@ -421,6 +421,82 @@ end_game_panel_path = NodePath("../UI/EndGamePanelRuntime")
 
 [node name="UI" type="CanvasLayer" parent="."]
 
+[node name="Hellfire" type="Button" parent="UI"]
+z_index = 4096
+offset_left = 318.0
+offset_top = 605.0
+offset_right = 366.0
+offset_bottom = 626.0
+theme_override_fonts/font = ExtResource("32_1gdd5")
+text = "Hellfire"
+
+[node name="Blade" type="Button" parent="UI"]
+z_index = 4096
+offset_left = 318.0
+offset_top = 605.0
+offset_right = 366.0
+offset_bottom = 626.0
+theme_override_fonts/font = ExtResource("32_1gdd5")
+text = "Blade"
+
+[node name="Mines" type="Button" parent="UI"]
+z_index = 4096
+offset_left = 318.0
+offset_top = 605.0
+offset_right = 366.0
+offset_bottom = 626.0
+theme_override_fonts/font = ExtResource("32_1gdd5")
+text = "Mines
+"
+
+[node name="Supress" type="Button" parent="UI"]
+z_index = 4096
+offset_left = 318.0
+offset_top = 577.0
+offset_right = 366.0
+offset_bottom = 598.0
+theme_override_fonts/font = ExtResource("32_1gdd5")
+text = "Supress"
+
+[node name="Stimpack" type="Button" parent="UI"]
+z_index = 4096
+offset_left = 318.0
+offset_top = 577.0
+offset_right = 366.0
+offset_bottom = 598.0
+theme_override_fonts/font = ExtResource("32_1gdd5")
+text = "Stimpack
+"
+
+[node name="Sunder" type="Button" parent="UI"]
+z_index = 4096
+offset_left = 318.0
+offset_top = 605.0
+offset_right = 366.0
+offset_bottom = 626.0
+theme_override_fonts/font = ExtResource("32_1gdd5")
+text = "Sunder
+"
+
+[node name="Pounce" type="Button" parent="UI"]
+z_index = 4096
+offset_left = 318.0
+offset_top = 605.0
+offset_right = 366.0
+offset_bottom = 626.0
+theme_override_fonts/font = ExtResource("32_1gdd5")
+text = "Pounce
+"
+
+[node name="Watcher" type="Button" parent="UI"]
+z_index = 4096
+offset_left = 318.0
+offset_top = 577.0
+offset_right = 366.0
+offset_bottom = 598.0
+theme_override_fonts/font = ExtResource("32_1gdd5")
+text = "Watcher"
+
 [node name="FadeLayer" type="CanvasLayer" parent="UI"]
 
 [node name="ColorRect" type="ColorRect" parent="UI/FadeLayer"]
@@ -453,74 +529,6 @@ offset_right = 1119.0
 offset_bottom = 626.0
 theme_override_fonts/font = ExtResource("32_1gdd5")
 text = "End Turn"
-
-[node name="Hellfire" type="Button" parent="UI"]
-offset_left = 886.0
-offset_top = 605.0
-offset_right = 934.0
-offset_bottom = 626.0
-theme_override_fonts/font = ExtResource("32_1gdd5")
-text = "Hellfire"
-
-[node name="Blade" type="Button" parent="UI"]
-offset_left = 996.0
-offset_top = 605.0
-offset_right = 1044.0
-offset_bottom = 626.0
-theme_override_fonts/font = ExtResource("32_1gdd5")
-text = "Blade"
-
-[node name="Mines" type="Button" parent="UI"]
-offset_left = 941.0
-offset_top = 605.0
-offset_right = 989.0
-offset_bottom = 626.0
-theme_override_fonts/font = ExtResource("32_1gdd5")
-text = "Mines
-"
-
-[node name="Supress" type="Button" parent="UI"]
-offset_left = 886.0
-offset_top = 577.0
-offset_right = 934.0
-offset_bottom = 598.0
-theme_override_fonts/font = ExtResource("32_1gdd5")
-text = "Supress"
-
-[node name="Stimpack" type="Button" parent="UI"]
-offset_left = 996.0
-offset_top = 577.0
-offset_right = 1044.0
-offset_bottom = 598.0
-theme_override_fonts/font = ExtResource("32_1gdd5")
-text = "Stimpack
-"
-
-[node name="Sunder" type="Button" parent="UI"]
-offset_left = 996.0
-offset_top = 550.0
-offset_right = 1044.0
-offset_bottom = 571.0
-theme_override_fonts/font = ExtResource("32_1gdd5")
-text = "Sunder
-"
-
-[node name="Pounce" type="Button" parent="UI"]
-offset_left = 941.0
-offset_top = 550.0
-offset_right = 989.0
-offset_bottom = 571.0
-theme_override_fonts/font = ExtResource("32_1gdd5")
-text = "Pounce
-"
-
-[node name="Overwatch" type="Button" parent="UI"]
-offset_left = 941.0
-offset_top = 577.0
-offset_right = 989.0
-offset_bottom = 598.0
-theme_override_fonts/font = ExtResource("32_1gdd5")
-text = "Watcher"
 
 [node name="Bubbles" type="Control" parent="UI"]
 layout_mode = 3

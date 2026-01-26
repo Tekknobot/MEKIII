@@ -31,7 +31,6 @@ var _last_hint_id: StringName = &""
 var _last_hint_time_ms: int = 0
 const HINT_COOLDOWN_MS := 900
 
-
 func _ready() -> void:
 	end_panel = get_node_or_null(end_game_panel_path) as CanvasLayer
 	
