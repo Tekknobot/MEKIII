@@ -3695,7 +3695,7 @@ func on_unit_died(u: Unit) -> void:
 	emit_signal("tutorial_event", &"enemy_died", {"cell": u.cell})
 
 	# only drop until beacon is complete
-	if beacon_parts_collected >= beacon_parts_needed:
+	if _team_floppy_total_allies() >= beacon_parts_needed:
 		return
 
 	# drop chance (or guarantee)

@@ -1,12 +1,4 @@
-res://scripts/TitleScreen.gd
 res://scenes/title_screen.tscn
 res://shaders/wobble_shimmer.gdshader
 res://shaders/outline_1px.gdshader
-res://scenes/Game.tscn
-res://scripts/squad_deploy_screen.gd
-res://scenes/squad_deploy_screen.tscn
-res://scenes/mech.tscn
 res://scripts/map_controller.gd
-res://scripts/mech.gd
-res://scripts/unit.gd
-res://scripts/tutorial_manager.gd

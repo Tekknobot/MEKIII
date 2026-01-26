@@ -358,7 +358,7 @@ theme_override_font_sizes/normal_font_size = 16
 bbcode_enabled = true
 
 [node name="Map" type="Node2D" parent="."]
-position = Vector2(578, 37)
+position = Vector2(534, 37)
 scale = Vector2(3, 3)
 script = ExtResource("14_jr68i")
 building_scenes = Array[PackedScene]([null, ExtResource("15_htdhw"), ExtResource("16_12ga3"), ExtResource("17_yrrko"), ExtResource("18_aidx5")])
