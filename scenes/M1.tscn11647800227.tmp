@@ -59,7 +59,7 @@ animations = [{
 }],
 "loop": false,
 "name": &"attack",
-"speed": 24.0
+"speed": 12.0
 }, {
 "frames": [{
 "duration": 1.0,
@@ -148,7 +148,7 @@ script = ExtResource("1_ind6l")
 portrait_tex = ExtResource("2_m1fto")
 display_name = "Bladeguard"
 sunder_cooldown = 0
-sunder_step_delay = 0.0
+sunder_step_delay = 0.1
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="."]
 position = Vector2(0, -9)

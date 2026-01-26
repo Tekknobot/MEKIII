@@ -1,13 +1,5 @@
-res://scenes/title_screen.tscn
+res://scenes/M1.tscn
+res://shaders/stim_jacked.gdshader
 res://shaders/wobble_shimmer.gdshader
 res://shaders/outline_1px.gdshader
-res://scripts/map_controller.gd
-res://scenes/M1.tscn
 res://scripts/m_1.gd
-res://scenes/mechtwo.tscn
-res://scenes/Game.tscn
-res://scripts/turnmanager.gd
-res://scenes/humantwo.tscn
-res://shaders/stim_jacked.gdshader
-res://scripts/humantwo.gd
-res://scripts/unit.gd

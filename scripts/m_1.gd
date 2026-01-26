@@ -103,13 +103,20 @@ func perform_sunder(M: MapController, target_cell: Vector2i) -> void:
 	# Start at target tile, then keep going "behind it"
 	var c := target_cell
 	while _cell_in_bounds(M, c) and not _cell_blocked(structure_blocked, c):
+
+		# ✅ face the direction of THIS strike
+		_face_toward_cell_attack(c)
+
+		_play_attack_anim_once()
 		_spawn_explosion(M, c)
 		_damage_enemy_on_cell(M, c)
 
-		c += dir
+		await _wait_attack_anim()
 
 		if sunder_step_delay > 0.0:
 			await get_tree().create_timer(sunder_step_delay).timeout
+
+		c += dir
 
 	mark_special_used("sunder", sunder_cooldown)
 
@@ -231,3 +238,51 @@ func _face_toward_cell(target_cell: Vector2i) -> void:
 		spr.flip_h = true
 	elif target_cell.x > cell.x:
 		spr.flip_h = false
+
+func _play_attack_anim_once() -> void:
+	var spr := get_node_or_null("AnimatedSprite2D") as AnimatedSprite2D
+	if spr == null:
+		spr = get_node_or_null("Visual/AnimatedSprite2D") as AnimatedSprite2D
+	if spr == null:
+		return
+
+	var anim := String(attack_anim_name)
+	if spr.sprite_frames == null:
+		return
+	if not spr.sprite_frames.has_animation(anim):
+		return
+
+	spr.stop()
+	spr.play(anim)
+
+
+func _wait_attack_anim() -> void:
+	var spr := get_node_or_null("AnimatedSprite2D") as AnimatedSprite2D
+	if spr == null:
+		spr = get_node_or_null("Visual/AnimatedSprite2D") as AnimatedSprite2D
+	if spr == null:
+		return
+
+	var anim := String(attack_anim_name)
+	if spr.sprite_frames == null:
+		return
+	if not spr.sprite_frames.has_animation(anim):
+		return
+
+	# Wait until this specific animation finishes
+	await spr.animation_finished
+
+func _face_toward_cell_attack(target_cell: Vector2i) -> void:
+	var spr := get_node_or_null("AnimatedSprite2D") as AnimatedSprite2D
+	if spr == null:
+		spr = get_node_or_null("Visual/AnimatedSprite2D") as AnimatedSprite2D
+	if spr == null:
+		return
+
+	# Default pose faces LEFT.
+	# So: right = flip on, left = flip off.
+	if target_cell.x > cell.x:
+		spr.flip_h = true
+	elif target_cell.x < cell.x:
+		spr.flip_h = false
+	# same x (vertical): leave flip as-is
