@@ -150,6 +150,13 @@ func perform_volley(M: MapController, _target_cell: Vector2i) -> void:
 
 		await _fire_projectile_to_cell_with_explosion(M, c)
 
+	# ✅ go back to idle after volley finishes
+	var spr := get_node_or_null("AnimatedSprite2D") as AnimatedSprite2D
+	if spr == null:
+		spr = get_node_or_null("Visual/AnimatedSprite2D") as AnimatedSprite2D
+	if spr != null:
+		spr.play("idle") # change if your idle anim name differs
+		
 	# Cooldown once at end
 	mark_special_used(id_key, volley_cooldown)
 
