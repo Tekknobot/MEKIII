@@ -81,7 +81,8 @@ func _refresh() -> void:
 	_hp_bar.max_value = max(1, _unit.max_hp)
 	_hp_bar.value = clamp(_unit.hp, 0, _unit.max_hp)
 	_hp_label.text = "HP %d/%d" % [_unit.hp, _unit.max_hp]
-
+	_update_hp_color()
+	
 	# Stats
 	_move_val.text  = str(_unit.get_move_range())
 	_range_val.text = str(_unit.attack_range)
@@ -92,3 +93,22 @@ func _on_unit_died(_u: Unit) -> void:
 
 func _on_selection_changed(u: Unit) -> void:
 	set_unit(u)
+
+func _update_hp_color() -> void:
+	if _unit == null or not is_instance_valid(_unit):
+		return
+
+	var ratio := float(_unit.hp) / float(max(1, _unit.max_hp))
+
+	var col: Color
+	if ratio > 0.67:
+		col = Color("3cff3c") # green
+	elif ratio > 0.34:
+		col = Color("ffd84a") # yellow
+	else:
+		col = Color("ff3c3c") # red
+
+	# Otherwise, it's a normal ProgressBar: override the "fill" stylebox
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = col
+	_hp_bar.add_theme_stylebox_override("fill", sb) # ✅ Godot 4 uses "fill"

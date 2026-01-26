@@ -2,3 +2,5 @@ res://scenes/title_screen.tscn
 res://shaders/stim_jacked.gdshader
 res://shaders/outline_1px.gdshader
 res://shaders/wobble_shimmer.gdshader
+res://scenes/HUD.tscn
+res://scripts/hud.gd
