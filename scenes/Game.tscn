@@ -1,4 +1,4 @@
-[gd_scene load_steps=83 format=3 uid="uid://bmtwqbsx674eo"]
+[gd_scene load_steps=84 format=3 uid="uid://bmtwqbsx674eo"]
 
 [ext_resource type="Script" uid="uid://bn08mhcoceqg" path="res://scripts/game.gd" id="1_400sg"]
 [ext_resource type="Texture2D" uid="uid://by1nnygq8fbib" path="res://sprites/Terrain/dirt.png" id="6_mcffj"]
@@ -45,6 +45,7 @@
 [ext_resource type="AudioStream" uid="uid://bmery8486ov70" path="res://audio/SFX/missile_launch.wav" id="42_lscvm"]
 [ext_resource type="AudioStream" uid="uid://dvauweeh0mxu1" path="res://audio/SFX/Blip3.wav" id="43_evnk2"]
 [ext_resource type="AudioStream" uid="uid://dd1oh3lohb5yo" path="res://audio/SFX/laser-312360.mp3" id="43_pn7ev"]
+[ext_resource type="PackedScene" uid="uid://b3mmncyiyeetr" path="res://scenes/mechtwo.tscn" id="44_ca228"]
 [ext_resource type="PackedScene" uid="uid://bspxym863egnq" path="res://scenes/M1.tscn" id="46_px4p2"]
 [ext_resource type="PackedScene" uid="uid://2ov7kvfue6bm" path="res://scenes/floppy.tscn" id="46_xfjuk"]
 [ext_resource type="PackedScene" uid="uid://c6mcd4ogd1jyq" path="res://scenes/beacon.tscn" id="47_6h74c"]
@@ -399,7 +400,7 @@ bubble_voice_player_path = NodePath("../UI/Bubbles/BubbleVoice")
 bubble_voice_stream = ExtResource("43_evnk2")
 bubble_voice_volume = 0.235
 overwatch_ghost_offset = Vector2(0, -8)
-recruit_bot_scene = ExtResource("46_px4p2")
+recruit_bot_scenes = Array[PackedScene]([ExtResource("44_ca228"), ExtResource("46_px4p2")])
 floppy_pickup_scene = ExtResource("46_xfjuk")
 beacon_marker_scene = ExtResource("47_6h74c")
 beacon_marker_y_offset_px = 0.0

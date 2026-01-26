@@ -187,7 +187,7 @@ var overlay_ghosts_root: Node2D = null
 @export var recruit_sfx: StringName = &"recruit_spawn"
 var recruit_round_stamp: int = 0
 
-@export var recruit_bot_scene: PackedScene   # drag RecruitBot.tscn here
+@export var recruit_bot_scenes: Array[PackedScene] = []
 
 @export var sfx_missile_launch := &"missile_launch"
 @export var sfx_missile_whizz := &"missile_whizz" # optional
@@ -3471,17 +3471,23 @@ func _find_open_adjacent_to_structure(s_cell: Vector2i) -> Vector2i:
 	return candidates.pick_random()
 
 func _spawn_recruited_ally_fadein(spawn_cell: Vector2i) -> void:
-	if recruit_bot_scene == null:
-		push_warning("Recruit: recruit_bot_scene not assigned.")
+	if recruit_bot_scenes.is_empty():
+		push_warning("Recruit: recruit_bot_scenes is empty (assign at least one scene).")
 		return
 	if terrain == null or units_root == null:
 		return
 	if units_by_cell.has(spawn_cell):
 		return
 
-	var u := recruit_bot_scene.instantiate() as Unit
+	# Pick which recruit bot to spawn (random)
+	var scene = recruit_bot_scenes.pick_random()
+	if scene == null:
+		push_warning("Recruit: recruit_bot_scenes contains a null entry.")
+		return
+
+	var u := scene.instantiate() as Unit
 	if u == null:
-		push_warning("Recruit: recruit_bot_scene root must extend Unit.")
+		push_warning("Recruit: recruit_bot scene root must extend Unit.")
 		return
 
 	units_root.add_child(u)
