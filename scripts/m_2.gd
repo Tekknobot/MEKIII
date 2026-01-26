@@ -79,12 +79,14 @@ func perform_pounce(M: MapController, _target_cell: Vector2i) -> void:
 		return
 
 	var visited: Dictionary = {} # instance_id -> true
-	const HIT_DELAY := 0.55  # ✅ tweak feel (0.05–0.12 is nice)
+	const HIT_DELAY := 0.55
 
 	while true:
 		var targets: Array[Unit] = []
 
-		for k in M.units_by_cell.keys():
+		# snapshot keys so unit_at_cell can erase safely
+		var keys := M.units_by_cell.keys()
+		for k in keys:
 			var u := M.unit_at_cell(k)
 			if u == null:
 				continue
@@ -94,11 +96,13 @@ func perform_pounce(M: MapController, _target_cell: Vector2i) -> void:
 			if d > 0 and d <= pounce_range:
 				targets.append(u)
 
-		# closest first
+		# closest first (simple bubble sort)
 		for i in range(targets.size()):
 			for j in range(i + 1, targets.size()):
 				var a := targets[i]
 				var b := targets[j]
+				if a == null or b == null:
+					continue
 				var da = abs(a.cell.x - cell.x) + abs(a.cell.y - cell.y)
 				var db = abs(b.cell.x - cell.x) + abs(b.cell.y - cell.y)
 				if da > db:
@@ -106,6 +110,8 @@ func perform_pounce(M: MapController, _target_cell: Vector2i) -> void:
 					targets[j] = a
 
 		var tgt: Unit = null
+		var tgt_cell_for_fx := Vector2i.ZERO
+
 		for u in targets:
 			if u == null or not is_instance_valid(u):
 				continue
@@ -114,33 +120,39 @@ func perform_pounce(M: MapController, _target_cell: Vector2i) -> void:
 				continue
 			tgt = u
 			visited[id] = true
+			# ✅ cache while valid (safe to use after awaits)
+			tgt_cell_for_fx = u.cell
 			break
 
 		if tgt == null:
 			break
 
-		# ✅ tiny pause so each attack feels separate
+		# ✅ pause between hits
 		await get_tree().create_timer(HIT_DELAY).timeout
 
-		# ✅ play anim every hit
-		_face_toward_cell(tgt.cell)
-		_play_attack_fx(M, tgt.cell)
+		# ✅ IMPORTANT: re-check BEFORE touching tgt properties
+		if tgt == null or not is_instance_valid(tgt):
+			continue
+
+		# ✅ use cached cell for facing/fx (won’t crash if tgt dies mid-frame)
+		_face_toward_cell(tgt_cell_for_fx)
+		_play_attack_fx(M, tgt_cell_for_fx)
 		_play_attack_anim_once()
 
 		_apply_damage_safely(tgt, pounce_damage)
 
-		# ✅ waits for THIS attack anim (and returns to idle if you used that patch)
+		# ✅ wait anim
 		await _wait_attack_anim()
 
+		# ✅ re-check again after await
 		if tgt == null or not is_instance_valid(tgt):
 			continue
 
-		# knockback (unchanged)
-		var dir := _dir_away_from_self(tgt.cell)
+		# knockback
+		var dir := _dir_away_from_self(tgt.cell) # safe now because tgt valid
 		if dir == Vector2i.ZERO:
 			continue
 
-		var from_cell := tgt.cell
 		for i in range(pounce_knockback):
 			if tgt == null or not is_instance_valid(tgt):
 				break
@@ -172,7 +184,9 @@ func perform_pounce(M: MapController, _target_cell: Vector2i) -> void:
 			else:
 				_basic_push_fallback(M, tgt, next_cell)
 
-			from_cell = next_cell
+			# ✅ if push killed tgt somehow, don’t loop into tgt.cell again
+			if tgt == null or not is_instance_valid(tgt):
+				break
 
 	mark_special_used("pounce", pounce_cooldown)
 
