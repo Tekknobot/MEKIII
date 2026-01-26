@@ -11,3 +11,6 @@ res://scripts/map_controller.gd
 res://scenes/mechtwo.tscn
 res://scripts/mechtwo.gd
 res://scripts/unit.gd
+res://scenes/M2.tscn
+res://scripts/m_2.gd
+res://scripts/turnmanager.gd

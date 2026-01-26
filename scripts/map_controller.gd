@@ -952,6 +952,9 @@ func _perform_special(u: Unit, id: String, target_cell: Vector2i) -> void:
 	elif id == "sunder" and u.has_method("perform_sunder"):
 		await u.call("perform_sunder", self, target_cell) # ✅ NEW
 
+	elif id == "pounce" and u.has_method("perform_pounce"):
+		await u.call("perform_pounce", self, target_cell)
+
 	_is_moving = false
 
 func _mouse_to_cell() -> Vector2i:
@@ -1452,6 +1455,19 @@ func _draw_special_range(u: Unit, special: String) -> void:
 				if tgt2 == null:
 					continue
 				if tgt2.team == u.team:
+					continue
+
+			elif id == "pounce":
+				# Must target an enemy
+				var tgtp := unit_at_cell(c)
+				if tgtp == null:
+					continue
+				if tgtp.team == u.team:
+					continue
+
+				# Optional but recommended: require clear path (structures block)
+				# Uses your existing LOS-style check.
+				if not _has_clear_attack_path(origin, c):
 					continue
 
 			valid_special_cells[c] = true
@@ -2377,6 +2393,8 @@ func _unit_can_use_special(u: Unit, id: String) -> bool:
 			return u.has_method("perform_stim")
 		"sunder":
 			return u.has_method("perform_sunder")
+		"pounce":
+			return u.has_method("perform_pounce")
 			
 	return false
 

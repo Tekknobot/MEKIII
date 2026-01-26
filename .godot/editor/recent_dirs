@@ -1,4 +1,5 @@
 res://scripts
+res://sprites/Meks/M2
 res://sprites/Meks/M1
 res://scenes
 res://icon
@@ -19,4 +20,3 @@ res://sprites/Terrain/roads
 res://sprites/Dog
 res://sprites/Dog/attack
 res://sprites/Dog/default
-res://sprites/Humans/merc

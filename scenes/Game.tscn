@@ -1,4 +1,4 @@
-[gd_scene load_steps=85 format=3 uid="uid://bmtwqbsx674eo"]
+[gd_scene load_steps=86 format=3 uid="uid://bmtwqbsx674eo"]
 
 [ext_resource type="Script" uid="uid://bn08mhcoceqg" path="res://scripts/game.gd" id="1_400sg"]
 [ext_resource type="Texture2D" uid="uid://by1nnygq8fbib" path="res://sprites/Terrain/dirt.png" id="6_mcffj"]
@@ -49,6 +49,7 @@
 [ext_resource type="PackedScene" uid="uid://bspxym863egnq" path="res://scenes/M1.tscn" id="46_px4p2"]
 [ext_resource type="PackedScene" uid="uid://2ov7kvfue6bm" path="res://scenes/floppy.tscn" id="46_xfjuk"]
 [ext_resource type="PackedScene" uid="uid://c6mcd4ogd1jyq" path="res://scenes/beacon.tscn" id="47_6h74c"]
+[ext_resource type="PackedScene" uid="uid://cp611yvmtvcua" path="res://scenes/M2.tscn" id="48_jpcyn"]
 [ext_resource type="Script" uid="uid://dsiq3cf4mv8kx" path="res://scripts/tutorial_manager.gd" id="49_0wf52"]
 [ext_resource type="PackedScene" uid="uid://de5lsm2hud7v7" path="res://scenes/tutorial_toast.tscn" id="50_3pold"]
 [ext_resource type="Script" uid="uid://bi7op5w7aqis" path="res://scripts/end_game_panel_runtime.gd" id="51_3ugab"]
@@ -356,6 +357,7 @@ overwatch_button_path = NodePath("../UI/Overwatch")
 suppress_button_path = NodePath("../UI/Supress")
 stim_button_path = NodePath("../UI/Stimpack")
 sunder_button_path = NodePath("../UI/Sunder")
+pounce_button_path = NodePath("../UI/Pounce")
 beacon_deadline_round = 99
 
 [node name="Pickups" type="Node2D" parent="."]
@@ -371,22 +373,11 @@ ally_scenes = Array[PackedScene]([ExtResource("25_a85ww"), ExtResource("26_i4jil
 enemy_zombie_scene = ExtResource("26_0bq3a")
 move_tile_scene = ExtResource("27_0bq3a")
 attack_tile_scene = ExtResource("26_jhsr3")
-mouse_offset = null
-move_speed_cells_per_sec = null
 attack_flash_time = 0.48
-attack_anim_lock_time = null
-max_zombies = null
-ally_count = null
-turn_manager_path = null
 explosion_scene = ExtResource("32_426vi")
-explosion_y_offset_px = null
-explosion_anim_name = null
-explosion_fallback_seconds = null
 mine_scene = ExtResource("33_naigu")
 mine_y_offset_px = 0.0
 sfx_player_path = NodePath("AudioStreamPlayer2D")
-sfx_volume_ui = null
-sfx_volume_world = null
 sfx_streams = {
 "attack_hit": ExtResource("38_ho5ir"),
 "attack_swing": ExtResource("37_27c7x"),
@@ -404,74 +395,19 @@ sfx_streams = {
 "unit_death": ExtResource("41_ho5ir"),
 "unit_hurt": ExtResource("40_27c7x")
 }
-structure_hit_damage = null
-structure_flash_time = null
-structure_splash_radius = null
-structure_explosion_splash_damage = null
-structure_demolished_anim = null
-structure_group_name = null
-tnt_splash_radius = null
-tnt_structure_damage = null
 tnt_unit_splash_damage = 1
-bubble_enabled = null
-bubble_duration = null
-bubble_fade_time = null
-bubble_y_offset_px = null
-bubble_min_width = null
-ally_lines = null
-ally_select_lines = null
-enemy_lines = null
 bubble_ui_root_path = NodePath("../UI/Bubbles")
 bubble_font = ExtResource("32_1gdd5")
 bubble_font_size = 16
-bubble_board_color = null
-bubble_text_color = null
-bubble_type_speed_cps = null
-bubble_max_width = null
 bubble_voice_player_path = NodePath("../UI/Bubbles/BubbleVoice")
 bubble_voice_stream = ExtResource("43_evnk2")
 bubble_voice_volume = 0.235
-bubble_voice_pitch_base = null
-bubble_voice_pitch_jitter = null
-bubble_voice_space_chance = null
-bubble_voice_punct_chance = null
-bubble_voice_bus = null
-sfx_overwatch_on = null
-sfx_overwatch_shot = null
 overwatch_ghost_offset = Vector2(0, -8)
-overwatch_ghost_color = null
-tint_move_left = null
-tint_attack_left = null
-tint_exhausted = null
-pulse_scale = null
-pulse_time = null
-enemy_fade_time = null
-ringout_push_px = null
-ringout_push_time = null
-ringout_fade_time = null
-ringout_drop_px = null
-recruit_enabled = null
-recruit_once_per_structure_per_round = null
-recruit_fade_time = null
-recruit_sfx = null
-recruit_bot_scenes = Array[PackedScene]([ExtResource("44_ca228"), ExtResource("46_px4p2")])
-sfx_missile_launch = null
-sfx_missile_whizz = null
-missile_line_alpha_start = null
-missile_line_alpha_end = null
+recruit_bot_scenes = Array[PackedScene]([ExtResource("44_ca228"), ExtResource("46_px4p2"), ExtResource("48_jpcyn")])
 floppy_pickup_scene = ExtResource("46_xfjuk")
-beacon_parts_needed = null
-beacon_cell = null
 beacon_marker_scene = ExtResource("47_6h74c")
 beacon_marker_y_offset_px = 0.0
 beacon_marker_z_base = 0
-sat_beam_height_px = null
-sat_beam_flash_time = null
-sat_beam_fade_time = null
-sat_beam_z_boost = null
-beacon_pulse_min_a = null
-beacon_pulse_max_a = null
-beacon_pulse_time = null
 
 [node name="AudioStreamPlayer2D" type="AudioStreamPlayer2D" parent="MapController"]
 
@@ -566,6 +502,15 @@ offset_right = 1044.0
 offset_bottom = 571.0
 theme_override_fonts/font = ExtResource("32_1gdd5")
 text = "Sunder
+"
+
+[node name="Pounce" type="Button" parent="UI"]
+offset_left = 941.0
+offset_top = 550.0
+offset_right = 989.0
+offset_bottom = 571.0
+theme_override_fonts/font = ExtResource("32_1gdd5")
+text = "Pounce
 "
 
 [node name="Overwatch" type="Button" parent="UI"]
