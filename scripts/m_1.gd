@@ -121,6 +121,13 @@ func perform_sunder(M: MapController, target_cell: Vector2i) -> void:
 
 		c += dir
 
+	# ✅ go back to idle
+	var spr := get_node_or_null("AnimatedSprite2D") as AnimatedSprite2D
+	if spr == null:
+		spr = get_node_or_null("Visual/AnimatedSprite2D") as AnimatedSprite2D
+	if spr != null:
+		spr.play("idle")
+		
 	mark_special_used("sunder", sunder_cooldown)
 
 # -------------------------
