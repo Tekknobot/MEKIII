@@ -774,7 +774,7 @@ func _find_nearest_open_walkable(start: Vector2i) -> Vector2i:
 			var c := Vector2i(x, y)
 			if not _is_walkable(c):
 				continue
-			if units_by_cell.has(c):
+			if unit_at_cell(c) != null:
 				continue
 			var d = abs(start.x - c.x) + abs(start.y - c.y)
 			if d < best_d:
@@ -1305,7 +1305,7 @@ func _draw_move_range(u: Unit) -> void:
 				continue
 			if structure_blocked.has(c):
 				continue
-			if c != origin and units_by_cell.has(c):
+			if c != origin and unit_at_cell(c) != null:
 				continue
 
 			# Only consider it valid if an L path exists
@@ -1763,7 +1763,7 @@ func _is_blocked_for_move(c: Vector2i, origin: Vector2i) -> bool:
 		return true
 
 	# occupied (allow starting cell)
-	if c != origin and units_by_cell.has(c):
+	if c != origin and unit_at_cell(c) != null:
 		return true
 
 	return false

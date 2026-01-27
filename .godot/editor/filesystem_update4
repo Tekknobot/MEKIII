@@ -17,3 +17,4 @@ res://scripts/squad_deploy_screen.gd
 res://scripts/RunState.gd
 res://scripts/game.gd
 res://scenes/title_screen.tscn
+res://scripts/tutorial_manager.gd
