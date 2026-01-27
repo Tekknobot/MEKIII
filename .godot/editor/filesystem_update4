@@ -9,3 +9,4 @@ res://scenes/squad_deploy_screen.tscn
 res://shaders/color_me.gdshader
 res://scenes/units/allies/M1.tscn
 res://scenes/units/allies/M2.tscn
+res://scenes/title_screen.tscn
