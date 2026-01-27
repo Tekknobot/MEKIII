@@ -18,3 +18,6 @@ res://scripts/RunState.gd
 res://scripts/game.gd
 res://scenes/title_screen.tscn
 res://scripts/tutorial_manager.gd
+res://scenes/HUD.tscn
+res://scripts/unit.gd
+res://scenes/R1.tscn

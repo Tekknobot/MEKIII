@@ -150,6 +150,7 @@ display_name = "Bladeguard"
 thumbnail = ExtResource("7_ue1t7")
 sunder_cooldown = 0
 sunder_step_delay = 0.0
+death_fx_offset = Vector2(0, -8)
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="."]
 position = Vector2(0, -9)

@@ -156,6 +156,7 @@ projectile_travel_time = 0.42
 projectile_stagger = 0.0
 explosion_fx_scene = ExtResource("4_uvdgm")
 hit_structures_too = true
+death_fx_offset = Vector2(0, -8)
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="."]
 position = Vector2(0, -9)
