@@ -1,4 +1,4 @@
-[gd_scene load_steps=35 format=3 uid="uid://bspxym863egnq"]
+[gd_scene load_steps=35 format=3 uid="uid://c1wk8ww5m50l"]
 
 [ext_resource type="Script" uid="uid://bgkej18dbjpc0" path="res://scripts/m_1.gd" id="1_ind6l"]
 [ext_resource type="Texture2D" uid="uid://dpcs3qp8kvyhg" path="res://sprites/Meks/M1/m1atk_1.png" id="2_dbadk"]
@@ -147,6 +147,7 @@ animations = [{
 script = ExtResource("1_ind6l")
 portrait_tex = ExtResource("2_m1fto")
 display_name = "Bladeguard"
+thumbnail = ExtResource("7_ue1t7")
 sunder_cooldown = 0
 sunder_step_delay = 0.0
 

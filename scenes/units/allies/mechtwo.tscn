@@ -1,4 +1,4 @@
-[gd_scene load_steps=25 format=3 uid="uid://boi35ajyrht6t"]
+[gd_scene load_steps=25 format=3 uid="uid://b3mmncyiyeetr"]
 
 [ext_resource type="Script" uid="uid://b5o6hwqmxp4fs" path="res://scripts/mechtwo.gd" id="1_p85fo"]
 [ext_resource type="Texture2D" uid="uid://flwqkxvb5ah6" path="res://sprites/Portraits/cockpits/bg1.png" id="2_7x5td"]

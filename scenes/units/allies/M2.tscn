@@ -1,4 +1,4 @@
-[gd_scene load_steps=36 format=3 uid="uid://p1l62baxffrd"]
+[gd_scene load_steps=36 format=3 uid="uid://cp611yvmtvcua"]
 
 [ext_resource type="Script" uid="uid://cn280u8iabw2c" path="res://scripts/m_2.gd" id="1_m4rew"]
 [ext_resource type="Texture2D" uid="uid://dq186teoe0ijt" path="res://sprites/Meks/M2/m2atk_1.png" id="2_3uac3"]

@@ -1,4 +1,4 @@
-[gd_scene load_steps=46 format=3 uid="uid://r3tl0tvvtwot"]
+[gd_scene load_steps=46 format=3 uid="uid://b8etqvuw07mhc"]
 
 [ext_resource type="Script" uid="uid://cjdgky6qni5ps" path="res://scripts/human.gd" id="1_swaxu"]
 [ext_resource type="Texture2D" uid="uid://dqpk7esw80vhx" path="res://sprites/Humans/soldier/attack/soldier_atk1.png" id="2_3nvx0"]

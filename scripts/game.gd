@@ -142,7 +142,16 @@ func _ready() -> void:
 	map_controller.units_root_path = units_root.get_path()
 	map_controller.overlay_root_path = overlays_root.get_path()
 	map_controller.setup(self)
+
+	# NEW: apply chosen squad from RunState autoload (if any)
+	var rs := _rs()
+	if rs != null and rs.has_method("has_squad") and rs.call("has_squad"):
+		var chosen: Array[PackedScene] = rs.call("get_squad_packed_scenes")
+		if not chosen.is_empty():
+			map_controller.ally_scenes = chosen
+
 	map_controller.spawn_units()
+
 
 	if turn_manager != null:
 		turn_manager.on_units_spawned()
@@ -150,7 +159,6 @@ func _ready() -> void:
 	# now reveal the scene
 	await get_tree().process_frame
 	await _fade_to(0.0, fade_in_time)
-
 
 func _input(event: InputEvent) -> void:
 	if event is InputEventKey and event.pressed and not event.echo:
@@ -191,8 +199,20 @@ func regenerate_map() -> void:
 	spawn_structures()
 
 	map_controller.setup(self)
+
+	# NEW: apply chosen squad from RunState autoload (if any)
+	var rs := _rs()
+	if rs != null and rs.has_method("has_squad") and rs.call("has_squad"):
+		var chosen: Array[PackedScene] = rs.call("get_squad_packed_scenes")
+		if not chosen.is_empty():
+			map_controller.ally_scenes = chosen
+
 	map_controller.spawn_units()
 
+	# ✅ NEW: sync recruit pool from RunState (non-selected only)
+	if rs != null:
+		map_controller.apply_recruit_pool_from_runstate(rs)
+		
 	map_controller._recruits_spawned_at.clear()
 	map_controller.reset_recruit_pool()
 
@@ -797,3 +817,14 @@ func _clear_drops() -> void:
 			map_controller.drops_by_cell.clear()
 		if "mines_by_cell" in map_controller:
 			map_controller.mines_by_cell.clear()
+
+func _rs() -> Node:
+	# IMPORTANT: replace "RunStateNode" / "RunState" with your ACTUAL autoload name if different.
+	var r := get_tree().root
+	var rs := r.get_node_or_null("RunStateNode")
+	if rs != null:
+		return rs
+	rs = r.get_node_or_null("RunState")
+	if rs != null:
+		return rs
+	return null

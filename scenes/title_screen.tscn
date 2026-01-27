@@ -42,11 +42,12 @@ content_margin_left = 12.0
 content_margin_top = 12.0
 content_margin_right = 12.0
 content_margin_bottom = 12.0
-bg_color = Color(0.050510757, 0.050510764, 0.050510712, 1)
+bg_color = Color(0.050980393, 0.050980393, 0.050980393, 0)
 border_width_left = 2
 border_width_top = 2
 border_width_right = 2
 border_width_bottom = 2
+border_color = Color(0.8, 0.8, 0.8, 0)
 corner_radius_top_left = 2
 corner_radius_top_right = 2
 corner_radius_bottom_right = 2
@@ -280,10 +281,10 @@ anchor_left = 0.5
 anchor_top = 0.5
 anchor_right = 0.5
 anchor_bottom = 0.5
-offset_left = -247.0
-offset_top = -161.0
-offset_right = 251.0
-offset_bottom = -47.0
+offset_left = -249.0
+offset_top = -183.0
+offset_right = 249.0
+offset_bottom = -46.0
 grow_horizontal = 2
 grow_vertical = 2
 
@@ -321,14 +322,13 @@ theme_override_fonts/font = ExtResource("2_sa3yf")
 text = "Quit"
 
 [node name="StoryClip" type="Control" parent="."]
-visible = false
 z_index = 4096
 custom_minimum_size = Vector2(120, 120)
 anchors_preset = 0
-offset_left = 15.0
-offset_top = 37.0
-offset_right = 135.0
-offset_bottom = 157.0
+offset_left = 825.0
+offset_top = 33.0
+offset_right = 945.0
+offset_bottom = 153.0
 
 [node name="PanelContainer" type="PanelContainer" parent="StoryClip"]
 layout_mode = 0
@@ -350,8 +350,7 @@ theme_override_font_sizes/normal_font_size = 16
 bbcode_enabled = true
 
 [node name="Map" type="Node2D" parent="."]
-position = Vector2(534, 37)
-scale = Vector2(3, 3)
+position = Vector2(293, 304)
 script = ExtResource("14_jr68i")
 building_scenes = Array[PackedScene]([null, ExtResource("15_htdhw"), ExtResource("16_12ga3"), ExtResource("17_yrrko"), ExtResource("18_aidx5")])
 unique_building_scenes = Array[PackedScene]([ExtResource("16_12ga3"), ExtResource("17_yrrko"), ExtResource("18_aidx5")])

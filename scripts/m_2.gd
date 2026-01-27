@@ -6,6 +6,7 @@ class_name M2
 # -------------------------
 @export var portrait_tex: Texture2D = preload("res://sprites/Portraits/dog_port.png") # swap to panther portrait
 @export var display_name := "M2 Panther"
+@export var thumbnail: Texture2D
 
 @export var attack_anim_name: StringName = &"attack"
 @export var attack_fx_scene: PackedScene = null

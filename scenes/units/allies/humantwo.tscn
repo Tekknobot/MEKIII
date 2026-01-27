@@ -1,4 +1,4 @@
-[gd_scene load_steps=44 format=3 uid="uid://s0c6kbn4e1g3"]
+[gd_scene load_steps=44 format=3 uid="uid://cv6mfkhtkvxij"]
 
 [ext_resource type="Script" uid="uid://dx4185brwpn1m" path="res://scripts/humantwo.gd" id="1_ttoxp"]
 [ext_resource type="Texture2D" uid="uid://dm3325xgagtql" path="res://sprites/Humans/merc/attack/rambo_attack1.png" id="2_ttoxp"]
@@ -187,6 +187,7 @@ animations = [{
 
 [node name="Unit" type="CharacterBody2D"]
 script = ExtResource("1_ttoxp")
+thumbnail = ExtResource("19_e4bhd")
 blade_damage = 4
 blade_cleave_damage = 2
 move_range = 5

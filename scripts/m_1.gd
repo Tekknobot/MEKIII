@@ -6,6 +6,7 @@ class_name M1
 # -------------------------
 @export var portrait_tex: Texture2D = preload("res://sprites/Portraits/dog_port.png")
 @export var display_name := "M1 Sunderer"
+@export var thumbnail: Texture2D
 
 # Optional: if your unit scene has an AnimationPlayer with an animation named "attack"
 @export var attack_anim_name: StringName = &"attack"
@@ -42,6 +43,8 @@ func _ready() -> void:
 
 	max_hp = max(max_hp, base_max_hp)
 	hp = clamp(hp, 0, max_hp)
+
+	print("M1 thumbnail = ", thumbnail, "  type=", typeof(thumbnail))
 
 	super._ready()
 

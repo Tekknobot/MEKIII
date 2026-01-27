@@ -237,3 +237,19 @@ func get_portrait_texture() -> Texture2D:
 			return m
 
 	return null
+
+func get_thumbnail_texture() -> Texture2D:
+	# 1) exported var on subclasses
+	if "thumbnail" in self:
+		var v = get("thumbnail")
+		if v is Texture2D:
+			return v
+
+	# 2) meta fallback
+	if has_meta("thumbnail"):
+		var m = get_meta("thumbnail")
+		if m is Texture2D:
+			return m
+
+	# 3) fallback to portrait
+	return get_portrait_texture()

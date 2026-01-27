@@ -1,4 +1,4 @@
-[gd_scene load_steps=37 format=3 uid="uid://c5khhoyavs1ik"]
+[gd_scene load_steps=37 format=3 uid="uid://chcfqbxh2axhi"]
 
 [ext_resource type="Script" uid="uid://domtklwg4e2tt" path="res://scripts/r_1.gd" id="1_emp16"]
 [ext_resource type="Texture2D" uid="uid://dd7tye4sh84h7" path="res://sprites/Portraits/pilots/l0_por07.png" id="2_54iik"]

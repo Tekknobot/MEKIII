@@ -1,6 +1,7 @@
 extends Unit
 class_name Mech
 
+@export var thumbnail: Texture2D
 @export var mine_place_range := 5
 @export var mine_damage := 2
 var placing_mines := false

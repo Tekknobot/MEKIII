@@ -1,6 +1,8 @@
 extends Unit
 class_name Human
 
+@export var thumbnail: Texture2D
+
 func _ready() -> void:
 	set_meta("portrait_tex", preload("res://sprites/Portraits/soldier_port.png"))
 	set_meta("display_name", "Soldier")

@@ -9,6 +9,7 @@ class_name R1
 # -------------------------
 @export var portrait_tex: Texture2D = preload("res://sprites/Portraits/dog_port.png") # swap to EVA/mecha portrait
 @export var display_name := "R1 Evangelion"
+@export var thumbnail: Texture2D
 
 @export var attack_anim_name: StringName = &"attack"
 

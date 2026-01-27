@@ -1,4 +1,4 @@
-[gd_scene load_steps=51 format=3 uid="uid://ggyhiifr3pvh"]
+[gd_scene load_steps=51 format=3 uid="uid://bqrbab23wjpjp"]
 
 [ext_resource type="Script" uid="uid://bhleuow0oj7s4" path="res://scripts/mech.gd" id="1_0w1yf"]
 [ext_resource type="Texture2D" uid="uid://boeoiearg2d4c" path="res://sprites/Dog/attack/dog_atk1.png" id="2_nvw8n"]

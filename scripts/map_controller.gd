@@ -186,10 +186,11 @@ var overlay_ghosts_root: Node2D = null
 @export var recruit_fade_time: float = 1.55
 @export var recruit_sfx: StringName = &"recruit_spawn"
 var recruit_round_stamp: int = 0
-
-@export var recruit_bot_scenes: Array[PackedScene] = []
-var _recruit_pool: Array[PackedScene] = []               # runtime list (mutable)
 var _recruits_spawned_at: Dictionary = {}   # Vector2i -> true
+
+# --- Recruit from remaining ally_scenes (unique) ---
+var _recruit_pool: Array[PackedScene] = []    # leftover ally scenes not used yet (mutable)
+var _used_ally_scenes: Array[PackedScene] = [] # starting + recruited (tracks uniqueness)
 
 @export var sfx_missile_launch := &"missile_launch"
 @export var sfx_missile_whizz := &"missile_whizz" # optional
@@ -474,6 +475,10 @@ func spawn_units() -> void:
 
 	clear_all()
 	reset_beacon_state()
+	_used_ally_scenes.clear()
+	_recruits_spawned_at.clear()
+	_recruit_pool.clear()	
+	
 	recruit_round_stamp += 1
 	_randomize_beacon_cell()
 	
@@ -516,7 +521,10 @@ func spawn_units() -> void:
 	var near := valid_cells.duplicate()
 	var used: Array[Vector2i] = []
 
-	for i in range(min(ally_scenes.size(), near.size())):
+	# ✅ Only spawn ally_count (not the full ally_scenes list)
+	var start_n = min(ally_count, ally_scenes.size(), near.size())
+
+	for i in range(start_n):
 		var chosen := Vector2i(-1, -1)
 
 		# Find the first cell that is NOT adjacent to any already chosen ally cell
@@ -537,10 +545,19 @@ func spawn_units() -> void:
 
 		# Fallback if we couldn't find a spaced cell (rare on tiny maps)
 		if chosen.x < 0:
+			if near.is_empty():
+				break
 			chosen = near.pop_front()
 
 		used.append(chosen)
-		_spawn_specific_ally(chosen, ally_scenes[i])
+
+		# ✅ Pick a unique starting ally scene safely
+		var scene := ally_scenes[i]
+		_spawn_specific_ally(chosen, scene)
+
+		# mark used
+		if scene != null and not _used_ally_scenes.has(scene):
+			_used_ally_scenes.append(scene)
 
 	# Remove chosen ally cells from valid_cells so enemies don't spawn there
 	for c in used:
@@ -560,6 +577,9 @@ func spawn_units() -> void:
 	# If the zone is too small, fall back to all remaining valid cells
 	if enemy_zone_cells.size() < max_zombies:
 		enemy_zone_cells = valid_cells.duplicate()
+
+	# ✅ build recruit pool from ally_scenes excluding the starting allies
+	_rebuild_recruit_pool_from_allies()
 
 	_spawn_zombies_in_clusters(enemy_zone_cells, max_zombies)
 
@@ -3500,7 +3520,13 @@ func _try_recruit_near_structure(mover: Unit) -> void:
 
 
 func _find_adjacent_structure_cell(cell: Vector2i) -> Vector2i:
-	# check 8-neighbors around the mover to see if any is occupied by a structure footprint
+	# Use the authoritative structure_blocked dictionary (footprint coverage)
+	if game_ref == null or not ("structure_blocked" in game_ref):
+		return Vector2i(-999, -999)
+
+	var sb: Dictionary = game_ref.structure_blocked
+
+	# check 8-neighbors around the mover to see if any is a structure-blocked cell
 	for dx in [-1, 0, 1]:
 		for dy in [-1, 0, 1]:
 			if dx == 0 and dy == 0:
@@ -3508,11 +3534,10 @@ func _find_adjacent_structure_cell(cell: Vector2i) -> Vector2i:
 			var c := cell + Vector2i(dx, dy)
 			if grid != null and grid.has_method("in_bounds") and not grid.in_bounds(c):
 				continue
-			var s := _structure_at_cell(c)
-			if s != null and is_instance_valid(s):
+			if sb.has(c):
 				return c
-	return Vector2i(-999, -999)
 
+	return Vector2i(-999, -999)
 
 func _find_open_adjacent_to_structure(s_cell: Vector2i) -> Vector2i:
 	# Use structure-blocked dict if you have it
@@ -3548,113 +3573,60 @@ func _find_open_adjacent_to_structure(s_cell: Vector2i) -> Vector2i:
 	return candidates.pick_random()
 
 func _spawn_recruited_ally_fadein(spawn_cell: Vector2i) -> void:
+	# one recruit per cell ever
 	if _recruits_spawned_at.has(spawn_cell):
 		return
 	_recruits_spawned_at[spawn_cell] = true
-	
-	if recruit_bot_scenes.is_empty():
-		push_warning("Recruit: recruit_bot_scenes is empty (assign at least one scene).")
-		return
-	if terrain == null or units_root == null:
+
+	if terrain == null or units_root == null or grid == null:
 		return
 	if units_by_cell.has(spawn_cell):
 		return
 
-	# Ensure pool exists
-	if _recruit_pool.is_empty():
-		# first time (or if you forgot to call reset)
-		_recruit_pool = recruit_bot_scenes.duplicate()
-		_recruit_pool.shuffle()
+	var scene: PackedScene = null
 
-	if _recruit_pool.is_empty():
-		push_warning("Recruit: pool is empty (no unique recruits left this run).")
-		return
+	# ✅ Preferred: pull from RunState pool (persists across regens)
+	var rs := _rs()
+	if rs != null and rs.has_method("take_random_recruit_scene"):
+		scene = rs.call("take_random_recruit_scene")
 
-	# Pick one unique recruit and REMOVE it so it can't repeat
-	var idx := randi() % _recruit_pool.size()
-	var scene: PackedScene = _recruit_pool[idx]
-	_recruit_pool.remove_at(idx)
+	# Fallback: old local pool behavior
+	if scene == null:
+		if ally_scenes.is_empty():
+			push_warning("Recruit: ally_scenes is empty (assign ally scenes in inspector) and RunState pool gave nothing.")
+			return
+
+		if _recruit_pool.is_empty():
+			_rebuild_recruit_pool_from_allies()
+
+		if _recruit_pool.is_empty():
+			push_warning("Recruit: no unique allies left to recruit.")
+			return
+
+		var idx := randi() % _recruit_pool.size()
+		scene = _recruit_pool[idx]
+		_recruit_pool.remove_at(idx)
 
 	if scene == null:
-		push_warning("Recruit: pool had a null entry.")
+		push_warning("Recruit: got null recruit scene.")
 		return
 
 	var u := scene.instantiate() as Unit
 	if u == null:
-		push_warning("Recruit: recruit_bot scene root must extend Unit.")
+		push_warning("Recruit: ally scene root must extend Unit.")
 		return
 
-	# -----------------------------
-	# ✅ FORCE a clean display name
-	# -----------------------------
-	# Goal: never allow "@CharacterBody2D:####" style strings.
-	# We try, in order:
-	# 1) existing meta "display_name" if it's String/StringName
-	# 2) existing property display_name if it's String/StringName
-	# 3) if it's a Node/Object, use node.name (NOT str(object))
-	# 4) fallback to scene filename ("RecruitBot", etc.) or "Recruit"
-	var clean_name := ""
-
-	# 1) meta (preferred, super safe)
-	if u.has_meta("display_name"):
-		var m = u.get_meta("display_name")
-		if m is StringName:
-			clean_name = String(m).strip_edges()
-		elif m is String:
-			clean_name = (m as String).strip_edges()
-
-	# 2) property
-	if clean_name == "" and ("display_name" in u):
-		var v = u.get("display_name")
-
-		if v is StringName:
-			clean_name = String(v).strip_edges()
-		elif v is String:
-			clean_name = (v as String).strip_edges()
-		elif v is Node:
-			# someone dragged a node into display_name in the inspector
-			clean_name = (v as Node).name
-		elif typeof(v) == TYPE_OBJECT and v != null:
-			# some other object reference -> DO NOT stringify it
-			clean_name = ""
-
-	# 3) node name (safe)
-	if clean_name == "":
-		clean_name = String(u.name).strip_edges()
-
-	# 4) scene filename fallback (nicer than random node name)
-	# PackedScene doesn't always expose resource_path reliably here, so use the instantiated script path if possible
-	var script_name := ""
-	var sc = u.get_script()
-	if sc != null and "resource_path" in sc:
-		script_name = String(sc.resource_path).get_file().get_basename()
-	if clean_name == "" or clean_name.begins_with("@"):
-		clean_name = (script_name if script_name != "" else "Recruit")
-
-	# Final safety: never allow "@Something"
-	if clean_name.begins_with("@") or clean_name == "":
-		clean_name = "Recruit"
-
-	# Write it back BOTH ways (covers every UI method you might be using)
-	u.set_meta("display_name", clean_name)
-	if "display_name" in u:
-		u.set("display_name", clean_name)
-
-	# -----------------------------
-	# Spawn + wire
-	# -----------------------------
 	units_root.add_child(u)
 	_wire_unit_signals(u)
 	u.team = Unit.Team.ALLY
 	u.hp = u.max_hp
 
-	# Put on grid first
 	u.set_cell(spawn_cell, terrain)
 	units_by_cell[spawn_cell] = u
+
 	emit_signal("tutorial_event", &"recruit_spawned", {"cell": spawn_cell})
 	_set_unit_depth_from_world(u, u.global_position)
 
-	# Fade in (fade the render node, not the Unit)
 	var ci := _get_unit_render_node(u)
 	if ci != null and is_instance_valid(ci):
 		var m2 := ci.modulate
@@ -3664,27 +3636,22 @@ func _spawn_recruited_ally_fadein(spawn_cell: Vector2i) -> void:
 	_sfx(recruit_sfx, sfx_volume_world, randf_range(0.95, 1.05), _cell_world(spawn_cell))
 	_say(u, "Recruited!")
 
-	if ci != null and is_instance_valid(ci):
-		var tw := create_tween()
-		tw.set_trans(Tween.TRANS_SINE)
-		tw.set_ease(Tween.EASE_OUT)
-		tw.tween_property(ci, "modulate:a", 1.0, max(0.01, recruit_fade_time))
-
-		tw.finished.connect(func():
-			_apply_turn_indicators_all_allies()
-			if TM != null:
-				if TM.has_method("on_units_spawned"):
-					TM.on_units_spawned()
-				if TM.has_method("_update_special_buttons"):
-					TM._update_special_buttons()
-		)
-	else:
+	var _finish := func() -> void:
 		_apply_turn_indicators_all_allies()
 		if TM != null:
 			if TM.has_method("on_units_spawned"):
 				TM.on_units_spawned()
 			if TM.has_method("_update_special_buttons"):
 				TM._update_special_buttons()
+
+	if ci != null and is_instance_valid(ci):
+		var tw := create_tween()
+		tw.set_trans(Tween.TRANS_SINE)
+		tw.set_ease(Tween.EASE_OUT)
+		tw.tween_property(ci, "modulate:a", 1.0, max(0.01, recruit_fade_time))
+		tw.finished.connect(_finish)
+	else:
+		_finish.call()
 
 func get_all_enemies() -> Array[Unit]:
 	var out: Array[Unit] = []
@@ -4200,9 +4167,11 @@ func _randomize_beacon_cell() -> void:
 func apply_run_upgrades() -> void:
 	var counts: Dictionary = {}
 
-	if RunStateNode != null and ("run_upgrade_counts" in RunStateNode):
-		counts = RunStateNode.run_upgrade_counts
+	var rs := _rs()
+	if rs != null and ("run_upgrade_counts" in rs):
+		counts = rs.run_upgrade_counts
 
+	# fallback: old behavior (if you ever stored upgrades on game_ref)
 	if counts.is_empty() and game_ref != null and is_instance_valid(game_ref) and ("run_upgrade_counts" in game_ref):
 		counts = game_ref.run_upgrade_counts
 
@@ -4220,10 +4189,8 @@ func apply_run_upgrades() -> void:
 				&"all_hp_plus_1":
 					u.max_hp += 1 * n
 					u.hp = min(u.hp + 1 * n, u.max_hp)
-
 				&"all_move_plus_1":
 					u.move_range += 1 * n
-
 				&"all_dmg_plus_1":
 					u.attack_damage += 1 * n
 
@@ -4245,11 +4212,6 @@ func apply_run_upgrades() -> void:
 					if u is Mech:
 						u.max_hp += 2 * n
 						u.hp = min(u.hp + 2 * n, u.max_hp)
-
-				&"dog_move_plus_1":
-					if u is Mech: u.move_range += 1 * n
-				&"dog_dmg_plus_1":
-					if u is Mech: u.attack_damage += 1 * n
 
 func reset_for_regen() -> void:
 	# ---------------------------
@@ -4299,6 +4261,57 @@ func reset_for_regen() -> void:
 		beacon_marker_node.queue_free()
 	beacon_marker_node = null
 
-func reset_recruit_pool() -> void:
-	_recruit_pool = recruit_bot_scenes.duplicate()
+func _rebuild_recruit_pool_from_allies() -> void:
+	_recruit_pool.clear()
+
+	# Add any ally scene that is NOT already used this run
+	for sc in ally_scenes:
+		if sc == null:
+			continue
+		if _used_ally_scenes.has(sc):
+			continue
+		_recruit_pool.append(sc)
+
 	_recruit_pool.shuffle()
+
+func reset_recruit_pool() -> void:
+	_rebuild_recruit_pool_from_allies()
+
+func apply_recruit_pool_from_runstate(rs: Node) -> void:
+	if rs == null:
+		return
+
+	_used_ally_scenes.clear()
+	_recruit_pool.clear()
+
+	# 1) Mark ONLY the starting squad as used (if provided)
+	if "starting_squad_paths" in rs:
+		for p in rs.starting_squad_paths:
+			var res := load(str(p))
+			if res is PackedScene and not _used_ally_scenes.has(res):
+				_used_ally_scenes.append(res)
+
+	# 2) Build recruit pool from explicit remaining paths (best)
+	if "recruit_pool_paths" in rs:
+		for p in rs.recruit_pool_paths:
+			var res2 := load(str(p))
+			if res2 is PackedScene:
+				# optional: also exclude anything marked used
+				if not _used_ally_scenes.has(res2):
+					_recruit_pool.append(res2)
+
+	_recruit_pool.shuffle()
+
+	# 3) Fallback: if runstate didn't provide recruit pool, build from ally_scenes
+	if _recruit_pool.is_empty():
+		_rebuild_recruit_pool_from_allies()
+
+func _rs() -> Node:
+	var r := get_tree().root
+	var rs := r.get_node_or_null("RunStateNode")
+	if rs != null:
+		return rs
+	rs = r.get_node_or_null("RunState")
+	if rs != null:
+		return rs
+	return null

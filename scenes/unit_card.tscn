@@ -1,0 +1,41 @@
+[gd_scene load_steps=2 format=3 uid="uid://npj2b1moixee"]
+
+[ext_resource type="Script" uid="uid://paj64frnrmft" path="res://scripts/unit_card.gd" id="1_5e0rd"]
+
+[node name="UnitCard" type="Button"]
+custom_minimum_size = Vector2(64, 64)
+offset_right = 64.0
+offset_bottom = 64.0
+clip_text = true
+script = ExtResource("1_5e0rd")
+
+[node name="HBox" type="HBoxContainer" parent="."]
+layout_mode = 0
+offset_right = 138.0
+offset_bottom = 64.0
+size_flags_horizontal = 3
+size_flags_vertical = 3
+theme_override_constants/separation = 10
+
+[node name="Portrait" type="TextureRect" parent="HBox"]
+custom_minimum_size = Vector2(64, 64)
+layout_mode = 2
+size_flags_horizontal = 0
+size_flags_vertical = 0
+stretch_mode = 5
+
+[node name="VBox" type="VBoxContainer" parent="HBox"]
+visible = false
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 2
+
+[node name="Name" type="Label" parent="HBox/VBox"]
+layout_mode = 2
+size_flags_horizontal = 3
+text_overrun_behavior = 3
+
+[node name="Stats" type="Label" parent="HBox/VBox"]
+layout_mode = 2
+size_flags_horizontal = 3
+text_overrun_behavior = 3

@@ -1,6 +1,7 @@
 extends Unit
 class_name HumanTwo
 
+@export var thumbnail: Texture2D
 
 @export var blade_range := 5
 @export var blade_damage := 2
