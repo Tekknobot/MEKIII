@@ -1,9 +1,10 @@
-[gd_scene load_steps=36 format=3 uid="uid://cp611yvmtvcua"]
+[gd_scene load_steps=37 format=3 uid="uid://cp611yvmtvcua"]
 
 [ext_resource type="Script" uid="uid://cn280u8iabw2c" path="res://scripts/m_2.gd" id="1_m4rew"]
 [ext_resource type="Texture2D" uid="uid://dq186teoe0ijt" path="res://sprites/Meks/M2/m2atk_1.png" id="2_3uac3"]
 [ext_resource type="Texture2D" uid="uid://c6nugp4n3dm8a" path="res://sprites/Portraits/pilots/l0_por06.png" id="2_d544p"]
 [ext_resource type="Texture2D" uid="uid://438x4jswdvrt" path="res://sprites/Meks/M2/m2atk_2.png" id="3_d544p"]
+[ext_resource type="Texture2D" uid="uid://btf4f8qdcsdtl" path="res://sprites/Portraits/pilots/mek_portraits/m2.png" id="3_jiuj3"]
 [ext_resource type="Texture2D" uid="uid://c5prwavn4i2jg" path="res://sprites/Meks/M2/m2atk_3.png" id="4_x43bn"]
 [ext_resource type="Texture2D" uid="uid://18v83bjveihg" path="res://sprites/Meks/M2/m2atk_4.png" id="5_1sp1m"]
 [ext_resource type="Texture2D" uid="uid://cslspqxa8ioir" path="res://sprites/Meks/M2/m2atk_5.png" id="6_5bf3t"]
@@ -151,7 +152,7 @@ animations = [{
 script = ExtResource("1_m4rew")
 portrait_tex = ExtResource("2_d544p")
 display_name = "Pantherbot"
-thumbnail = ExtResource("22_7c5ct")
+thumbnail = ExtResource("3_jiuj3")
 pounce_cooldown = 0
 death_fx_offset = Vector2(0, -16)
 

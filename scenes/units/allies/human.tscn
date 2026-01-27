@@ -1,7 +1,8 @@
-[gd_scene load_steps=46 format=3 uid="uid://b8etqvuw07mhc"]
+[gd_scene load_steps=47 format=3 uid="uid://b8etqvuw07mhc"]
 
 [ext_resource type="Script" uid="uid://cjdgky6qni5ps" path="res://scripts/human.gd" id="1_swaxu"]
 [ext_resource type="Texture2D" uid="uid://dqpk7esw80vhx" path="res://sprites/Humans/soldier/attack/soldier_atk1.png" id="2_3nvx0"]
+[ext_resource type="Texture2D" uid="uid://mlaqfiaisq8j" path="res://sprites/Thumbnails/Allies/soldier_thumb.png" id="2_3qu3p"]
 [ext_resource type="PackedScene" uid="uid://bcn8tdg6qkk31" path="res://scenes/tnt.tscn" id="2_nsheb"]
 [ext_resource type="Texture2D" uid="uid://ddny26sns0re2" path="res://sprites/Humans/soldier/attack/soldier_atk2.png" id="3_0hcdk"]
 [ext_resource type="Texture2D" uid="uid://85kma42thc2w" path="res://sprites/Humans/soldier/attack/soldier_atk3.png" id="4_hkek5"]
@@ -192,7 +193,7 @@ animations = [{
 
 [node name="Unit" type="CharacterBody2D"]
 script = ExtResource("1_swaxu")
-thumbnail = ExtResource("11_m4xsf")
+thumbnail = ExtResource("2_3qu3p")
 hellfire_delay = 0.18
 hellfire_projectile_scene = ExtResource("2_nsheb")
 hellfire_flight_time = 1.8

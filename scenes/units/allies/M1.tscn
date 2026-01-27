@@ -1,8 +1,9 @@
-[gd_scene load_steps=35 format=3 uid="uid://bspxym863egnq"]
+[gd_scene load_steps=36 format=3 uid="uid://bspxym863egnq"]
 
 [ext_resource type="Script" uid="uid://bgkej18dbjpc0" path="res://scripts/m_1.gd" id="1_ind6l"]
 [ext_resource type="Texture2D" uid="uid://dpcs3qp8kvyhg" path="res://sprites/Meks/M1/m1atk_1.png" id="2_dbadk"]
 [ext_resource type="Texture2D" uid="uid://o4q6sjphgkm3" path="res://sprites/Portraits/pilots/Hover/l0_por04-export.png" id="2_m1fto"]
+[ext_resource type="Texture2D" uid="uid://c3k5axfya2j1u" path="res://sprites/Portraits/pilots/mek_portraits/m1.png" id="3_iscaa"]
 [ext_resource type="Texture2D" uid="uid://o02m6vb346nv" path="res://sprites/Meks/M1/m1atk_2.png" id="3_m1fto"]
 [ext_resource type="Texture2D" uid="uid://g6ajll1v8i1c" path="res://sprites/Meks/M1/m1atk_3.png" id="4_753jw"]
 [ext_resource type="Texture2D" uid="uid://utnmb2ip3tym" path="res://sprites/Meks/M1/m1atk_4.png" id="5_6l3df"]
@@ -147,7 +148,7 @@ animations = [{
 script = ExtResource("1_ind6l")
 portrait_tex = ExtResource("2_m1fto")
 display_name = "Bladeguard"
-thumbnail = ExtResource("7_ue1t7")
+thumbnail = ExtResource("3_iscaa")
 sunder_cooldown = 0
 sunder_step_delay = 0.0
 death_fx_offset = Vector2(0, -16)

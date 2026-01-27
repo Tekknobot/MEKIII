@@ -1,6 +1,7 @@
-[gd_scene load_steps=51 format=3 uid="uid://bqrbab23wjpjp"]
+[gd_scene load_steps=52 format=3 uid="uid://bqrbab23wjpjp"]
 
 [ext_resource type="Script" uid="uid://bhleuow0oj7s4" path="res://scripts/mech.gd" id="1_0w1yf"]
+[ext_resource type="Texture2D" uid="uid://bs0aq6fvweri8" path="res://sprites/Thumbnails/Allies/dog_thumb.png" id="2_m4nn4"]
 [ext_resource type="Texture2D" uid="uid://boeoiearg2d4c" path="res://sprites/Dog/attack/dog_atk1.png" id="2_nvw8n"]
 [ext_resource type="Texture2D" uid="uid://ij518mwtmpap" path="res://sprites/Dog/attack/dog_atk2.png" id="3_1e8nd"]
 [ext_resource type="Texture2D" uid="uid://cam0mtt6r2ckn" path="res://sprites/Dog/attack/dog_atk3.png" id="4_7tcnj"]
@@ -212,7 +213,7 @@ animations = [{
 
 [node name="Unit" type="CharacterBody2D"]
 script = ExtResource("1_0w1yf")
-thumbnail = ExtResource("25_g30tl")
+thumbnail = ExtResource("2_m4nn4")
 attack_damage = 2
 death_fx_offset = Vector2(0, -16)
 

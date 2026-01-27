@@ -1,7 +1,8 @@
-[gd_scene load_steps=37 format=3 uid="uid://chcfqbxh2axhi"]
+[gd_scene load_steps=38 format=3 uid="uid://chcfqbxh2axhi"]
 
 [ext_resource type="Script" uid="uid://domtklwg4e2tt" path="res://scripts/r_1.gd" id="1_emp16"]
 [ext_resource type="Texture2D" uid="uid://dd7tye4sh84h7" path="res://sprites/Portraits/pilots/l0_por07.png" id="2_54iik"]
+[ext_resource type="Texture2D" uid="uid://ddxvf3fg5l4qo" path="res://sprites/Portraits/pilots/mek_portraits/r1.png" id="3_en3e7"]
 [ext_resource type="Texture2D" uid="uid://l0qujgarum6w" path="res://sprites/Meks/R1/r1atk_1.png" id="3_g5g25"]
 [ext_resource type="PackedScene" uid="uid://bapcpjpr3xx60" path="res://scenes/bullet.tscn" id="3_uvdgm"]
 [ext_resource type="Texture2D" uid="uid://bpytolodhbpaq" path="res://sprites/Meks/R1/r1atk_2.png" id="4_54iik"]
@@ -149,7 +150,7 @@ animations = [{
 script = ExtResource("1_emp16")
 portrait_tex = ExtResource("2_54iik")
 display_name = "Battle Mecha"
-thumbnail = ExtResource("23_xnb11")
+thumbnail = ExtResource("3_en3e7")
 volley_cooldown = 0
 projectile_scene = ExtResource("3_uvdgm")
 projectile_travel_time = 0.42

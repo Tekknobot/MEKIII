@@ -1,9 +1,10 @@
-[gd_scene load_steps=25 format=3 uid="uid://b3mmncyiyeetr"]
+[gd_scene load_steps=26 format=3 uid="uid://b3mmncyiyeetr"]
 
 [ext_resource type="Script" uid="uid://b5o6hwqmxp4fs" path="res://scripts/mechtwo.gd" id="1_p85fo"]
 [ext_resource type="Texture2D" uid="uid://flwqkxvb5ah6" path="res://sprites/Portraits/cockpits/bg1.png" id="2_7x5td"]
 [ext_resource type="Texture2D" uid="uid://bxb6u8cair4o1" path="res://sprites/Bots/Blue/robo2-export1.png" id="2_p85fo"]
 [ext_resource type="Texture2D" uid="uid://of5rkl5jjuat" path="res://sprites/Bots/Blue/robo2-export2.png" id="3_7x5td"]
+[ext_resource type="Texture2D" uid="uid://mns1pcss1det" path="res://sprites/Thumbnails/Allies/bot_thumb.png" id="3_eixgi"]
 [ext_resource type="Texture2D" uid="uid://bp3lio7u3wkso" path="res://sprites/Bots/Blue/robo2-export3.png" id="4_3g83e"]
 [ext_resource type="Texture2D" uid="uid://nvalipn31vc1" path="res://sprites/Bots/Blue/robo2-export4.png" id="5_rpy5x"]
 [ext_resource type="Texture2D" uid="uid://bkylv8dfqnkcg" path="res://sprites/Explosion/explosion1.png" id="11_w6k63"]
@@ -125,7 +126,7 @@ animations = [{
 script = ExtResource("1_p85fo")
 portrait_tex = ExtResource("2_7x5td")
 display_name = "A.I. Destroyer"
-thumbnail = ExtResource("4_3g83e")
+thumbnail = ExtResource("3_eixgi")
 missile_arc_height_px = 64.0
 missile_splash_radius = 2
 death_fx_offset = Vector2(0, -16)
