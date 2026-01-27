@@ -366,7 +366,6 @@ stim_button_path = NodePath("../UI/Stimpack")
 sunder_button_path = NodePath("../UI/Sunder")
 pounce_button_path = NodePath("../UI/Pounce")
 volley_button_path = NodePath("../UI/Volley")
-cannon_button_path = NodePath("../UI/Cannon")
 beacon_deadline_round = 99
 
 [node name="Pickups" type="Node2D" parent="."]
