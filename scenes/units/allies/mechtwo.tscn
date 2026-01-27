@@ -128,7 +128,7 @@ display_name = "A.I. Destroyer"
 thumbnail = ExtResource("4_3g83e")
 missile_arc_height_px = 64.0
 missile_splash_radius = 2
-death_fx_offset = Vector2(0, -8)
+death_fx_offset = Vector2(0, -16)
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="."]
 position = Vector2(0, -9)

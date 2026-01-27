@@ -121,9 +121,24 @@ func _die() -> void:
 		# (optional) stop whatever was playing
 		a.stop()
 
+		# -------------------------------------------------
+		# ✅ Offset death anim for non-Human / non-HumanTwo
+		# -------------------------------------------------
+		var needs_offset := not (self is Human) and not (self is HumanTwo)
+
+		# If you want a per-unit tweak too, add this exported var:
+		# @export var death_fx_offset := Vector2.ZERO
+		var prev_pos := a.position
+		if needs_offset:
+			a.position = prev_pos + death_fx_offset
+
 		# ✅ play + await finish
 		a.play("death")
 		await a.animation_finished
+
+		# restore (so the unit doesn't stay shifted if something inspects it before free)
+		if needs_offset:
+			a.position = prev_pos
 
 		queue_free()
 		return

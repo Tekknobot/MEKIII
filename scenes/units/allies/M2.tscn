@@ -153,6 +153,7 @@ portrait_tex = ExtResource("2_d544p")
 display_name = "Pantherbot"
 thumbnail = ExtResource("22_7c5ct")
 pounce_cooldown = 0
+death_fx_offset = Vector2(0, -16)
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="."]
 position = Vector2(0, -9)

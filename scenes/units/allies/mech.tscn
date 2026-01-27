@@ -214,7 +214,7 @@ animations = [{
 script = ExtResource("1_0w1yf")
 thumbnail = ExtResource("25_g30tl")
 attack_damage = 2
-death_fx_offset = Vector2(0, -8)
+death_fx_offset = Vector2(0, -16)
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="."]
 position = Vector2(0, -9)
