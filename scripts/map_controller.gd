@@ -3667,38 +3667,69 @@ func _spawn_recruited_ally_fadein(spawn_cell: Vector2i) -> void:
 	_wire_unit_signals(u)
 	u.team = Unit.Team.ALLY
 	u.hp = u.max_hp
+	u.global_position.y -= 520
 
-	u.set_cell(spawn_cell, terrain)
+	# ✅ register occupancy BEFORE the drop (matches your spawn_units pattern)
 	units_by_cell[spawn_cell] = u
 
 	emit_signal("tutorial_event", &"recruit_spawned", {"cell": spawn_cell})
-	_set_unit_depth_from_world(u, u.global_position)
 
-	var ci := _get_unit_render_node(u)
-	if ci != null and is_instance_valid(ci):
-		var m2 := ci.modulate
-		m2.a = 0.0
-		ci.modulate = m2
+	# -------------------------------------------------------
+	# ✅ BOMBER DROP recruit (same as your initial deployment)
+	# -------------------------------------------------------
+	var target_world := _cell_world(spawn_cell)
 
-	_sfx(recruit_sfx, sfx_volume_world, randf_range(0.95, 1.05), _cell_world(spawn_cell))
-	_say(u, "Recruited!")
-
-	var _finish := func() -> void:
+	# If bomber scene isn’t assigned, hard-fallback to instant placement
+	if bomber_scene == null:
+		u.set_cell(spawn_cell, terrain)
+		_set_unit_depth_from_world(u, u.global_position)
+		_say(u, "Recruited!")
 		_apply_turn_indicators_all_allies()
 		if TM != null:
 			if TM.has_method("on_units_spawned"):
 				TM.on_units_spawned()
 			if TM.has_method("_update_special_buttons"):
 				TM._update_special_buttons()
+		return
 
-	if ci != null and is_instance_valid(ci):
-		var tw := create_tween()
-		tw.set_trans(Tween.TRANS_SINE)
-		tw.set_ease(Tween.EASE_OUT)
-		tw.tween_property(ci, "modulate:a", 1.0, max(0.01, recruit_fade_time))
-		tw.finished.connect(_finish)
+	_sfx(bomber_sfx_in, sfx_volume_world, 1.0, target_world)
+
+	var bomber := _spawn_bomber(target_world.x, target_world.y)
+	if bomber != null:
+		await _tween_node_global_pos(
+			bomber,
+			bomber.global_position,
+			target_world + Vector2(0, -bomber_hover_px),
+			bomber_arrive_time
+		)
+
+	# Drop the unit (this function sets cell + plays drop_sfx)
+	if bomber != null:
+		await _drop_unit_from_bomber(u, bomber, spawn_cell)
 	else:
-		_finish.call()
+		u.set_cell(spawn_cell, terrain)
+		_set_unit_depth_from_world(u, u.global_position)
+
+	_say(u, "Recruited!")
+
+	# Bomber exits
+	if bomber != null and is_instance_valid(bomber):
+		_sfx(bomber_sfx_out, sfx_volume_world, 1.0, bomber.global_position)
+		await _tween_node_global_pos(
+			bomber,
+			bomber.global_position,
+			bomber.global_position + Vector2(0, bomber_y_offscreen),
+			bomber_depart_time
+		)
+		bomber.queue_free()
+
+	# Finish hooks (same as your old fade-in finish)
+	_apply_turn_indicators_all_allies()
+	if TM != null:
+		if TM.has_method("on_units_spawned"):
+			TM.on_units_spawned()
+		if TM.has_method("_update_special_buttons"):
+			TM._update_special_buttons()
 
 func get_all_enemies() -> Array[Unit]:
 	var out: Array[Unit] = []
