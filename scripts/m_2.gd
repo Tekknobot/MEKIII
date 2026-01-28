@@ -144,13 +144,17 @@ func perform_pounce(M: MapController, _target_cell: Vector2i) -> void:
 		if tgt == null or not is_instance_valid(tgt):
 			continue
 
-		# ✅ use cached cell for facing/fx (won’t crash if tgt dies mid-frame)
+		# Lock facing toward target right before motion
 		_face_toward_cell(tgt_cell_for_fx)
+
 		_play_attack_fx(M, tgt_cell_for_fx)
 		_play_attack_anim_once()
 
-		# Lunge while anim plays (in parallel)
+		# Ensure facing stays correct even if animation flips sprite internally
+		_face_toward_cell(tgt_cell_for_fx)
+
 		await _lunge_to_cell_and_back(M, tgt_cell_for_fx)
+
 
 		_apply_damage_safely(tgt, pounce_damage)
 
@@ -308,15 +312,17 @@ func _play_attack_fx(M: MapController, target_cell: Vector2i) -> void:
 			(fx as Node2D).global_position = global_pos
 
 func _face_toward_cell(target_cell: Vector2i) -> void:
-	var spr2 := get_node_or_null("Sprite2D") as Sprite2D
-	if spr2 == null:
-		spr2 = get_node_or_null("Visual/Sprite2D") as Sprite2D
-	if spr2 == null:
+	var spr := get_node_or_null("Visual/AnimatedSprite2D") as AnimatedSprite2D
+	if spr == null:
+		spr = get_node_or_null("AnimatedSprite2D") as AnimatedSprite2D
+	if spr == null:
 		return
-	if target_cell.x < cell.x:
-		spr2.flip_h = true
-	elif target_cell.x > cell.x:
-		spr2.flip_h = false
+
+	if target_cell.x < self.global_position.x:
+		spr.flip_h = true
+	elif target_cell.x > self.global_position.x:
+		spr.flip_h = false
+
 
 func _play_attack_anim_once() -> void:
 	var sprA := get_node_or_null("AnimatedSprite2D") as AnimatedSprite2D
