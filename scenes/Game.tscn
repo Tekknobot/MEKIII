@@ -379,8 +379,9 @@ beacon_deadline_round = 99
 z_index = 2
 z_as_relative = false
 
-[node name="MapController" type="Node2D" parent="."]
+[node name="MapController" type="Node2D" parent="." node_paths=PackedStringArray("camera")]
 script = ExtResource("24_ocgqw")
+camera = NodePath("../Camera2D")
 terrain_path = NodePath("../Terrain")
 units_root_path = NodePath("../Units")
 overlay_root_path = NodePath("../Overlays")
@@ -398,6 +399,7 @@ sfx_streams = {
 "attack_swing": ExtResource("37_27c7x"),
 "bomber_in": ExtResource("50_uxlqh"),
 "bomber_out": ExtResource("50_uxlqh"),
+"bomber_pickup": ExtResource("49_o01hm"),
 "cannon_fire": ExtResource("44_rm8d8"),
 "drop_thump": ExtResource("49_o01hm"),
 "explosion_small": ExtResource("39_evnk2"),
@@ -432,6 +434,8 @@ bomber_arrive_time = 2.45
 bomber_depart_time = 2.45
 drop_fall_time = 0.62
 drop_land_pop_time = 0.38
+evac_pickup_time = 0.12
+evac_lift_px = 10.0
 
 [node name="AudioStreamPlayer2D" type="AudioStreamPlayer2D" parent="MapController"]
 

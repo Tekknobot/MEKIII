@@ -1,6 +1,7 @@
 extends Node
 class_name MapController
 
+@export var camera: Camera2D
 @export var terrain_path: NodePath
 @export var units_root_path: NodePath
 @export var overlay_root_path: NodePath
@@ -243,6 +244,12 @@ var special_unit: Unit = null
 @export var bomber_sfx_in := &"bomber_in"
 @export var bomber_sfx_out := &"bomber_out"
 
+@export var evac_enabled := true
+@export var evac_pickup_time := 0.22
+@export var evac_fade_time := 0.18
+@export var evac_lift_px := 160.0
+@export var evac_pause_between := 0.05
+@export var evac_sfx_pickup := &"bomber_pickup"   # add to sfx_streams if you want
 
 func _sfx(cue: StringName, vol := 1.0, pitch := 1.0, world_pos: Variant = null) -> void:
 	if SFX == null:
@@ -4114,8 +4121,129 @@ func _check_and_trigger_beacon_sweep() -> void:
 
 func _run_satellite_sweep_async() -> void:
 	await satellite_sweep()
-	# --- Tutorial hook ---
 	emit_signal("tutorial_event", &"satellite_sweep_finished", {})
+
+	await _extract_allies_with_bomber()
+	emit_signal("tutorial_event", &"extraction_finished", {})
+
+func _extract_allies_with_bomber() -> void:
+	if not evac_enabled:
+		return
+
+	if bomber_scene == null:
+		# No bomber? Just end cleanly (or do instant removal if you prefer)
+		return
+
+	# Snapshot allies that still exist
+	var allies: Array[Unit] = []
+	for u in get_all_units():
+		if u == null or not is_instance_valid(u):
+			continue
+		if u.team != Unit.Team.ALLY:
+			continue
+		# Optional: skip evac of special objects like RecruitBot if you want
+		allies.append(u)
+
+	if allies.is_empty():
+		return
+
+	# Lock inputs while extracting
+	_is_moving = true
+	_clear_overlay()
+	selected = null
+
+	# Optional: stable order (closest to beacon first feels good)
+	allies.sort_custom(func(a: Unit, b: Unit) -> bool:
+		var da = abs(a.cell.x - beacon_cell.x) + abs(a.cell.y - beacon_cell.y)
+		var db = abs(b.cell.x - beacon_cell.x) + abs(b.cell.y - beacon_cell.y)
+		return da < db
+	)
+
+	# Spawn ONE bomber, reuse it
+	var first_world := allies[0].global_position
+	_sfx(bomber_sfx_in, sfx_volume_world, 1.0, first_world)
+
+	var bomber := _spawn_bomber(first_world.x, first_world.y)
+	if bomber != null:
+		await _tween_node_global_pos(
+			bomber,
+			bomber.global_position,
+			first_world + Vector2(0, -bomber_hover_px),
+			bomber_arrive_time
+		)
+
+	# Visit and extract each ally
+	for u in allies:
+		if u == null or not is_instance_valid(u):
+			continue
+
+		var uid := u.get_instance_id()
+		var target_world := u.global_position
+
+		# Move bomber above this ally
+		if bomber != null and is_instance_valid(bomber):
+			await _tween_node_global_pos(
+				bomber,
+				bomber.global_position,
+				target_world + Vector2(0, -bomber_hover_px),
+				max(0.05, bomber_arrive_time * 0.75)
+			)
+
+		# Pick up ally (lift + fade), then remove from board
+		await _evac_pickup_unit(uid)
+
+		if evac_pause_between > 0.0:
+			await get_tree().create_timer(evac_pause_between).timeout
+
+	# Bomber exits
+	if bomber != null and is_instance_valid(bomber):
+		_sfx(bomber_sfx_out, sfx_volume_world, 1.0, bomber.global_position)
+		await _tween_node_global_pos(
+			bomber,
+			bomber.global_position,
+			bomber.global_position + Vector2(0, bomber_y_offscreen),
+			bomber_depart_time
+		)
+		bomber.queue_free()
+
+	_is_moving = false
+
+
+func _evac_pickup_unit(uid: int) -> void:
+	var obj := instance_from_id(uid)
+	if obj == null or not is_instance_valid(obj) or not (obj is Unit):
+		return
+
+	var u := obj as Unit
+	if u.team != Unit.Team.ALLY:
+		return
+
+	_sfx(evac_sfx_pickup, sfx_volume_world, randf_range(0.95, 1.05), u.global_position)
+
+	# Choose what to animate (visual if present, otherwise the unit node)
+	var visual := _get_unit_visual_node(u)
+	if visual == null or not is_instance_valid(visual):
+		visual = u
+
+	# Fade target (CanvasItem), if any
+	var ci := _get_unit_render_node(u)
+
+	var start_pos := visual.global_position
+	var end_pos := start_pos + Vector2(0, -evac_lift_px)
+
+	var tw := create_tween()
+	tw.set_trans(Tween.TRANS_SINE)
+	tw.set_ease(Tween.EASE_IN)
+
+	tw.tween_property(visual, "global_position", end_pos, max(0.01, evac_pickup_time))
+
+	if ci != null and is_instance_valid(ci):
+		tw.parallel().tween_property(ci, "modulate:a", 0.0, max(0.01, evac_fade_time))
+
+	await tw.finished
+
+	# Remove from units_by_cell safely (don’t assume u.cell still maps to u)
+	_remove_unit_from_board(u)
 
 func _spawn_sat_beam(world_hit: Vector2) -> void:
 	var parent_node: Node2D = overlay_root if (overlay_root != null and is_instance_valid(overlay_root)) else self

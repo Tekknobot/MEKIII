@@ -201,6 +201,9 @@ func _on_tutorial_event(id: StringName, payload: Dictionary) -> void:
 
 		"satellite_sweep_finished":
 			_advance(Step.YOU_WIN)
+
+		"extraction_finished":
+			# ✅ NOW the round is truly over; show upgrades
 			_on_you_win()
 
 		# -------------------------
