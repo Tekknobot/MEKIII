@@ -129,6 +129,7 @@ display_name = "DESTROYER A.I."
 thumbnail = ExtResource("3_eixgi")
 missile_arc_height_px = 64.0
 missile_splash_radius = 2
+attack_damage = 2
 death_fx_offset = Vector2(0, -16)
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="."]

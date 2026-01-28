@@ -155,6 +155,7 @@ volley_cooldown = 0
 projectile_scene = ExtResource("3_uvdgm")
 explosion_fx_scene = ExtResource("4_uvdgm")
 hit_structures_too = true
+attack_damage = 3
 death_fx_offset = Vector2(0, -16)
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="."]

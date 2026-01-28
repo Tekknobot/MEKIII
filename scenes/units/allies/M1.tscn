@@ -152,6 +152,7 @@ thumbnail = ExtResource("3_iscaa")
 special_desc = "Hits target tile, then continues behind it (same line) one by one."
 sunder_cooldown = 0
 sunder_step_delay = 0.0
+attack_damage = 3
 death_fx_offset = Vector2(0, -16)
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="."]
