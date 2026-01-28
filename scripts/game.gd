@@ -187,7 +187,8 @@ func _is_faded_in() -> bool:
 
 func regenerate_map() -> void:
 	camera.follow_enabled = true	
-
+	camera.global_position.y -= 520
+	
 	# apply chosen squad from RunState autoload (if any)
 	var rs := _rs()
 	if rs != null and rs.has_method("has_squad") and rs.call("has_squad"):
