@@ -3556,14 +3556,29 @@ func _try_recruit_near_structure(mover: Unit) -> void:
 	if s_cell.x < -100:
 		return
 
-	# Optional: only recruit once per structure per round
+	# Find the structure node at/near that cell
+	var s := _structure_at_cell(s_cell)
+	if s == null or not is_instance_valid(s):
+		return
+
+	# ---------------------------------------------------------
+	# UNIQUE BUILDING GATE (robust):
+	# _structure_at_cell() might return a CHILD (Area2D/Sprite/etc),
+	# so climb parents until we find the structure root we tagged.
+	# ---------------------------------------------------------
+	var root: Node = s
+	while root != null and is_instance_valid(root) and not root.is_in_group("UniqueBuilding"):
+		root = root.get_parent()
+
+	if root == null or not is_instance_valid(root):
+		return # not a unique building
+
+	# Optional: only recruit once per structure per round (stamp on ROOT)
 	if recruit_once_per_structure_per_round:
-		var s := _structure_at_cell(s_cell)
-		if s != null and is_instance_valid(s):
-			var stamp: int = int(s.get_meta("recruit_stamp", -999))
-			if stamp == recruit_round_stamp:
-				return
-			s.set_meta("recruit_stamp", recruit_round_stamp)
+		var stamp: int = int(root.get_meta("recruit_stamp", -999))
+		if stamp == recruit_round_stamp:
+			return
+		root.set_meta("recruit_stamp", recruit_round_stamp)
 
 	# Find an open adjacent tile to the structure (spawn location)
 	var spawn_cell := _find_open_adjacent_to_structure(s_cell)
@@ -3571,8 +3586,7 @@ func _try_recruit_near_structure(mover: Unit) -> void:
 		return
 
 	_spawn_recruited_ally_fadein(spawn_cell)
-
-
+	
 func _find_adjacent_structure_cell(cell: Vector2i) -> Vector2i:
 	# Use the authoritative structure_blocked dictionary (footprint coverage)
 	if game_ref == null or not ("structure_blocked" in game_ref):

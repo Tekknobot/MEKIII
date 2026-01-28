@@ -683,9 +683,14 @@ func spawn_structures() -> void:
 		if b == null:
 			continue
 
+		# ✅ Tag this structure instance as unique
+		if _is_unique_scene(scene):
+			b.set_meta("is_unique_building", true)
+			b.add_to_group("UniqueBuilding")
+
 		b.add_to_group("Structures")
 		structures_root.add_child(b)
-		
+
 		_tint_structure(b, rng)
 
 		if b.has_method("set_origin"):
