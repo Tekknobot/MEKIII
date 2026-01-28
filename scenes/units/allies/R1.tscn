@@ -149,7 +149,7 @@ animations = [{
 [node name="Unit" type="CharacterBody2D"]
 script = ExtResource("1_emp16")
 portrait_tex = ExtResource("2_54iik")
-display_name = "Battle Angel"
+display_name = "BATTLEANGEL"
 thumbnail = ExtResource("3_en3e7")
 volley_cooldown = 0
 projectile_scene = ExtResource("3_uvdgm")

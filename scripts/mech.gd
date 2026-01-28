@@ -2,13 +2,16 @@ extends Unit
 class_name Mech
 
 @export var thumbnail: Texture2D
+@export var specials: Array[String] = ["MINES", "WATCHER"]
+@export var special_desc: String = "Place mines in range.\nWatcher attacks in range every turn."
+
 @export var mine_place_range := 5
 @export var mine_damage := 2
 var placing_mines := false
 
 func _ready() -> void:
 	set_meta("portrait_tex", preload("res://sprites/Portraits/dog_port.png"))
-	set_meta("display_name", "Robodog")
+	set_meta("display_name", "ROBODOG")
 			
 	footprint_size = Vector2i(1, 1)
 	move_range = 6

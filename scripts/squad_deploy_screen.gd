@@ -96,19 +96,45 @@ func _rebuild_roster_ui() -> void:
 
 func _on_card_hovered(data: Dictionary) -> void:
 	info_panel.visible = true
-	info_name.text = str(data.get("name",""))
+	info_name.text = str(data.get("name", ""))
 
-	var hp := int(data.get("hp",0))
-	var mv := int(data.get("move",0))
-	var rng := int(data.get("range",0))
-	var dmg := int(data.get("damage",0))
-	info_stats.text = "HP %d\nMOVE %d\nRANGE %d\nDMG %d" % [hp, mv, rng, dmg]
+	var hp := int(data.get("hp", 0))
+	var mv := int(data.get("move", 0))
+	var rng := int(data.get("range", 0))
+	var dmg := int(data.get("damage", 0))
+
+	# --- Special(s) ---
+	var special_text := ""
+	if data.has("special"):
+		var sp = data.get("special")
+		if sp is Array:
+			# ["Pounce","Overwatch"] -> "Pounce, Overwatch"
+			special_text = ", ".join(sp)
+		else:
+			special_text = str(sp)
+
+	var special_desc := str(data.get("special_desc", ""))
+
+	var lines: Array[String] = []
+	lines.append("HP %d" % hp)
+	lines.append("MOVE %d" % mv)
+	lines.append("RANGE %d" % rng)
+	lines.append("DMG %d" % dmg)
+
+	if special_text != "":
+		lines.append("") # blank line spacer
+		lines.append("SPECIAL: %s" % special_text)
+		if special_desc != "":
+			lines.append(special_desc)
+
+	info_stats.text = "\n".join(lines)
 
 	# ✅ thumbnail
 	if info_thumbnail:
 		var t: Texture2D = data.get("thumb", null)
 		info_thumbnail.texture = t
 		info_thumbnail.visible = (t != null)
+
 
 func _on_card_unhovered() -> void:
 	info_panel.visible = false
@@ -278,16 +304,36 @@ func _extract_unit_card_data(scene_path: String) -> Dictionary:
 	if u.has_method("get_portrait_texture"):
 		portrait = u.call("get_portrait_texture")
 
+	# --- Specials (supports either: special:String OR specials:Array[String]) ---
+	var special_value = ""          # can be String or Array[String]
+	var special_desc := ""
+
+	# Prefer "specials" array if present
+	var sp_arr := _unit_get_string_array(u, "specials")
+	if not sp_arr.is_empty():
+		special_value = sp_arr
+	else:
+		# Otherwise fall back to single string "special"
+		special_value = _unit_get_string(u, "special", "")
+	
+	special_desc = _unit_get_string(u, "special_desc", "")
+
 	var data := {
 		"path": scene_path,
 		"name": name,
 		"portrait": portrait,
 		"thumb": thumb,
+
+		# ✅ what your hover UI expects
+		"special": special_value,
+		"special_desc": special_desc,
+
 		"hp": hp,
 		"move": mv,
 		"range": rng,
 		"damage": dmg,
 	}
+
 
 	inst.queue_free()
 	return data
@@ -368,6 +414,32 @@ func _on_start() -> void:
 		get_tree().change_scene_to_packed(game_scene)
 	else:
 		push_error("SquadDeploy: game_scene is not assigned.")
+
+func _unit_get_string(u: Node, key: String, default_val := "") -> String:
+	if key in u:
+		var v = u.get(key)
+		if v != null:
+			return str(v)
+	if u.has_meta(key):
+		return str(u.get_meta(key))
+	return default_val
+
+
+func _unit_get_string_array(u: Node, key: String) -> Array[String]:
+	var out: Array[String] = []
+	if key in u:
+		var v = u.get(key)
+		if v is Array:
+			for item in v:
+				out.append(str(item))
+			return out
+	if u.has_meta(key):
+		var m = u.get_meta(key)
+		if m is Array:
+			for item in m:
+				out.append(str(item))
+			return out
+	return out
 
 func _on_back() -> void:
 	get_tree().change_scene_to_file(title_scene_path)

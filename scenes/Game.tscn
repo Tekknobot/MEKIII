@@ -390,6 +390,7 @@ sfx_player_path = NodePath("AudioStreamPlayer2D")
 sfx_streams = {
 "attack_hit": ExtResource("38_ho5ir"),
 "attack_swing": ExtResource("37_27c7x"),
+"cannon_fire": ExtResource("44_rm8d8"),
 "explosion_small": ExtResource("39_evnk2"),
 "mine_place": null,
 "missile_launch": ExtResource("42_lscvm"),

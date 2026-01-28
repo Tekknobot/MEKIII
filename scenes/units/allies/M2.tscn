@@ -151,7 +151,7 @@ animations = [{
 [node name="Unit" type="CharacterBody2D"]
 script = ExtResource("1_m4rew")
 portrait_tex = ExtResource("2_d544p")
-display_name = "Pantherbot"
+display_name = "PANTHERBOT"
 thumbnail = ExtResource("3_jiuj3")
 pounce_cooldown = 0
 death_fx_offset = Vector2(0, -16)

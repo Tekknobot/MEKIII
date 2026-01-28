@@ -183,7 +183,7 @@ func _apply_ash() -> void:
 	pm.scale_max = 2.4
 
 	pm.lifetime_randomness = 0.55
-	_ash.lifetime = 6.0
+	_ash.lifetime = 16.0
 
 	_ash.amount = int(lerpf(30.0, 300.0, intensity))
 	_ash.texture = _make_dot_texture(5)

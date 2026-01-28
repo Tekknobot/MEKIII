@@ -89,10 +89,10 @@ text = "BACK"
 
 [node name="InfoPanel" type="Panel" parent="."]
 layout_mode = 0
-offset_left = 345.0
-offset_top = 74.0
-offset_right = 536.0
-offset_bottom = 297.0
+offset_left = 78.0
+offset_top = 345.0
+offset_right = 269.0
+offset_bottom = 568.0
 theme_override_styles/panel = SubResource("StyleBoxFlat_cod3f")
 
 [node name="VBox" type="VBoxContainer" parent="InfoPanel"]

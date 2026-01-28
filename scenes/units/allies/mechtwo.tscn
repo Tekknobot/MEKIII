@@ -125,7 +125,7 @@ animations = [{
 [node name="Unit" type="CharacterBody2D"]
 script = ExtResource("1_p85fo")
 portrait_tex = ExtResource("2_7x5td")
-display_name = "Destroyer A.I."
+display_name = "DESTROYER A.I."
 thumbnail = ExtResource("3_eixgi")
 missile_arc_height_px = 64.0
 missile_splash_radius = 2

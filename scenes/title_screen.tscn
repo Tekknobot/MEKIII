@@ -401,14 +401,14 @@ layer_1/name = "Layer1"
 
 [node name="Weather" type="Node2D" parent="."]
 visible = false
-position = Vector2(534, 6)
+position = Vector2(3, -312)
 script = ExtResource("13_frs5l")
-weather = 2
+weather = 3
 intensity = 0.5
+wind = Vector2(35, 0)
 follow_camera = false
 
 [node name="Fade" type="ColorRect" parent="."]
-visible = false
 z_index = 4096
 layout_mode = 0
 offset_left = -26.0

@@ -2,6 +2,8 @@ extends Unit
 class_name HumanTwo
 
 @export var thumbnail: Texture2D
+@export var specials: Array[String] = ["BLADE", "STIMPACK"]
+@export var special_desc: String = "Slashes targets within range up close.\nBoost damage and movement per turn."
 
 @export var blade_range := 5
 @export var blade_damage := 2
@@ -17,7 +19,7 @@ class_name HumanTwo
 
 func _ready() -> void:
 	set_meta("portrait_tex", preload("res://sprites/Portraits/rambo_port.png"))
-	set_meta("display_name", "Mercenary")
+	set_meta("display_name", "MERCENARY")
 		
 	footprint_size = Vector2i(1, 1)
 	move_range = 5

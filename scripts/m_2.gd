@@ -7,6 +7,8 @@ class_name M2
 @export var portrait_tex: Texture2D = preload("res://sprites/Portraits/dog_port.png") # swap to panther portrait
 @export var display_name := "M2 Panther"
 @export var thumbnail: Texture2D
+@export var special: String = "POUNCE"
+@export var special_desc: String = "Attacks to an enemy in range, deal damage, and knock them back"
 
 @export var attack_anim_name: StringName = &"attack"
 @export var attack_fx_scene: PackedScene = null
