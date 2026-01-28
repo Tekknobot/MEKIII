@@ -1,0 +1,50 @@
+[gd_scene load_steps=10 format=3 uid="uid://b8kf8d456acpu"]
+
+[ext_resource type="Texture2D" uid="uid://kqcvxhkowwjs" path="res://sprites/Mechas/Bomber/bomber1.png" id="1_jylt5"]
+[ext_resource type="Texture2D" uid="uid://gg1py5c3sm7g" path="res://sprites/Mechas/Bomber/bomber2.png" id="2_0hyo2"]
+[ext_resource type="Texture2D" uid="uid://bgfokjgtigd1q" path="res://sprites/Mechas/Bomber/bomber3.png" id="3_imesv"]
+[ext_resource type="Texture2D" uid="uid://cmqrky2g17e5e" path="res://sprites/Mechas/Bomber/bomber4.png" id="4_1635p"]
+[ext_resource type="Texture2D" uid="uid://bo5wsvloqx585" path="res://sprites/Mechas/Bomber/bomber5.png" id="5_h2syg"]
+[ext_resource type="Texture2D" uid="uid://dbljv6dkbqp4p" path="res://sprites/Mechas/Bomber/bomber6.png" id="6_tw1wn"]
+[ext_resource type="Texture2D" uid="uid://1wf74lc81f7a" path="res://sprites/Mechas/Bomber/bomber7.png" id="7_crrut"]
+[ext_resource type="Texture2D" uid="uid://vs4p3jce7jv4" path="res://sprites/Mechas/Bomber/bomber8.png" id="8_jgum6"]
+
+[sub_resource type="SpriteFrames" id="SpriteFrames_kb8u3"]
+animations = [{
+"frames": [{
+"duration": 1.0,
+"texture": ExtResource("1_jylt5")
+}, {
+"duration": 1.0,
+"texture": ExtResource("2_0hyo2")
+}, {
+"duration": 1.0,
+"texture": ExtResource("3_imesv")
+}, {
+"duration": 1.0,
+"texture": ExtResource("4_1635p")
+}, {
+"duration": 1.0,
+"texture": ExtResource("5_h2syg")
+}, {
+"duration": 1.0,
+"texture": ExtResource("6_tw1wn")
+}, {
+"duration": 1.0,
+"texture": ExtResource("7_crrut")
+}, {
+"duration": 1.0,
+"texture": ExtResource("8_jgum6")
+}],
+"loop": true,
+"name": &"default",
+"speed": 12.0
+}]
+
+[node name="Bomber" type="Node2D"]
+
+[node name="AnimatedSprite2D" type="AnimatedSprite2D" parent="."]
+z_index = 4096
+sprite_frames = SubResource("SpriteFrames_kb8u3")
+autoplay = "default"
+frame_progress = 0.35162798

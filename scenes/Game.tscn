@@ -1,4 +1,4 @@
-[gd_scene load_steps=88 format=3 uid="uid://bmtwqbsx674eo"]
+[gd_scene load_steps=91 format=3 uid="uid://bmtwqbsx674eo"]
 
 [ext_resource type="Script" uid="uid://bn08mhcoceqg" path="res://scripts/game.gd" id="1_400sg"]
 [ext_resource type="Texture2D" uid="uid://by1nnygq8fbib" path="res://sprites/Terrain/dirt.png" id="6_mcffj"]
@@ -21,6 +21,7 @@
 [ext_resource type="PackedScene" uid="uid://p5f35eddc3kl" path="res://scenes/structures/tower.tscn" id="24_ca228"]
 [ext_resource type="Script" uid="uid://c5qxy87uee84f" path="res://scripts/turnmanager.gd" id="24_jai3c"]
 [ext_resource type="Script" uid="uid://tcy0f4y2y347" path="res://scripts/map_controller.gd" id="24_ocgqw"]
+[ext_resource type="PackedScene" uid="uid://b8kf8d456acpu" path="res://scenes/bomber.tscn" id="25_jipkd"]
 [ext_resource type="PackedScene" uid="uid://dmujwxtnheagi" path="res://scenes/zombie.tscn" id="26_0bq3a"]
 [ext_resource type="PackedScene" uid="uid://jlyja0pfcon6" path="res://scenes/attack_tile.tscn" id="26_jhsr3"]
 [ext_resource type="PackedScene" uid="uid://b8etqvuw07mhc" path="res://scenes/units/allies/human.tscn" id="26_rm8d8"]
@@ -53,7 +54,9 @@
 [ext_resource type="PackedScene" uid="uid://2ov7kvfue6bm" path="res://scenes/floppy.tscn" id="46_xfjuk"]
 [ext_resource type="PackedScene" uid="uid://c6mcd4ogd1jyq" path="res://scenes/beacon.tscn" id="47_6h74c"]
 [ext_resource type="Script" uid="uid://dsiq3cf4mv8kx" path="res://scripts/tutorial_manager.gd" id="49_0wf52"]
+[ext_resource type="AudioStream" uid="uid://qqjpoq6hc03x" path="res://audio/SFX/eject.wav" id="49_o01hm"]
 [ext_resource type="PackedScene" uid="uid://de5lsm2hud7v7" path="res://scenes/tutorial_toast.tscn" id="50_3pold"]
+[ext_resource type="AudioStream" uid="uid://caauaqn24s8f5" path="res://audio/SFX/drop_in_bomber.wav" id="50_uxlqh"]
 [ext_resource type="Script" uid="uid://bi7op5w7aqis" path="res://scripts/end_game_panel_runtime.gd" id="51_3ugab"]
 [ext_resource type="FontFile" uid="uid://dgugahs6bc7so" path="res://fonts/magofonts/mago3.ttf" id="52_px4p2"]
 [ext_resource type="FontFile" uid="uid://csnhk3q4gx0" path="res://fonts/magofonts/mago1.ttf" id="53_x0rj3"]
@@ -390,7 +393,10 @@ sfx_player_path = NodePath("AudioStreamPlayer2D")
 sfx_streams = {
 "attack_hit": ExtResource("38_ho5ir"),
 "attack_swing": ExtResource("37_27c7x"),
+"bomber_in": ExtResource("50_uxlqh"),
+"bomber_out": ExtResource("50_uxlqh"),
 "cannon_fire": ExtResource("44_rm8d8"),
+"drop_thump": ExtResource("49_o01hm"),
 "explosion_small": ExtResource("39_evnk2"),
 "mine_place": null,
 "missile_launch": ExtResource("42_lscvm"),
@@ -418,6 +424,11 @@ floppy_pickup_scene = ExtResource("46_xfjuk")
 beacon_marker_scene = ExtResource("47_6h74c")
 beacon_marker_y_offset_px = 0.0
 beacon_marker_z_base = 0
+bomber_scene = ExtResource("25_jipkd")
+bomber_arrive_time = 2.45
+bomber_depart_time = 2.45
+drop_fall_time = 0.62
+drop_land_pop_time = 0.38
 
 [node name="AudioStreamPlayer2D" type="AudioStreamPlayer2D" parent="MapController"]
 

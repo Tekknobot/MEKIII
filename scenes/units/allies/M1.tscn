@@ -149,6 +149,7 @@ script = ExtResource("1_ind6l")
 portrait_tex = ExtResource("2_m1fto")
 display_name = "BLADEGUARD"
 thumbnail = ExtResource("3_iscaa")
+special_desc = "Hits target tile, then continues behind it (same line) one by one."
 sunder_cooldown = 0
 sunder_step_delay = 0.0
 death_fx_offset = Vector2(0, -16)

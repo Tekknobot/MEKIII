@@ -116,14 +116,17 @@ func _on_card_hovered(data: Dictionary) -> void:
 	var special_desc := str(data.get("special_desc", ""))
 
 	var lines: Array[String] = []
-	lines.append("HP %d" % hp)
-	lines.append("MOVE %d" % mv)
-	lines.append("RANGE %d" % rng)
-	lines.append("DMG %d" % dmg)
+
+	# Left column padded to 6 characters
+	lines.append("%-6s %d" % ["HP", hp])
+	lines.append("%-6s %d" % ["MOVE", mv])
+	lines.append("%-6s %d" % ["RANGE", rng])
+	lines.append("%-6s %d" % ["DMG", dmg])
 
 	if special_text != "":
-		lines.append("") # blank line spacer
-		lines.append("SPECIAL: %s" % special_text)
+		lines.append("")
+		lines.append("SPECIAL:")
+		lines.append(special_text)
 		if special_desc != "":
 			lines.append(special_desc)
 

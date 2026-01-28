@@ -229,6 +229,19 @@ signal tutorial_event(id: StringName, payload: Dictionary)
 
 var special_unit: Unit = null
 
+# --- Bomber drop-in ---
+@export var bomber_scene: PackedScene
+@export var bomber_y_offscreen := -520.0         # start/end Y above camera
+@export var bomber_arrive_time := 0.45
+@export var bomber_depart_time := 0.40
+@export var bomber_hover_px := 18.0              # tiny hover bob while dropping (optional)
+
+@export var drop_fall_time := 0.22
+@export var drop_land_pop_time := 0.10
+@export var drop_land_pop_px := 10.0
+@export var drop_sfx := &"drop_thump"
+@export var bomber_sfx_in := &"bomber_in"
+@export var bomber_sfx_out := &"bomber_out"
 
 
 func _sfx(cue: StringName, vol := 1.0, pitch := 1.0, world_pos: Variant = null) -> void:
@@ -477,17 +490,15 @@ func spawn_units() -> void:
 	reset_beacon_state()
 	_used_ally_scenes.clear()
 	_recruits_spawned_at.clear()
-	_recruit_pool.clear()	
-	
+	_recruit_pool.clear()
+
 	recruit_round_stamp += 1
 	_randomize_beacon_cell()
-	
-	# Structure-blocked cells from Game
+
 	var structure_blocked: Dictionary = {}
 	if game_ref != null and "structure_blocked" in game_ref:
 		structure_blocked = game_ref.structure_blocked
 
-	# --- Build list of all valid walkable + unblocked cells ---
 	var valid_cells: Array[Vector2i] = []
 	var w := int(grid.w)
 	var h := int(grid.h)
@@ -505,36 +516,29 @@ func spawn_units() -> void:
 		return
 
 	# ---------------------------------------------------
-	# 1) Pick a random "ally cluster center"
+	# 1) Pick ally cluster center + choose ally cells (cells only, no units yet)
 	# ---------------------------------------------------
-	var cluster_center = valid_cells.pick_random()
+	var cluster_center: Vector2i = valid_cells.pick_random()
 
-	# Sort valid cells by distance to cluster center
 	valid_cells.sort_custom(func(a:Vector2i, b:Vector2i) -> bool:
 		var da = abs(a.x - cluster_center.x) + abs(a.y - cluster_center.y)
 		var db = abs(b.x - cluster_center.x) + abs(b.y - cluster_center.y)
 		return da < db
 	)
 
-	# --- Spawn allies close together BUT spaced by 1 tile ---
-	# Build a "near" list (already sorted by distance) and pick cells that aren't adjacent.
 	var near := valid_cells.duplicate()
-	var used: Array[Vector2i] = []
-
-	# ✅ Only spawn ally_count (not the full ally_scenes list)
+	var chosen_cells: Array[Vector2i] = []
 	var start_n = min(ally_count, ally_scenes.size(), near.size())
 
 	for i in range(start_n):
 		var chosen := Vector2i(-1, -1)
 
-		# Find the first cell that is NOT adjacent to any already chosen ally cell
 		for idx in range(near.size()):
-			var cand = near[idx]
+			var cand: Vector2i = near[idx]
 			var ok := true
-			for ucell in used:
+			for ucell in chosen_cells:
 				var dx = abs(cand.x - ucell.x)
 				var dy = abs(cand.y - ucell.y)
-				# Block adjacency including diagonals (Chebyshev distance <= 1)
 				if max(dx, dy) <= 1:
 					ok = false
 					break
@@ -543,51 +547,85 @@ func spawn_units() -> void:
 				near.remove_at(idx)
 				break
 
-		# Fallback if we couldn't find a spaced cell (rare on tiny maps)
 		if chosen.x < 0:
 			if near.is_empty():
 				break
 			chosen = near.pop_front()
 
-		used.append(chosen)
-
-		# ✅ Pick a unique starting ally scene safely
-		var scene := ally_scenes[i]
-		_spawn_specific_ally(chosen, scene)
-
-		# mark used
-		if scene != null and not _used_ally_scenes.has(scene):
-			_used_ally_scenes.append(scene)
-
-	# Remove chosen ally cells from valid_cells so enemies don't spawn there
-	for c in used:
-		var k := valid_cells.find(c)
-		if k != -1:
-			valid_cells.remove_at(k)
+		chosen_cells.append(chosen)
 
 	# ---------------------------------------------------
-	# 2) Zombies: far zone + clusters
+	# 2) Zombies FIRST (based on far center from cluster_center)
 	# ---------------------------------------------------
 	var enemy_center := _pick_far_center(valid_cells, cluster_center)
 
-	# Build an enemy-zone pool near enemy_center (tweak radius)
 	var enemy_zone_radius := 16
 	var enemy_zone_cells := _cells_within_radius(valid_cells, enemy_center, enemy_zone_radius)
-
-	# If the zone is too small, fall back to all remaining valid cells
 	if enemy_zone_cells.size() < max_zombies:
 		enemy_zone_cells = valid_cells.duplicate()
 
-	# ✅ build recruit pool from ally_scenes excluding the starting allies
 	_rebuild_recruit_pool_from_allies()
-
 	_spawn_zombies_in_clusters(enemy_zone_cells, max_zombies)
+
+	# ---------------------------------------------------
+	# 3) Allies AFTER (bomber drop)
+	# ---------------------------------------------------
+	var drop_center_cell := cluster_center
+	if not chosen_cells.is_empty():
+		drop_center_cell = chosen_cells[0]
+
+	var drop_center_world := _cell_world(drop_center_cell)
+	_sfx(bomber_sfx_in, sfx_volume_world, 1.0, drop_center_world)
+
+	var bomber := _spawn_bomber(drop_center_world.x, drop_center_world.y)
+	if bomber != null:
+		await _tween_node_global_pos(
+			bomber,
+			bomber.global_position,
+			drop_center_world + Vector2(0, -bomber_hover_px),
+			bomber_arrive_time
+		)
+
+	for i in range(chosen_cells.size()):
+		var cell_i := chosen_cells[i]
+		var scene := ally_scenes[i]
+		if scene == null:
+			continue
+
+		var u := scene.instantiate() as Unit
+		if u == null:
+			continue
+
+		units_root.add_child(u)
+		_wire_unit_signals(u)
+		u.team = Unit.Team.ALLY
+		u.hp = u.max_hp
+
+		units_by_cell[cell_i] = u
+
+		if not _used_ally_scenes.has(scene):
+			_used_ally_scenes.append(scene)
+
+		if bomber != null:
+			await _drop_unit_from_bomber(u, bomber, cell_i)
+		else:
+			u.set_cell(cell_i, terrain)
+			_set_unit_depth_from_world(u, u.global_position)
+
+	if bomber != null and is_instance_valid(bomber):
+		_sfx(bomber_sfx_out, sfx_volume_world, 1.0, bomber.global_position)
+		await _tween_node_global_pos(
+			bomber,
+			bomber.global_position,
+			bomber.global_position + Vector2(0, bomber_y_offscreen),
+			bomber_depart_time
+		)
+		bomber.queue_free()
 
 	print("Spawned allies:", ally_count, "zombies:", max_zombies)
 
 	apply_run_upgrades()
 
-	# ✅ Now that units exist, auto-select + update buttons
 	if TM != null and TM.has_method("on_units_spawned"):
 		TM.on_units_spawned()
 
@@ -4324,3 +4362,69 @@ func _rs() -> Node:
 	if rs != null:
 		return rs
 	return null
+
+func _spawn_bomber(world_x: float, world_y: float) -> Node2D:
+	if bomber_scene == null:
+		return null
+	var b := bomber_scene.instantiate() as Node2D
+	if b == null:
+		return null
+
+	# Put bomber in overlays so it’s “above” the map visually
+	var parent: Node = overlay_root if (overlay_root != null and is_instance_valid(overlay_root)) else self
+	parent.add_child(b)
+
+	# Start offscreen (same x, high y)
+	b.global_position = Vector2(world_x, world_y + bomber_y_offscreen)
+
+	# Keep on top
+	b.z_as_relative = false
+	b.z_index = 999999
+
+	return b
+
+func _tween_node_global_pos(n: Node2D, from: Vector2, to: Vector2, t: float) -> void:
+	if n == null or not is_instance_valid(n):
+		return
+	n.global_position = from
+	var tw := create_tween()
+	tw.set_trans(Tween.TRANS_SINE)
+	tw.set_ease(Tween.EASE_IN_OUT)
+	tw.tween_property(n, "global_position", to, max(0.01, t))
+	await tw.finished
+
+func _drop_unit_from_bomber(u: Unit, bomber: Node2D, target_cell: Vector2i) -> void:
+	if u == null or not is_instance_valid(u) or bomber == null or not is_instance_valid(bomber):
+		return
+	if terrain == null:
+		return
+
+	var target_world := _cell_world(target_cell)
+
+	# Start at bomber “belly”
+	u.global_position = bomber.global_position
+	_set_unit_depth_from_world(u, u.global_position)
+
+	# Quick fall
+	var fall_tw := create_tween()
+	fall_tw.set_trans(Tween.TRANS_SINE)
+	fall_tw.set_ease(Tween.EASE_IN)
+	fall_tw.tween_property(u, "global_position", target_world, max(0.01, drop_fall_time))
+	await fall_tw.finished
+
+	# Lock to cell + depth
+	u.set_cell(target_cell, terrain)
+	_set_unit_depth_from_world(u, u.global_position)
+
+	# Landing pop (visual node if available)
+	var vis := _get_unit_visual_node(u)
+	if vis != null and is_instance_valid(vis):
+		var base := vis.position
+		vis.position = base + Vector2(0, -drop_land_pop_px)
+		var pop := create_tween()
+		pop.set_trans(Tween.TRANS_SINE)
+		pop.set_ease(Tween.EASE_OUT)
+		pop.tween_property(vis, "position", base, max(0.01, drop_land_pop_time))
+		await pop.finished
+
+	_sfx(drop_sfx, sfx_volume_world, randf_range(0.95, 1.05), target_world)

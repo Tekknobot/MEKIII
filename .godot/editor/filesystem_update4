@@ -25,3 +25,5 @@ res://scenes/units/allies/human.tscn
 res://scenes/units/allies/humantwo.tscn
 res://scenes/units/allies/R2.tscn
 res://scenes/units/allies/M2.tscn
+res://scenes/bomber.tscn
+res://scripts/map_controller.gd
