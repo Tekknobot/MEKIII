@@ -433,8 +433,8 @@ bomber_scene = ExtResource("25_jipkd")
 bomber_arrive_time = 2.45
 bomber_depart_time = 2.45
 drop_fall_time = 0.62
-drop_land_pop_time = 0.38
-evac_pickup_time = 0.12
+drop_land_pop_time = 0.18
+evac_pickup_time = 0.02
 evac_lift_px = 10.0
 
 [node name="AudioStreamPlayer2D" type="AudioStreamPlayer2D" parent="MapController"]

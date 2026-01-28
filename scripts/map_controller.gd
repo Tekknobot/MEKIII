@@ -4123,6 +4123,7 @@ func _run_satellite_sweep_async() -> void:
 	await satellite_sweep()
 	emit_signal("tutorial_event", &"satellite_sweep_finished", {})
 
+
 	await _extract_allies_with_bomber()
 	emit_signal("tutorial_event", &"extraction_finished", {})
 
