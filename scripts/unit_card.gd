@@ -14,6 +14,47 @@ var _cached_data: Dictionary
 
 var unit_path: String = ""
 
+@export var desat_selected := true
+@export var desat_tween_time := 0.30
+@export var desat_affects_thumbnail := true
+
+var _sat_tw: Tween = null
+var _portrait_mat: ShaderMaterial = null
+var _thumb_mat: ShaderMaterial = null
+@export var default_saturation := 0.0 # 0=gray at start, 1=color
+
+func _make_desat_material() -> ShaderMaterial:
+	var sh := Shader.new()
+	sh.code = """
+shader_type canvas_item;
+uniform float saturation : hint_range(0.0, 1.0) = 1.0;
+void fragment() {
+	vec4 c = texture(TEXTURE, UV);
+	float g = dot(c.rgb, vec3(0.299, 0.587, 0.114));
+	vec3 gray = vec3(g);
+	c.rgb = mix(gray, c.rgb, saturation);
+	COLOR = c;
+}
+"""
+	var mat := ShaderMaterial.new()
+	mat.shader = sh
+	return mat
+
+func _ensure_desat_mats() -> void:
+	if portrait != null and _portrait_mat == null:
+		_portrait_mat = _make_desat_material()
+		portrait.material = _portrait_mat
+
+	if desat_affects_thumbnail and thumbnail != null and _thumb_mat == null:
+		_thumb_mat = _make_desat_material()
+		thumbnail.material = _thumb_mat
+
+func _set_saturation(v: float) -> void:
+	if _portrait_mat != null:
+		_portrait_mat.set_shader_parameter("saturation", v)
+	if desat_affects_thumbnail and _thumb_mat != null:
+		_thumb_mat.set_shader_parameter("saturation", v)
+
 func _ready() -> void:
 	# Loud error so you don’t wonder why nothing shows up.
 	if name_label == null or stats_label == null:
@@ -60,6 +101,11 @@ func set_data(data: Dictionary) -> void:
 			thumbnail.texture = null
 			thumbnail.visible = false
 
+	# reset to default when reusing cards
+	if desat_selected:
+		_ensure_desat_mats()
+		_set_saturation(default_saturation)
+		
 	if name_label:
 		name_label.text = str(data.get("name", unit_path.get_file().get_basename()))
 
@@ -73,6 +119,37 @@ func set_data(data: Dictionary) -> void:
 	disabled = false
 	modulate = Color(1, 1, 1, 1)
 
+
 func set_selected(on: bool) -> void:
-	# subtle tint highlight
+	# subtle tint highlight (keep your current behavior)
 	modulate = (Color(0.85, 1.0, 0.85, 1.0) if on else Color(1, 1, 1, 1))
+
+	if not desat_selected:
+		return
+
+	_ensure_desat_mats()
+	if _portrait_mat == null and _thumb_mat == null:
+		return
+
+	if _sat_tw != null and is_instance_valid(_sat_tw):
+		_sat_tw.kill()
+	_sat_tw = null
+
+	var to := 1.0 if on else 0.0
+
+	_sat_tw = create_tween()
+	_sat_tw.tween_method(func(v: float) -> void:
+		_set_saturation(v)
+	, _get_current_saturation(), to, desat_tween_time)
+
+func _get_current_saturation() -> float:
+	if _portrait_mat != null:
+		return float(_portrait_mat.get_shader_parameter("saturation"))
+	if _thumb_mat != null:
+		return float(_thumb_mat.get_shader_parameter("saturation"))
+	return 1.0
+
+func force_saturation(v: float) -> void:
+	if desat_selected:
+		_ensure_desat_mats()
+		_set_saturation(v)

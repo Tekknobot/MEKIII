@@ -82,6 +82,11 @@ var _cloud_showing_a := true
 var _cloud_base_pos_a := Vector2.ZERO
 var _cloud_base_pos_b := Vector2.ZERO
 
+var _desat_tw: Tween = null
+@export var desat_time := 0.12
+@export var resat_time := 0.20
+@export var desat_hold := 0.06
+
 func _ready() -> void:
 	# Fade in from black
 	fade.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -457,3 +462,45 @@ func _pick_cloud_index() -> int:
 		if idx != _cloud_last_index:
 			return idx
 	return int(max(0, _cloud_last_index))
+
+func _desaturate_bg_pulse() -> void:
+	if bg == null:
+		return
+
+	var mat := bg.material as ShaderMaterial
+	if mat == null:
+		return
+	if not mat.shader:
+		return
+
+	# kill previous desat tween
+	if _desat_tw != null and is_instance_valid(_desat_tw):
+		_desat_tw.kill()
+	_desat_tw = null
+
+	# start from "normal" every time
+	mat.set_shader_parameter("saturation", 1.0)
+
+	_desat_tw = create_tween()
+	_desat_tw.set_trans(Tween.TRANS_SINE)
+	_desat_tw.set_ease(Tween.EASE_OUT)
+
+	# down to grayscale
+	_desat_tw.tween_method(func(v: float) -> void:
+		if bg != null and is_instance_valid(bg):
+			var m := bg.material as ShaderMaterial
+			if m != null:
+				m.set_shader_parameter("saturation", v)
+	, 1.0, 0.0, desat_time)
+
+	# tiny hold (so it actually reads)
+	_desat_tw.tween_interval(desat_hold)
+
+	# back to normal
+	_desat_tw.set_ease(Tween.EASE_IN_OUT)
+	_desat_tw.tween_method(func(v: float) -> void:
+		if bg != null and is_instance_valid(bg):
+			var m := bg.material as ShaderMaterial
+			if m != null:
+				m.set_shader_parameter("saturation", v)
+	, 0.0, 1.0, resat_time)

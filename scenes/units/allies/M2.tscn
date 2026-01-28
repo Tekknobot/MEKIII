@@ -153,6 +153,7 @@ script = ExtResource("1_m4rew")
 portrait_tex = ExtResource("2_d544p")
 display_name = "PANTHERBOT"
 thumbnail = ExtResource("3_jiuj3")
+special_desc = "Attacks to an enemy in range, deal damage, and knock them back."
 pounce_cooldown = 0
 death_fx_offset = Vector2(0, -16)
 

@@ -28,6 +28,8 @@ var _selected: Array[String] = []  # ordered scene paths
 
 var _probe_root: Node
 
+var _roster_cards: Dictionary = {} # path:String -> UnitCard
+
 func _ready() -> void:
 	start_button.pressed.connect(_on_start)
 	back_button.pressed.connect(_on_back)
@@ -62,37 +64,44 @@ func _rs() -> Node:
 # UI refresh
 # -----------------------
 func _refresh_all() -> void:
-	_rebuild_roster_ui()
-	_rebuild_squad_ui()
+	_rebuild_roster_ui()   # now updates selection without deleting
+	_rebuild_squad_ui()    # this one can still rebuild, that’s fine
 	start_button.disabled = (_selected.size() != squad_size)
 
 func _rebuild_roster_ui() -> void:
-	for c in roster_grid.get_children():
-		c.queue_free()
-
 	if roster_grid.columns <= 0:
 		roster_grid.columns = roster_columns
 
-	for data in _roster:
-		var card := unit_card_scene.instantiate()
-		roster_grid.add_child(card)
+	# Build ONCE
+	if roster_grid.get_child_count() == 0:
+		_roster_cards.clear()
 
-		# If scene script is missing / wrong, don’t hard-crash
-		if card.has_method("set_data"):
-			card.call("set_data", data)
-		if card.has_method("set_selected"):
-			card.call("set_selected", _selected.has(str(data.get("path",""))))
+		for data in _roster:
+			var card := unit_card_scene.instantiate()
+			roster_grid.add_child(card)
 
-		var p := str(data.get("path",""))
-		if card is BaseButton:
-			(card as BaseButton).pressed.connect(func():
-				_toggle_pick(p)
-			)
+			if card.has_method("set_data"):
+				card.call("set_data", data)
 
-		if card.has_signal("hovered"):
-			card.hovered.connect(_on_card_hovered)
-		if card.has_signal("unhovered"):
-			card.unhovered.connect(_on_card_unhovered)
+			var p := str(data.get("path",""))
+			_roster_cards[p] = card
+
+			if card is BaseButton:
+				(card as BaseButton).pressed.connect(func():
+					_toggle_pick(p)
+				)
+
+			if card.has_signal("hovered"):
+				card.hovered.connect(_on_card_hovered)
+			if card.has_signal("unhovered"):
+				card.unhovered.connect(_on_card_unhovered)
+
+	# Update selection state ONLY (no rebuilding)
+	for p in _roster_cards.keys():
+		var c = _roster_cards[p]
+		if c != null and is_instance_valid(c) and c.has_method("set_selected"):
+			c.call("set_selected", _selected.has(str(p)))
+
 
 func _on_card_hovered(data: Dictionary) -> void:
 	info_panel.visible = true

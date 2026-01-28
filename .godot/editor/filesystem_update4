@@ -27,3 +27,6 @@ res://scenes/units/allies/R2.tscn
 res://scenes/units/allies/M2.tscn
 res://scenes/bomber.tscn
 res://scripts/map_controller.gd
+res://shaders/desaturate.gdshader
+res://scenes/unit_card.tscn
+res://scripts/unit_card.gd

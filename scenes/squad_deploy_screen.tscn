@@ -91,7 +91,7 @@ text = "BACK"
 layout_mode = 0
 offset_left = 78.0
 offset_top = 345.0
-offset_right = 269.0
+offset_right = 243.0
 offset_bottom = 568.0
 theme_override_styles/panel = SubResource("StyleBoxFlat_cod3f")
 
