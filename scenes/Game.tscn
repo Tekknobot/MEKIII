@@ -373,6 +373,7 @@ sunder_button_path = NodePath("../UI/Sunder")
 pounce_button_path = NodePath("../UI/Pounce")
 volley_button_path = NodePath("../UI/Volley")
 cannon_button_path = NodePath("../UI/Cannon")
+quake_button_path = NodePath("../UI/Quake")
 beacon_deadline_round = 99
 
 [node name="Pickups" type="Node2D" parent="."]
@@ -408,6 +409,7 @@ sfx_streams = {
 "move_end": null,
 "move_start": ExtResource("36_m2g6u"),
 "move_step": ExtResource("36_m2g6u"),
+"quake_hit": ExtResource("39_evnk2"),
 "sat_laser": ExtResource("43_pn7ev"),
 "ui_arm_attack": ExtResource("35_kbe8o"),
 "ui_deselect": ExtResource("35_kbe8o"),
@@ -533,6 +535,15 @@ offset_right = 366.0
 offset_bottom = 626.0
 theme_override_fonts/font = ExtResource("32_1gdd5")
 text = "Cannon"
+
+[node name="Quake" type="Button" parent="UI"]
+z_index = 4096
+offset_left = 318.0
+offset_top = 605.0
+offset_right = 366.0
+offset_bottom = 626.0
+theme_override_fonts/font = ExtResource("32_1gdd5")
+text = "Quake"
 
 [node name="Watcher" type="Button" parent="UI"]
 z_index = 4096

@@ -35,3 +35,6 @@ res://scripts/game.gd
 res://scenes/tutorial_toast.tscn
 res://scripts/tutorial_manager.gd
 res://scenes/round_end_ui.tscn
+res://scenes/units/allies/S2.tscn
+res://scripts/s_2.gd
+res://scripts/turnmanager.gd

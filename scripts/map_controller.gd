@@ -1043,7 +1043,10 @@ func _perform_special(u: Unit, id: String, target_cell: Vector2i) -> void:
 
 	elif id == "cannon" and u.has_method("perform_cannon"):
 		await u.call("perform_cannon", self, target_cell)
-		
+
+	elif id == "quake" and u.has_method("perform_quake"):
+		await u.call("perform_quake", self, target_cell)
+				
 	_is_moving = false
 
 func _mouse_to_cell() -> Vector2i:
@@ -1524,6 +1527,19 @@ func _draw_special_range(u: Unit, special: String) -> void:
 					continue
 
 			# --- per-special validity (your existing logic) ---
+			if id == "quake":
+				var dist = abs(c.x - origin.x) + abs(c.y - origin.y)
+
+				# Ask unit for minimum safe distance if it provides one
+				var min_d := 1
+				if u.has_method("get_special_min_distance"):
+					min_d = int(u.call("get_special_min_distance", "quake"))
+				elif "quake_min_safe_dist" in u:
+					min_d = int(u.quake_min_safe_dist)
+
+				if dist < min_d:
+					continue
+
 			if id == "blade":
 				var tgt := unit_at_cell(c)
 				if tgt == null:
@@ -2504,7 +2520,9 @@ func _unit_can_use_special(u: Unit, id: String) -> bool:
 			return u.has_method("perform_volley")
 		"cannon":
 			return u.has_method("perform_cannon")
-			
+		"quake":
+			return u.has_method("perform_quake")
+					
 	return false
 
 func select_unit(u: Unit) -> void:

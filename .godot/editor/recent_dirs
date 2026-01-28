@@ -1,7 +1,8 @@
+res://sprites/Meks/S2
+res://scripts
 res://scenes
 res://sprites/Mechas/Bomber
 res://fonts/Boycott
-res://scripts
 res://sprites/Meks/R2
 res://sprites/Meks/R1
 res://sprites/Meks/M2
@@ -19,4 +20,3 @@ res://sprites/Structures/stadium
 res://scenes/structures
 res://sprites/Structures/building_c/demolished
 res://sprites/Structures/building_c
-res://fonts/magofonts

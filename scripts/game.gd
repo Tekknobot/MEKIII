@@ -621,7 +621,7 @@ func _cell_has_road(c: Vector2i) -> bool:
 
 # -------------------------------------------------
 # Structures (placement only)
-# -------------------------------------------------
+# --------------------------------------------------
 func spawn_structures() -> void:
 	structure_blocked.clear()
 	_unique_used.clear()
