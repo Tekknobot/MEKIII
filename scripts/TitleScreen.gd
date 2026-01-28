@@ -7,7 +7,7 @@ extends Control
 @onready var start_button: Button = $Center/PanelContainer/MarginContainer/VBoxContainer/Buttons/StartButton
 @onready var quit_button: Button = $Center/PanelContainer/MarginContainer/VBoxContainer/Buttons/QuitButton
 
-@onready var title: Label = $Center/PanelContainer/MarginContainer/VBoxContainer/Title
+@onready var title: RichTextLabel = $Center/PanelContainer/MarginContainer/VBoxContainer/Title
 
 # --- Story (typewriter) ---
 @onready var story_clip: Control = $StoryClip
@@ -27,12 +27,9 @@ var _type_timer: SceneTreeTimer = null
 @export var title_float_px := 6.0
 @export var title_float_time := 1.4
 
-@export var sick_color_a := Color("#7CFF63") # neon green
-@export var sick_color_b := Color("#B6FF9A") # lighter green
+@export var sick_color_a := Color("1a1a1aff") # neon green
+@export var sick_color_b := Color("4b4b4bff") # lighter green
 @export var sick_pulse_time := 0.55
-
-@export var title_outline_size := 8
-@export var title_outline_color := Color(1.0, 0.0, 0.0, 1.0)
 
 var _busy := false
 var _tw: Tween = null
@@ -276,17 +273,16 @@ func _update_typewriter(delta: float) -> void:
 			_type_accum += newline_speed_boost
 
 func _apply_fonts() -> void:
-	# Title
+	# Title (Godot 4 Label uses LabelSettings)
 	if title != null:
 		if title_font != null:
-			title.add_theme_font_override("font", title_font)
+			title.add_theme_font_override("normal_font", title_font)
+			title.add_theme_font_override("bold_font", title_font)
+			title.add_theme_font_override("italics_font", title_font)
+			title.add_theme_font_override("bold_italics_font", title_font)
+			title.add_theme_font_override("mono_font", title_font)
 		if title_font_size > 0:
-			title.add_theme_font_size_override("font_size", title_font_size)
-
-	# Title outline (Label supports this via theme overrides)
-	if title != null:
-		title.add_theme_constant_override("outline_size", title_outline_size)
-		title.add_theme_color_override("font_outline_color", title_outline_color)
+			title.add_theme_font_size_override("normal_font_size", title_font_size)
 
 	# Story (RichTextLabel)
 	if story != null:
@@ -305,7 +301,6 @@ func _apply_fonts() -> void:
 	# Buttons
 	_apply_button_font(start_button)
 	_apply_button_font(quit_button)
-
 
 func _apply_button_font(b: Button) -> void:
 	if b == null:

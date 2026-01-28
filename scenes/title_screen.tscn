@@ -1,4 +1,4 @@
-[gd_scene load_steps=51 format=3 uid="uid://rriol7fhna81"]
+[gd_scene load_steps=53 format=3 uid="uid://rriol7fhna81"]
 
 [ext_resource type="Script" uid="uid://q37bmmrkofy5" path="res://scripts/TitleScreen.gd" id="1_fgkus"]
 [ext_resource type="FontFile" uid="uid://cegmialmbsk70" path="res://fonts/Boycott/BOYCOTT_.ttf" id="2_aidx5"]
@@ -15,6 +15,7 @@
 [ext_resource type="Shader" uid="uid://184giwfb5rkg" path="res://shaders/wobble_shimmer.gdshader" id="13_12ga3"]
 [ext_resource type="Script" uid="uid://dc2tnq1wwbdig" path="res://scripts/weather_particles.gd" id="13_frs5l"]
 [ext_resource type="Script" uid="uid://dkqyh6slusnok" path="res://scripts/title_screen_map.gd" id="14_jr68i"]
+[ext_resource type="Shader" uid="uid://4obdbrd1sgkq" path="res://shaders/text_outline_1px.gdshader" id="14_yrrko"]
 [ext_resource type="Texture2D" uid="uid://by1nnygq8fbib" path="res://sprites/Terrain/dirt.png" id="15_b344i"]
 [ext_resource type="PackedScene" uid="uid://crup4kaqa4cia" path="res://scenes/structures/building.tscn" id="15_htdhw"]
 [ext_resource type="PackedScene" uid="uid://dwtvwjgxljh78" path="res://scenes/structures/district.tscn" id="16_12ga3"]
@@ -52,6 +53,12 @@ corner_radius_top_left = 2
 corner_radius_top_right = 2
 corner_radius_bottom_right = 2
 corner_radius_bottom_left = 2
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_aidx5"]
+shader = ExtResource("14_yrrko")
+shader_parameter/font_color = Color(0.8, 0, 0, 1)
+shader_parameter/outline_color = Color(1, 1, 1, 1)
+shader_parameter/outline_px = 4.0
 
 [sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_r0uj2"]
 texture = ExtResource("15_b344i")
@@ -212,6 +219,8 @@ grow_horizontal = 2
 grow_vertical = 2
 script = ExtResource("1_fgkus")
 fade_time = 1.25
+sick_color_a = Color(0.4862745, 0, 0, 1)
+sick_color_b = Color(0.7137255, 0, 0, 1)
 title_font = ExtResource("2_aidx5")
 title_font_size = 48
 body_font = ExtResource("3_mgrm8")
@@ -298,10 +307,12 @@ layout_mode = 2
 [node name="VBoxContainer" type="VBoxContainer" parent="Center/PanelContainer/MarginContainer"]
 layout_mode = 2
 
-[node name="Title" type="Label" parent="Center/PanelContainer/MarginContainer/VBoxContainer"]
-custom_minimum_size = Vector2(120, 32)
+[node name="Title" type="RichTextLabel" parent="Center/PanelContainer/MarginContainer/VBoxContainer"]
+material = SubResource("ShaderMaterial_aidx5")
+custom_minimum_size = Vector2(120, 73)
 layout_mode = 2
-theme_override_font_sizes/font_size = 64
+theme_override_fonts/normal_font = ExtResource("2_aidx5")
+theme_override_font_sizes/normal_font_size = 48
 text = "ZOMBIEMECHA"
 horizontal_alignment = 1
 
@@ -397,6 +408,7 @@ intensity = 0.5
 follow_camera = false
 
 [node name="Fade" type="ColorRect" parent="."]
+visible = false
 z_index = 4096
 layout_mode = 0
 offset_left = -26.0
