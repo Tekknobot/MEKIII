@@ -36,6 +36,13 @@ class_name M2
 @export var slam_damage := 2
 @export var slam_kills_both := true  # set false if you only want damage
 
+@export var pounce_lunge_px := 12.0        # how “deep” the lunge goes
+@export var pounce_lunge_time := 0.10     # time to reach target
+@export var pounce_return_time := 0.12    # time to return
+@export var pounce_use_visual_node := true # move Visual/Sprite only, not whole Unit
+@export var pounce_iso_feet_offset_y := 16.0
+@export var pounce_lunge_sfx_id: StringName = &"lunge"
+
 func _ready() -> void:
 	set_meta("portrait_tex", portrait_tex)
 	set_meta("display_name", display_name)
@@ -142,6 +149,9 @@ func perform_pounce(M: MapController, _target_cell: Vector2i) -> void:
 		_play_attack_fx(M, tgt_cell_for_fx)
 		_play_attack_anim_once()
 
+		# Lunge while anim plays (in parallel)
+		await _lunge_to_cell_and_back(M, tgt_cell_for_fx)
+
 		_apply_damage_safely(tgt, pounce_damage)
 
 		# ✅ wait anim
@@ -163,6 +173,14 @@ func perform_pounce(M: MapController, _target_cell: Vector2i) -> void:
 			var next_cell := tgt.cell + dir
 
 			if not _cell_in_bounds(M, next_cell):
+				if M.has_method("_ringout_push_and_die"):
+					await M.call("_ringout_push_and_die", self, tgt)
+				else:
+					_apply_damage_safely(tgt, 999)
+				break
+
+			# ✅ pushed into water/non-walkable = death
+			if _cell_is_water_or_nonwalkable(M, next_cell):
 				if M.has_method("_ringout_push_and_die"):
 					await M.call("_ringout_push_and_die", self, tgt)
 				else:
@@ -334,3 +352,71 @@ func _wait_attack_anim() -> void:
 	# ✅ snap back to idle automatically
 	if sprA.sprite_frames.has_animation("idle"):
 		sprA.play("idle")
+
+func _get_lunge_node() -> Node2D:
+	# Prefer moving a visual child so the Unit’s logical position stays stable
+	if pounce_use_visual_node:
+		var n := get_node_or_null("Visual") as Node2D
+		if n != null: return n
+		n = get_node_or_null("Visual/Sprite2D") as Node2D
+		if n != null: return n
+		n = get_node_or_null("Sprite2D") as Node2D
+		if n != null: return n
+	# Fallback: move the Unit node itself
+	return self as Node2D
+
+func _lunge_to_cell_and_back(M: MapController, target_cell: Vector2i) -> void:
+	if M == null:
+		return
+
+	var node := _get_lunge_node()
+	if node == null or not is_instance_valid(node):
+		return
+
+	# Compute direction to target in global space
+	var tgt_global := Vector2.ZERO
+	if M.terrain != null:
+		var map_local := M.terrain.map_to_local(target_cell)
+		tgt_global = M.terrain.to_global(map_local)
+	else:
+		tgt_global = Vector2(target_cell.x * 32, target_cell.y * 32)
+
+	# Lunge vector (global) from current node position
+	# If node is local (Visual), use global_position for direction and then apply in local coords.
+	var node_global := node.global_position
+	var dir := (tgt_global - node_global)
+	if dir.length() < 0.01:
+		return
+	dir = dir.normalized()
+
+	# Lunge “toward” the target, with a bit of isometric down-feel
+	var lunge_global_offset := dir * pounce_lunge_px
+	lunge_global_offset.y += pounce_iso_feet_offset_y * 0.15
+
+	var start_global := node.global_position
+	var peak_global := start_global + lunge_global_offset
+
+	# 🔊 PLAY LUNGE SFX AT PEAK
+	if pounce_lunge_sfx_id != &"" and M.has_method("_sfx"):
+		var global_pos := node.global_position
+		M.call("_sfx", pounce_lunge_sfx_id, 1.0, randf_range(0.95, 1.05), global_pos)
+		
+	var tw := create_tween()
+	tw.tween_property(node, "global_position", peak_global, max(0.01, pounce_lunge_time))
+	tw.tween_property(node, "global_position", start_global, max(0.01, pounce_return_time))
+	await tw.finished
+
+func _cell_is_water_or_nonwalkable(M: MapController, c: Vector2i) -> bool:
+	if M == null:
+		return false
+
+	# Best: if MapController has a walkable check, use it.
+	if M.has_method("_is_walkable"):
+		return not bool(M.call("_is_walkable", c))
+	if M.has_method("is_walkable"):
+		return not bool(M.call("is_walkable", c))
+	if M.has_method("is_cell_walkable"):
+		return not bool(M.call("is_cell_walkable", c))
+
+	# Fallback: if you can’t tell, don’t auto-kill.
+	return false

@@ -1,4 +1,4 @@
-[gd_scene load_steps=91 format=3 uid="uid://bmtwqbsx674eo"]
+[gd_scene load_steps=92 format=3 uid="uid://bmtwqbsx674eo"]
 
 [ext_resource type="Script" uid="uid://bn08mhcoceqg" path="res://scripts/game.gd" id="1_400sg"]
 [ext_resource type="Texture2D" uid="uid://by1nnygq8fbib" path="res://sprites/Terrain/dirt.png" id="6_mcffj"]
@@ -58,6 +58,7 @@
 [ext_resource type="PackedScene" uid="uid://de5lsm2hud7v7" path="res://scenes/tutorial_toast.tscn" id="50_3pold"]
 [ext_resource type="AudioStream" uid="uid://caauaqn24s8f5" path="res://audio/SFX/drop_in_bomber.wav" id="50_uxlqh"]
 [ext_resource type="Script" uid="uid://bi7op5w7aqis" path="res://scripts/end_game_panel_runtime.gd" id="51_3ugab"]
+[ext_resource type="AudioStream" uid="uid://c8iscv7pk8u8f" path="res://audio/SFX/panther_growl.wav" id="51_xlhy4"]
 [ext_resource type="FontFile" uid="uid://dgugahs6bc7so" path="res://fonts/magofonts/mago3.ttf" id="52_px4p2"]
 [ext_resource type="FontFile" uid="uid://csnhk3q4gx0" path="res://fonts/magofonts/mago1.ttf" id="53_x0rj3"]
 [ext_resource type="PackedScene" uid="uid://b6wrxn53ynbat" path="res://scenes/HUD.tscn" id="55_kg1ax"]
@@ -404,6 +405,7 @@ sfx_streams = {
 "cannon_fire": ExtResource("44_rm8d8"),
 "drop_thump": ExtResource("49_o01hm"),
 "explosion_small": ExtResource("39_evnk2"),
+"lunge": ExtResource("51_xlhy4"),
 "mine_place": null,
 "missile_launch": ExtResource("42_lscvm"),
 "move_end": null,
