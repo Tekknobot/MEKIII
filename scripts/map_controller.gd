@@ -251,6 +251,21 @@ var special_unit: Unit = null
 @export var evac_pause_between := 0.05
 @export var evac_sfx_pickup := &"bomber_pickup"   # add to sfx_streams if you want
 
+const UNIQUE_GROUP := "UniqueBuilding"
+
+@export var recruit_pulse_time := 0.08
+@export var recruit_pulse_loops := 3
+@export var recruit_pulse_boost := Color(0.0, 0.329, 1.0, 1.0)
+
+@export var recruit_fx_loops := 2
+@export var recruit_fx_in_time := 0.10
+@export var recruit_fx_hold_time := 0.04
+@export var recruit_fx_out_time := 0.18
+
+@export var recruit_fx_color := Color(0.0, 0.9, 1.0, 1.0)   # cyan glow
+@export var recruit_fx_alpha_min := 0.70                   # shimmer low
+@export var recruit_fx_scale_mul := 1.04                   # tiny pop (safe)
+
 func _sfx(cue: StringName, vol := 1.0, pitch := 1.0, world_pos: Variant = null) -> void:
 	if SFX == null:
 		return
@@ -3539,6 +3554,115 @@ func _ringout_push_and_die(attacker: Unit, defender: Unit) -> void:
 
 	_is_moving = false
 
+# ---------------------------------------------------------
+# Cool “unique building pulse” during recruitment
+# - flashes / pulses the building’s modulate (neon-ish)
+# - works even if _structure_at_cell() returns a child node
+# - safe: restores original modulate at the end
+# ---------------------------------------------------------
+
+func _on_unique_recruit_pulse(struct_node: Node) -> void:
+	# Find the unique building root (walk up parents)
+	var root: Node = struct_node
+	while root != null and is_instance_valid(root) and not root.is_in_group(UNIQUE_GROUP):
+		root = root.get_parent()
+	if root == null or not is_instance_valid(root):
+		return
+
+	# Pick a CanvasItem target (what we actually modulate)
+	var target: CanvasItem = null
+
+	# Prefer an obvious sprite node
+	var spr := root.get_node_or_null("Sprite2D")
+	if spr is CanvasItem:
+		target = spr as CanvasItem
+
+	# Fallback: first CanvasItem descendant
+	if target == null:
+		target = _find_first_canvasitem_descendant(root)
+
+	# Last fallback: root itself if it’s a CanvasItem
+	if target == null and (root is CanvasItem):
+		target = root as CanvasItem
+
+	if target == null or not is_instance_valid(target):
+		return
+
+	# Stop any previous FX tween
+	if target.has_meta("unique_fx_tw"):
+		var old = target.get_meta("unique_fx_tw")
+		if old is Tween and is_instance_valid(old):
+			(old as Tween).kill()
+		target.set_meta("unique_fx_tw", null)
+
+	# Store base state once per target
+	if not target.has_meta("unique_fx_base_mod"):
+		target.set_meta("unique_fx_base_mod", target.modulate)
+	if (target is Node2D) and not target.has_meta("unique_fx_base_scale"):
+		target.set_meta("unique_fx_base_scale", (target as Node2D).scale)
+
+	var base_mod: Color = target.get_meta("unique_fx_base_mod")
+	var base_a := base_mod.a
+
+	var base_scale := Vector2.ONE
+	var can_scale := (target is Node2D)
+	if can_scale:
+		base_scale = target.get_meta("unique_fx_base_scale")
+
+	# Compute boosted color (additive-ish but clamped)
+	var boosted := Color(
+		clamp(base_mod.r + recruit_fx_color.r, 0.0, 1.0),
+		clamp(base_mod.g + recruit_fx_color.g, 0.0, 1.0),
+		clamp(base_mod.b + recruit_fx_color.b, 0.0, 1.0),
+		base_a
+	)
+
+	# Tiny alpha shimmer endpoints
+	var a_low = clamp(base_a * recruit_fx_alpha_min, 0.0, 1.0)
+	var a_hi := base_a
+
+	# Scale pop endpoint
+	var scale_hi := base_scale * recruit_fx_scale_mul
+
+	var tw := create_tween()
+	target.set_meta("unique_fx_tw", tw)
+
+	tw.set_trans(Tween.TRANS_SINE)
+	tw.set_ease(Tween.EASE_IN_OUT)
+
+	for i in range(recruit_fx_loops):
+		# CHARGE: color up + alpha down slightly (shimmer)
+		tw.tween_property(target, "modulate", boosted, max(0.01, recruit_fx_in_time))
+		tw.parallel().tween_property(target, "modulate:a", a_low, max(0.01, recruit_fx_in_time))
+
+		# POP: quick scale up then settle (if Node2D)
+		if can_scale:
+			tw.parallel().tween_property(target, "scale", scale_hi, max(0.01, recruit_fx_in_time * 0.70))
+
+		# HOLD
+		tw.tween_interval(max(0.01, recruit_fx_hold_time))
+
+		# SETTLE: color back + alpha back
+		tw.tween_property(target, "modulate", base_mod, max(0.01, recruit_fx_out_time))
+		tw.parallel().tween_property(target, "modulate:a", a_hi, max(0.01, recruit_fx_out_time))
+
+		if can_scale:
+			tw.parallel().tween_property(target, "scale", base_scale, max(0.01, recruit_fx_out_time))
+
+	# Ensure final exact restore
+	tw.tween_callback(func():
+		if target != null and is_instance_valid(target):
+			target.modulate = base_mod
+			if can_scale and target is Node2D:
+				(target as Node2D).scale = base_scale
+			target.set_meta("unique_fx_tw", null)
+	)
+
+	await tw.finished
+
+# ---------------------------------------------------------
+# Full recruit function (UNIQUE ONLY) with the pulse
+# ---------------------------------------------------------
 func _try_recruit_near_structure(mover: Unit) -> void:
 	if not recruit_enabled:
 		return
@@ -3551,36 +3675,31 @@ func _try_recruit_near_structure(mover: Unit) -> void:
 	if terrain == null or units_root == null or grid == null:
 		return
 
-	# Find an adjacent structure cell (8-neighbors)
 	var s_cell := _find_adjacent_structure_cell(mover.cell)
 	if s_cell.x < -100:
 		return
 
-	# Find the structure node at/near that cell
 	var s := _structure_at_cell(s_cell)
 	if s == null or not is_instance_valid(s):
 		return
 
-	# ---------------------------------------------------------
-	# UNIQUE BUILDING GATE (robust):
-	# _structure_at_cell() might return a CHILD (Area2D/Sprite/etc),
-	# so climb parents until we find the structure root we tagged.
-	# ---------------------------------------------------------
+	# Walk up to a UNIQUE building root (group-based)
 	var root: Node = s
-	while root != null and is_instance_valid(root) and not root.is_in_group("UniqueBuilding"):
+	while root != null and is_instance_valid(root) and not root.is_in_group(UNIQUE_GROUP):
 		root = root.get_parent()
-
 	if root == null or not is_instance_valid(root):
-		return # not a unique building
+		return
 
-	# Optional: only recruit once per structure per round (stamp on ROOT)
+	# Once-per-round stamp on the UNIQUE root
 	if recruit_once_per_structure_per_round:
 		var stamp: int = int(root.get_meta("recruit_stamp", -999))
 		if stamp == recruit_round_stamp:
 			return
 		root.set_meta("recruit_stamp", recruit_round_stamp)
 
-	# Find an open adjacent tile to the structure (spawn location)
+	# ✨ Pulse the unique building before the recruit spawns
+	await _on_unique_recruit_pulse(root)
+
 	var spawn_cell := _find_open_adjacent_to_structure(s_cell)
 	if spawn_cell.x < 0:
 		return

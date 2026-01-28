@@ -194,6 +194,8 @@ animations = [{
 [node name="Unit" type="CharacterBody2D"]
 script = ExtResource("1_swaxu")
 thumbnail = ExtResource("2_3qu3p")
+special_desc = "Throw TNT causing splash damage. 
+Fire at targets and disable movement."
 hellfire_delay = 0.18
 hellfire_projectile_scene = ExtResource("2_nsheb")
 hellfire_flight_time = 1.8
