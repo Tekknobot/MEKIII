@@ -108,6 +108,7 @@ var _start_max_zombies := 0
 @export var tutorial_manager_path: NodePath
 @onready var tutorial_manager := get_node_or_null(tutorial_manager_path)
 
+var _unique_buffer_blocked: Dictionary = {} # Vector2i -> true
 
 func add_upgrade(id: StringName) -> void:
 	RunStateNode.add_upgrade(id)
@@ -623,20 +624,23 @@ func _cell_has_road(c: Vector2i) -> bool:
 # -------------------------------------------------
 func spawn_structures() -> void:
 	structure_blocked.clear()
-	_unique_used.clear() # ✅ reset per regen
+	_unique_used.clear()
+	_unique_buffer_blocked.clear()
 
 	if structures_root == null:
 		structures_root = self
 
+	# Clear old
 	for ch in structures_root.get_children():
 		ch.queue_free()
 
 	if building_scenes == null or building_scenes.is_empty():
 		return
 
-	var size := building_footprint
+	var size: Vector2i = building_footprint
 	var candidates: Array[Vector2i] = []
 
+	# Build candidate origins
 	for x in range(map_width - size.x + 1):
 		for y in range(map_height - size.y + 1):
 			var origin := Vector2i(x, y)
@@ -653,14 +657,18 @@ func spawn_structures() -> void:
 		tries += 1
 		var origin: Vector2i = candidates.pop_back()
 
+		# must not overlap any already-blocked structure tiles
 		if _is_structure_blocked(origin, size):
 			continue
 
-		# ✅ pick a scene that respects "unique once"
+		# ---------------------------------------------------
+		# Pick a scene that respects "unique once"
+		# ---------------------------------------------------
 		var scene: PackedScene = null
 		var pick_tries := 32
 		while pick_tries > 0:
 			pick_tries -= 1
+
 			var s := building_scenes[rng.randi_range(0, building_scenes.size() - 1)]
 			if s == null:
 				continue
@@ -678,13 +686,21 @@ func spawn_structures() -> void:
 		if scene == null:
 			continue
 
-		var inst = scene.instantiate()
+		# ---------------------------------------------------
+		# Enforce 1-tile separation between UNIQUE buildings
+		# ---------------------------------------------------
+		var is_unique := _is_unique_scene(scene)
+		if is_unique and _is_unique_buffer_blocked(origin, size, 1):
+			continue
+
+		# Instantiate
+		var inst := scene.instantiate()
 		var b := inst as Node2D
 		if b == null:
 			continue
 
-		# ✅ Tag this structure instance as unique
-		if _is_unique_scene(scene):
+		# Tag / groups
+		if is_unique:
 			b.set_meta("is_unique_building", true)
 			b.add_to_group("UniqueBuilding")
 
@@ -693,18 +709,42 @@ func spawn_structures() -> void:
 
 		_tint_structure(b, rng)
 
+		# Position / origin
 		if b.has_method("set_origin"):
 			b.call("set_origin", origin, terrain)
 		else:
 			b.global_position = terrain.to_global(terrain.map_to_local(origin))
 
+		# Block tiles for general structure collision
 		_mark_structure_blocked(origin, size)
 
-		# ✅ mark unique as used AFTER successful placement
-		if _is_unique_scene(scene):
+		# Mark unique as used + reserve its buffer AFTER successful placement
+		if is_unique:
 			_unique_used[_scene_key(scene)] = true
+			_mark_unique_buffer(origin, size, 1)
 
 		placed += 1
+		
+func _in_bounds(c: Vector2i) -> bool:
+	return c.x >= 0 and c.y >= 0 and c.x < map_width and c.y < map_height
+
+func _is_unique_buffer_blocked(origin: Vector2i, size: Vector2i, sep := 1) -> bool:
+	for x in range(origin.x - sep, origin.x + size.x + sep):
+		for y in range(origin.y - sep, origin.y + size.y + sep):
+			var c := Vector2i(x, y)
+			if not _in_bounds(c):
+				continue
+			if _unique_buffer_blocked.has(c):
+				return true
+	return false
+
+func _mark_unique_buffer(origin: Vector2i, size: Vector2i, sep := 1) -> void:
+	for x in range(origin.x - sep, origin.x + size.x + sep):
+		for y in range(origin.y - sep, origin.y + size.y + sep):
+			var c := Vector2i(x, y)
+			if not _in_bounds(c):
+				continue
+			_unique_buffer_blocked[c] = true
 
 # ✅ give every spawned structure a slightly different color tint
 func _tint_structure(root: Node, rng: RandomNumberGenerator) -> void:
