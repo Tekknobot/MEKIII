@@ -264,8 +264,9 @@ tile_size = Vector2i(32, 16)
 sources/0 = SubResource("TileSetAtlasSource_a8wo8")
 sources/1 = SubResource("TileSetAtlasSource_pn7ev")
 
-[node name="Game" type="Node2D" groups=["GameMap"]]
+[node name="Game" type="Node2D" node_paths=PackedStringArray("camera") groups=["GameMap"]]
 script = ExtResource("1_400sg")
+camera = NodePath("Camera2D")
 fade_rect_path = NodePath("UI/FadeLayer/ColorRect")
 fade_out_time = 1.88
 fade_in_time = 1.88
@@ -355,6 +356,8 @@ format = 2
 [node name="Camera2D" type="Camera2D" parent="."]
 zoom = Vector2(2, 2)
 script = ExtResource("8_400sg")
+follow_enabled = true
+recenter_smoothness = 2.0
 
 [node name="TurnManager" type="Node2D" parent="."]
 script = ExtResource("24_jai3c")

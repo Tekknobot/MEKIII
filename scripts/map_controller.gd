@@ -3667,7 +3667,7 @@ func _spawn_recruited_ally_fadein(spawn_cell: Vector2i) -> void:
 	_wire_unit_signals(u)
 	u.team = Unit.Team.ALLY
 	u.hp = u.max_hp
-	u.global_position.y -= 520
+	u.global_position.y -= 720
 
 	# ✅ register occupancy BEFORE the drop (matches your spawn_units pattern)
 	units_by_cell[spawn_cell] = u

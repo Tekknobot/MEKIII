@@ -1,6 +1,7 @@
 extends Node2D
 class_name Game
 
+@export var camera: Camera2D
 @export var fade_rect_path: NodePath
 @export var fade_out_time := 0.88
 @export var fade_in_time := 0.88
@@ -185,6 +186,22 @@ func _is_faded_in() -> bool:
 	return _fade_alpha() <= 0.01
 
 func regenerate_map() -> void:
+	camera.follow_enabled = true	
+
+	# apply chosen squad from RunState autoload (if any)
+	var rs := _rs()
+	if rs != null and rs.has_method("has_squad") and rs.call("has_squad"):
+		var chosen: Array[PackedScene] = rs.call("get_squad_packed_scenes")
+		if not chosen.is_empty():
+			map_controller.ally_scenes = chosen
+				
+	# sync recruit pool from RunState (non-selected only)
+	if rs != null:
+		map_controller.apply_recruit_pool_from_runstate(rs)
+		
+	map_controller._recruits_spawned_at.clear()
+	map_controller.reset_recruit_pool()
+		
 	map_controller.reset_for_regen()
 	
 	rng.randomize()
@@ -199,22 +216,7 @@ func regenerate_map() -> void:
 	spawn_structures()
 
 	map_controller.setup(self)
-
-	# NEW: apply chosen squad from RunState autoload (if any)
-	var rs := _rs()
-	if rs != null and rs.has_method("has_squad") and rs.call("has_squad"):
-		var chosen: Array[PackedScene] = rs.call("get_squad_packed_scenes")
-		if not chosen.is_empty():
-			map_controller.ally_scenes = chosen
-
 	map_controller.spawn_units()
-
-	# ✅ NEW: sync recruit pool from RunState (non-selected only)
-	if rs != null:
-		map_controller.apply_recruit_pool_from_runstate(rs)
-		
-	map_controller._recruits_spawned_at.clear()
-	map_controller.reset_recruit_pool()
 
 	if turn_manager != null and is_instance_valid(turn_manager):
 		turn_manager.on_units_spawned()
