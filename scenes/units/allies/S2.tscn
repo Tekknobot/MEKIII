@@ -171,7 +171,6 @@ portrait_tex = ExtResource("2_00231")
 display_name = "SKIMMER"
 thumbnail = ExtResource("3_8ebf7")
 quake_cooldown = 0
-quake_ring_delay = 0.6
 quake_explosion_scene = ExtResource("5_8ebf7")
 quake_splash_hits_allies = true
 quake_splash_hits_structures = true
