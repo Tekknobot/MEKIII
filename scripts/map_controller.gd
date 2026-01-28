@@ -3750,7 +3750,9 @@ func _find_open_adjacent_to_structure(s_cell: Vector2i) -> Vector2i:
 				continue
 			if mines_by_cell.has(c):
 				continue
-
+			if _recruits_spawned_at.has(c): 
+				continue
+				
 			candidates.append(c)
 
 	if candidates.is_empty():
