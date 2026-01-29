@@ -141,7 +141,8 @@ func _process(delta: float) -> void:
 
 func _input(event: InputEvent) -> void:
 	if event is InputEventMouseMotion:
-		hovered_node_id = _pick_node(get_global_mouse_position())
+		var hit := _pick_node(get_global_mouse_position())
+		hovered_node_id = hit if _can_click_node(hit) else -1
 		return
 
 	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
@@ -151,18 +152,17 @@ func _input(event: InputEvent) -> void:
 		if not _can_click_node(hit):
 			return
 
-		# clicking current node = launch mission
-		if hit == current_node_id:
+		# If current is uncleared, only current is allowed here -> launch
+		if hit == current_node_id and not nodes[current_node_id].cleared:
 			var rs := _rs()
 			if rs != null:
 				rs.mission_node_id = hit
 				rs.mission_difficulty = nodes[hit].difficulty
-				# store type in a consistent way:
 				rs.mission_node_type = StringName(_type_name(nodes[hit].ntype).to_lower())
 			emit_signal("mission_requested", hit, nodes[hit].ntype, nodes[hit].difficulty)
 			return
 
-		# otherwise move
+		# Otherwise (current is cleared), allowed clicks are neighbors -> move selection
 		_move_to_node(hit)
 		return
 
@@ -172,21 +172,20 @@ func _input(event: InputEvent) -> void:
 				emit_signal("mission_requested", current_node_id, nodes[current_node_id].ntype, nodes[current_node_id].difficulty)
 
 func _can_click_node(id: int) -> bool:
-	if id < 0:
+	if id < 0 or id >= nodes.size():
 		return false
 	if not alive[id]:
 		return false
-
-	# ✅ cleared nodes can't be clicked (no move, no launch)
 	if nodes[id].cleared:
 		return false
-
 	if current_node_id < 0:
-		return true
-	if not restrict_to_neighbors:
-		return true
-	if id == current_node_id:
-		return true
+		return false
+
+	# If the current node is NOT cleared yet: only it is clickable (launch)
+	if not nodes[current_node_id].cleared:
+		return id == current_node_id
+
+	# If the current node IS cleared: only its neighbors are clickable (move)
 	return nodes[current_node_id].neighbors.has(id)
 
 
