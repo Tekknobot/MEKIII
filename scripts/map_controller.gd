@@ -624,7 +624,7 @@ func spawn_units() -> void:
 		u.team = Unit.Team.ALLY
 
 		# ✅ Apply RunState upgrades to THIS unit
-		var rs := get_tree().root.get_node_or_null("RunState")
+		var rs := get_tree().root.get_node_or_null("RunStateNode")
 		if rs != null and rs.has_method("apply_upgrades_to_unit"):
 			rs.apply_upgrades_to_unit(u)
 
@@ -4554,6 +4554,9 @@ func apply_run_upgrades() -> void:
 			var n := int(counts[id])
 
 			match id:
+				# -------------------------
+				# GLOBAL (all allies)
+				# -------------------------
 				&"all_hp_plus_1":
 					u.max_hp += 1 * n
 					u.hp = min(u.hp + 1 * n, u.max_hp)
@@ -4562,6 +4565,9 @@ func apply_run_upgrades() -> void:
 				&"all_dmg_plus_1":
 					u.attack_damage += 1 * n
 
+				# -------------------------
+				# SOLDIER (Human)
+				# -------------------------
 				&"soldier_move_plus_1":
 					if u is Human: u.move_range += 1 * n
 				&"soldier_range_plus_1":
@@ -4569,6 +4575,9 @@ func apply_run_upgrades() -> void:
 				&"soldier_dmg_plus_1":
 					if u is Human: u.attack_damage += 1 * n
 
+				# -------------------------
+				# MERCENARY (HumanTwo)
+				# -------------------------
 				&"merc_move_plus_1":
 					if u is HumanTwo: u.move_range += 1 * n
 				&"merc_range_plus_1":
@@ -4576,10 +4585,106 @@ func apply_run_upgrades() -> void:
 				&"merc_dmg_plus_1":
 					if u is HumanTwo: u.attack_damage += 1 * n
 
+				# -------------------------
+				# ROBODOG (Mech)
+				# -------------------------
 				&"dog_hp_plus_2":
 					if u is Mech:
 						u.max_hp += 2 * n
 						u.hp = min(u.hp + 2 * n, u.max_hp)
+				&"dog_move_plus_1":
+					if u is Mech: u.move_range += 1 * n
+				&"dog_dmg_plus_1":
+					if u is Mech: u.attack_damage += 1 * n
+
+				# =========================================================
+				# NEW UNITS (your remaining classes)
+				# Add these ids to _roll_3_upgrades() if you want them to roll
+				# =========================================================
+
+				# -------------------------
+				# R1
+				# -------------------------
+				&"r1_hp_plus_1":
+					if u is R1:
+						u.max_hp += 1 * n
+						u.hp = min(u.hp + 1 * n, u.max_hp)
+				&"r1_move_plus_1":
+					if u is R1: u.move_range += 1 * n
+				&"r1_range_plus_1":
+					if u is R1: u.attack_range += 1 * n
+				&"r1_dmg_plus_1":
+					if u is R1: u.attack_damage += 1 * n
+
+				# -------------------------
+				# R2
+				# -------------------------
+				&"r2_hp_plus_1":
+					if u is R2:
+						u.max_hp += 1 * n
+						u.hp = min(u.hp + 1 * n, u.max_hp)
+				&"r2_move_plus_1":
+					if u is R2: u.move_range += 1 * n
+				&"r2_range_plus_1":
+					if u is R2: u.attack_range += 1 * n
+				&"r2_dmg_plus_1":
+					if u is R2: u.attack_damage += 1 * n
+
+				# -------------------------
+				# M1
+				# -------------------------
+				&"m1_hp_plus_1":
+					if u is M1:
+						u.max_hp += 1 * n
+						u.hp = min(u.hp + 1 * n, u.max_hp)
+				&"m1_move_plus_1":
+					if u is M1: u.move_range += 1 * n
+				&"m1_range_plus_1":
+					if u is M1: u.attack_range += 1 * n
+				&"m1_dmg_plus_1":
+					if u is M1: u.attack_damage += 1 * n
+
+				# -------------------------
+				# M2
+				# -------------------------
+				&"m2_hp_plus_1":
+					if u is M2:
+						u.max_hp += 1 * n
+						u.hp = min(u.hp + 1 * n, u.max_hp)
+				&"m2_move_plus_1":
+					if u is M2: u.move_range += 1 * n
+				&"m2_range_plus_1":
+					if u is M2: u.attack_range += 1 * n
+				&"m2_dmg_plus_1":
+					if u is M2: u.attack_damage += 1 * n
+
+				# -------------------------
+				# S2
+				# -------------------------
+				&"s2_hp_plus_1":
+					if u is S2:
+						u.max_hp += 1 * n
+						u.hp = min(u.hp + 1 * n, u.max_hp)
+				&"s2_move_plus_1":
+					if u is S2: u.move_range += 1 * n
+				&"s2_range_plus_1":
+					if u is S2: u.attack_range += 1 * n
+				&"s2_dmg_plus_1":
+					if u is S2: u.attack_damage += 1 * n
+
+				# -------------------------
+				# RecruitBot
+				# -------------------------
+				&"recruitbot_hp_plus_1":
+					if u is RecruitBot:
+						u.max_hp += 1 * n
+						u.hp = min(u.hp + 1 * n, u.max_hp)
+				&"recruitbot_move_plus_1":
+					if u is RecruitBot: u.move_range += 1 * n
+				&"recruitbot_range_plus_1":
+					if u is RecruitBot: u.attack_range += 1 * n
+				&"recruitbot_dmg_plus_1":
+					if u is RecruitBot: u.attack_damage += 1 * n
 
 func reset_for_regen() -> void:
 	# ---------------------------
