@@ -171,7 +171,7 @@ func _on_tutorial_event(id: StringName, payload: Dictionary) -> void:
 		"ally_moved":
 			if step == Step.INTRO_MOVE:
 				_advance(Step.INTRO_ATTACK)
-				_on_you_win()
+				#_on_you_win()
 
 		"attack_mode_armed":
 			# don't auto-advance, just reinforce if they're stuck
@@ -412,7 +412,6 @@ func _roll_3_upgrades() -> Array:
 			{"id": &"arachno_hp_plus_1",    "title": "CHITIN PLATING",   "desc": "+1 Max HP for Arachnobot.",      "thumb": t},
 			{"id": &"arachno_move_plus_1",  "title": "SKITTER SERVOS",   "desc": "+1 Move for Arachnobot.",        "thumb": t},
 			{"id": &"arachno_dmg_plus_1",   "title": "NOVA CAPACITORS",  "desc": "+1 Damage for Arachnobot.",      "thumb": t},
-			{"id": &"arachno_range_plus_1", "title": "TARGETING MANDIBLES","desc": "+1 Special Range for Arachnobot.","thumb": t},
 		])
 
 	# DESTROYER A.I.

@@ -18,6 +18,7 @@ offset_left = 22.0
 offset_top = 23.0
 offset_right = 262.0
 offset_bottom = 143.0
+mouse_filter = 1
 
 [node name="Margin" type="MarginContainer" parent="Panel"]
 layout_mode = 0
