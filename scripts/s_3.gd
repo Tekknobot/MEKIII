@@ -121,6 +121,8 @@ func perform_basic_attack(M: MapController, target_cell: Vector2i) -> void:
 func perform_nova(M: MapController, target_cell: Vector2i) -> void:
 	if M == null:
 		return
+	if not _alive():
+		return
 
 	var id_key := "nova"
 	if int(special_cd.get(id_key, 0)) > 0:
@@ -140,13 +142,20 @@ func perform_nova(M: MapController, target_cell: Vector2i) -> void:
 	# Primary starburst (wavey)
 	var primary_cells := _get_starburst_cells(M, target_cell, nova_radius)
 	await _apply_cells_damage_wave(M, primary_cells, nova_damage, target_cell)
+	if not _alive():
+		return
 
 	# Aftershock ring (also wavey)
 	if aftershock_enabled:
 		await get_tree().create_timer(max(0.01, aftershock_delay)).timeout
+		if not _alive():
+			return
+
 		var ring_r = max(1, nova_radius + aftershock_radius_offset)
 		var ring_cells := _get_ring_cells(M, target_cell, ring_r)
 		await _apply_cells_damage_wave(M, ring_cells, aftershock_damage, target_cell)
+		if not _alive():
+			return
 
 	_play_idle_anim()
 	special_cd[id_key] = nova_cooldown
@@ -156,11 +165,12 @@ func _apply_cells_damage_wave(M: MapController, cells: Array[Vector2i], dmg: int
 		return
 	if cells.is_empty():
 		return
+	if not _alive():
+		return
 
-	# Group by ring (Manhattan distance from center)
-	var rings: Dictionary = {} # int -> Array[Vector2i]
+	# Group by ring...
+	var rings: Dictionary = {}
 	var max_ring := 0
-
 	for c in cells:
 		var dist = abs(c.x - center.x) + abs(c.y - center.y)
 		if not rings.has(dist):
@@ -168,27 +178,25 @@ func _apply_cells_damage_wave(M: MapController, cells: Array[Vector2i], dmg: int
 		(rings[dist] as Array).append(c)
 		max_ring = max(max_ring, dist)
 
-	# Play rings in order
 	for ring in range(0, max_ring + 1):
+		if not _alive():
+			return
 		if not rings.has(ring):
 			continue
 
 		var ring_cells: Array = rings[ring]
-		# Optional: randomize inside the ring so it feels organic
 		ring_cells.shuffle()
 
 		for c in ring_cells:
-			# Per-cell FX + damage + splash
+			if not _alive():
+				return
+
 			_spawn_nova_explosion(M, c)
 			_sfx_at_cell(M, nova_hit_sfx_id, c)
 
-			# Direct cell hit
 			_apply_damage_at_cell(M, c, dmg)
-
-			# Splash around it
 			_apply_nova_splash_damage(M, c)
 
-		# Delay before next ring (wave feel)
 		if ring < max_ring and nova_ring_delay > 0.0:
 			await get_tree().create_timer(nova_ring_delay).timeout
 
@@ -421,3 +429,6 @@ func _spawn_nova_explosion(M: MapController, c: Vector2i) -> void:
 		n.z_index = z_base + (c.x + c.y) * z_per + 1
 
 	M.add_child(fx)
+
+func _alive() -> bool:
+	return is_instance_valid(self) and (not ("_dying" in self and self._dying)) and hp > 0

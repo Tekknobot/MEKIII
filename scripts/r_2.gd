@@ -133,6 +133,11 @@ func perform_cannon(M: MapController, _target_cell: Vector2i) -> void:
 	_sfx_at_cell(M, fire_sfx_id, cell)
 
 	for c in target_cells:
+		if not _alive():
+			return
+		if M == null or not is_instance_valid(M):
+			return
+
 		if not _cell_in_bounds(M, c):
 			continue
 
@@ -140,8 +145,13 @@ func perform_cannon(M: MapController, _target_cell: Vector2i) -> void:
 
 		if projectile_stagger > 0.0:
 			await get_tree().create_timer(projectile_stagger).timeout
+			if not _alive():
+				return
 
 		await _fire_projectile_to_cell_with_explosion(M, c)
+		if not _alive():
+			return
+
 
 	# back to idle
 	var spr := get_node_or_null("AnimatedSprite2D") as AnimatedSprite2D
@@ -149,6 +159,9 @@ func perform_cannon(M: MapController, _target_cell: Vector2i) -> void:
 		spr = get_node_or_null("Visual/AnimatedSprite2D") as AnimatedSprite2D
 	if spr != null:
 		spr.play("idle")
+
+	if not _alive():
+		return
 
 	# cooldown once at end
 	special_cd[id_key] = cannon_cooldown
@@ -185,6 +198,9 @@ func _get_enemy_cells_in_range(M: MapController, r: int) -> Array[Vector2i]:
 # Projectile firing
 # -------------------------------------------------------
 func _fire_projectile_to_cell_with_explosion(M: MapController, dest_cell: Vector2i) -> void:
+	if M == null or not _alive():
+		return
+			
 	var start_pos := _cell_to_global(M, cell)
 	var end_pos := _cell_to_global(M, dest_cell)
 
@@ -214,10 +230,18 @@ func _fire_projectile_to_cell_with_explosion(M: MapController, dest_cell: Vector
 	else:
 		await get_tree().create_timer(max(projectile_travel_time, 0.01)).timeout
 
+	if not _alive():
+		if proj != null and is_instance_valid(proj):
+			proj.queue_free()
+		return
+
 	if proj != null and is_instance_valid(proj):
 		proj.queue_free()
 
 	_sfx_at_cell(M, impact_sfx_id, dest_cell)
+
+	if not _alive():
+		return
 
 	_spawn_explosion_fx(M, dest_cell)
 	_apply_splash_damage(M, dest_cell)
@@ -249,6 +273,8 @@ func _apply_splash_damage(M: MapController, center_cell: Vector2i) -> void:
 			_damage_structure_on_cell_if_enabled(M, c, dmg)
 
 func _damage_enemy_on_cell(M: MapController, c: Vector2i, dmg: int) -> void:
+	if M == null:
+		return
 	var u := M.unit_at_cell(c)
 	if u != null and is_instance_valid(u) and u.team != team:
 		_apply_damage_safely(u, dmg)
@@ -373,3 +399,6 @@ func _play_attack_anim_once() -> void:
 
 	sprA.stop()
 	sprA.play(anim)
+
+func _alive() -> bool:
+	return is_instance_valid(self) and hp > 0 and (not ("_dying" in self and self._dying))
