@@ -602,10 +602,10 @@ theme_override_fonts/font = ExtResource("32_1gdd5")
 text = "End Turn"
 
 [node name="MenuButton" type="Button" parent="UI"]
-offset_left = 903.0
-offset_top = 605.0
-offset_right = 951.0
-offset_bottom = 626.0
+offset_left = 1071.0
+offset_top = 32.0
+offset_right = 1119.0
+offset_bottom = 53.0
 theme_override_fonts/font = ExtResource("32_1gdd5")
 text = "Menu"
 
