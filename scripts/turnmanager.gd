@@ -3,6 +3,11 @@ class_name TurnManager
 
 @export var map_controller_path: NodePath
 @export var end_turn_button_path: NodePath
+@export var menu_button_path: NodePath
+@onready var menu_button := get_node_or_null(menu_button_path) as Button
+
+# Set this to your actual title scene path
+@export var title_scene_path: String = "res://scenes/title_screen.tscn"
 
 @onready var M: MapController = get_node(map_controller_path)
 @onready var end_turn_button := get_node_or_null(end_turn_button_path)
@@ -67,7 +72,11 @@ func _ready() -> void:
 		
 	if end_turn_button:
 		end_turn_button.pressed.connect(_on_end_turn_pressed)
-
+	if menu_button:
+		menu_button.pressed.connect(_on_menu_pressed)
+	else:
+		push_warning("TurnManager: menu_button_path not set or not found.")
+		
 	if hellfire_button:
 		hellfire_button.pressed.connect(_on_hellfire_pressed)
 	if blade_button:
@@ -1005,3 +1014,14 @@ func _on_nova_pressed() -> void:
 
 	M.activate_special("nova")
 	_update_special_buttons()
+
+func _on_menu_pressed() -> void:
+	print("MENU PRESSED -> changing scene to: ", title_scene_path)
+	print("exists? ", ResourceLoader.exists(title_scene_path))
+
+	if title_scene_path == "" or not ResourceLoader.exists(title_scene_path):
+		push_error("TurnManager: title_scene_path missing or invalid: %s" % title_scene_path)
+		return
+
+	get_tree().paused = false
+	get_tree().change_scene_to_file(title_scene_path)

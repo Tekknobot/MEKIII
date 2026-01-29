@@ -127,14 +127,10 @@ func _ready() -> void:
 	if rs == null:
 		rs = get_tree().root.get_node_or_null("RunStateNode")
 
-	var has_save := false
-	if rs != null and rs.has_method("has_save"):
-		has_save = bool(rs.call("has_save"))
+	var can_continue := _has_save(rs) and _has_selected_squad(rs)
 
-	if has_save:
-		start_button.text = "CONTINUE"
-	else:
-		start_button.text = "START"
+	start_button.text = ("CONTINUE" if can_continue else "START")
+
 
 func _process(delta: float) -> void:
 	if _busy:
@@ -183,15 +179,13 @@ func _on_start_pressed() -> void:
 	if rs == null:
 		rs = get_tree().root.get_node_or_null("RunStateNode")
 
-	var has_save := false
-	if rs != null and rs.has_method("has_save"):
-		has_save = bool(rs.call("has_save"))
+	var can_continue := _has_save(rs) and _has_selected_squad(rs)
 
-	if has_save and continue_scene != null:
+	if can_continue and continue_scene != null:
 		get_tree().change_scene_to_packed(continue_scene)
 	else:
+		# no save OR no squad selected -> go pick squad
 		get_tree().change_scene_to_packed(game_scene)
-
 
 func _on_quit_pressed() -> void:
 	if _busy:
@@ -556,3 +550,25 @@ func _on_restart_pressed() -> void:
 
 	# go to squad select
 	get_tree().change_scene_to_packed(game_scene)
+
+func _get_rs() -> Node:
+	var rs := get_tree().root.get_node_or_null("RunState")
+	if rs == null:
+		rs = get_tree().root.get_node_or_null("RunStateNode")
+	return rs
+
+func _has_save(rs: Node) -> bool:
+	return rs != null and rs.has_method("has_save") and bool(rs.call("has_save"))
+
+func _has_selected_squad(rs: Node) -> bool:
+	if rs == null:
+		return false
+	# most common: Array of scene paths
+	if "squad_scene_paths" in rs:
+		var a: Array = rs.squad_scene_paths
+		return a != null and a.size() > 0
+	# fallback: starting squad paths
+	if "starting_squad_paths" in rs:
+		var b: Array = rs.starting_squad_paths
+		return b != null and b.size() > 0
+	return false

@@ -43,6 +43,15 @@ var origin: Vector2
 signal node_selected(node_id: int)
 signal node_enter_requested(node_id: int)
 
+@export var squad_title_text := "CURRENT SQUAD"
+@export var squad_title_font_size := 32
+@export var squad_title_font: Font
+@export var title_scene_path: String = "res://scenes/title_screen.tscn"
+@export var back_button_text := "Back"
+
+@export var back_button_font_size := 16
+@export var back_button_font: Font
+
 # -------------------------
 # DATA
 # -------------------------
@@ -732,11 +741,57 @@ func _build_squad_hud() -> void:
 	margin.add_theme_constant_override("margin_right", 10)
 	margin.add_theme_constant_override("margin_bottom", 10)
 
+	# ✅ stack: title -> chips row -> back button
+	var vbox := VBoxContainer.new()
+	vbox.name = "VBox"
+	vbox.add_theme_constant_override("separation", 8)
+	margin.add_child(vbox)
+
+	# Title
+	var title := Label.new()
+	title.name = "Title"
+	title.text = squad_title_text
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+	title.add_theme_font_size_override("font_size", squad_title_font_size)
+
+	# choose font (prefer explicit title font, else squad_name_font, else label_font)
+	if squad_title_font != null:
+		title.add_theme_font_override("font", squad_title_font)
+	elif squad_name_font != null:
+		title.add_theme_font_override("font", squad_name_font)
+	elif label_font != null:
+		title.add_theme_font_override("font", label_font)
+
+	title.add_theme_color_override("font_color", Color(1, 1, 1, 0.95))
+	vbox.add_child(title)
+
+	# Chips row
 	_hud_row = HBoxContainer.new()
 	_hud_row.name = "Row"
 	_hud_row.add_theme_constant_override("separation", 8)
-	margin.add_child(_hud_row)
+	vbox.add_child(_hud_row)
 
+	# Back button
+	var back := Button.new()
+	back.add_theme_font_size_override("font_size", back_button_font_size)
+
+	if back_button_font != null:
+		back.add_theme_font_override("font", back_button_font)
+	elif squad_name_font != null:
+		back.add_theme_font_override("font", squad_name_font)
+	elif label_font != null:
+		back.add_theme_font_override("font", label_font)
+	
+	back.name = "BackButton"
+	back.text = back_button_text
+	back.pressed.connect(_on_back_pressed)
+	vbox.add_child(back)
+
+func _on_back_pressed() -> void:
+	if title_scene_path == "" or not ResourceLoader.exists(title_scene_path):
+		push_warning("OverworldRadar: title_scene_path missing or invalid: " + title_scene_path)
+		return
+	get_tree().change_scene_to_file(title_scene_path)
 
 func _refresh_squad_hud() -> void:
 	if _hud_row == null or not is_instance_valid(_hud_row):

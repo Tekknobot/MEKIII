@@ -6,3 +6,11 @@ res://shaders/outline_1px.gdshader
 res://shaders/color_me.gdshader
 res://shaders/desaturate.gdshader
 res://scripts/hud.gd
+res://scripts/tutorial_manager.gd
+res://scripts/overworld_radar.gd
+res://scenes/overworld_radar.tscn
+res://scenes/title_screen.tscn
+res://scripts/TitleScreen.gd
+res://scenes/Game.tscn
+res://scripts/map_controller.gd
+res://scripts/turnmanager.gd

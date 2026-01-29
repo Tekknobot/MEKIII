@@ -364,6 +364,7 @@ recenter_smoothness = 2.0
 script = ExtResource("24_jai3c")
 map_controller_path = NodePath("../MapController")
 end_turn_button_path = NodePath("../UI/EndTurnButton")
+menu_button_path = NodePath("../UI/MenuButton")
 hellfire_button_path = NodePath("../UI/Hellfire")
 blade_button_path = NodePath("../UI/Blade")
 mines_button_path = NodePath("../UI/Mines")
@@ -599,6 +600,14 @@ offset_right = 1119.0
 offset_bottom = 626.0
 theme_override_fonts/font = ExtResource("32_1gdd5")
 text = "End Turn"
+
+[node name="MenuButton" type="Button" parent="UI"]
+offset_left = 903.0
+offset_top = 605.0
+offset_right = 951.0
+offset_bottom = 626.0
+theme_override_fonts/font = ExtResource("32_1gdd5")
+text = "Menu"
 
 [node name="Bubbles" type="Control" parent="UI"]
 layout_mode = 3
