@@ -38,3 +38,5 @@ res://scenes/round_end_ui.tscn
 res://scenes/units/allies/S2.tscn
 res://scripts/s_2.gd
 res://scripts/turnmanager.gd
+res://scripts/RunState.gd
+res://scripts/end_game_panel_runtime.gd

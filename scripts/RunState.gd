@@ -104,3 +104,102 @@ func take_random_recruit_scene() -> PackedScene:
 
 	# if load failed, just skip it and try again
 	return take_random_recruit_scene()
+
+func _unit_key_from_display_name(s: String) -> String:
+	return s.strip_edges().to_upper()
+
+func apply_upgrades_to_unit(u: Node) -> void:
+	if u == null or not is_instance_valid(u):
+		return
+
+	# --- read display_name ---
+	var dn := ""
+	if "display_name" in u:
+		dn = str(u.display_name)
+	elif u.has_meta("display_name"):
+		dn = str(u.get_meta("display_name"))
+	elif u.has_method("get_display_name"):
+		dn = str(u.call("get_display_name"))
+
+	var key := _unit_key_from_display_name(dn)
+
+	# --- current stats ---
+	var hp := int(u.max_hp) if ("max_hp" in u) else 0
+	var mv := int(u.move_range) if ("move_range" in u) else 0
+	var rng := int(u.attack_range) if ("attack_range" in u) else 0
+	var dmg := int(u.attack_damage) if ("attack_damage" in u) else 0
+
+	# -------------------------
+	# GLOBAL TEAM UPGRADES
+	# -------------------------
+	hp += get_upgrade_count(&"all_hp_plus_1")
+	mv += get_upgrade_count(&"all_move_plus_1")
+	dmg += get_upgrade_count(&"all_dmg_plus_1")
+
+	# -------------------------
+	# PER-UNIT UPGRADES
+	# -------------------------
+	match key:
+
+		# 1) Soldier
+		"SOLDIER":
+			mv += get_upgrade_count(&"soldier_move_plus_1")
+			rng += get_upgrade_count(&"soldier_range_plus_1")
+			dmg += get_upgrade_count(&"soldier_dmg_plus_1")
+
+		# 2) Mercenary
+		"MERCENARY":
+			mv += get_upgrade_count(&"merc_move_plus_1")
+			rng += get_upgrade_count(&"merc_range_plus_1")
+			dmg += get_upgrade_count(&"merc_dmg_plus_1")
+
+		# 3) Robodog
+		"ROBODOG":
+			hp += 2 * get_upgrade_count(&"dog_hp_plus_2")
+			mv += get_upgrade_count(&"dog_move_plus_1")
+			dmg += get_upgrade_count(&"dog_dmg_plus_1")
+
+		# 4) Battleangel
+		"BATTLEANGEL":
+			hp += get_upgrade_count(&"angel_hp_plus_1")
+			mv += get_upgrade_count(&"angel_move_plus_1")
+			dmg += get_upgrade_count(&"angel_dmg_plus_1")
+
+		# 5) Bladeguard
+		"BLADEGUARD":
+			hp += get_upgrade_count(&"blade_hp_plus_1")
+			mv += get_upgrade_count(&"blade_move_plus_1")
+			dmg += get_upgrade_count(&"blade_dmg_plus_1")
+
+		# 6) Pantherbot
+		"PANTHERBOT":
+			mv += get_upgrade_count(&"panther_move_plus_1")
+			dmg += get_upgrade_count(&"panther_dmg_plus_1")
+
+		# 7) Kannon
+		"KANNON":
+			rng += get_upgrade_count(&"kannon_range_plus_1")
+			dmg += get_upgrade_count(&"kannon_dmg_plus_1")
+
+		# 8) Skimmer
+		"SKIMMER":
+			mv += get_upgrade_count(&"skimmer_move_plus_1")
+			dmg += get_upgrade_count(&"skimmer_dmg_plus_1")
+
+		# 9) Destroyer A.I.
+		"DESTROYER A.I.":
+			hp += get_upgrade_count(&"destroyer_hp_plus_2")
+			dmg += get_upgrade_count(&"destroyer_dmg_plus_1")
+
+	# --- write back ---
+	if "max_hp" in u:
+		u.max_hp = hp
+	if "hp" in u:
+		u.hp = clamp(int(u.hp), 0, hp)
+
+	if "move_range" in u:
+		u.move_range = mv
+	if "attack_range" in u:
+		u.attack_range = rng
+	if "attack_damage" in u:
+		u.attack_damage = dmg

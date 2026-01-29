@@ -19,18 +19,24 @@ signal restart_pressed()
 @export var desc_font: Font            # optional: upgrade card description font
 @export var desc_font_size := 16
 
+@export var global_upgrade_thumb: Texture2D
+@export var fallback_thumb: Texture2D
+
 # -------------------------
 # UI refs
 # -------------------------
 var root: Control
 var title_label: Label
 var body_label: RichTextLabel
+
 var upgrade_buttons: Array[Button] = []
 var upgrade_descs: Array[Label] = []
+var upgrade_thumbs: Array[TextureRect] = []
+
 var continue_button: Button
 var restart_button: Button
 
-var _shown_upgrades: Array = []   # Array[Dictionary] {id,title,desc}
+var _shown_upgrades: Array = []   # Array[Dictionary] {id,title,desc,unit_name?,thumb?}
 
 var _picked := false
 var _picked_upgrade: StringName = &""
@@ -84,8 +90,6 @@ func refresh_fonts() -> void:
 # Build UI
 # -------------------------
 func _build_ui() -> void:
-	refresh_fonts()
-	
 	# Root (full screen)
 	root = Control.new()
 	root.name = "Root"
@@ -109,9 +113,10 @@ func _build_ui() -> void:
 	panel.name = "Panel"
 	panel.custom_minimum_size = Vector2(360, 560)
 	center.add_child(panel)
+
 	# Panel background style (controls transparency)
 	var sb := StyleBoxFlat.new()
-	sb.bg_color = Color(0.05, 0.05, 0.05, 1.0)  # ← last value is alpha
+	sb.bg_color = Color(0.05, 0.05, 0.05, 1.0)
 	sb.border_color = Color(0.3, 0.3, 0.3, 1.0)
 	sb.border_width_left = 2
 	sb.border_width_right = 2
@@ -121,7 +126,6 @@ func _build_ui() -> void:
 	sb.corner_radius_top_right = 8
 	sb.corner_radius_bottom_left = 8
 	sb.corner_radius_bottom_right = 8
-
 	panel.add_theme_stylebox_override("panel", sb)
 
 	var margin := MarginContainer.new()
@@ -160,6 +164,7 @@ func _build_ui() -> void:
 
 	upgrade_buttons.clear()
 	upgrade_descs.clear()
+	upgrade_thumbs.clear()
 
 	for i in range(3):
 		# Card panel
@@ -179,19 +184,37 @@ func _build_ui() -> void:
 		card_margin.add_theme_constant_override("margin_bottom", 10)
 		card_panel.add_child(card_margin)
 
+		# ---- HBOX: thumbnail left, text right ----
+		var card_h := HBoxContainer.new()
+		card_h.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		card_h.add_theme_constant_override("separation", 10)
+		card_margin.add_child(card_h)
+
+		# Thumbnail
+		var t := TextureRect.new()
+		t.name = "Thumb%d" % i
+		t.custom_minimum_size = Vector2(64, 64)
+		t.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		t.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		t.texture = null
+		t.visible = false
+		t.modulate = Color(1, 1, 1, 0.95)
+		card_h.add_child(t)
+		upgrade_thumbs.append(t)
+
+		# Text column
 		var card_v := VBoxContainer.new()
 		card_v.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		card_v.add_theme_constant_override("separation", 6)
-		card_margin.add_child(card_v)
+		card_h.add_child(card_v)
 
-		# Title button (full width)
+		# Title button
 		var b := Button.new()
 		b.name = "UpgradeBtn%d" % i
 		b.text = "Upgrade"
 		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		b.pressed.connect(func(): _pick_upgrade(i))
 
-		# Slightly brighter button background so it reads like a choice
 		b.add_theme_stylebox_override("normal", _make_card_style(Color(0, 0, 0, 0.35), Color(1,1,1,0.18)))
 		b.add_theme_stylebox_override("hover",  _make_card_style(Color(0, 0, 0, 0.45), Color(1,1,1,0.24)))
 		b.add_theme_stylebox_override("pressed",_make_card_style(Color(0, 0, 0, 0.55), Color(1,1,1,0.30)))
@@ -199,7 +222,7 @@ func _build_ui() -> void:
 		card_v.add_child(b)
 		upgrade_buttons.append(b)
 
-		# Description under it
+		# Description
 		var d := Label.new()
 		d.name = "UpgradeDesc%d" % i
 		d.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -209,7 +232,7 @@ func _build_ui() -> void:
 		card_v.add_child(d)
 		upgrade_descs.append(d)
 
-	# Footer buttons (ONLY ONCE)
+	# Footer
 	var footer := HBoxContainer.new()
 	footer.name = "Footer"
 	footer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -224,7 +247,7 @@ func _build_ui() -> void:
 	continue_button = Button.new()
 	continue_button.name = "Continue"
 	continue_button.text = "Continue"
-	continue_button.disabled = true  # locked until upgrade picked
+	continue_button.disabled = true
 	continue_button.pressed.connect(func():
 		if not _picked:
 			return
@@ -233,14 +256,8 @@ func _build_ui() -> void:
 	)
 	footer.add_child(continue_button)
 
-	#restart_button = Button.new()
-	#restart_button.name = "Restart"
-	#restart_button.text = "Restart"
-	#restart_button.pressed.connect(func():
-	#	emit_signal("restart_pressed")
-	#	hide_panel()
-	#)
-	#footer.add_child(restart_button)
+	# Optional restart (kept as var, but not created by default)
+	restart_button = Button.new()
 
 	# Apply font overrides after all nodes exist
 	refresh_fonts()
@@ -264,7 +281,6 @@ func show_win(rounds_survived: int, upgrades: Array) -> void:
 	_apply_upgrade_ui()
 	show_panel()
 
-
 func show_loss(msg: String) -> void:
 	_shown_upgrades = []
 	if title_label != null:
@@ -281,13 +297,136 @@ func _apply_upgrade_ui() -> void:
 	for i in range(3):
 		if _shown_upgrades.size() > i:
 			var up: Dictionary = _shown_upgrades[i]
+
 			upgrade_buttons[i].disabled = false
 			upgrade_buttons[i].text = str(up.get("title", "Upgrade"))
 			upgrade_descs[i].text = str(up.get("desc", ""))
+
+			var tex: Texture2D = up.get("thumb", null)
+
+			# Global upgrade icon
+			if tex == null:
+				var sid := String(up.get("id", &""))
+				if sid.begins_with("all_"):
+					tex = global_upgrade_thumb
+
+			# Unit class fallback
+			if tex == null:
+				var unit_class := str(up.get("unit_class", ""))
+				if unit_class != "":
+					tex = _thumb_from_runstate_by_class(unit_class)
+					if tex == null:
+						tex = _thumb_from_unit_scene_by_class(unit_class)
+
+			# Unit display-name fallback
+			if tex == null:
+				var unit_name := str(up.get("unit_name", ""))
+				if unit_name != "":
+					tex = _thumb_from_runstate(unit_name)
+
+			# Final fallback LAST
+			if tex == null:
+				tex = fallback_thumb
+
+			print("[UPGRADE THUMB] i=", i,
+				" id=", String(up.get("id",&"")),
+				" title=", str(up.get("title","")),
+				" unit_class=", str(up.get("unit_class","")),
+				" unit_name=", str(up.get("unit_name","")),
+				" tex=", tex)
+
+			if i < upgrade_thumbs.size() and upgrade_thumbs[i] != null:
+				upgrade_thumbs[i].texture = tex
+				upgrade_thumbs[i].visible = (tex != null)
 		else:
 			upgrade_buttons[i].disabled = true
 			upgrade_buttons[i].text = "—"
 			upgrade_descs[i].text = ""
+
+			if i < upgrade_thumbs.size() and upgrade_thumbs[i] != null:
+				upgrade_thumbs[i].texture = null
+				upgrade_thumbs[i].visible = false
+
+func _thumb_from_runstate_by_class(unit_class: String) -> Texture2D:
+	var rs := get_tree().root.get_node_or_null("RunState")
+	if rs == null:
+		rs = get_tree().root.get_node_or_null("RunStateNode")
+	if rs == null:
+		return null
+
+	# If you add this method to RunState later, this will use it.
+	if rs.has_method("get_unit_thumb_by_class"):
+		var t = rs.call("get_unit_thumb_by_class", unit_class)
+		if t is Texture2D:
+			return t
+
+	return null
+
+
+func _thumb_from_unit_scene_by_class(unit_class: String) -> Texture2D:
+	# Fallback: find the squad unit scene whose script class_name matches unit_class,
+	# instantiate it, and read its exported 'thumbnail' Texture2D.
+	var rs := get_tree().root.get_node_or_null("RunState")
+	if rs == null:
+		rs = get_tree().root.get_node_or_null("RunStateNode")
+	if rs == null:
+		return null
+	if not ("squad_scene_paths" in rs):
+		return null
+
+	for p in rs.squad_scene_paths:
+		var path := str(p)
+		var res := load(path)
+		if not (res is PackedScene):
+			continue
+
+		var inst := (res as PackedScene).instantiate()
+		if inst == null:
+			continue
+
+		var cls := _find_script_global_class_in_tree(inst)
+		var tex := _find_thumbnail_in_tree(inst)
+
+		inst.queue_free()
+
+		if cls == unit_class and tex is Texture2D:
+			return tex
+
+	return null
+
+
+func _find_script_global_class_in_tree(n: Node) -> String:
+	if n == null:
+		return ""
+	var sc = n.get_script()
+	if sc != null and sc is Script:
+		var gn := (sc as Script).get_global_name() # Godot 4
+		if gn != null and str(gn) != "":
+			return str(gn)
+
+	for ch in n.get_children():
+		var got := _find_script_global_class_in_tree(ch)
+		if got != "":
+			return got
+	return ""
+
+
+func _find_thumbnail_in_tree(n: Node) -> Texture2D:
+	if n == null:
+		return null
+
+	# expects your unit has: @export var thumbnail: Texture2D
+	if "thumbnail" in n:
+		var t = n.get("thumbnail")
+		if t is Texture2D:
+			return t
+
+	for ch in n.get_children():
+		var got := _find_thumbnail_in_tree(ch)
+		if got != null:
+			return got
+
+	return null
 
 func _pick_upgrade(i: int) -> void:
 	if i < 0 or i >= _shown_upgrades.size():
@@ -304,14 +443,33 @@ func _pick_upgrade(i: int) -> void:
 
 	_picked = true
 	_picked_upgrade = id
-	
-	RunStateNode.add_upgrade(id)
+
+	# ✅ safe RunState call (supports either RunState or RunStateNode)
+	var rs := get_tree().root.get_node_or_null("RunState")
+	if rs == null:
+		rs = get_tree().root.get_node_or_null("RunStateNode")
+	if rs != null and rs.has_method("add_upgrade"):
+		rs.call("add_upgrade", id)
 
 	# allow continue now
 	if continue_button != null:
 		continue_button.disabled = false
 
 	emit_signal("upgrade_selected", id)
+
+func _thumb_from_runstate(unit_display_name: String) -> Texture2D:
+	var rs := get_tree().root.get_node_or_null("RunState")
+	if rs == null:
+		rs = get_tree().root.get_node_or_null("RunStateNode")
+	if rs == null:
+		return null
+
+	if rs.has_method("get_unit_thumb_by_display_name"):
+		var t = rs.call("get_unit_thumb_by_display_name", unit_display_name)
+		if t is Texture2D:
+			return t
+
+	return null
 
 func show_panel() -> void:
 	visible = true

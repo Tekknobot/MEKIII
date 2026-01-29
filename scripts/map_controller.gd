@@ -620,7 +620,15 @@ func spawn_units() -> void:
 
 		units_root.add_child(u)
 		_wire_unit_signals(u)
+
 		u.team = Unit.Team.ALLY
+
+		# ✅ Apply RunState upgrades to THIS unit
+		var rs := get_tree().root.get_node_or_null("RunState")
+		if rs != null and rs.has_method("apply_upgrades_to_unit"):
+			rs.apply_upgrades_to_unit(u)
+
+		# ✅ Now clamp hp to new max
 		u.hp = u.max_hp
 
 		units_by_cell[cell_i] = u

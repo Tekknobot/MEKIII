@@ -169,7 +169,7 @@ func _on_tutorial_event(id: StringName, payload: Dictionary) -> void:
 		"ally_moved":
 			if step == Step.INTRO_MOVE:
 				_advance(Step.INTRO_ATTACK)
-				#_on_you_win()
+				_on_you_win()
 
 		"attack_mode_armed":
 			# don't auto-advance, just reinforce if they're stuck
@@ -299,36 +299,120 @@ func _on_continue_pressed() -> void:
 			G.call("regenerate_map_faded")
 
 func _roll_3_upgrades() -> Array:
-	var pool: Array = [
-		# -------------------------
-		# GLOBAL TEAM UPGRADES
-		# -------------------------
+	var pool: Array = []
+
+	# -------------------------
+	# 1) GLOBAL TEAM UPGRADES (always eligible)
+	# -------------------------
+	pool.append_array([
 		{"id": &"all_hp_plus_1", "title": "ARMOR PLATING", "desc": "+1 Max HP to all allies."},
 		{"id": &"all_move_plus_1", "title": "FIELD DRILLS", "desc": "+1 Move to all allies."},
 		{"id": &"all_dmg_plus_1", "title": "HOT LOADS", "desc": "+1 Attack Damage to all allies."},
+	])
 
-		# -------------------------
-		# SOLDIER (Human)
-		# -------------------------
-		{"id": &"soldier_move_plus_1", "title": "SPRINT TRAINING", "desc": "+1 Move for Soldier."},
-		{"id": &"soldier_range_plus_1", "title": "MARKSMAN KIT", "desc": "+1 Attack Range for Soldier."},
-		{"id": &"soldier_dmg_plus_1", "title": "HOLLOW POINTS", "desc": "+1 Damage for Soldier."},
+	# -------------------------
+	# 2) Squad thumbs by DISPLAY_NAME KEY (from RunState.squad_scene_paths)
+	# -------------------------
+	# Returns Dictionary: { "SOLDIER": Texture2D, "MERCENARY": Texture2D, ... }
+	var key_to_thumb: Dictionary = _get_squad_key_to_thumb()
 
-		# -------------------------
-		# MERCENARY (HumanTwo)
-		# -------------------------
-		{"id": &"merc_move_plus_1", "title": "QUICK CONTRACT", "desc": "+1 Move for Mercenary."},
-		{"id": &"merc_range_plus_1", "title": "LONG SIGHT", "desc": "+1 Attack Range for Mercenary."},
-		{"id": &"merc_dmg_plus_1", "title": "OVERCHARGED ROUNDS", "desc": "+1 Damage for Mercenary."},
+	print("[UPGRADES] squad_scene_paths count = ", (get_tree().root.get_node_or_null("RunState") as Node).squad_scene_paths.size() if get_tree().root.get_node_or_null("RunState") != null and "squad_scene_paths" in get_tree().root.get_node_or_null("RunState") else -1)
+	print("[UPGRADES] key_to_thumb keys = ", key_to_thumb.keys())
 
-		# -------------------------
-		# ROBODOG (Mech)
-		# -------------------------
-		{"id": &"dog_hp_plus_2", "title": "REINFORCED ARMOR", "desc": "+2 Max HP for Robodog."},
-		{"id": &"dog_move_plus_1", "title": "HYDRAULIC LEGS", "desc": "+1 Move for Robodog."},
-		{"id": &"dog_dmg_plus_1", "title": "SERVO STRIKE", "desc": "+1 Damage for Robodog."},
-	]
+	var has_unit := func(key: String) -> bool:
+		return key_to_thumb.has(key)
 
+	var thumb := func(key: String) -> Texture2D:
+		return key_to_thumb.get(key, null)
+
+	# -------------------------
+	# 3) Unit-specific upgrades ONLY if unit is in squad
+	#    (each carries "thumb" so EndGamePanel shows the image)
+	# -------------------------
+
+	# SOLDIER
+	if has_unit.call("SOLDIER"):
+		var t: Texture2D = thumb.call("SOLDIER")
+		pool.append_array([
+			{"id": &"soldier_move_plus_1",  "title": "SPRINT TRAINING", "desc": "+1 Move for Soldier.",          "thumb": t},
+			{"id": &"soldier_range_plus_1", "title": "MARKSMAN KIT",   "desc": "+1 Attack Range for Soldier.",  "thumb": t},
+			{"id": &"soldier_dmg_plus_1",   "title": "HOLLOW POINTS",  "desc": "+1 Damage for Soldier.",        "thumb": t},
+		])
+
+	# MERCENARY
+	if has_unit.call("MERCENARY"):
+		var t: Texture2D = thumb.call("MERCENARY")
+		pool.append_array([
+			{"id": &"merc_move_plus_1",  "title": "QUICK CONTRACT",      "desc": "+1 Move for Mercenary.",          "thumb": t},
+			{"id": &"merc_range_plus_1", "title": "LONG SIGHT",          "desc": "+1 Attack Range for Mercenary.",  "thumb": t},
+			{"id": &"merc_dmg_plus_1",   "title": "OVERCHARGED ROUNDS",  "desc": "+1 Damage for Mercenary.",        "thumb": t},
+		])
+
+	# ROBODOG
+	if has_unit.call("ROBODOG"):
+		var t: Texture2D = thumb.call("ROBODOG")
+		pool.append_array([
+			{"id": &"dog_hp_plus_2",   "title": "REINFORCED ARMOR", "desc": "+2 Max HP for Robodog.", "thumb": t},
+			{"id": &"dog_move_plus_1", "title": "HYDRAULIC LEGS",   "desc": "+1 Move for Robodog.",   "thumb": t},
+			{"id": &"dog_dmg_plus_1",  "title": "SERVO STRIKE",     "desc": "+1 Damage for Robodog.", "thumb": t},
+		])
+
+	# BATTLEANGEL
+	if has_unit.call("BATTLEANGEL"):
+		var t: Texture2D = thumb.call("BATTLEANGEL")
+		pool.append_array([
+			{"id": &"angel_hp_plus_1",   "title": "HALO ARMOR",    "desc": "+1 Max HP for Battleangel.", "thumb": t},
+			{"id": &"angel_move_plus_1", "title": "WING BOOSTERS", "desc": "+1 Move for Battleangel.",   "thumb": t},
+			{"id": &"angel_dmg_plus_1",  "title": "DIVINE EDGE",   "desc": "+1 Damage for Battleangel.", "thumb": t},
+		])
+
+	# BLADEGUARD
+	if has_unit.call("BLADEGUARD"):
+		var t: Texture2D = thumb.call("BLADEGUARD")
+		pool.append_array([
+			{"id": &"blade_hp_plus_1",   "title": "CARBON PLATING", "desc": "+1 Max HP for Bladeguard.", "thumb": t},
+			{"id": &"blade_move_plus_1", "title": "SERVO JOINTS",   "desc": "+1 Move for Bladeguard.",   "thumb": t},
+			{"id": &"blade_dmg_plus_1",  "title": "MONO EDGE",      "desc": "+1 Damage for Bladeguard.", "thumb": t},
+		])
+
+	# PANTHERBOT
+	if has_unit.call("PANTHERBOT"):
+		var t: Texture2D = thumb.call("PANTHERBOT")
+		pool.append_array([
+			{"id": &"panther_move_plus_1", "title": "PREDATOR LEGS", "desc": "+1 Move for Pantherbot.",  "thumb": t},
+			{"id": &"panther_dmg_plus_1",  "title": "RAZOR CLAWS",   "desc": "+1 Damage for Pantherbot.","thumb": t},
+		])
+
+	# KANNON
+	if has_unit.call("KANNON"):
+		var t: Texture2D = thumb.call("KANNON")
+		pool.append_array([
+			{"id": &"kannon_range_plus_1", "title": "EXTENDED BARREL",    "desc": "+1 Range for Kannon.",  "thumb": t},
+			{"id": &"kannon_dmg_plus_1",   "title": "HIGH-IMPACT SHELLS", "desc": "+1 Damage for Kannon.", "thumb": t},
+		])
+
+	# SKIMMER
+	if has_unit.call("SKIMMER"):
+		var t: Texture2D = thumb.call("SKIMMER")
+		pool.append_array([
+			{"id": &"skimmer_move_plus_1", "title": "VECTOR THRUST", "desc": "+1 Move for Skimmer.",   "thumb": t},
+			{"id": &"skimmer_dmg_plus_1",  "title": "SEISMIC COILS", "desc": "+1 Damage for Skimmer.", "thumb": t},
+		])
+
+	# DESTROYER A.I.
+	# NOTE: your key will be whatever display_name becomes after strip+upper.
+	# If your display_name is "Destroyer A.I." then the key is "DESTROYER A.I."
+	if has_unit.call("DESTROYER A.I."):
+		var t: Texture2D = thumb.call("DESTROYER A.I.")
+		pool.append_array([
+			{"id": &"destroyer_hp_plus_2",  "title": "TITAN CORE",           "desc": "+2 Max HP for Destroyer A.I.", "thumb": t},
+			{"id": &"destroyer_dmg_plus_1", "title": "ANNIHILATOR CIRCUITS", "desc": "+1 Damage for Destroyer A.I.", "thumb": t},
+		])
+
+
+	# -------------------------
+	# 4) Pick 3
+	# -------------------------
 	var picked: Array = []
 	while picked.size() < 3 and pool.size() > 0:
 		var i := randi() % pool.size()
@@ -336,6 +420,88 @@ func _roll_3_upgrades() -> Array:
 		pool.remove_at(i)
 
 	return picked
+
+
+# -------------------------
+# Helpers
+# -------------------------
+
+func _get_squad_display_names() -> Array[String]:
+	var out: Array[String] = []
+
+	var rs := get_tree().root.get_node_or_null("RunState")
+	if rs == null:
+		rs = get_tree().root.get_node_or_null("RunStateNode")
+	if rs == null:
+		return out
+	if not ("squad_scene_paths" in rs):
+		return out
+
+	for p in rs.squad_scene_paths:
+		var path := str(p)
+		var res := load(path)
+		if not (res is PackedScene):
+			continue
+
+		var inst := (res as PackedScene).instantiate()
+		if inst == null:
+			continue
+
+		var name := _find_display_name_in_tree(inst)
+		if name != "":
+			out.append(name)
+
+		inst.queue_free()
+
+	return out
+
+
+func _find_display_name_in_tree(n: Node) -> String:
+	if n == null:
+		return ""
+
+	if "display_name" in n:
+		var v = n.get("display_name")
+		if v != null and str(v) != "":
+			return str(v)
+
+	if n.has_meta("display_name"):
+		var m = n.get_meta("display_name")
+		if m != null and str(m) != "":
+			return str(m)
+
+	for ch in n.get_children():
+		var got := _find_display_name_in_tree(ch)
+		if got != "":
+			return got
+
+	return ""
+
+
+func _make_name_set(names: Array[String]) -> Dictionary:
+	var d: Dictionary = {}
+	for n in names:
+		d[str(n)] = true
+	return d
+
+
+func _squad_has_name_fuzzy(name_set: Dictionary, want: String) -> bool:
+	# exact
+	if name_set.has(want):
+		return true
+
+	var want_l := want.to_lower()
+
+	for k in name_set.keys():
+		var s := str(k)
+		var s_l := s.to_lower()
+
+		if s_l.find(want_l) != -1:
+			return true
+		if want_l.find(s_l) != -1:
+			return true
+
+	return false
 
 func reset_tutorial(start_step: Step = Step.INTRO_SELECT) -> void:
 	enabled = true
@@ -349,3 +515,146 @@ func reset_tutorial(start_step: Step = Step.INTRO_SELECT) -> void:
 
 	# Show first prompt again (deferred avoids timing issues if UI/map is mid-refresh)
 	call_deferred("_show_step")
+
+func _get_squad_name_to_thumb() -> Dictionary:
+	# Returns: { "Soldier": Texture2D, "Mercenary": Texture2D, ... } by DISPLAY NAME
+	var out: Dictionary = {}
+
+	var rs := get_tree().root.get_node_or_null("RunState")
+	if rs == null:
+		rs = get_tree().root.get_node_or_null("RunStateNode")
+	if rs == null:
+		return out
+	if not ("squad_scene_paths" in rs):
+		return out
+
+	for p in rs.squad_scene_paths:
+		var path := str(p)
+		var res := load(path)
+		if not (res is PackedScene):
+			continue
+
+		var inst := (res as PackedScene).instantiate()
+		if inst == null:
+			continue
+
+		var name := _find_display_name_in_tree(inst)  # <-- YOU ALREADY HAVE THIS
+		var thumb := _find_thumbnail_in_tree(inst)
+
+		if name != "" and thumb != null and not out.has(name):
+			out[name] = thumb
+
+		inst.queue_free()
+
+	return out
+
+
+func _find_script_global_class_in_tree(n: Node) -> String:
+	if n == null:
+		return ""
+
+	# Prefer script global name (Godot 4): class_name Foo -> "Foo"
+	var sc = n.get_script()
+	if sc != null and sc is Script:
+		var gn := (sc as Script).get_global_name()
+		if gn != null and str(gn) != "":
+			return str(gn)
+
+	for ch in n.get_children():
+		var got := _find_script_global_class_in_tree(ch)
+		if got != "":
+			return got
+
+	return ""
+
+
+func _find_thumbnail_in_tree(n: Node) -> Texture2D:
+	if n == null:
+		return null
+
+	# your units likely have: @export var thumbnail: Texture2D
+	if "thumbnail" in n:
+		var t = n.get("thumbnail")
+		if t is Texture2D:
+			return t
+
+	# optional fallback if you want:
+	# if "portrait_tex" in n:
+	# 	var p = n.get("portrait_tex")
+	# 	if p is Texture2D:
+	# 		return p
+
+	for ch in n.get_children():
+		var got := _find_thumbnail_in_tree(ch)
+		if got != null:
+			return got
+
+	return null
+
+
+func _has_class_fuzzy(class_to_thumb: Dictionary, want: String) -> bool:
+	if class_to_thumb.has(want):
+		return true
+
+	var want_l := want.to_lower()
+	for k in class_to_thumb.keys():
+		var s_l := str(k).to_lower()
+		if s_l.find(want_l) != -1 or want_l.find(s_l) != -1:
+			return true
+
+	return false
+
+
+func _thumb_for_class(class_to_thumb: Dictionary, want: String) -> Texture2D:
+	if class_to_thumb.has(want):
+		return class_to_thumb[want]
+
+	# fuzzy fallback
+	var want_l := want.to_lower()
+	for k in class_to_thumb.keys():
+		var s := str(k)
+		var s_l := s.to_lower()
+		if s_l.find(want_l) != -1 or want_l.find(s_l) != -1:
+			return class_to_thumb[k]
+
+	return null
+
+func _unit_key(s: String) -> String:
+	return s.strip_edges().to_upper()
+
+func _get_squad_key_to_thumb() -> Dictionary:
+	var out: Dictionary = {}
+
+	var rs := get_tree().root.get_node_or_null("RunState")
+	if rs == null:
+		rs = get_tree().root.get_node_or_null("RunStateNode")
+	if rs == null:
+		print("[SQUAD THUMBS] No RunState found")
+		return out
+
+	if not ("squad_scene_paths" in rs):
+		print("[SQUAD THUMBS] RunState has no squad_scene_paths")
+		return out
+
+	for p in rs.squad_scene_paths:
+		var res := load(str(p))
+		if not (res is PackedScene):
+			continue
+
+		var inst := (res as PackedScene).instantiate()
+		if inst == null:
+			continue
+
+		var dn := _find_display_name_in_tree(inst)
+		var key := _unit_key(dn)
+		var th := _find_thumbnail_in_tree(inst)
+
+		print("[SQUAD THUMBS] path=", str(p), " display_name=", dn, " key=", key, " thumb=", th)
+
+		if key != "" and th != null:
+			out[key] = th
+
+		inst.queue_free()
+
+	print("[SQUAD THUMBS] FINAL KEYS = ", out.keys())
+	return out
