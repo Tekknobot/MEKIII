@@ -202,6 +202,7 @@ hellfire_flight_time = 1.8
 hellfire_arc_height = 80.0
 hellfire_spin_turns = 3.25
 suppress_damage = 2
+display_name = "SOLDIER"
 attack_damage = 2
 tnt_throw_range = 4
 

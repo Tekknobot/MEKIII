@@ -1108,6 +1108,8 @@ func _select(u: Unit) -> void:
 	selected = u
 	selected.set_selected(true)
 
+	_debug_print_unit(u)
+
 	_sfx(&"ui_select", sfx_volume_ui, 1.0)
 
 	if u.team == Unit.Team.ALLY and not ally_select_lines.is_empty():
@@ -1121,6 +1123,34 @@ func _select(u: Unit) -> void:
 	# --- Tutorial hook ---
 	emit_signal("tutorial_event", &"ally_selected", {"cell": u.cell})
 
+func _debug_print_unit(u: Object) -> void:
+	var has_prop := ("display_name" in u)
+	var disp_val := "<none>"
+	if has_prop:
+		disp_val = str(u.display_name)
+
+	var meta_val := "<none>"
+	if u.has_meta("display_name"):
+		meta_val = str(u.get_meta("display_name"))
+
+	var script_val := "<no script>"
+	if u.get_script() != null:
+		script_val = str(u.get_script())
+
+	var gd_val := "<no method>"
+	if u.has_method("get_display_name"):
+		gd_val = str(u.call("get_display_name"))
+
+	print(
+		"[SELECT] node=", u,
+		" class=", u.get_class(),
+		" script=", script_val,
+		" name=", u.name,
+		" has_display_name_prop=", has_prop,
+		" display_name=", disp_val,
+		" meta_display_name=", meta_val,
+		" get_display_name=", gd_val
+	)
 
 func _unselect() -> void:
 	if selected and is_instance_valid(selected):

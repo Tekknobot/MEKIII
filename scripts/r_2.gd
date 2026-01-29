@@ -9,7 +9,6 @@ class_name R2
 # Visual / identity
 # -------------------------
 @export var portrait_tex: Texture2D = preload("res://sprites/Portraits/dog_port.png")
-@export var display_name := "R2 Cannon"
 @export var thumbnail: Texture2D
 @export var special: String = "CANNON"
 @export var special_desc: String = "Three powerful slow moving projectiles that cause extensive splash damage."

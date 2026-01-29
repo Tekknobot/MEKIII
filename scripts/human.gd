@@ -1,14 +1,13 @@
 extends Unit
 class_name Human
 
+@export var portrait_tex: Texture2D = preload("res://sprites/Portraits/soldier_port.png")
 @export var thumbnail: Texture2D
+
 @export var specials: Array[String] = ["HELLFIRE", "SUPRESS"]
 @export var special_desc: String = "Throw TNT causing splash damage.\nFire at targets and disable their next turn."
 
 func _ready() -> void:
-	set_meta("portrait_tex", preload("res://sprites/Portraits/soldier_port.png"))
-	set_meta("display_name", "Soldier")
-
 	footprint_size = Vector2i(1, 1)
 	move_range = 4
 	attack_range = 5

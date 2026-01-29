@@ -1,7 +1,15 @@
 extends Unit
 class_name Mech
 
+# -------------------------
+# Visual / identity
+# -------------------------
+@export var portrait_tex: Texture2D = preload("res://sprites/Portraits/dog_port.png")
 @export var thumbnail: Texture2D
+
+# -------------------------
+# Specials UI info
+# -------------------------
 @export var specials: Array[String] = ["MINES", "WATCHER"]
 @export var special_desc: String = "Place mines in range.\nWatcher attacks in range every turn."
 
@@ -10,20 +18,16 @@ class_name Mech
 var placing_mines := false
 
 func _ready() -> void:
-	set_meta("portrait_tex", preload("res://sprites/Portraits/dog_port.png"))
-	set_meta("display_name", "Robodog")
-			
 	footprint_size = Vector2i(1, 1)
 	move_range = 6
 	attack_range = 1
-	
-	# ✅ Do NOT hard reset hp/max_hp here.
-	# If you want a baseline, clamp UP not down:
+
+	# Baseline survivability
 	max_hp = max(max_hp, 5)
 	hp = clamp(hp, 0, max_hp)
 
-	# ✅ Run Unit setup (hp=max_hp + sprite base pos)
-	super._ready()	
+	super._ready()
+
 
 func perform_place_mine(M: MapController, target_cell: Vector2i) -> void:
 	# range check

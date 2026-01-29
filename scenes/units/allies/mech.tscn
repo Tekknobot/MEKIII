@@ -214,6 +214,7 @@ animations = [{
 [node name="Unit" type="CharacterBody2D"]
 script = ExtResource("1_0w1yf")
 thumbnail = ExtResource("2_m4nn4")
+display_name = "ROBODOG"
 attack_damage = 2
 death_fx_offset = Vector2(0, -16)
 

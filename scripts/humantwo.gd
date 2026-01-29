@@ -1,39 +1,47 @@
 extends Unit
 class_name HumanTwo
 
+# -------------------------
+# Visual / identity
+# -------------------------
+@export var portrait_tex: Texture2D = preload("res://sprites/Portraits/rambo_port.png")
 @export var thumbnail: Texture2D
+
+# -------------------------
+# Specials UI info
+# -------------------------
 @export var specials: Array[String] = ["BLADE", "STIMPACK"]
 @export var special_desc: String = "Slashes targets within range up close.\nBoost damage and movement per turn."
 
+# -------------------------
+# Blade
+# -------------------------
 @export var blade_range := 5
 @export var blade_damage := 2
 @export var blade_cleave_damage := 1
 
+# -------------------------
+# Stimpack
+# -------------------------
 @export var stim_duration_turns := 1
 @export var stim_move_bonus := 2
 @export var stim_damage_bonus := 1
 @export var stim_cooldown_turns := 3
-@export var stim_attack_damage_bonus := 1     # +attack_damage while active
-
+@export var stim_attack_damage_bonus := 1
 @export var stim_shader: Shader = preload("res://shaders/stim_jacked.gdshader")
 
 func _ready() -> void:
-	set_meta("portrait_tex", preload("res://sprites/Portraits/rambo_port.png"))
-	set_meta("display_name", "Mercenary")
-		
 	footprint_size = Vector2i(1, 1)
 	move_range = 5
 	attack_range = 1
-
 	tnt_throw_range = 4
-	
-	# ✅ Do NOT hard reset hp/max_hp here.
-	# If you want a baseline, clamp UP not down:
+
+	# Baseline survivability
 	max_hp = max(max_hp, 4)
 	hp = clamp(hp, 0, max_hp)
 
-	# ✅ Run Unit setup (hp=max_hp + sprite base pos)
-	super._ready()	
+	super._ready()
+
 	
 func perform_blade(M: MapController, target_cell: Vector2i) -> void:
 	if M == null or not is_instance_valid(M):

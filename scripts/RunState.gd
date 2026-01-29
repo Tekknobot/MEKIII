@@ -333,3 +333,25 @@ func _dict_string_to_stringname_counts(d: Dictionary) -> Dictionary:
 	for k in d.keys():
 		out[StringName(str(k))] = int(d[k])
 	return out
+
+func reset_run() -> void:
+	# overworld
+	overworld_seed = 0
+	overworld_current_node_id = -1
+	overworld_cleared.clear()
+
+	# mission
+	mission_seed = 0
+	mission_node_type = &""
+	mission_difficulty = 1.0
+	mission_node_id = -1
+
+	# upgrades
+	run_upgrades.clear()
+	run_upgrade_counts.clear()
+
+	# squad / roster / recruits
+	squad_scene_paths.clear()
+	roster_scene_paths.clear()
+	recruit_pool_paths.clear()
+	recruited_scene_paths.clear()

@@ -8,7 +8,6 @@ class_name S3
 # Visual / identity
 # -------------------------
 @export var portrait_tex: Texture2D = preload("res://sprites/Portraits/dog_port.png") # swap to spider portrait
-@export var display_name := "S3 Arachnid"
 @export var thumbnail: Texture2D
 @export var special: String = "NOVA"
 @export var special_desc: String = "Detonate a starburst blast, then an aftershock ring."

@@ -334,6 +334,12 @@ layout_mode = 2
 theme_override_fonts/font = ExtResource("2_sa3yf")
 text = "Quit"
 
+[node name="RestartButton" type="Button" parent="Center/PanelContainer/MarginContainer/VBoxContainer/Buttons"]
+custom_minimum_size = Vector2(80, 16)
+layout_mode = 2
+theme_override_fonts/font = ExtResource("2_sa3yf")
+text = "Restart"
+
 [node name="StoryClip" type="Control" parent="."]
 z_index = 4096
 custom_minimum_size = Vector2(120, 120)

@@ -188,6 +188,7 @@ animations = [{
 
 [node name="Unit" type="CharacterBody2D"]
 script = ExtResource("1_ttoxp")
+display_name = "MERCENARY"
 thumbnail = ExtResource("2_k3nam")
 blade_damage = 4
 blade_cleave_damage = 2

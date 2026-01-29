@@ -67,16 +67,6 @@ func _refresh() -> void:
 	_portrait.texture = _unit.get_portrait_texture()
 	_name.text = _unit.get_display_name()
 
-	# Name from meta("display_name")
-	var nm := ""
-	if _unit.has_meta("display_name"):
-		var dn = _unit.get_meta("display_name")
-		if dn != null:
-			nm = str(dn)
-	if nm == "":
-		nm = _unit.name
-	_name.text = nm
-
 	# HP
 	_hp_bar.max_value = max(1, _unit.max_hp)
 	_hp_bar.value = clamp(_unit.hp, 0, _unit.max_hp)

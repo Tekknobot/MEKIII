@@ -7,6 +7,7 @@ extends Control
 @onready var fade: ColorRect = $Fade
 @onready var start_button: Button = $Center/PanelContainer/MarginContainer/VBoxContainer/Buttons/StartButton
 @onready var quit_button: Button = $Center/PanelContainer/MarginContainer/VBoxContainer/Buttons/QuitButton
+@onready var restart_button: Button = $Center/PanelContainer/MarginContainer/VBoxContainer/Buttons/RestartButton
 
 @onready var title: RichTextLabel = $Center/PanelContainer/MarginContainer/VBoxContainer/Title
 
@@ -101,6 +102,7 @@ func _ready() -> void:
 	# Hook buttons
 	start_button.pressed.connect(_on_start_pressed)
 	quit_button.pressed.connect(_on_quit_pressed)
+	restart_button.pressed.connect(_on_restart_pressed)
 	start_button.grab_focus()
 
 	# Story setup (NO SCROLLING)
@@ -532,3 +534,25 @@ func _desaturate_bg_pulse() -> void:
 			if m != null:
 				m.set_shader_parameter("saturation", v)
 	, 0.0, 1.0, resat_time)
+
+func _on_restart_pressed() -> void:
+	if _busy:
+		return
+	_busy = true
+	_type_running = false
+	await _fade_out()
+
+	var rs := get_tree().root.get_node_or_null("RunState")
+	if rs == null:
+		rs = get_tree().root.get_node_or_null("RunStateNode")
+
+	# ✅ clear disk save + reset in-memory state if you have it
+	if rs != null:
+		if rs.has_method("wipe_save"):
+			rs.call("wipe_save")
+		# optional but recommended: reset the runtime values too
+		if rs.has_method("reset_run"):
+			rs.call("reset_run")
+
+	# go to squad select
+	get_tree().change_scene_to_packed(game_scene)

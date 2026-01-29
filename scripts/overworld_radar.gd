@@ -76,6 +76,22 @@ var packets: Array[Dictionary] = []
 var _font: Font = null
 
 # -------------------------
+# SQUAD HUD (top-left)
+# -------------------------
+@export var squad_hud_enabled := true
+@export var squad_hud_padding := Vector2(16, 16)
+@export var squad_chip_size := Vector2(44, 44)
+@export var squad_portrait_size := Vector2(40, 40)
+@export var squad_thumb_size := Vector2(18, 18)
+@export var squad_show_names := false
+@export var squad_name_font_size := 12
+@export var squad_name_font: Font
+
+var _hud_layer: CanvasLayer = null
+var _hud_panel: PanelContainer = null
+var _hud_row: HBoxContainer = null
+
+# -------------------------
 # LIFECYCLE
 # -------------------------
 func _ready() -> void:
@@ -114,6 +130,10 @@ func _ready() -> void:
 
 	_build_packets()
 	queue_redraw()
+
+	if squad_hud_enabled:
+		_build_squad_hud()
+		_refresh_squad_hud()
 
 func _rs() -> Node:
 	var rs := get_tree().root.get_node_or_null("RunStateNode")
@@ -678,3 +698,162 @@ func _rng_shuffle_int(arr: Array[int]) -> void:
 		var tmp := arr[i]
 		arr[i] = arr[j]
 		arr[j] = tmp
+
+func _build_squad_hud() -> void:
+	# Kill old if reloading
+	if _hud_layer != null and is_instance_valid(_hud_layer):
+		_hud_layer.queue_free()
+	_hud_layer = null
+	_hud_panel = null
+	_hud_row = null
+
+	_hud_layer = CanvasLayer.new()
+	_hud_layer.name = "SquadHUD"
+	add_child(_hud_layer)
+
+	_hud_panel = PanelContainer.new()
+	_hud_panel.name = "Panel"
+	_hud_layer.add_child(_hud_panel)
+
+	# anchor top-left with padding
+	_hud_panel.anchor_left = 0.0
+	_hud_panel.anchor_top = 0.0
+	_hud_panel.anchor_right = 0.0
+	_hud_panel.anchor_bottom = 0.0
+	_hud_panel.position = squad_hud_padding
+
+	var margin := MarginContainer.new()
+	margin.name = "Margin"
+	_hud_panel.add_child(margin)
+
+	# padding inside panel
+	margin.add_theme_constant_override("margin_left", 10)
+	margin.add_theme_constant_override("margin_top", 10)
+	margin.add_theme_constant_override("margin_right", 10)
+	margin.add_theme_constant_override("margin_bottom", 10)
+
+	_hud_row = HBoxContainer.new()
+	_hud_row.name = "Row"
+	_hud_row.add_theme_constant_override("separation", 8)
+	margin.add_child(_hud_row)
+
+
+func _refresh_squad_hud() -> void:
+	if _hud_row == null or not is_instance_valid(_hud_row):
+		return
+
+	# clear
+	for ch in _hud_row.get_children():
+		ch.queue_free()
+
+	var rs := _rs()
+	if rs == null:
+		return
+	if not ("squad_scene_paths" in rs):
+		return
+
+	var paths: Array = rs.squad_scene_paths
+	for p in paths:
+		var path := str(p)
+		if path == "":
+			continue
+		_hud_row.add_child(await _make_squad_chip(path))
+
+func _make_squad_chip(scene_path: String) -> Control:
+	var chip := VBoxContainer.new()
+	chip.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	chip.add_theme_constant_override("separation", 4)
+	chip.alignment = BoxContainer.ALIGNMENT_CENTER
+
+	var psize: Vector2 = squad_portrait_size * 2.0
+	var tsize: Vector2 = squad_thumb_size * 2.0
+
+	# --- Portrait ---
+	var portrait := TextureRect.new()
+	portrait.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	portrait.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	portrait.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	portrait.custom_minimum_size = psize
+	chip.add_child(portrait)
+
+	# --- Thumb under portrait ---
+	var thumb := TextureRect.new()
+	thumb.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	thumb.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	thumb.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	thumb.custom_minimum_size = tsize
+	chip.add_child(thumb)
+
+	# --- Display name under thumb ---
+	if squad_show_names:
+		var name_label := Label.new()
+		name_label.name = "NameLabel"
+		name_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		name_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+
+		# Apply chosen font if provided
+		if squad_name_font != null:
+			name_label.add_theme_font_override("font", squad_name_font)
+
+		name_label.add_theme_font_size_override("font_size", squad_name_font_size)
+
+		# default radar-green tint (still editable later)
+		name_label.add_theme_color_override("font_color", Color(1.0, 1.0, 1.0, 0.85))
+
+		chip.add_child(name_label)
+
+
+	# --- Load visuals from unit scene ---
+	var vis := await _read_unit_visuals(scene_path)
+	portrait.texture = vis.get("portrait", null)
+	thumb.texture = vis.get("thumb", null)
+
+	if squad_show_names:
+		var nl := chip.get_node("NameLabel") as Label
+		if nl:
+			nl.text = str(vis.get("name", ""))
+
+	return chip
+
+func _read_unit_visuals(scene_path: String) -> Dictionary:
+	var out := {"portrait": null, "thumb": null, "name": ""}
+
+	if scene_path == "" or not ResourceLoader.exists(scene_path):
+		return out
+
+	var ps := load(scene_path) as PackedScene
+	if ps == null:
+		return out
+
+	var inst := ps.instantiate()
+	if inst == null:
+		return out
+
+	# Exports (properties)
+	out["portrait"] = _get_prop_if_exists(inst, "portrait_tex")
+	out["thumb"] = _get_prop_if_exists(inst, "thumbnail")
+	out["name"] = _get_prop_if_exists(inst, "display_name")
+
+	# Meta fallback (only if you still have legacy units using meta)
+	if out["portrait"] == null and inst.has_meta("portrait_tex"):
+		out["portrait"] = inst.get_meta("portrait_tex")
+	if out["thumb"] == null and inst.has_meta("thumbnail"):
+		out["thumb"] = inst.get_meta("thumbnail")
+	if (out["name"] == null or str(out["name"]) == "") and inst.has_meta("display_name"):
+		out["name"] = inst.get_meta("display_name")
+
+	if out["name"] == null or str(out["name"]) == "":
+		out["name"] = inst.name
+	else:
+		out["name"] = str(out["name"])
+
+	inst.queue_free()
+	return out
+
+func _get_prop_if_exists(obj: Object, prop: StringName) -> Variant:
+	# Checks actual properties (includes exported vars)
+	for p in obj.get_property_list():
+		# p is a Dictionary; "name" key exists
+		if StringName(p.get("name", "")) == prop:
+			return obj.get(prop)
+	return null

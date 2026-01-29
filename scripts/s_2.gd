@@ -8,7 +8,6 @@ class_name S2
 # Visual / identity
 # -------------------------
 @export var portrait_tex: Texture2D = preload("res://sprites/Portraits/dog_port.png") # swap to heli portrait
-@export var display_name := "S2 Skimmer"
 @export var thumbnail: Texture2D
 @export var special: String = "QUAKE"
 @export var special_desc: String = "A seismic ripple lifts tiles in a radius. Units ride the wave and take damage."

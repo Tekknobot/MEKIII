@@ -5,6 +5,8 @@ enum Team { ALLY, ENEMY }
 # --- Specials base plumbing ---
 var special_cd: Dictionary = {} # String -> int turns remaining
 
+@export var display_name: String = ""
+
 @export var team: Team = Team.ALLY
 @export var footprint_size: Vector2i = Vector2i(1, 1)
 
@@ -221,22 +223,13 @@ func get_tile_world_pos() -> Vector2:
 	return global_position
 
 func get_display_name() -> String:
-	# 1) Prefer exported property if subclass has it (like RecruitBot.display_name)
-	#    Godot can access properties by name via get().
-	if has_method("get") and ("display_name" in self):
-		var v = get("display_name")
-		if v != null and str(v) != "":
-			return str(v)
-
-	# 2) Then meta
+	if display_name.strip_edges() != "":
+		return display_name
 	if has_meta("display_name"):
 		var m = get_meta("display_name")
-		if m != null and str(m) != "":
+		if m != null and str(m).strip_edges() != "":
 			return str(m)
-
-	# 3) Fallback: node name
 	return name
-
 
 func get_portrait_texture() -> Texture2D:
 	# 1) Prefer exported property if subclass has it (like RecruitBot.portrait_tex)

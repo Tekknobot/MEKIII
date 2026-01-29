@@ -1,7 +1,8 @@
-[gd_scene load_steps=3 format=3 uid="uid://daw4tavxwlaxm"]
+[gd_scene load_steps=4 format=3 uid="uid://daw4tavxwlaxm"]
 
 [ext_resource type="Script" uid="uid://ikmr3hk0xeyd" path="res://scripts/overworld_radar.gd" id="1_cn00k"]
 [ext_resource type="FontFile" uid="uid://buw362wjb8o8d" path="res://fonts/magofonts/mago2.ttf" id="2_hcx2u"]
+[ext_resource type="FontFile" uid="uid://dgugahs6bc7so" path="res://fonts/magofonts/mago3.ttf" id="3_dii4a"]
 
 [node name="OverworldRadar" type="Node2D"]
 script = ExtResource("1_cn00k")
@@ -9,3 +10,6 @@ label_font = ExtResource("2_hcx2u")
 label_font_size = 16
 grid_size = 7
 jitter_px = 0.0
+squad_show_names = true
+squad_name_font_size = 16
+squad_name_font = ExtResource("3_dii4a")

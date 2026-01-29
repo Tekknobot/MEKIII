@@ -5,7 +5,6 @@ class_name RecruitBot
 # Visual / identity
 # -------------------------
 @export var portrait_tex: Texture2D = preload("res://sprites/Portraits/dog_port.png")
-@export var display_name := "Destroyer"
 @export var thumbnail: Texture2D
 @export var special: String = "MISSILE"
 @export var special_desc: String = "Fire missiles at enemies after every round if in range."

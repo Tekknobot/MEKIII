@@ -5,7 +5,6 @@ class_name M1
 # Visual / identity
 # -------------------------
 @export var portrait_tex: Texture2D = preload("res://sprites/Portraits/dog_port.png")
-@export var display_name := "M1 Sunderer"
 @export var thumbnail: Texture2D
 @export var special: String = "SUNDER"
 @export var special_desc: String = "Hits target tile, then continues behind it (same line) one by one"
