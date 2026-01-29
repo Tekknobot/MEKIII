@@ -1,3 +1,5 @@
+Camera2D
+Node
 AudioStreamPlayer
 AnimatedSprite2D
 RichTextLabel
@@ -11,5 +13,3 @@ HBoxContainer
 Button
 PanelContainer
 ColorRect
-MarginContainer
-Node2D

@@ -1,0 +1,11 @@
+[gd_scene load_steps=3 format=3 uid="uid://daw4tavxwlaxm"]
+
+[ext_resource type="Script" uid="uid://ikmr3hk0xeyd" path="res://scripts/overworld_radar.gd" id="1_cn00k"]
+[ext_resource type="FontFile" uid="uid://buw362wjb8o8d" path="res://fonts/magofonts/mago2.ttf" id="2_hcx2u"]
+
+[node name="OverworldRadar" type="Node2D"]
+script = ExtResource("1_cn00k")
+label_font = ExtResource("2_hcx2u")
+label_font_size = 16
+grid_size = 7
+jitter_px = 0.0

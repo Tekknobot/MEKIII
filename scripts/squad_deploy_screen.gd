@@ -22,6 +22,8 @@ extends Control
 @onready var info_stats: Label = $InfoPanel/VBox/InfoStats
 @onready var info_thumbnail: TextureRect = $InfoPanel/VBox/Thumbnail
 
+@export var overworld_scene: PackedScene
+
 # roster entries: {path,name,portrait,hp,move,range,damage}
 var _roster: Array[Dictionary] = []
 var _selected: Array[String] = []  # ordered scene paths
@@ -422,10 +424,11 @@ func _on_start() -> void:
 		if rs.has_method("rebuild_recruit_pool"):
 			rs.call("rebuild_recruit_pool")
 
-	if game_scene != null:
-		get_tree().change_scene_to_packed(game_scene)
+	if overworld_scene != null:
+		get_tree().change_scene_to_packed(overworld_scene)
 	else:
-		push_error("SquadDeploy: game_scene is not assigned.")
+		get_tree().change_scene_to_file("res://scenes/overworld.tscn")
+
 
 func _unit_get_string(u: Node, key: String, default_val := "") -> String:
 	if key in u:

@@ -11,6 +11,8 @@ var end_panel: CanvasLayer = null
 @onready var TM := get_node_or_null(turn_manager_path)
 @onready var toast := get_node_or_null(toast_path)
 
+@export var overworld_scene_path: String = "res://scenes/overworld.tscn"
+
 enum Step {
 	INTRO_SELECT,
 	INTRO_MOVE,
@@ -169,7 +171,7 @@ func _on_tutorial_event(id: StringName, payload: Dictionary) -> void:
 		"ally_moved":
 			if step == Step.INTRO_MOVE:
 				_advance(Step.INTRO_ATTACK)
-				#_on_you_win()
+				_on_you_win()
 
 		"attack_mode_armed":
 			# don't auto-advance, just reinforce if they're stuck
@@ -293,10 +295,18 @@ func _on_you_win() -> void:
 func _on_continue_pressed() -> void:
 	reset_tutorial(Step.INTRO_SELECT)
 
-	if M != null and is_instance_valid(M) and M.game_ref != null and is_instance_valid(M.game_ref):
-		var G = M.game_ref
-		if G.has_method("regenerate_map_faded"):
-			G.call("regenerate_map_faded")
+	# (Optional) record that the mission is complete in RunState
+	var rs := get_tree().root.get_node_or_null("RunState")
+	if rs == null:
+		rs = get_tree().root.get_node_or_null("RunStateNode")
+	if rs != null:
+		# If you want overworld to mark the node cleared:
+		# rs.last_cleared_node_id = rs.mission_node_id
+		# rs.mission_result = &"win"
+		pass
+
+	# Go back to overworld
+	get_tree().change_scene_to_file(overworld_scene_path)
 
 func _roll_3_upgrades() -> Array:
 	var pool: Array = []

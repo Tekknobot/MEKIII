@@ -1,7 +1,8 @@
-[gd_scene load_steps=7 format=3 uid="uid://yuv3ki773sul"]
+[gd_scene load_steps=8 format=3 uid="uid://yuv3ki773sul"]
 
 [ext_resource type="Script" uid="uid://bpqdlu5ei0n4s" path="res://scripts/squad_deploy_screen.gd" id="1_ojx2h"]
 [ext_resource type="PackedScene" uid="uid://bmtwqbsx674eo" path="res://scenes/Game.tscn" id="2_jek1g"]
+[ext_resource type="PackedScene" uid="uid://dp7v6b7f0bh4u" path="res://scenes/overworld.tscn" id="3_6856t"]
 [ext_resource type="FontFile" uid="uid://dgugahs6bc7so" path="res://fonts/magofonts/mago3.ttf" id="4_5wfc2"]
 [ext_resource type="FontFile" uid="uid://csnhk3q4gx0" path="res://fonts/magofonts/mago1.ttf" id="5_r4wy4"]
 [ext_resource type="FontFile" uid="uid://buw362wjb8o8d" path="res://fonts/magofonts/mago2.ttf" id="10_iuh7l"]
@@ -18,6 +19,7 @@ grow_horizontal = 2
 grow_vertical = 2
 script = ExtResource("1_ojx2h")
 game_scene = ExtResource("2_jek1g")
+overworld_scene = ExtResource("3_6856t")
 
 [node name="UI" type="HBoxContainer" parent="."]
 layout_mode = 0

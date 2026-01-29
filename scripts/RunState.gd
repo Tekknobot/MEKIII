@@ -2,6 +2,15 @@
 extends Node
 class_name RunState
 
+# Overworld / mission
+var overworld_seed: int = 0
+var overworld_current_node_id: int = -1
+
+var mission_seed: int = 0
+var mission_node_type: StringName = &"combat"  # "combat/supply/event/elite/boss/start"
+var mission_difficulty: float = 0.0            # 0..1
+var mission_node_id: int = -1
+
 # -------------------------
 # Upgrades (existing)
 # -------------------------

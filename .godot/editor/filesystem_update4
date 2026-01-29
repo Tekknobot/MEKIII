@@ -43,3 +43,8 @@ res://scripts/end_game_panel_runtime.gd
 res://scripts/music_manager.gd
 res://scenes/units/allies/S3.tscn
 res://scripts/s_3.gd
+res://scripts/overworld_radar.gd
+res://scenes/overworld_radar.tscn
+res://scripts/overworld.gd
+res://scenes/overworld.tscn
+res://scripts/overworld_camera.gd

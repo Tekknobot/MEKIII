@@ -120,6 +120,21 @@ func clear_upgrades() -> void:
 	RunStateNode.clear()
 
 func _ready() -> void:
+	var rs := get_node_or_null("/root/RunState")
+	if rs != null:
+		print("[MISSION] type=", rs.mission_node_type, " diff=", rs.mission_difficulty, " seed=", rs.mission_seed)
+
+		# example knobs:
+		# - scale zombie count
+		# - pick structure set
+		# - pick special rules for elite/boss
+		var diff := float(rs.mission_difficulty)
+		var node_type := StringName(rs.mission_node_type)
+
+		# seed your RNG (important if you want deterministic missions per node)
+		if "rng" in self:
+			self.rng.seed = int(rs.mission_seed)
+	
 	_fade_rect = get_node_or_null(fade_rect_path) as ColorRect
 	if _fade_rect != null:
 		_fade_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -146,7 +161,6 @@ func _ready() -> void:
 	map_controller.setup(self)
 
 	# NEW: apply chosen squad from RunState autoload (if any)
-	var rs := _rs()
 	if rs != null and rs.has_method("has_squad") and rs.call("has_squad"):
 		var chosen: Array[PackedScene] = rs.call("get_squad_packed_scenes")
 		if not chosen.is_empty():
