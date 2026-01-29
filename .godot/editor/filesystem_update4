@@ -40,3 +40,4 @@ res://scripts/s_2.gd
 res://scripts/turnmanager.gd
 res://scripts/RunState.gd
 res://scripts/end_game_panel_runtime.gd
+res://scripts/music_manager.gd

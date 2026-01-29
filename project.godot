@@ -21,6 +21,7 @@ config/icon="uid://chr7hpqn7573j"
 [autoload]
 
 RunStateNode="*res://scripts/RunState.gd"
+MusicManagerNode="*res://scripts/music_manager.gd"
 
 [display]
 
