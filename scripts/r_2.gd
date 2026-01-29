@@ -247,7 +247,7 @@ func _fire_projectile_to_cell_with_explosion(M: MapController, dest_cell: Vector
 
 func _apply_splash_damage(M: MapController, center_cell: Vector2i) -> void:
 	# Center hit always uses cannon_damage
-	_damage_enemy_on_cell(M, center_cell, cannon_damage)
+	_damage_enemy_on_cell(M, center_cell, cannon_damage + attack_damage)
 	_damage_structure_on_cell_if_enabled(M, center_cell, cannon_damage)
 
 	if splash_radius <= 0:

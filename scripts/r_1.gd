@@ -251,7 +251,7 @@ func _fire_projectile_to_cell_with_explosion(M: MapController, dest_cell: Vector
 func _apply_splash_damage(M: MapController, center_cell: Vector2i) -> void:
 	if splash_radius <= 0:
 		# treat as single-tile
-		_damage_enemy_on_cell(M, center_cell, volley_damage)
+		_damage_enemy_on_cell(M, center_cell, volley_damage + attack_damage)
 		_damage_structure_on_cell_if_enabled(M, center_cell, volley_damage)
 		return
 

@@ -140,7 +140,7 @@ func perform_nova(M: MapController, target_cell: Vector2i) -> void:
 
 	# Primary starburst (wavey)
 	var primary_cells := _get_starburst_cells(M, target_cell, nova_radius)
-	await _apply_cells_damage_wave(M, primary_cells, nova_damage, target_cell)
+	await _apply_cells_damage_wave(M, primary_cells, nova_damage + attack_damage, target_cell)
 	if not _alive():
 		return
 

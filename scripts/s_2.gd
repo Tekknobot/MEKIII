@@ -218,7 +218,7 @@ func _quake_bump_cell_async(M: MapController, c: Vector2i, dist: int) -> void:
 	# Direct bump damage (unit standing exactly on this cell)
 	if u != null and is_instance_valid(u):
 		if "team" in u and u.team != team:
-			_apply_damage_safely(u, quake_damage)
+			_apply_damage_safely(u, quake_damage + attack_damage)
 			_sfx_at_cell(M, quake_hit_sfx_id, c)
 
 	# Down tween

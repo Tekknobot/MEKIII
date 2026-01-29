@@ -171,7 +171,7 @@ func _spawn_explosion(M: MapController, c: Vector2i) -> void:
 func _damage_enemy_on_cell(M: MapController, c: Vector2i) -> void:
 	var u := M.unit_at_cell(c)
 	if u != null and u.team != team:
-		_apply_damage_safely(u, sunder_damage)
+		_apply_damage_safely(u, sunder_damage + attack_damage)
 
 func _apply_damage_safely(tgt: Object, dmg: int) -> void:
 	if tgt == null:

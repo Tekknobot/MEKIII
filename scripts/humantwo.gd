@@ -189,7 +189,7 @@ func perform_blade(M: MapController, target_cell: Vector2i) -> void:
 			continue
 
 		# Primary hit
-		await _hit_once.call(target, blade_damage + stim_bonus, 0.12, tcell)
+		await _hit_once.call(target, blade_damage + + attack_damage + stim_bonus, 0.12, tcell)
 
 		# Cleave around target cell (each is its own full cycle)
 		var around := [

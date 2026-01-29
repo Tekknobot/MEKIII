@@ -155,7 +155,7 @@ func perform_pounce(M: MapController, _target_cell: Vector2i) -> void:
 		await _lunge_to_cell_and_back(M, tgt_cell_for_fx)
 
 
-		_apply_damage_safely(tgt, pounce_damage)
+		_apply_damage_safely(tgt, pounce_damage + attack_damage)
 
 		# ✅ wait anim
 		await _wait_attack_anim()

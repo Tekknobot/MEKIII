@@ -43,7 +43,7 @@ func perform_place_mine(M: MapController, target_cell: Vector2i) -> void:
 	if M.mines_by_cell.has(target_cell):
 		return
 
-	M.mines_by_cell[target_cell] = {"team": team, "damage": mine_damage}
+	M.mines_by_cell[target_cell] = {"team": team, "damage": mine_damage + attack_damage}
 	
 	# ✅ spawn mine scene visual
 	M.place_mine_visual(target_cell)

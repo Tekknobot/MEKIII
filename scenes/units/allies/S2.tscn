@@ -168,7 +168,6 @@ animations = [{
 [node name="Unit" type="CharacterBody2D"]
 script = ExtResource("1_mfe0n")
 portrait_tex = ExtResource("2_00231")
-display_name = "SKIMMER"
 thumbnail = ExtResource("3_8ebf7")
 base_move_range = 4
 quake_damage = 1
@@ -178,6 +177,7 @@ quake_explosion_scene = ExtResource("5_8ebf7")
 quake_splash_hits_allies = true
 quake_splash_hits_structures = true
 quake_min_safe_dist = 5
+display_name = "SKIMMER"
 attack_damage = 3
 death_fx_offset = Vector2(0, -16)
 

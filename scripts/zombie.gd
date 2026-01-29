@@ -20,7 +20,7 @@ func _ready() -> void:
 	attack_range = 1
 	attack_damage = 1
 
-	max_hp = max(max_hp, 6)
+	max_hp = max(max_hp, 10) # <----------------- ZOMBIE HP
 	hp = clamp(hp, 0, max_hp)
 
 	super._ready()

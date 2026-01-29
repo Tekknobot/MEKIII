@@ -147,11 +147,11 @@ animations = [{
 [node name="Unit" type="CharacterBody2D"]
 script = ExtResource("1_ind6l")
 portrait_tex = ExtResource("2_m1fto")
-display_name = "BLADEGUARD"
 thumbnail = ExtResource("3_iscaa")
 special_desc = "Hits target tile, then continues behind it (same line) one by one."
 sunder_cooldown = 0
 sunder_step_delay = 0.0
+display_name = "BLADEGUARD"
 attack_damage = 3
 death_fx_offset = Vector2(0, -16)
 
