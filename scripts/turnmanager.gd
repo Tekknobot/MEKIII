@@ -18,6 +18,7 @@ class_name TurnManager
 @export var volley_button_path: NodePath
 @export var cannon_button_path: NodePath
 @export var quake_button_path: NodePath
+@export var nova_button_path: NodePath
 
 @onready var suppress_button := get_node_or_null(suppress_button_path)
 @onready var stim_button := get_node_or_null(stim_button_path)
@@ -30,6 +31,7 @@ class_name TurnManager
 @onready var volley_button := get_node_or_null(volley_button_path)
 @onready var cannon_button := get_node_or_null(cannon_button_path)
 @onready var quake_button := get_node_or_null(quake_button_path)
+@onready var nova_button := get_node_or_null(nova_button_path)
 
 enum Phase { PLAYER, ENEMY, BUSY }
 var phase: Phase = Phase.PLAYER
@@ -88,7 +90,9 @@ func _ready() -> void:
 		cannon_button.pressed.connect(_on_cannon_pressed)
 	if quake_button:
 		quake_button.pressed.connect(_on_quake_pressed)
-				
+	if nova_button:
+		nova_button.pressed.connect(_on_nova_pressed)
+						
 	start_player_phase()
 	_update_end_turn_button()
 
@@ -503,7 +507,8 @@ func _update_special_buttons() -> void:
 	if volley_button: volley_button.toggle_mode = true
 	if cannon_button: cannon_button.toggle_mode = true
 	if quake_button: quake_button.toggle_mode = true
-		
+	if nova_button: nova_button.toggle_mode = true
+				
 	# Reset
 	if hellfire_button:
 		hellfire_button.disabled = true
@@ -549,7 +554,11 @@ func _update_special_buttons() -> void:
 		quake_button.disabled = true
 		quake_button.button_pressed = false
 		quake_button.visible = false
-						
+	if nova_button:
+		nova_button.disabled = true
+		nova_button.button_pressed = false
+		nova_button.visible = false
+									
 	# Only during player phase
 	if phase != Phase.PLAYER:
 		return
@@ -576,7 +585,8 @@ func _update_special_buttons() -> void:
 	var has_volley := u.has_method("perform_volley")
 	var has_cannon := u.has_method("perform_cannon")
 	var has_quake := u.has_method("perform_quake")
-		
+	var has_nova := u.has_method("perform_nova")
+				
 	# Optional filter list
 	if u.has_method("get_available_specials"):
 		var specials: Array[String] = u.get_available_specials()
@@ -593,7 +603,8 @@ func _update_special_buttons() -> void:
 		has_volley = has_volley and specials.has("volley") 
 		has_cannon = has_cannon and specials.has("cannon") 
 		has_quake = has_quake and specials.has("quake") 
-				
+		has_nova = has_nova and specials.has("nova") 
+								
 	# ✅ Show ONLY if unit still has an attack action available
 	var show_specials := (not spent_attack)
 
@@ -608,6 +619,7 @@ func _update_special_buttons() -> void:
 	if volley_button: volley_button.visible = show_specials and has_volley
 	if cannon_button: cannon_button.visible = show_specials and has_cannon
 	if quake_button: quake_button.visible = show_specials and has_quake
+	if nova_button: nova_button.visible = show_specials and has_nova
 
 	# Cooldowns
 	var ok_hellfire := true
@@ -621,6 +633,7 @@ func _update_special_buttons() -> void:
 	var ok_volley := true
 	var ok_cannon := true
 	var ok_quake := true
+	var ok_nova := true
 	if u.has_method("can_use_special"):
 		ok_hellfire = u.can_use_special("hellfire")
 		ok_blade = u.can_use_special("blade")
@@ -633,6 +646,7 @@ func _update_special_buttons() -> void:
 		ok_volley = u.can_use_special("volley")
 		ok_cannon = u.can_use_special("cannon")
 		ok_quake = u.can_use_special("quake")
+		ok_nova = u.can_use_special("nova")
 
 	# Enable
 	if hellfire_button: hellfire_button.disabled = spent_attack or (not has_hellfire) or (not ok_hellfire)
@@ -646,6 +660,7 @@ func _update_special_buttons() -> void:
 	if volley_button: volley_button.disabled = spent_attack or (not has_volley) or (not ok_volley)
 	if cannon_button: cannon_button.disabled = spent_attack or (not has_cannon) or (not ok_cannon)
 	if quake_button: quake_button.disabled = spent_attack or (not has_quake) or (not ok_quake)
+	if nova_button: nova_button.disabled = spent_attack or (not has_nova) or (not ok_nova)
 
 	# Pressed visuals
 	var active := ""
@@ -670,7 +685,9 @@ func _update_special_buttons() -> void:
 		cannon_button.button_pressed = (active == "cannon")
 	if quake_button and not quake_button.disabled:
 		quake_button.button_pressed = (active == "quake")
-			
+	if nova_button and not nova_button.disabled:
+		nova_button.button_pressed = (active == "nova")
+					
 	# Overwatch + Stim are instant toggles
 	if overwatch_button and not overwatch_button.disabled:
 		if M != null and M.has_method("is_overwatching"):
@@ -928,4 +945,22 @@ func _on_quake_pressed() -> void:
 		return
 
 	M.activate_special("quake")
+	_update_special_buttons()
+
+func _on_nova_pressed() -> void:
+	if phase != Phase.PLAYER:
+		return
+	emit_signal("tutorial_event", &"special_button_pressed", {"id": "nova"})
+
+	var u := M.selected
+	if u == null or not is_instance_valid(u):
+		return
+	if _attacked.get(u, false):
+		return
+
+	# R1 uses perform_volley (or whatever you named it)
+	if not u.has_method("perform_nova"):
+		return
+
+	M.activate_special("nova")
 	_update_special_buttons()

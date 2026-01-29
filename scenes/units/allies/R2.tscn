@@ -157,6 +157,7 @@ projectile_travel_time = 1.28
 explosion_fx_scene = ExtResource("5_gbbhs")
 splash_damage_falloff = false
 attack_damage = 3
+death_fx_offset = Vector2(0, -16)
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="."]
 position = Vector2(0, -9)

@@ -41,3 +41,5 @@ res://scripts/turnmanager.gd
 res://scripts/RunState.gd
 res://scripts/end_game_panel_runtime.gd
 res://scripts/music_manager.gd
+res://scenes/units/allies/S3.tscn
+res://scripts/s_3.gd

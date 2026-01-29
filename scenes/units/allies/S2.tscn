@@ -173,11 +173,13 @@ thumbnail = ExtResource("3_8ebf7")
 base_move_range = 4
 quake_damage = 1
 quake_cooldown = 0
+quake_ring_delay = 0.1
 quake_explosion_scene = ExtResource("5_8ebf7")
 quake_splash_hits_allies = true
 quake_splash_hits_structures = true
 quake_min_safe_dist = 5
 attack_damage = 3
+death_fx_offset = Vector2(0, -16)
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="."]
 position = Vector2(0, -9)

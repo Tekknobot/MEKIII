@@ -1054,7 +1054,10 @@ func _perform_special(u: Unit, id: String, target_cell: Vector2i) -> void:
 
 	elif id == "quake" and u.has_method("perform_quake"):
 		await u.call("perform_quake", self, target_cell)
-				
+		
+	elif id == "nova" and u.has_method("perform_nova"):
+		await u.call("perform_nova", self, target_cell)
+					
 	_is_moving = false
 
 func _mouse_to_cell() -> Vector2i:
@@ -1511,6 +1514,24 @@ func _draw_special_range(u: Unit, special: String) -> void:
 
 			if grid != null and grid.has_method("in_bounds") and not grid.in_bounds(c):
 				continue
+
+			if id == "nova":
+				var dist = abs(c.x - origin.x) + abs(c.y - origin.y)
+
+				# Ask unit for minimum safe distance if it provides one
+				var min_d := 1
+				if u.has_method("get_special_min_distance"):
+					min_d = int(u.call("get_special_min_distance", "nova"))
+				elif "nova_min_safe_dist" in u:
+					min_d = int(u.nova_min_safe_dist)
+
+				if dist < min_d:
+					continue
+
+				# Optional: disallow targeting structure-blocked tiles if you want
+				# (NOVA can still damage stuff there, but clicking "dead" tiles can feel weird)
+				# if structure_blocked.has(c):
+				#     continue
 
 			# ✅ SUNDER: straight line only (no diagonals)
 			if id == "sunder":
@@ -2530,7 +2551,9 @@ func _unit_can_use_special(u: Unit, id: String) -> bool:
 			return u.has_method("perform_cannon")
 		"quake":
 			return u.has_method("perform_quake")
-					
+		"nova":
+			return u.has_method("perform_nova")
+										
 	return false
 
 func select_unit(u: Unit) -> void:
@@ -4685,6 +4708,38 @@ func apply_run_upgrades() -> void:
 					if u is RecruitBot: u.attack_range += 1 * n
 				&"recruitbot_dmg_plus_1":
 					if u is RecruitBot: u.attack_damage += 1 * n
+
+				# -------------------------
+				# S3 (Arachnobot)
+				# -------------------------
+				&"arachno_hp_plus_1":
+					if u is S3:
+						u.max_hp += 1 * n
+						u.hp = min(u.hp + 1 * n, u.max_hp)
+
+				&"arachno_move_plus_1":
+					if u is S3:
+						u.move_range += 1 * n
+
+				&"arachno_dmg_plus_1":
+					if u is S3:
+						# Boost both basic + special damage if those vars exist
+						u.attack_damage += 1 * n
+						if "basic_melee_damage" in u:
+							u.basic_melee_damage += 1 * n
+						if "nova_damage" in u:
+							u.nova_damage += 1 * n
+						if "aftershock_damage" in u:
+							u.aftershock_damage += 1 * n
+
+				&"arachno_range_plus_1":
+					if u is S3:
+						# Special targeting range (NOVA)
+						if "nova_range" in u:
+							u.nova_range += 1 * n
+						else:
+							# fallback if you later rename it
+							u.attack_range += 1 * n
 
 func reset_for_regen() -> void:
 	# ---------------------------
