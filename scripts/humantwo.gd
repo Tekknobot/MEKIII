@@ -19,7 +19,7 @@ class_name HumanTwo
 
 func _ready() -> void:
 	set_meta("portrait_tex", preload("res://sprites/Portraits/rambo_port.png"))
-	set_meta("display_name", "MERCENARY")
+	set_meta("display_name", "Mercenary")
 		
 	footprint_size = Vector2i(1, 1)
 	move_range = 5

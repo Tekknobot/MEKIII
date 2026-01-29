@@ -636,8 +636,16 @@ func _get_squad_key_to_thumb() -> Dictionary:
 		print("[SQUAD THUMBS] RunState has no squad_scene_paths")
 		return out
 
+	# Map scene basenames -> your upgrade keys
+	var alias := {
+		"HUMAN": "SOLDIER",
+		"HUMANTWO": "MERCENARY",
+		"MECH": "ROBODOG",
+	}
+
 	for p in rs.squad_scene_paths:
-		var res := load(str(p))
+		var path := str(p)
+		var res := load(path)
 		if not (res is PackedScene):
 			continue
 
@@ -647,9 +655,17 @@ func _get_squad_key_to_thumb() -> Dictionary:
 
 		var dn := _find_display_name_in_tree(inst)
 		var key := _unit_key(dn)
+
+		# Fallback: use file basename if display_name missing
+		if key == "":
+			var base := path.get_file().get_basename().to_upper() # human / humantwo / mech
+			key = base
+			if alias.has(key):
+				key = alias[key]
+
 		var th := _find_thumbnail_in_tree(inst)
 
-		print("[SQUAD THUMBS] path=", str(p), " display_name=", dn, " key=", key, " thumb=", th)
+		print("[SQUAD THUMBS] path=", path, " display_name=", dn, " key=", key, " thumb=", th)
 
 		if key != "" and th != null:
 			out[key] = th

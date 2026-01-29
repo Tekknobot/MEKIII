@@ -11,7 +11,7 @@ var placing_mines := false
 
 func _ready() -> void:
 	set_meta("portrait_tex", preload("res://sprites/Portraits/dog_port.png"))
-	set_meta("display_name", "ROBODOG")
+	set_meta("display_name", "Robodog")
 			
 	footprint_size = Vector2i(1, 1)
 	move_range = 6
