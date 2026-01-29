@@ -120,70 +120,57 @@ func clear_upgrades() -> void:
 	RunStateNode.clear()
 
 func _ready() -> void:
-	var rs := get_node_or_null("/root/RunState")
-	if rs != null:
-		print("[MISSION] type=", rs.mission_node_type, " diff=", rs.mission_difficulty, " seed=", rs.mission_seed)
-
-		# example knobs:
-		# - scale zombie count
-		# - pick structure set
-		# - pick special rules for elite/boss
-		var diff := float(rs.mission_difficulty)
-		var node_type := StringName(rs.mission_node_type)
-
-		# seed your RNG (important if you want deterministic missions per node)
-		if "rng" in self:
-			self.rng.seed = int(rs.mission_seed)
-	
 	_fade_rect = get_node_or_null(fade_rect_path) as ColorRect
 	if _fade_rect != null:
 		_fade_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		_fade_rect.visible = true
 		var c := _fade_rect.color
-		c.a = 1.0 # start black
+		c.a = 1.0
 		_fade_rect.color = c
 
-	# build the map normally (no fades inside)
-	_start_max_zombies = map_controller.max_zombies
-	rng.randomize()
-	if randomize_season_each_generation:
-		season = SEASONS[rng.randi_range(0, SEASONS.size() - 1)]
+	_start_mission()
 
-	grid = GridData.new()
-	grid.setup(map_width, map_height, T_DIRT)
+	await get_tree().process_frame
+	await _fade_to(0.0, fade_in_time)	
 
-	generate_map()
-	spawn_structures()
-
-	map_controller.terrain_path = terrain.get_path()
-	map_controller.units_root_path = units_root.get_path()
-	map_controller.overlay_root_path = overlays_root.get_path()
-	map_controller.setup(self)
-
-	# NEW: apply chosen squad from RunState autoload (if any)
+func _start_mission() -> void:
+	# apply chosen squad + recruit pool from RunState
+	var rs := _rs()
 	if rs != null and rs.has_method("has_squad") and rs.call("has_squad"):
 		var chosen: Array[PackedScene] = rs.call("get_squad_packed_scenes")
 		if not chosen.is_empty():
 			map_controller.ally_scenes = chosen
 
+	if rs != null:
+		map_controller.apply_recruit_pool_from_runstate(rs)
+
+	# reset mapcontroller run-scoped stuff
+	map_controller._recruits_spawned_at.clear()
+	# IMPORTANT: do NOT call reset_recruit_pool() here if it rebuilds from ally_scenes
+	# (it can wipe the runstate pool). Only shuffle if you want randomness:
+	if map_controller.has_method("shuffle_recruit_pool"):
+		map_controller.shuffle_recruit_pool()
+
+	map_controller.reset_for_regen() # rename this later if you want; it’s just "reset_for_new_mission"
+
+	# map generation
+	rng.randomize()
+	if randomize_season_each_generation:
+		season = SEASONS[rng.randi_range(0, SEASONS.size() - 1)]
+
+	if grid == null:
+		grid = GridData.new()
+	grid.setup(map_width, map_height, T_DIRT)
+
+	generate_map()
+	spawn_structures()
+
+	# re-setup + spawn
+	map_controller.setup(self)
 	map_controller.spawn_units()
 
-
-	if turn_manager != null:
+	if turn_manager != null and is_instance_valid(turn_manager):
 		turn_manager.on_units_spawned()
-
-	# now reveal the scene
-	await get_tree().process_frame
-	await _fade_to(0.0, fade_in_time)
-
-func _input(event: InputEvent) -> void:
-	if event is InputEventKey and event.pressed and not event.echo:
-		if event.keycode == KEY_R:
-			map_controller.max_zombies = _start_max_zombies
-			await regenerate_map_faded()
-
-		if event.keycode == KEY_1:
-			map_controller.satellite_sweep()		
 
 func _fade_alpha() -> float:
 	if _fade_rect == null or not is_instance_valid(_fade_rect):
