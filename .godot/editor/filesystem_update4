@@ -13,3 +13,5 @@ res://scenes/title_screen.tscn
 res://scripts/TitleScreen.gd
 res://scripts/turnmanager.gd
 res://scripts/map_controller.gd
+res://scripts/RunState.gd
+res://scripts/end_game_panel_runtime.gd

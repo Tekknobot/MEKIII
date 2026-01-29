@@ -32,6 +32,12 @@ var roster_scene_paths: Array[String] = []        # all ally unit .tscn paths di
 var recruit_pool_paths: Array[String] = []        # remaining recruitable .tscn paths (excludes squad + already recruited)
 var recruited_scene_paths: Array[String] = []     # what you’ve recruited so far (optional bookkeeping)
 
+const SAVE_PATH := "user://runstate_save.json"
+const SAVE_VERSION := 1
+
+func has_save() -> bool:
+	return FileAccess.file_exists(SAVE_PATH)
+	
 func clear() -> void:
 	run_upgrades.clear()
 	run_upgrade_counts.clear()
@@ -215,3 +221,115 @@ func apply_upgrades_to_unit(u: Node) -> void:
 		u.attack_range = rng
 	if "attack_damage" in u:
 		u.attack_damage = dmg
+
+# --- Save / Load -------------------------------------------------
+func _ready() -> void:
+	# Autoload will hit this on startup
+	load_from_disk()
+
+func _notification(what: int) -> void:
+	# Desktop close button
+	if what == NOTIFICATION_WM_CLOSE_REQUEST:
+		save_to_disk()
+	# Also fires when the SceneTree is shutting down
+	elif what == NOTIFICATION_PREDELETE:
+		save_to_disk()
+
+func to_save_dict() -> Dictionary:
+	return {
+		"version": SAVE_VERSION,
+
+		# Overworld
+		"overworld_seed": overworld_seed,
+		"overworld_current_node_id": overworld_current_node_id,
+		"overworld_cleared": overworld_cleared.duplicate(true),
+
+		# Mission (optional, but harmless)
+		"mission_seed": mission_seed,
+		"mission_node_type": String(mission_node_type),
+		"mission_difficulty": mission_difficulty,
+		"mission_node_id": mission_node_id,
+
+		# Upgrades / run
+		"run_upgrades": run_upgrades.map(func(x): return String(x)),
+		"run_upgrade_counts": _dict_stringname_to_string(run_upgrade_counts),
+
+		# Squad / roster / recruits
+		"squad_scene_paths": squad_scene_paths.duplicate(),
+		"roster_scene_paths": roster_scene_paths.duplicate(),
+		"recruit_pool_paths": recruit_pool_paths.duplicate(),
+		"recruited_scene_paths": recruited_scene_paths.duplicate(),
+	}
+
+func load_from_save_dict(d: Dictionary) -> void:
+	if d.is_empty():
+		return
+
+	# Overworld
+	overworld_seed = int(d.get("overworld_seed", overworld_seed))
+	overworld_current_node_id = int(d.get("overworld_current_node_id", overworld_current_node_id))
+	overworld_cleared = d.get("overworld_cleared", {}).duplicate(true)
+
+	# Mission
+	mission_seed = int(d.get("mission_seed", mission_seed))
+	mission_node_type = StringName(str(d.get("mission_node_type", String(mission_node_type))))
+	mission_difficulty = float(d.get("mission_difficulty", mission_difficulty))
+	mission_node_id = int(d.get("mission_node_id", mission_node_id))
+
+	# Upgrades
+	run_upgrades.clear()
+	for s in d.get("run_upgrades", []):
+		run_upgrades.append(StringName(str(s)))
+	run_upgrade_counts = _dict_string_to_stringname_counts(d.get("run_upgrade_counts", {}))
+
+	# Squad / roster / recruits
+	squad_scene_paths.clear()
+	squad_scene_paths.append_array(d.get("squad_scene_paths", []))
+
+	roster_scene_paths.clear()
+	roster_scene_paths.append_array(d.get("roster_scene_paths", []))
+
+	recruit_pool_paths.clear()
+	recruit_pool_paths.append_array(d.get("recruit_pool_paths", []))
+
+	recruited_scene_paths.clear()
+	recruited_scene_paths.append_array(d.get("recruited_scene_paths", []))
+
+
+func save_to_disk() -> void:
+	var f := FileAccess.open(SAVE_PATH, FileAccess.WRITE)
+	if f == null:
+		push_warning("RunState save failed: " + str(FileAccess.get_open_error()))
+		return
+	var json := JSON.stringify(to_save_dict())
+	f.store_string(json)
+	f.close()
+
+func load_from_disk() -> void:
+	if not FileAccess.file_exists(SAVE_PATH):
+		return
+	var f := FileAccess.open(SAVE_PATH, FileAccess.READ)
+	if f == null:
+		return
+	var txt := f.get_as_text()
+	f.close()
+
+	var parsed = JSON.parse_string(txt)
+	if typeof(parsed) == TYPE_DICTIONARY:
+		load_from_save_dict(parsed)
+
+func wipe_save() -> void:
+	if FileAccess.file_exists(SAVE_PATH):
+		DirAccess.remove_absolute(SAVE_PATH)
+
+func _dict_stringname_to_string(d: Dictionary) -> Dictionary:
+	var out := {}
+	for k in d.keys():
+		out[String(k)] = int(d[k])
+	return out
+
+func _dict_string_to_stringname_counts(d: Dictionary) -> Dictionary:
+	var out := {}
+	for k in d.keys():
+		out[StringName(str(k))] = int(d[k])
+	return out

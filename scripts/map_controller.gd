@@ -619,6 +619,7 @@ func spawn_units() -> void:
 			continue
 
 		units_root.add_child(u)
+		_apply_runstate_upgrades_to_unit(u)
 		_wire_unit_signals(u)
 
 		u.team = Unit.Team.ALLY
@@ -4909,3 +4910,20 @@ func _drop_unit_from_bomber(u: Unit, bomber: Node2D, target_cell: Vector2i) -> v
 		await pop.finished
 
 	_sfx(drop_sfx, sfx_volume_world, randf_range(0.95, 1.05), target_world)
+
+func _apply_runstate_upgrades_to_unit(u: Unit) -> void:
+	var rs := get_tree().root.get_node_or_null("RunState")
+	if rs == null:
+		return
+
+	# Example global upgrades
+	if rs.run_upgrade_counts.get(&"all_hp_plus_1", 0) > 0:
+		var n := int(rs.run_upgrade_counts[&"all_hp_plus_1"])
+		u.max_hp += n
+		u.hp = min(u.hp + n, u.max_hp)
+
+	if rs.run_upgrade_counts.get(&"all_move_plus_1", 0) > 0:
+		u.move_range += int(rs.run_upgrade_counts[&"all_move_plus_1"])
+
+	if rs.run_upgrade_counts.get(&"all_dmg_plus_1", 0) > 0:
+		u.attack_damage += int(rs.run_upgrade_counts[&"all_dmg_plus_1"])

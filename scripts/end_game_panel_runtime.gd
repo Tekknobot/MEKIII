@@ -448,14 +448,21 @@ func _pick_upgrade(i: int) -> void:
 	var rs := get_tree().root.get_node_or_null("RunState")
 	if rs == null:
 		rs = get_tree().root.get_node_or_null("RunStateNode")
-	if rs != null and rs.has_method("add_upgrade"):
-		rs.call("add_upgrade", id)
+
+	if rs != null:
+		if rs.has_method("add_upgrade"):
+			rs.call("add_upgrade", id)
+
+		# ✅ SAVE RIGHT AFTER PICK
+		if rs.has_method("save_to_disk"):
+			rs.call("save_to_disk")
 
 	# allow continue now
 	if continue_button != null:
 		continue_button.disabled = false
 
 	emit_signal("upgrade_selected", id)
+
 
 func _thumb_from_runstate(unit_display_name: String) -> Texture2D:
 	var rs := get_tree().root.get_node_or_null("RunState")

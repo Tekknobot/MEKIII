@@ -1,6 +1,7 @@
 extends Control
 
 @export var game_scene: PackedScene = preload("res://scenes/squad_deploy_screen.tscn")
+@export var continue_scene: PackedScene
 @export var fade_time := 0.25
 
 @onready var fade: ColorRect = $Fade
@@ -120,6 +121,18 @@ func _ready() -> void:
 	_start_bg_cycle()
 	_start_clouds()
 
+	var rs := get_tree().root.get_node_or_null("RunState")
+	if rs == null:
+		rs = get_tree().root.get_node_or_null("RunStateNode")
+
+	var has_save := false
+	if rs != null and rs.has_method("has_save"):
+		has_save = bool(rs.call("has_save"))
+
+	if has_save:
+		start_button.text = "CONTINUE"
+	else:
+		start_button.text = "START"
 
 func _process(delta: float) -> void:
 	if _busy:
@@ -163,7 +176,20 @@ func _on_start_pressed() -> void:
 	_busy = true
 	_type_running = false
 	await _fade_out()
-	get_tree().change_scene_to_packed(game_scene)
+
+	var rs := get_tree().root.get_node_or_null("RunState")
+	if rs == null:
+		rs = get_tree().root.get_node_or_null("RunStateNode")
+
+	var has_save := false
+	if rs != null and rs.has_method("has_save"):
+		has_save = bool(rs.call("has_save"))
+
+	if has_save and continue_scene != null:
+		get_tree().change_scene_to_packed(continue_scene)
+	else:
+		get_tree().change_scene_to_packed(game_scene)
+
 
 func _on_quit_pressed() -> void:
 	if _busy:

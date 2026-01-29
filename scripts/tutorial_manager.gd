@@ -171,7 +171,7 @@ func _on_tutorial_event(id: StringName, payload: Dictionary) -> void:
 		"ally_moved":
 			if step == Step.INTRO_MOVE:
 				_advance(Step.INTRO_ATTACK)
-				#_on_you_win()
+				_on_you_win()
 
 		"attack_mode_armed":
 			# don't auto-advance, just reinforce if they're stuck
