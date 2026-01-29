@@ -9,3 +9,7 @@ res://scenes/units/allies/S2.tscn
 res://scenes/tutorial_toast.tscn
 res://scenes/Game.tscn
 res://scripts/tutorial_manager.gd
+res://scenes/title_screen.tscn
+res://scripts/TitleScreen.gd
+res://scripts/turnmanager.gd
+res://scripts/map_controller.gd

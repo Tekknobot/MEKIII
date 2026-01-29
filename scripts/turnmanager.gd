@@ -687,6 +687,20 @@ func _update_special_buttons() -> void:
 		quake_button.button_pressed = (active == "quake")
 	if nova_button and not nova_button.disabled:
 		nova_button.button_pressed = (active == "nova")
+
+	# --- Apply colors based on pressed state ---
+	_skin_special_button(hellfire_button, hellfire_button.button_pressed if hellfire_button else false)
+	_skin_special_button(blade_button, blade_button.button_pressed if blade_button else false)
+	_skin_special_button(mines_button, mines_button.button_pressed if mines_button else false)
+	_skin_special_button(overwatch_button, overwatch_button.button_pressed if overwatch_button else false)
+	_skin_special_button(suppress_button, suppress_button.button_pressed if suppress_button else false)
+	_skin_special_button(stim_button, stim_button.button_pressed if stim_button else false)
+	_skin_special_button(sunder_button, sunder_button.button_pressed if sunder_button else false)
+	_skin_special_button(pounce_button, pounce_button.button_pressed if pounce_button else false)
+	_skin_special_button(volley_button, volley_button.button_pressed if volley_button else false)
+	_skin_special_button(cannon_button, cannon_button.button_pressed if cannon_button else false)
+	_skin_special_button(quake_button, quake_button.button_pressed if quake_button else false)
+	_skin_special_button(nova_button, nova_button.button_pressed if nova_button else false)
 					
 	# Overwatch + Stim are instant toggles
 	if overwatch_button and not overwatch_button.disabled:
@@ -702,6 +716,33 @@ func _update_special_buttons() -> void:
 			and int(u.get_meta("stim_turns")) > 0
 		)
 
+func _skin_special_button(btn: BaseButton, selected: bool) -> void:
+	if btn == null:
+		return
+
+	btn.toggle_mode = true # needed for button_pressed visuals
+
+	var normal_bg := Color(0.10, 0.10, 0.12, 0.85)
+	var selected_bg := Color(0.20, 0.85, 0.35, 0.95)
+	var normal_text := Color(0.90, 0.90, 0.92, 1.0)
+	var selected_text := Color(0.05, 0.05, 0.05, 1.0)
+
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = selected_bg if selected else normal_bg
+	sb.set_corner_radius_all(6)
+	sb.content_margin_left = 10
+	sb.content_margin_right = 10
+	sb.content_margin_top = 6
+	sb.content_margin_bottom = 6
+
+	btn.add_theme_stylebox_override("normal", sb)
+	btn.add_theme_stylebox_override("hover", sb)
+	btn.add_theme_stylebox_override("pressed", sb)
+	btn.add_theme_stylebox_override("focus", sb)
+
+	btn.add_theme_color_override("font_color", selected_text if selected else normal_text)
+	btn.add_theme_color_override("font_hover_color", selected_text if selected else normal_text)
+	btn.add_theme_color_override("font_pressed_color", selected_text if selected else normal_text)
 
 func _auto_select_first_ally() -> void:
 	# Keep current selection if it's valid + selectable
