@@ -79,18 +79,47 @@ var _font: Font = null
 # LIFECYCLE
 # -------------------------
 func _ready() -> void:
-	if seed_value != 0:
-		rng.seed = seed_value
+	var rs: Node = _rs()
+
+	# --- seed ---
+	if rs != null:
+		if int(rs.overworld_seed) == 0:
+			rs.overworld_seed = int(Time.get_unix_time_from_system()) ^ randi()
+		rng.seed = int(rs.overworld_seed)
 	else:
 		rng.randomize()
 
-	_font = label_font
-	if _font == null:
-		_font = ThemeDB.fallback_font
+	origin = get_viewport_rect().size * 0.5
+	_font = label_font if label_font != null else ThemeDB.fallback_font
 
 	_generate_world()
+
+	# --- restore state ---
+	if rs != null:
+		# cleared nodes
+		for k in rs.overworld_cleared.keys():
+			var id: int = int(k)
+			if id >= 0 and id < nodes.size():
+				nodes[id].cleared = true
+
+		# current node (or default to start)
+		var saved_id: int = int(rs.overworld_current_node_id)
+		if saved_id >= 0 and saved_id < nodes.size():
+			current_node_id = saved_id
+		else:
+			current_node_id = start_id
+			rs.overworld_current_node_id = current_node_id
+	else:
+		current_node_id = start_id
+
 	_build_packets()
 	queue_redraw()
+
+func _rs() -> Node:
+	var rs := get_tree().root.get_node_or_null("RunStateNode")
+	if rs != null:
+		return rs
+	return get_tree().root.get_node_or_null("RunState") # fallback only
 
 func _process(delta: float) -> void:
 	time_sec += delta
@@ -124,6 +153,12 @@ func _input(event: InputEvent) -> void:
 
 		# clicking current node = launch mission
 		if hit == current_node_id:
+			var rs := _rs()
+			if rs != null:
+				rs.mission_node_id = hit
+				rs.mission_difficulty = nodes[hit].difficulty
+				# store type in a consistent way:
+				rs.mission_node_type = StringName(_type_name(nodes[hit].ntype).to_lower())
 			emit_signal("mission_requested", hit, nodes[hit].ntype, nodes[hit].difficulty)
 			return
 
@@ -141,6 +176,11 @@ func _can_click_node(id: int) -> bool:
 		return false
 	if not alive[id]:
 		return false
+
+	# ✅ cleared nodes can't be clicked (no move, no launch)
+	if nodes[id].cleared:
+		return false
+
 	if current_node_id < 0:
 		return true
 	if not restrict_to_neighbors:
@@ -149,15 +189,17 @@ func _can_click_node(id: int) -> bool:
 		return true
 	return nodes[current_node_id].neighbors.has(id)
 
+
 func _move_to_node(id: int) -> void:
 	if id == current_node_id:
 		return
 
-	# mark current as cleared (optional)
-	if current_node_id >= 0:
-		nodes[current_node_id].cleared = true
-
 	current_node_id = id
+
+	var rs: Node = _rs()
+	if rs != null:
+		rs.overworld_current_node_id = current_node_id
+
 
 # -------------------------
 # GENERATION
@@ -214,9 +256,12 @@ func _carve_voids_connected() -> void:
 	target_remove = clampi(target_remove, 0, n - int(float(n) * 0.55))
 
 	var candidates: Array[int] = []
+	candidates.resize(n)
 	for id in range(n):
-		candidates.append(id)
-	candidates.shuffle()
+		candidates[id] = id
+
+	# IMPORTANT: don't use candidates.shuffle() (global RNG)
+	_rng_shuffle_int(candidates)
 
 	var removed: int = 0
 	for id in candidates:
@@ -224,10 +269,13 @@ func _carve_voids_connected() -> void:
 			break
 
 		alive[id] = false
+
+		# Keep a minimum number of nodes
 		if _count_alive() < 8:
 			alive[id] = true
 			continue
 
+		# Only accept this removal if graph stays connected
 		if _is_connected():
 			removed += 1
 		else:
@@ -545,9 +593,20 @@ func _draw_nodes(jitter: Vector2) -> void:
 		if nd.ntype != NodeType.BOSS and nd.ntype != NodeType.START:
 			col.a += 0.10 * nd.difficulty
 
-		# Cleared nodes dim
+		# Cleared nodes: dim + hollow + pure white X
 		if nd.cleared:
-			col.a *= 0.45
+			col.a *= 0.35
+
+			# hollow ring
+			draw_circle(pos, r + 2.0, Color(col.r, col.g, col.b, col.a * 0.40))
+			draw_circle(pos, r - 1.0, Color(0.0, 0.0, 0.0, col.a * 0.22))
+
+			# PURE WHITE X
+			var xx := r * 0.85
+			var xcol := Color(1.0, 1.0, 1.0, 1.0)
+			draw_line(pos + Vector2(-xx, -xx), pos + Vector2(xx, xx), xcol, 2.0)
+			draw_line(pos + Vector2(-xx, xx),  pos + Vector2(xx, -xx), xcol, 2.0)
+
 
 		# Current node highlight
 		if nd.id == current_node_id:
@@ -612,3 +671,11 @@ func _type_name(t: int) -> String:
 		NodeType.BOSS:
 			return "BOSS"
 	return "?"
+
+func _rng_shuffle_int(arr: Array[int]) -> void:
+	# Fisher–Yates shuffle using THIS radar's rng (deterministic with rng.seed)
+	for i in range(arr.size() - 1, 0, -1):
+		var j := rng.randi_range(0, i)
+		var tmp := arr[i]
+		arr[i] = arr[j]
+		arr[j] = tmp

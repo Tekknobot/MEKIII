@@ -291,21 +291,17 @@ func _on_you_win() -> void:
 	if end_panel != null and is_instance_valid(end_panel):
 		if end_panel.has_signal("continue_pressed") and not end_panel.continue_pressed.is_connected(_on_continue_pressed):
 			end_panel.continue_pressed.connect(_on_continue_pressed)
+			
+	var rs := get_tree().root.get_node_or_null("RunStateNode")
+	if rs != null:
+		# node id you played (store this when mission launched)
+		rs.overworld_cleared[rs.overworld_current_node_id] = true
+			
 
 func _on_continue_pressed() -> void:
 	reset_tutorial(Step.INTRO_SELECT)
 
-	# (Optional) record that the mission is complete in RunState
-	var rs := get_tree().root.get_node_or_null("RunState")
-	if rs == null:
-		rs = get_tree().root.get_node_or_null("RunStateNode")
-	if rs != null:
-		# If you want overworld to mark the node cleared:
-		# rs.last_cleared_node_id = rs.mission_node_id
-		# rs.mission_result = &"win"
-		pass
-
-	# Go back to overworld
+	# ✅ leave Game and return to overworld
 	get_tree().change_scene_to_file(overworld_scene_path)
 
 func _roll_3_upgrades() -> Array:

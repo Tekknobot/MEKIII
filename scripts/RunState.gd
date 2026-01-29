@@ -11,6 +11,9 @@ var mission_node_type: StringName = &"combat"  # "combat/supply/event/elite/boss
 var mission_difficulty: float = 0.0            # 0..1
 var mission_node_id: int = -1
 
+var overworld_cleared: Dictionary = {} # node_id -> true
+var overworld_current_node: int = -1
+
 # -------------------------
 # Upgrades (existing)
 # -------------------------
