@@ -489,11 +489,11 @@ func _run_enemy_turns() -> void:
 		return
 
 	for z in enemies:
-		# ✅ re-check every time (support missiles could have killed it)
 		if z == null or not is_instance_valid(z) or z.hp <= 0:
 			continue
 
-		if not _enemy_in_ally_vision(z, allies):
+		# ✅ Enemy acts only if IT can see an ally
+		if not _enemy_can_see_any_ally(z, allies):
 			continue
 
 		await _enemy_take_turn(z)
@@ -1271,3 +1271,22 @@ func _on_boss_defeated() -> void:
 	# NOW go back to overworld
 	await M._extract_allies_with_bomber()
 	get_tree().change_scene_to_file("res://scenes/overworld.tscn")
+
+func _get_vision(u: Unit) -> int:
+	if u != null and is_instance_valid(u) and u.has_meta("vision"):
+		return int(u.get_meta("vision"))
+	# fallback: your old rule of thumb
+	return int(u.move_range) + 3
+
+func _enemy_can_see_any_ally(z: Unit, allies: Array[Unit]) -> bool:
+	var vis := _get_vision(z)
+	var zc := z.cell
+
+	for a in allies:
+		if a == null or not is_instance_valid(a) or a.hp <= 0:
+			continue
+		var d = abs(zc.x - a.cell.x) + abs(zc.y - a.cell.y)
+		if d <= vis:
+			return true
+
+	return false

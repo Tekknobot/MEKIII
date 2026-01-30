@@ -35,14 +35,18 @@ animations = [{
 
 [node name="Lunatic" type="Node2D"]
 script = ExtResource("1_lbctv")
-boss_max_hp = 999
+boss_max_hp = 9999
 weakpoint_scene = ExtResource("2_l7liq")
+weakpoint_hp = 20
 explosion_fx_scene = ExtResource("3_6l3x6")
 explosion_sfx = ExtResource("4_kx2pj")
 boss_flash_node_path = NodePath("AnimatedSprite2D")
 boss_flash_time = 0.68
+weakpoint_min_separation = 5
+weakpoint_cluster_radius = 5
 
 [node name="AnimatedSprite2D" type="AnimatedSprite2D" parent="."]
+modulate = Color(0.5689727, 0.56897277, 0.5689727, 1)
 sprite_frames = SubResource("SpriteFrames_kx2pj")
 autoplay = "default"
 flip_h = true

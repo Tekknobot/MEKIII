@@ -19,3 +19,4 @@ res://scripts/structure.gd
 res://scripts/weakpoint.gd
 res://scripts/humantwo.gd
 res://scripts/r_2.gd
+res://shaders/pixel_metallic.gdshader

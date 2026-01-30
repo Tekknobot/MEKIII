@@ -11,6 +11,7 @@ var phase: int = 1
 
 # One weakpoint scene (instantiate 4x)
 @export var weakpoint_scene: PackedScene
+@export var weakpoint_hp: int
 
 # Optional textures for each weakpoint instance (if your weakpoint scene has a Sprite2D named "Sprite")
 @export var wp_left_arm_tex: Texture2D
@@ -304,10 +305,10 @@ func _spawn_weakpoints() -> void:
 	if M == null:
 		return
 
-	_spawn_wp(weakpoint_scene, left_arm_cell, &"LEFT_ARM", 16, 16, wp_left_arm_tex)
-	_spawn_wp(weakpoint_scene, right_arm_cell, &"RIGHT_ARM", 16, 16, wp_right_arm_tex)
-	_spawn_wp(weakpoint_scene, legs_cell, &"LEGS", 16, 16, wp_legs_tex)
-	_spawn_wp(weakpoint_scene, core_cell, &"CORE", 16, 16, wp_core_tex)
+	_spawn_wp(weakpoint_scene, left_arm_cell, &"LEFT_ARM", weakpoint_hp, weakpoint_hp, wp_left_arm_tex)
+	_spawn_wp(weakpoint_scene, right_arm_cell, &"RIGHT_ARM", weakpoint_hp, weakpoint_hp, wp_right_arm_tex)
+	_spawn_wp(weakpoint_scene, legs_cell, &"LEGS", weakpoint_hp, weakpoint_hp, wp_legs_tex)
+	_spawn_wp(weakpoint_scene, core_cell, &"CORE", weakpoint_hp, weakpoint_hp, wp_core_tex)
 
 func _spawn_wp(scene: PackedScene, cell: Vector2i, id: StringName, hp_val: int, boss_damage_on_destroy: int, tex: Texture2D) -> void:
 	if scene == null:
@@ -336,8 +337,6 @@ func _spawn_wp(scene: PackedScene, cell: Vector2i, id: StringName, hp_val: int, 
 
 	# --- configure as boss part ---
 	u.team = Unit.Team.ENEMY
-	u.move_range = 0
-	u.attack_range = 0
 	u.max_hp = hp_val
 	u.hp = hp_val
 

@@ -1,3 +1,8 @@
+res://sprites/Zombies/zomb/crusher/attack
+res://sprites/Zombies/zomb/crusher/death
+res://sprites/Zombies/zomb/crusher/move
+res://sprites/Zombies/zomb/crusher/idle
+res://sprites/Zombies/idle
 res://scripts
 res://scenes
 res://sprites/Mechas/lunatic
@@ -15,8 +20,3 @@ res://sprites/Bots/Blue
 res://audio/SFX
 res://sprites/Zombies/zomb
 res://sprites/Structures/tower
-res://sprites/Structures/tower/default
-res://sprites/Structures/district
-res://sprites/Structures
-res://sprites/Structures/stadium
-res://scenes/structures

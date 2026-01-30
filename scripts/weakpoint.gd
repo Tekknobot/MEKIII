@@ -8,19 +8,26 @@ var _hurt_tw: Tween = null
 var _base_modulate: Color = Color(1,1,1,1)
 
 func _ready() -> void:
-	# These can be overridden by BossController via textures, but metas are nice for UI too.
+	# Identity (metas used by your UI)
 	if not has_meta("display_name"):
-		set_meta("display_name", "Weakpoint")
+		set_meta("display_name", "Boss Zombie")
 	if not has_meta("portrait_tex"):
-		set_meta("portrait_tex", preload("res://sprites/Portraits/zombie_port.png")) # replace later
+		set_meta("portrait_tex", preload("res://sprites/Portraits/zombie_port.png"))
+
+	# ✅ Make it behave like a zombie/enemy in AI systems
+	team = Unit.Team.ENEMY
+
+	# ✅ Vision range used by TurnManager (see patch below)
+	# If you want it to match regular zombies, set this to whatever you consider “zombie vision”.
+	if not has_meta("vision"):
+		set_meta("vision", 8) # tweak (6–10 feels good)
 
 	footprint_size = Vector2i(1, 1)
-	move_range = 0
-	attack_range = 0
-	attack_damage = 0
+	move_range = 4
+	attack_range = 1
+	attack_damage = 1
 
 	# BossController sets max_hp/hp before or after _ready depending on how you spawn.
-	# So just clamp safely.
 	max_hp = max(1, max_hp)
 	hp = clamp(hp, 0, max_hp)
 
@@ -29,6 +36,7 @@ func _ready() -> void:
 	var ci := _get_render_item()
 	if ci != null:
 		_base_modulate = ci.modulate
+
 
 func take_damage(amount: int) -> void:
 	# Let Unit do its normal logic first (hp reduction, death, etc.)

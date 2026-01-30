@@ -1,88 +1,80 @@
-[gd_scene load_steps=47 format=3 uid="uid://byvw2wssy6345"]
+[gd_scene load_steps=45 format=3 uid="uid://byvw2wssy6345"]
 
 [ext_resource type="Script" uid="uid://d1ap5ubcavkyh" path="res://scripts/weakpoint.gd" id="1_q1l8n"]
-[ext_resource type="Shader" uid="uid://d3rvujekgb15x" path="res://shaders/stim_jacked.gdshader" id="2_2le34"]
-[ext_resource type="Texture2D" uid="uid://cwttiy82qxf31" path="res://sprites/Zombies/attack/zomb_atk1.png" id="2_q1l8n"]
-[ext_resource type="Texture2D" uid="uid://qnjdb2b476oc" path="res://sprites/Zombies/attack/zomb_atk2.png" id="3_2le34"]
-[ext_resource type="Texture2D" uid="uid://conbn7eijk7ik" path="res://sprites/Zombies/attack/zomb_atk3.png" id="4_dcknk"]
-[ext_resource type="Texture2D" uid="uid://bbiip3q4hsnca" path="res://sprites/Zombies/attack/zomb_atk4.png" id="5_txi5n"]
-[ext_resource type="Texture2D" uid="uid://b4bi7t7jgmuec" path="res://sprites/Zombies/attack/zomb_atk5.png" id="6_p77pu"]
-[ext_resource type="Texture2D" uid="uid://ds5m57cm46te3" path="res://sprites/Zombies/attack/zomb_atk6.png" id="7_51tw8"]
-[ext_resource type="Texture2D" uid="uid://cwjoqf60hadln" path="res://sprites/Zombies/attack/zomb_atk7.png" id="8_q6eig"]
-[ext_resource type="Texture2D" uid="uid://dkdnlfb307248" path="res://sprites/Zombies/attack/zomb_atk8.png" id="9_aibu4"]
-[ext_resource type="Texture2D" uid="uid://5kuwlayi1kxs" path="res://sprites/Zombies/attack/zomb_atk9.png" id="10_5r0sr"]
-[ext_resource type="Texture2D" uid="uid://d33mn8hqylym0" path="res://sprites/Zombies/death/zombdeath1.png" id="11_i7isf"]
-[ext_resource type="Texture2D" uid="uid://bdjmjwslvoh1p" path="res://sprites/Zombies/death/zombdeath2.png" id="12_ngih6"]
-[ext_resource type="Texture2D" uid="uid://bj1hb4d75skp8" path="res://sprites/Zombies/death/zombdeath3.png" id="13_ca5wr"]
-[ext_resource type="Texture2D" uid="uid://bhb55le4l04xe" path="res://sprites/Zombies/death/zombdeath4.png" id="14_txa1q"]
-[ext_resource type="Texture2D" uid="uid://d15nggjgsp263" path="res://sprites/Zombies/death/zombdeath5.png" id="15_t3y3e"]
-[ext_resource type="Texture2D" uid="uid://dhlxvl535sjvt" path="res://sprites/Zombies/death/zombdeath6.png" id="16_7adq1"]
-[ext_resource type="Texture2D" uid="uid://chc0m8hbl7pyu" path="res://sprites/Zombies/death/zombdeath7.png" id="17_8qho2"]
-[ext_resource type="Texture2D" uid="uid://ce8iblqfusimq" path="res://sprites/Zombies/death/zombdeath8.png" id="18_loik8"]
-[ext_resource type="Texture2D" uid="uid://b6ttdibpfgrn8" path="res://sprites/Zombies/idle/zombie_idle1.png" id="19_hdkhu"]
-[ext_resource type="Texture2D" uid="uid://btoqtsod45gqc" path="res://sprites/Zombies/idle/zombie_idle2.png" id="20_vnqoj"]
-[ext_resource type="Texture2D" uid="uid://fkv6sm2mdfc4" path="res://sprites/Zombies/idle/zombie_idle3.png" id="21_e6ll5"]
-[ext_resource type="Texture2D" uid="uid://dne03qbkspx0n" path="res://sprites/Zombies/idle/zombie_idle4.png" id="22_yigxy"]
-[ext_resource type="Texture2D" uid="uid://ckoyi6l2s5ahj" path="res://sprites/Zombies/idle/zombie_idle5.png" id="23_s7m71"]
-[ext_resource type="Texture2D" uid="uid://bs6egkba4nd0g" path="res://sprites/Zombies/idle/zombie_idle6.png" id="24_uot2k"]
-[ext_resource type="Texture2D" uid="uid://dxjegbbnp3b15" path="res://sprites/Zombies/idle/zombie_idle7.png" id="25_1i4x6"]
-[ext_resource type="Texture2D" uid="uid://dt51wlwgpjuu5" path="res://sprites/Zombies/idle/zombie_idle8.png" id="26_m8dq0"]
-[ext_resource type="Texture2D" uid="uid://fcbtgkjenkjg" path="res://sprites/Zombies/idle/zombie_idle9.png" id="27_ytbbs"]
-[ext_resource type="Texture2D" uid="uid://jmfjpxs24kyd" path="res://sprites/Zombies/idle/zombie_idle10.png" id="28_2jpdp"]
-[ext_resource type="Texture2D" uid="uid://ddp2jaortrt0" path="res://sprites/Zombies/idle/zombie_idle11.png" id="29_dp1f0"]
-[ext_resource type="Texture2D" uid="uid://c285dillcm0gu" path="res://sprites/Zombies/idle/zombie_idle12.png" id="30_h3l6d"]
-[ext_resource type="Texture2D" uid="uid://caqq0bj7nltlf" path="res://sprites/Zombies/idle/zombie_idle13.png" id="31_frrhm"]
-[ext_resource type="Texture2D" uid="uid://ceulsyilrttlt" path="res://sprites/Zombies/idle/zombie_idle14.png" id="32_cnjpb"]
-[ext_resource type="Texture2D" uid="uid://b1ggr5a8jw3ma" path="res://sprites/Zombies/idle/zombie_idle15.png" id="33_8a87i"]
-[ext_resource type="Texture2D" uid="uid://pkn1oesytji0" path="res://sprites/Zombies/idle/zombie_idle16.png" id="34_osbq6"]
-[ext_resource type="Texture2D" uid="uid://di6lcgxxpn653" path="res://sprites/Zombies/move/zomb1.png" id="35_nuw1g"]
-[ext_resource type="Texture2D" uid="uid://dcqcljh1gc8nb" path="res://sprites/Zombies/move/zomb2.png" id="36_4iowc"]
-[ext_resource type="Texture2D" uid="uid://cjatf8phi5qjp" path="res://sprites/Zombies/move/zomb3.png" id="37_v2wh6"]
-[ext_resource type="Texture2D" uid="uid://y1tu1n80rvks" path="res://sprites/Zombies/move/zomb4.png" id="38_ufatw"]
-[ext_resource type="Texture2D" uid="uid://bdnwlnsu56wes" path="res://sprites/Zombies/move/zomb5.png" id="39_4k6hn"]
-[ext_resource type="Texture2D" uid="uid://d265fi2e6of11" path="res://sprites/Zombies/move/zomb6.png" id="40_2bkwi"]
+[ext_resource type="Texture2D" uid="uid://c74l40b185rjt" path="res://sprites/Zombies/zomb/crusher/attack/zomb_crusher_atk1.png" id="2_5k283"]
+[ext_resource type="Texture2D" uid="uid://btyafdmq17vfj" path="res://sprites/Zombies/zomb/crusher/attack/zomb_crusher_atk2.png" id="3_q1l8n"]
+[ext_resource type="Texture2D" uid="uid://b4m02al2y07sc" path="res://sprites/Zombies/zomb/crusher/attack/zomb_crusher_atk3.png" id="4_2le34"]
+[ext_resource type="Texture2D" uid="uid://w0wems4uv78v" path="res://sprites/Zombies/zomb/crusher/attack/zomb_crusher_atk4.png" id="5_dcknk"]
+[ext_resource type="Texture2D" uid="uid://cys132qw7cy3i" path="res://sprites/Zombies/zomb/crusher/attack/zomb_crusher_atk5.png" id="6_txi5n"]
+[ext_resource type="Texture2D" uid="uid://ddx4u84ws3ub4" path="res://sprites/Zombies/zomb/crusher/attack/zomb_crusher_atk6.png" id="7_p77pu"]
+[ext_resource type="Texture2D" uid="uid://cvksiylk48liq" path="res://sprites/Zombies/zomb/crusher/attack/zomb_crusher_atk7.png" id="8_51tw8"]
+[ext_resource type="Texture2D" uid="uid://8p7nfsg5wpjx" path="res://sprites/Zombies/zomb/crusher/attack/zomb_crusher_atk8.png" id="9_q6eig"]
+[ext_resource type="Texture2D" uid="uid://dhggysqapo75m" path="res://sprites/Zombies/zomb/crusher/attack/zomb_crusher_atk9.png" id="10_aibu4"]
+[ext_resource type="Texture2D" uid="uid://0m1nlmrfu7x3" path="res://sprites/Zombies/zomb/crusher/death/zombiecrush_death1.png" id="11_5r0sr"]
+[ext_resource type="Texture2D" uid="uid://cd80b84hk0tw" path="res://sprites/Zombies/zomb/crusher/death/zombiecrush_death2.png" id="12_i7isf"]
+[ext_resource type="Texture2D" uid="uid://6rtwcskkdeiu" path="res://sprites/Zombies/zomb/crusher/death/zombiecrush_death3.png" id="13_ngih6"]
+[ext_resource type="Texture2D" uid="uid://b4fcpqidwevuh" path="res://sprites/Zombies/zomb/crusher/death/zombiecrush_death4.png" id="14_ca5wr"]
+[ext_resource type="Texture2D" uid="uid://blqhsa51wvmod" path="res://sprites/Zombies/zomb/crusher/death/zombiecrush_death5.png" id="15_txa1q"]
+[ext_resource type="Texture2D" uid="uid://bik8j2lvli6yh" path="res://sprites/Zombies/zomb/crusher/death/zombiecrush_death6.png" id="16_t3y3e"]
+[ext_resource type="Texture2D" uid="uid://3tbmj2wpiu2t" path="res://sprites/Zombies/zomb/crusher/death/zombiecrush_death7.png" id="17_7adq1"]
+[ext_resource type="Texture2D" uid="uid://d03uocod2as6p" path="res://sprites/Zombies/zomb/crusher/death/zombiecrush_death8.png" id="18_8qho2"]
+[ext_resource type="Texture2D" uid="uid://bjja8cdt6746f" path="res://sprites/Zombies/zomb/crusher/idle/zombie_crusher_idle1.png" id="19_loik8"]
+[ext_resource type="Texture2D" uid="uid://dbdc7hatc2jdn" path="res://sprites/Zombies/zomb/crusher/idle/zombie_crusher_idle2.png" id="20_hdkhu"]
+[ext_resource type="Texture2D" uid="uid://ci701kkgoxgfa" path="res://sprites/Zombies/zomb/crusher/idle/zombie_crusher_idle3.png" id="21_vnqoj"]
+[ext_resource type="Texture2D" uid="uid://cgukjv4r30jmk" path="res://sprites/Zombies/zomb/crusher/idle/zombie_crusher_idle4.png" id="22_e6ll5"]
+[ext_resource type="Texture2D" uid="uid://c3i0xgc7kuuwf" path="res://sprites/Zombies/zomb/crusher/idle/zombie_crusher_idle5.png" id="23_yigxy"]
+[ext_resource type="Texture2D" uid="uid://b214nn2xhiumb" path="res://sprites/Zombies/zomb/crusher/idle/zombie_crusher_idle6.png" id="24_s7m71"]
+[ext_resource type="Texture2D" uid="uid://wcr1roly8sd" path="res://sprites/Zombies/zomb/crusher/idle/zombie_crusher_idle7.png" id="25_uot2k"]
+[ext_resource type="Texture2D" uid="uid://cnfhs2rnwikee" path="res://sprites/Zombies/zomb/crusher/idle/zombie_crusher_idle8.png" id="26_1i4x6"]
+[ext_resource type="Texture2D" uid="uid://nrl72t1ppmrk" path="res://sprites/Zombies/zomb/crusher/idle/zombie_crusher_idle9.png" id="27_m8dq0"]
+[ext_resource type="Texture2D" uid="uid://72ijhxgyjvxe" path="res://sprites/Zombies/zomb/crusher/idle/zombie_crusher_idle10.png" id="28_ytbbs"]
+[ext_resource type="Texture2D" uid="uid://bnlvrijx13k5w" path="res://sprites/Zombies/zomb/crusher/idle/zombie_crusher_idle11.png" id="29_2jpdp"]
+[ext_resource type="Texture2D" uid="uid://b2562wua7c5am" path="res://sprites/Zombies/zomb/crusher/idle/zombie_crusher_idle12.png" id="30_dp1f0"]
+[ext_resource type="Texture2D" uid="uid://byt7qquuy8w54" path="res://sprites/Zombies/zomb/crusher/idle/zombie_crusher_idle13.png" id="31_h3l6d"]
+[ext_resource type="Texture2D" uid="uid://xyp7sl1nbi1d" path="res://sprites/Zombies/zomb/crusher/idle/zombie_crusher_idle14.png" id="32_frrhm"]
+[ext_resource type="Texture2D" uid="uid://bp2j85mrydc30" path="res://sprites/Zombies/zomb/crusher/idle/zombie_crusher_idle15.png" id="33_cnjpb"]
+[ext_resource type="Texture2D" uid="uid://dar5nb2m01sw2" path="res://sprites/Zombies/zomb/crusher/idle/zombie_crusher_idle16.png" id="34_8a87i"]
+[ext_resource type="Texture2D" uid="uid://boyhbjfha6cat" path="res://sprites/Zombies/zomb/crusher/move/zombiecrush_move1.png" id="35_osbq6"]
+[ext_resource type="Texture2D" uid="uid://bsxfbau00rmbo" path="res://sprites/Zombies/zomb/crusher/move/zombiecrush_move2.png" id="36_nuw1g"]
+[ext_resource type="Texture2D" uid="uid://4ckylbq48lty" path="res://sprites/Zombies/zomb/crusher/move/zombiecrush_move3.png" id="37_4iowc"]
+[ext_resource type="Texture2D" uid="uid://cj27hpmggxh0d" path="res://sprites/Zombies/zomb/crusher/move/zombiecrush_move4.png" id="38_v2wh6"]
+[ext_resource type="Texture2D" uid="uid://d0tqodb8fsewk" path="res://sprites/Zombies/zomb/crusher/move/zombiecrush_move5.png" id="39_ufatw"]
+[ext_resource type="Texture2D" uid="uid://cuqj0wwby75aw" path="res://sprites/Zombies/zomb/crusher/move/zombiecrush_move6.png" id="40_4k6hn"]
 [ext_resource type="FontFile" uid="uid://buw362wjb8o8d" path="res://fonts/magofonts/mago2.ttf" id="41_820qq"]
 [ext_resource type="Script" uid="uid://lmsma3lhwhb8" path="res://scripts/hp_label.gd" id="42_3aoci"]
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_o6twh"]
 size = Vector2(20, 6)
 
-[sub_resource type="ShaderMaterial" id="ShaderMaterial_dcknk"]
-shader = ExtResource("2_2le34")
-shader_parameter/stim_strength = 0.0
-shader_parameter/time_scale = 1.0
-shader_parameter/glow = 0.6
-shader_parameter/jitter_px = 1.0
-
 [sub_resource type="SpriteFrames" id="SpriteFrames_0pyg8"]
 animations = [{
 "frames": [{
 "duration": 1.0,
-"texture": ExtResource("2_q1l8n")
+"texture": ExtResource("2_5k283")
 }, {
 "duration": 1.0,
-"texture": ExtResource("3_2le34")
+"texture": ExtResource("3_q1l8n")
 }, {
 "duration": 1.0,
-"texture": ExtResource("4_dcknk")
+"texture": ExtResource("4_2le34")
 }, {
 "duration": 1.0,
-"texture": ExtResource("5_txi5n")
+"texture": ExtResource("5_dcknk")
 }, {
 "duration": 1.0,
-"texture": ExtResource("6_p77pu")
+"texture": ExtResource("6_txi5n")
 }, {
 "duration": 1.0,
-"texture": ExtResource("7_51tw8")
+"texture": ExtResource("7_p77pu")
 }, {
 "duration": 1.0,
-"texture": ExtResource("8_q6eig")
+"texture": ExtResource("8_51tw8")
 }, {
 "duration": 1.0,
-"texture": ExtResource("9_aibu4")
+"texture": ExtResource("9_q6eig")
 }, {
 "duration": 1.0,
-"texture": ExtResource("10_5r0sr")
+"texture": ExtResource("10_aibu4")
 }],
 "loop": false,
 "name": &"attack",
@@ -90,31 +82,28 @@ animations = [{
 }, {
 "frames": [{
 "duration": 1.0,
-"texture": ExtResource("11_i7isf")
+"texture": ExtResource("11_5r0sr")
 }, {
 "duration": 1.0,
-"texture": ExtResource("12_ngih6")
+"texture": ExtResource("12_i7isf")
 }, {
 "duration": 1.0,
-"texture": ExtResource("13_ca5wr")
+"texture": ExtResource("13_ngih6")
 }, {
 "duration": 1.0,
-"texture": ExtResource("14_txa1q")
+"texture": ExtResource("14_ca5wr")
 }, {
 "duration": 1.0,
-"texture": ExtResource("15_t3y3e")
+"texture": ExtResource("15_txa1q")
 }, {
 "duration": 1.0,
-"texture": ExtResource("16_7adq1")
+"texture": ExtResource("16_t3y3e")
 }, {
 "duration": 1.0,
-"texture": ExtResource("17_8qho2")
+"texture": ExtResource("17_7adq1")
 }, {
 "duration": 1.0,
-"texture": ExtResource("18_loik8")
-}, {
-"duration": 1.0,
-"texture": null
+"texture": ExtResource("18_8qho2")
 }],
 "loop": false,
 "name": &"death",
@@ -122,52 +111,52 @@ animations = [{
 }, {
 "frames": [{
 "duration": 1.0,
-"texture": ExtResource("19_hdkhu")
+"texture": ExtResource("19_loik8")
 }, {
 "duration": 1.0,
-"texture": ExtResource("20_vnqoj")
+"texture": ExtResource("20_hdkhu")
 }, {
 "duration": 1.0,
-"texture": ExtResource("21_e6ll5")
+"texture": ExtResource("21_vnqoj")
 }, {
 "duration": 1.0,
-"texture": ExtResource("22_yigxy")
+"texture": ExtResource("22_e6ll5")
 }, {
 "duration": 1.0,
-"texture": ExtResource("23_s7m71")
+"texture": ExtResource("23_yigxy")
 }, {
 "duration": 1.0,
-"texture": ExtResource("24_uot2k")
+"texture": ExtResource("24_s7m71")
 }, {
 "duration": 1.0,
-"texture": ExtResource("25_1i4x6")
+"texture": ExtResource("25_uot2k")
 }, {
 "duration": 1.0,
-"texture": ExtResource("26_m8dq0")
+"texture": ExtResource("26_1i4x6")
 }, {
 "duration": 1.0,
-"texture": ExtResource("27_ytbbs")
+"texture": ExtResource("27_m8dq0")
 }, {
 "duration": 1.0,
-"texture": ExtResource("28_2jpdp")
+"texture": ExtResource("28_ytbbs")
 }, {
 "duration": 1.0,
-"texture": ExtResource("29_dp1f0")
+"texture": ExtResource("29_2jpdp")
 }, {
 "duration": 1.0,
-"texture": ExtResource("30_h3l6d")
+"texture": ExtResource("30_dp1f0")
 }, {
 "duration": 1.0,
-"texture": ExtResource("31_frrhm")
+"texture": ExtResource("31_h3l6d")
 }, {
 "duration": 1.0,
-"texture": ExtResource("32_cnjpb")
+"texture": ExtResource("32_frrhm")
 }, {
 "duration": 1.0,
-"texture": ExtResource("33_8a87i")
+"texture": ExtResource("33_cnjpb")
 }, {
 "duration": 1.0,
-"texture": ExtResource("34_osbq6")
+"texture": ExtResource("34_8a87i")
 }],
 "loop": true,
 "name": &"idle",
@@ -175,22 +164,22 @@ animations = [{
 }, {
 "frames": [{
 "duration": 1.0,
-"texture": ExtResource("35_nuw1g")
+"texture": ExtResource("35_osbq6")
 }, {
 "duration": 1.0,
-"texture": ExtResource("36_4iowc")
+"texture": ExtResource("36_nuw1g")
 }, {
 "duration": 1.0,
-"texture": ExtResource("37_v2wh6")
+"texture": ExtResource("37_4iowc")
 }, {
 "duration": 1.0,
-"texture": ExtResource("38_ufatw")
+"texture": ExtResource("38_v2wh6")
 }, {
 "duration": 1.0,
-"texture": ExtResource("39_4k6hn")
+"texture": ExtResource("39_ufatw")
 }, {
 "duration": 1.0,
-"texture": ExtResource("40_2bkwi")
+"texture": ExtResource("40_4k6hn")
 }],
 "loop": true,
 "name": &"move",
@@ -200,15 +189,15 @@ animations = [{
 [node name="Unit" type="CharacterBody2D"]
 script = ExtResource("1_q1l8n")
 hurt_flash_time = 0.68
+team = 1
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="."]
 position = Vector2(0, -9)
 shape = SubResource("RectangleShape2D_o6twh")
 
 [node name="AnimatedSprite2D" type="AnimatedSprite2D" parent="."]
-material = SubResource("ShaderMaterial_dcknk")
 sprite_frames = SubResource("SpriteFrames_0pyg8")
-animation = &"move"
+animation = &"idle"
 autoplay = "idle"
 
 [node name="HPLabel" type="Label" parent="."]
