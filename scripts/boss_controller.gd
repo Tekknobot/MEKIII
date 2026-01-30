@@ -208,7 +208,9 @@ func resolve_planned_attacks_async() -> void:
 		if u != null and is_instance_valid(u) and u.hp > 0:
 			# ✅ Splash hurts ANY unit (allies + zombies + weakpoints, etc.)
 			u.take_damage(dmg)
-
+			var map_controller := get_tree().root.get_node("Game/MapController") as MapController
+			map_controller._flash_unit_white(u, 0.88)
+			
 		if between_impacts_sec > 0.0:
 			await get_tree().create_timer(between_impacts_sec).timeout
 

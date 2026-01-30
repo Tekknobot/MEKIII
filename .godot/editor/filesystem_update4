@@ -14,3 +14,4 @@ res://scenes/weakpoint.tscn
 res://scripts/RunState.gd
 res://scenes/overworld.tscn
 res://scripts/overworld_radar.gd
+res://scripts/unit.gd
