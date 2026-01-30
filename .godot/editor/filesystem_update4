@@ -15,3 +15,4 @@ res://scripts/RunState.gd
 res://scenes/overworld.tscn
 res://scripts/overworld_radar.gd
 res://scripts/unit.gd
+res://scripts/structure.gd

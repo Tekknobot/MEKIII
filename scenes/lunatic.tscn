@@ -30,26 +30,17 @@ animations = [{
 }],
 "loop": true,
 "name": &"default",
-"speed": 12.0
+"speed": 6.0
 }]
 
 [node name="Lunatic" type="Node2D"]
 script = ExtResource("1_lbctv")
 boss_max_hp = 32
 weakpoint_scene = ExtResource("2_l7liq")
-left_arm_cell = null
-right_arm_cell = null
-legs_cell = null
-core_cell = null
-impact_delay_sec = null
-between_impacts_sec = null
-splash_radius = null
 explosion_fx_scene = ExtResource("3_6l3x6")
 explosion_sfx = ExtResource("4_kx2pj")
-explosion_sfx_bus = null
-hit_flash_color = null
-hit_flash_time = null
 
 [node name="AnimatedSprite2D" type="AnimatedSprite2D" parent="."]
 sprite_frames = SubResource("SpriteFrames_kx2pj")
 autoplay = "default"
+flip_h = true

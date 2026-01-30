@@ -46,6 +46,11 @@ var planned_attacks: Array = []
 @export var explosion_sfx: AudioStream             # boom sound
 @export var explosion_sfx_bus: StringName = &"SFX" # your SFX bus name
 
+@export var boss_anchor_y := 1              # how close to top edge (0 is very top row)
+@export var boss_top_x_bias := 0.50         # 0.50 = exact top center, 0.66 = between center & right, 0.75 = more right
+@export var boss_pixel_offset := Vector2.ZERO  # fine tune in pixels if needed
+
+
 # -------------------------
 # Public setup
 # -------------------------
@@ -55,9 +60,127 @@ func setup(map_controller: MapController) -> void:
 	phase = 1
 	planned_attacks.clear()
 
-	_spawn_weakpoints()
-	_plan_next_turn() # telegraph immediately
+	_pick_valid_weakpoint_cells_top_right()
 
+	_position_big_sprite()
+
+	_spawn_weakpoints()
+	_plan_next_turn()
+
+func _pick_valid_weakpoint_cells_top_right() -> void:
+	if M == null:
+		return
+
+	var w := _get_map_w()
+	var h := _get_map_h()
+
+	# Bias: top edge + between center and right corner
+	var base_x := clampi(int(round((w - 1) * 0.66)), 0, w - 1)
+	var base_y := clampi(2, 0, h - 1)
+
+	# Offsets for your 4 parts relative to an anchor
+	# (tweak these if you want a wider boss)
+	var rel := {
+		&"LEFT_ARM":  Vector2i(-2, 0),
+		&"RIGHT_ARM": Vector2i( 2, 0),
+		&"CORE":      Vector2i( 0, 1),
+		&"LEGS":      Vector2i( 0, 2),
+	}
+
+	# Try nearby anchors (spiral-ish search)
+	var tries: Array[Vector2i] = []
+	for r in range(0, 6):
+		for dx in range(-r, r + 1):
+			for dy in range(-r, r + 1):
+				if abs(dx) != r and abs(dy) != r:
+					continue
+				tries.append(Vector2i(dx, dy))
+
+	for off in tries:
+		var anchor := Vector2i(
+			clampi(base_x + off.x, 0, w - 1),
+			clampi(base_y + off.y, 0, h - 1)
+		)
+
+		var cells := {
+			&"LEFT_ARM":  anchor + rel[&"LEFT_ARM"],
+			&"RIGHT_ARM": anchor + rel[&"RIGHT_ARM"],
+			&"CORE":      anchor + rel[&"CORE"],
+			&"LEGS":      anchor + rel[&"LEGS"],
+		}
+
+		if _all_cells_valid_for_spawn(cells.values()):
+			left_arm_cell  = cells[&"LEFT_ARM"]
+			right_arm_cell = cells[&"RIGHT_ARM"]
+			core_cell      = cells[&"CORE"]
+			legs_cell      = cells[&"LEGS"]
+			return
+
+	# Fallback (if everything fails): keep existing exports
+	# but at least clamp them
+	left_arm_cell  = Vector2i(clampi(left_arm_cell.x, 0, w-1),  clampi(left_arm_cell.y, 0, h-1))
+	right_arm_cell = Vector2i(clampi(right_arm_cell.x, 0, w-1), clampi(right_arm_cell.y, 0, h-1))
+	core_cell      = Vector2i(clampi(core_cell.x, 0, w-1),      clampi(core_cell.y, 0, h-1))
+	legs_cell      = Vector2i(clampi(legs_cell.x, 0, w-1),      clampi(legs_cell.y, 0, h-1))
+
+func _all_cells_valid_for_spawn(cells: Array) -> bool:
+	if M == null:
+		return false
+
+	var game := M.game_ref
+	var structure_blocked: Dictionary = {}
+	if game != null and ("structure_blocked" in game):
+		structure_blocked = game.structure_blocked
+
+	var seen := {}
+	for cc in cells:
+		if not (cc is Vector2i):
+			return false
+		var c := cc as Vector2i
+
+		# in-bounds
+		if not _in_bounds(c):
+			return false
+
+		# no duplicates
+		if seen.has(c):
+			return false
+		seen[c] = true
+
+		# must be walkable
+		if M.has_method("_is_walkable"):
+			if not M._is_walkable(c):
+				return false
+		else:
+			# fallback: if you don't have _is_walkable accessible, at least require terrain exists
+			pass
+
+		# must not already have a unit
+		if M.units_by_cell.has(c):
+			return false
+
+		# must not be blocked by structures
+		if structure_blocked.has(c):
+			return false
+
+	return true
+	
+func _position_big_sprite() -> void:
+	if M == null or M.terrain == null:
+		return
+
+	var w := _get_map_w()
+	var h := _get_map_h()
+
+	var ax := clampi(int(round((w - 1) * boss_top_x_bias)), 0, w - 1)
+	var ay := clampi(boss_anchor_y, 0, h - 1)
+
+	var anchor_cell := Vector2i(ax, ay)
+
+	# Convert cell -> GLOBAL position on your map
+	var world := M.terrain.to_global(M.terrain.map_to_local(anchor_cell))
+
+	global_position = world + boss_pixel_offset
 
 # -------------------------
 # Weakpoints (single scene, 4 instances)
@@ -169,11 +292,9 @@ func resolve_planned_attacks_async() -> void:
 	if planned_attacks.is_empty():
 		return
 
-	# Small readable delay before impacts start
 	if impact_delay_sec > 0.0:
 		await get_tree().create_timer(impact_delay_sec).timeout
 
-	# ✅ Collect all impacted cells (with splash) once, so a cell only gets hit once per resolve
 	var hit_set: Dictionary = {} # Vector2i -> true
 	var max_dmg_for_cell: Dictionary = {} # Vector2i -> int
 
@@ -184,21 +305,21 @@ func resolve_planned_attacks_async() -> void:
 		var hit_cells: Array[Vector2i] = _cells_with_splash(core_cells, splash_radius)
 		for c in hit_cells:
 			hit_set[c] = true
-			# if two attacks overlap, keep the higher damage (fair + simple)
 			var prev := int(max_dmg_for_cell.get(c, 0))
 			if dmg > prev:
 				max_dmg_for_cell[c] = dmg
 
-	# ✅ Stagger impacts for juice
+	# ✅ build ordered list from hit_set keys
 	var hit_cells_ordered: Array[Vector2i] = []
-	for c in hit_set.keys():
-		hit_cells_ordered.append(c)
+	for k in hit_set.keys():
+		hit_cells_ordered.append(k as Vector2i)
 
-	# optional: consistent-ish order (front to back)
+	# optional: front-to-back ordering
 	hit_cells_ordered.sort_custom(func(a: Vector2i, b: Vector2i) -> bool:
 		return (a.x + a.y) < (b.x + b.y)
 	)
 
+	# ✅ ONE impact loop
 	for c in hit_cells_ordered:
 		_spawn_explosion_at_cell(c)
 
@@ -206,18 +327,64 @@ func resolve_planned_attacks_async() -> void:
 
 		var u = M.units_by_cell.get(c, null)
 		if u != null and is_instance_valid(u) and u.hp > 0:
-			# ✅ Splash hurts ANY unit (allies + zombies + weakpoints, etc.)
 			u.take_damage(dmg)
-			var map_controller := get_tree().root.get_node("Game/MapController") as MapController
-			map_controller._flash_unit_white(u, 0.88)
-			
+			M._flash_unit_white(u, 0.88)
+		else:
+			_hit_structures_at_cell(c, dmg)
+
 		if between_impacts_sec > 0.0:
 			await get_tree().create_timer(between_impacts_sec).timeout
 
 	_clear_intents()
 
+func _hit_structures_at_cell(c: Vector2i, dmg: int) -> void:
+	for s in get_tree().get_nodes_in_group("Structures"):
+		if s == null or not is_instance_valid(s):
+			continue
+		if not (s is Structure):
+			continue
+
+		var st := s as Structure
+		if st.is_destroyed():
+			continue
+
+		if st.occupies_cell(c):
+			st.apply_damage(dmg)
+			M._flash_structure_white(st, 0.88)
+
 func plan_next_attacks() -> void:
 	_plan_next_turn()
+
+func _flash_structures_hit_at_cell(c: Vector2i, dur := 0.12) -> void:
+	if M == null or M.terrain == null:
+		return
+
+	# Use terrain local coords so it matches how structures were positioned
+	var cell_pos := M.terrain.map_to_local(c)
+
+	for s in get_tree().get_nodes_in_group("Structures"):
+		if s == null or not is_instance_valid(s):
+			continue
+		if not (s is Node2D):
+			continue
+
+		# --- determine footprint (default 1x1) ---
+		var origin: Vector2i = Vector2i(-999, -999)
+		var size: Vector2i = Vector2i(1, 1)
+
+		# Prefer meta if you set it (recommended)
+		if s.has_meta("origin_cell"):
+			origin = s.get_meta("origin_cell") as Vector2i
+		if s.has_meta("footprint"):
+			size = s.get_meta("footprint") as Vector2i
+
+		# If no meta, fallback: approximate origin from position
+		if origin.x < -900:
+			origin = M.terrain.local_to_map((s as Node2D).position)
+
+		# Check if hit cell is within structure footprint
+		if c.x >= origin.x and c.y >= origin.y and c.x < origin.x + size.x and c.y < origin.y + size.y:
+			M._flash_unit_white(s, dur) # ✅ "just use _flash_unit"
 
 # -------------------------
 # Plan + telegraph
@@ -476,7 +643,7 @@ func _spawn_explosion_at_cell(c: Vector2i) -> void:
 		else:
 			M.add_child(fx)
 
-		fx.global_position = M.terrain.map_to_local(c)
+		fx.global_position = M.terrain.to_global(M.terrain.map_to_local(c))
 
 		# Layer by grid sum so it sits correctly
 		if fx is CanvasItem:
