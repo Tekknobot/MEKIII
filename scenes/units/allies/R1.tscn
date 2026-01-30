@@ -150,6 +150,7 @@ animations = [{
 script = ExtResource("1_emp16")
 portrait_tex = ExtResource("2_54iik")
 thumbnail = ExtResource("3_en3e7")
+base_max_hp = 5
 basic_ranged_damage = 3
 volley_cooldown = 0
 projectile_scene = ExtResource("3_uvdgm")

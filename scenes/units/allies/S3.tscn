@@ -149,6 +149,7 @@ animations = [{
 script = ExtResource("1_1ya7v")
 portrait_tex = ExtResource("2_dqrvo")
 thumbnail = ExtResource("3_na2j8")
+base_max_hp = 5
 nova_radius = 2
 nova_damage = 1
 nova_cooldown = 0

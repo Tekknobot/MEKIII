@@ -170,6 +170,7 @@ script = ExtResource("1_mfe0n")
 portrait_tex = ExtResource("2_00231")
 thumbnail = ExtResource("3_8ebf7")
 base_move_range = 4
+base_max_hp = 5
 quake_damage = 1
 quake_cooldown = 0
 quake_ring_delay = 0.1

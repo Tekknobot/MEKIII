@@ -216,6 +216,8 @@ script = ExtResource("1_0w1yf")
 thumbnail = ExtResource("2_m4nn4")
 display_name = "ROBODOG"
 attack_damage = 2
+max_hp = 4
+hp = 4
 death_fx_offset = Vector2(0, -16)
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="."]

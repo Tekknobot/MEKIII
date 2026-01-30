@@ -266,6 +266,53 @@ const UNIQUE_GROUP := "UniqueBuilding"
 @export var recruit_fx_alpha_min := 0.70                   # shimmer low
 @export var recruit_fx_scale_mul := 1.04                   # tiny pop (safe)
 
+# -------------------------------------------------
+# FLOPPY DROP TUNING (pity + pressure scaling)
+# -------------------------------------------------
+@export var floppy_base_chance := 0.10          # starting chance per zombie kill
+@export var floppy_pity_step := 0.10            # added each miss
+@export var floppy_pressure_bonus := 0.25       # extra chance at 100% infestation
+@export var floppy_pity_cap := 0.90             # don't exceed this before pressure bonus
+@export var infestation_limit_for_drops := 32   # match your zombie lose limit
+
+var _floppy_pity_accum := 0.0
+var _floppy_misses := 0
+
+func _count_zombies_alive() -> int:
+	var n := 0
+	for uu in get_all_units():
+		if uu == null or not is_instance_valid(uu):
+			continue
+		if uu.hp <= 0:
+			continue
+		if uu.team == Unit.Team.ENEMY:
+			n += 1
+	return n
+
+func _roll_floppy_drop() -> bool:
+	# Stop rolling if we don't need parts anymore
+	if _team_floppy_total_allies() >= beacon_parts_needed:
+		_floppy_pity_accum = 0.0
+		_floppy_misses = 0
+		return false
+
+	var zombies := _count_zombies_alive()
+	var limit = max(1, infestation_limit_for_drops)
+	var pressure = clamp(float(zombies) / float(limit), 0.0, 1.0)
+
+	# chance grows as you miss + increases under pressure
+	var chance = floppy_base_chance + _floppy_pity_accum + (pressure * floppy_pressure_bonus)
+	chance = clamp(chance, 0.0, 1.0)
+
+	if randf() <= chance:
+		_floppy_pity_accum = 0.0
+		_floppy_misses = 0
+		return true
+
+	_floppy_misses += 1
+	_floppy_pity_accum = min(floppy_pity_cap, _floppy_pity_accum + floppy_pity_step)
+	return false
+
 func _sfx(cue: StringName, vol := 1.0, pitch := 1.0, world_pos: Variant = null) -> void:
 	if SFX == null:
 		return
@@ -4127,12 +4174,14 @@ func on_unit_died(u: Unit) -> void:
 
 	# only drop until beacon is complete
 	if _team_floppy_total_allies() >= beacon_parts_needed:
+		_floppy_pity_accum = 0.0
+		_floppy_misses = 0
 		return
 
-	# drop chance (or guarantee)
-	var drop_chance := 0.25
-	if randf() <= drop_chance:
+	# ✅ better drop logic (pity + pressure scaling)
+	if _roll_floppy_drop():
 		spawn_pickup_at(u.cell, floppy_pickup_scene)
+
 
 func _on_pickup_collected(u: Unit, cell: Vector2i) -> void:
 	# give the unit a floppy
