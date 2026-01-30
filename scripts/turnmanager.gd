@@ -191,7 +191,19 @@ func _ready() -> void:
 	_spawn_wait_tries = 0
 	call_deferred("_wait_for_units_then_enable_loss_checks")
 
+	var rs := get_tree().root.get_node_or_null("RunStateNode")
+	if rs != null:
+		# safest: trust the explicit flag set by OverworldRadar
+		if "boss_mode_enabled_next_mission" in rs:
+			boss_mode_enabled = bool(rs.boss_mode_enabled_next_mission)
+		else:
+			boss_mode_enabled = false
 
+		# optional fallback if you want:
+		# boss_mode_enabled = boss_mode_enabled or (("mission_node_type" in rs) and (rs.mission_node_type == &"boss"))
+	else:
+		boss_mode_enabled = false
+		
 func _on_map_tutorial_event(id: StringName, _payload: Dictionary) -> void:
 	# enemy_died is guaranteed from MapController.on_unit_died()
 	if id == &"enemy_died":

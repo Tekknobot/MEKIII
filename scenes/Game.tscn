@@ -388,7 +388,6 @@ cannon_button_path = NodePath("../UI/Cannon")
 quake_button_path = NodePath("../UI/Quake")
 nova_button_path = NodePath("../UI/Nova")
 beacon_deadline_round = 99
-boss_mode_enabled = true
 boss_controller_scene = ExtResource("28_6jll0")
 
 [node name="Pickups" type="Node2D" parent="."]
