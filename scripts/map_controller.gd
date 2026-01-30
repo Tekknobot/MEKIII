@@ -1108,7 +1108,7 @@ func _select(u: Unit) -> void:
 	selected = u
 	selected.set_selected(true)
 
-	_debug_print_unit(u)
+	#_debug_print_unit(u)
 
 	_sfx(&"ui_select", sfx_volume_ui, 1.0)
 

@@ -273,6 +273,7 @@ fade_out_time = 1.88
 fade_in_time = 1.88
 fade_hold_time = 0.88
 water_patch_count = 1
+water_patch_radius_max = 3
 building_scenes = Array[PackedScene]([ExtResource("21_1fiys"), ExtResource("22_ho5ir"), ExtResource("23_evnk2"), ExtResource("24_ca228")])
 building_count = 12
 unique_building_scenes = Array[PackedScene]([ExtResource("23_evnk2"), ExtResource("24_ca228"), ExtResource("22_ho5ir")])
@@ -365,6 +366,13 @@ script = ExtResource("24_jai3c")
 map_controller_path = NodePath("../MapController")
 end_turn_button_path = NodePath("../UI/EndTurnButton")
 menu_button_path = NodePath("../UI/MenuButton")
+infestation_title_font = ExtResource("52_px4p2")
+infestation_body_font = ExtResource("53_x0rj3")
+infestation_button_font = ExtResource("32_1gdd5")
+infestation_title_font_size = 32
+infestation_body_font_size = 16
+infestation_button_font_size = 16
+infestation_portrait_size = 64
 hellfire_button_path = NodePath("../UI/Hellfire")
 blade_button_path = NodePath("../UI/Blade")
 mines_button_path = NodePath("../UI/Mines")
@@ -580,6 +588,7 @@ mouse_filter = 1
 color = Color(0, 0, 0, 1)
 
 [node name="TutorialToast" parent="UI" instance=ExtResource("50_3pold")]
+visible = false
 
 [node name="EndGamePanelRuntime" type="CanvasLayer" parent="UI"]
 script = ExtResource("51_3ugab")

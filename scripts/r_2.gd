@@ -81,7 +81,7 @@ func can_use_special(id: String) -> bool:
 func get_special_range(id: String) -> int:
 	id = id.to_lower()
 	if id == "cannon":
-		return cannon_range
+		return attack_range
 	return 0
 
 # -------------------------------------------------------
@@ -109,12 +109,12 @@ func perform_cannon(M: MapController, _target_cell: Vector2i) -> void:
 		return
 	if M == null:
 		return
-	if cannon_range <= 0 or cannon_shots <= 0:
+	if attack_range <= 0 or cannon_shots <= 0:
 		return
 
 	var structure_blocked := _get_structure_blocked(M)
 
-	var target_cells: Array[Vector2i] = _get_enemy_cells_in_range(M, cannon_range)
+	var target_cells: Array[Vector2i] = _get_enemy_cells_in_range(M, attack_range)
 
 	if skip_structure_blocked_tiles and structure_blocked.size() > 0:
 		var filtered: Array[Vector2i] = []

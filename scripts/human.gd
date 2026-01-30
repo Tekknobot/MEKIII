@@ -88,7 +88,7 @@ func perform_suppress(map: MapController, target_cell: Vector2i) -> void:
 			continue
 
 		var d = abs(e.cell.x - cell.x) + abs(e.cell.y - cell.y)
-		if d > suppress_range:
+		if d > attack_range:
 			continue
 		if not map._has_clear_attack_path(cell, e.cell):
 			continue
@@ -158,5 +158,5 @@ func get_special_range(id: String) -> int:
 	if id == "hellfire":
 		return hellfire_range
 	if id == "suppress":
-		return suppress_range
+		return attack_range
 	return 0

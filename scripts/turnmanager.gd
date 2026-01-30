@@ -9,6 +9,29 @@ class_name TurnManager
 # Set this to your actual title scene path
 @export var title_scene_path: String = "res://scenes/title_screen.tscn"
 
+@export var zombie_limit: int = 32
+@export var show_infestation_hud: bool = true
+@export var zombie_portrait_tex: Texture2D = preload("res://sprites/Portraits/zombie_port.png") # change if needed
+
+@export var infestation_title_font: Font
+@export var infestation_body_font: Font
+@export var infestation_button_font: Font
+
+@export var infestation_title_font_size: int = 16
+@export var infestation_body_font_size: int = 14
+@export var infestation_button_font_size: int = 14
+
+@export var infestation_portrait_size: int = 48
+
+var infestation_hud: InfestationHUD = null
+var _game_over_triggered: bool = false
+# (No import needed in Godot; class_name InfestationHUD will resolve)
+
+var loss_checks_enabled: bool = false
+var _had_any_allies: bool = false
+var _spawn_wait_tries: int = 0
+const _SPAWN_WAIT_MAX_TRIES := 90  # ~1.5s at 60fps
+
 @onready var M: MapController = get_node(map_controller_path)
 @onready var end_turn_button := get_node_or_null(end_turn_button_path)
 
@@ -68,15 +91,53 @@ var end_panel: EndGamePanelRuntime
 
 func _ready() -> void:
 	end_panel = EndGamePanelRuntime.new()
+
+	# -------------------------------------------------
+	# Reuse HUD fonts for Mission Failed panel
+	# -------------------------------------------------
+	end_panel.title_font = infestation_title_font
+	end_panel.body_font = infestation_body_font
+	end_panel.button_font = infestation_button_font
+
+	# Scale up sizes for a full-screen panel
+	end_panel.title_font_size = infestation_title_font_size * 2
+	end_panel.body_font_size = infestation_body_font_size * 1.25
+	end_panel.button_font_size = infestation_button_font_size * 1.25
+
+	# Optional: description font (reuse body)
+	end_panel.desc_font = infestation_body_font
+	end_panel.desc_font_size = infestation_body_font_size
+
 	add_child(end_panel)
-		
+
+	# --- Make "continue" act as RESTART on loss ---
+	if not end_panel.continue_pressed.is_connected(_on_loss_restart_pressed):
+		end_panel.continue_pressed.connect(_on_loss_restart_pressed)
+
+	# --- Infestation HUD ---
+	if show_infestation_hud:
+		infestation_hud = InfestationHUD.new()
+		infestation_hud.zombie_limit = zombie_limit
+		infestation_hud.zombie_portrait = zombie_portrait_tex
+		infestation_hud.portrait_size = infestation_portrait_size
+
+		infestation_hud.title_font = infestation_title_font
+		infestation_hud.body_font = infestation_body_font
+		infestation_hud.button_font = infestation_button_font
+
+		infestation_hud.title_font_size = infestation_title_font_size
+		infestation_hud.body_font_size = infestation_body_font_size
+		infestation_hud.button_font_size = infestation_button_font_size
+
+		add_child(infestation_hud)
+
 	if end_turn_button:
 		end_turn_button.pressed.connect(_on_end_turn_pressed)
 	if menu_button:
 		menu_button.pressed.connect(_on_menu_pressed)
 	else:
 		push_warning("TurnManager: menu_button_path not set or not found.")
-		
+
 	if hellfire_button:
 		hellfire_button.pressed.connect(_on_hellfire_pressed)
 	if blade_button:
@@ -101,7 +162,7 @@ func _ready() -> void:
 		quake_button.pressed.connect(_on_quake_pressed)
 	if nova_button:
 		nova_button.pressed.connect(_on_nova_pressed)
-						
+
 	start_player_phase()
 	_update_end_turn_button()
 
@@ -112,11 +173,75 @@ func _ready() -> void:
 		if M.has_signal("aim_changed") and not M.aim_changed.is_connected(_on_aim_changed):
 			M.aim_changed.connect(_on_aim_changed)
 
+	# MapController tutorial events -> use them to refresh counts (enemy deaths)
 	if M != null and M.has_signal("tutorial_event"):
-		M.tutorial_event.connect(func(id, payload): emit_signal("tutorial_event", id, payload))
+		if not M.tutorial_event.is_connected(_on_map_tutorial_event):
+			M.tutorial_event.connect(_on_map_tutorial_event)
 
 	_update_special_buttons()
-	
+
+	# Initial refresh (after scene loads / units spawn)
+	loss_checks_enabled = false
+	_had_any_allies = false
+	_spawn_wait_tries = 0
+	call_deferred("_wait_for_units_then_enable_loss_checks")
+
+
+func _on_map_tutorial_event(id: StringName, _payload: Dictionary) -> void:
+	# enemy_died is guaranteed from MapController.on_unit_died()
+	if id == &"enemy_died":
+		call_deferred("_refresh_population_and_check")
+
+func _refresh_population_and_check() -> void:
+	if _game_over_triggered:
+		return
+	if M == null:
+		return
+	if not loss_checks_enabled:
+		return
+
+	var units := M.get_all_units()
+	if units == null or units.is_empty():
+		return
+
+	var zombies := 0
+	var allies := 0
+
+	for u in units:
+		if u == null or not is_instance_valid(u):
+			continue
+		if u.hp <= 0:
+			continue
+
+		if u.team == Unit.Team.ENEMY:
+			zombies += 1
+		elif u.team == Unit.Team.ALLY:
+			allies += 1
+
+	# Track: have we ever had allies alive?
+	if allies > 0:
+		_had_any_allies = true
+
+	# Update HUD
+	if infestation_hud != null and is_instance_valid(infestation_hud):
+		infestation_hud.set_counts(zombies, zombie_limit)
+
+	# Loss #1: too many zombies (allowed as soon as checks are enabled)
+	if zombies > zombie_limit:
+		game_over("SYSTEM OVERRUN\n\nInfestation exceeded containment limits.\nZombies: %d / %d" % [zombies, zombie_limit])
+		return
+
+	# Loss #2: no allies (ONLY if we have had allies at least once)
+	if _had_any_allies and allies <= 0:
+		game_over("LAST LIGHT EXTINGUISHED\n\nNo allied units remain operational.")
+		return
+
+func _on_loss_restart_pressed() -> void:
+	# EndGamePanelRuntime "Continue" will behave like RESTART for loss
+	if not _game_over_triggered:
+		return
+	get_tree().reload_current_scene()
+
 # -----------------------
 # Phase control
 # -----------------------
@@ -150,6 +275,10 @@ func start_enemy_phase() -> void:
 	if M != null:
 		M.tick_overwatch_turn()
 
+	call_deferred("_refresh_population_and_check")
+	if _game_over_triggered:
+		return
+
 	# ✅ spawn wave for next round (standard curve)
 	if M != null and M.has_method("spawn_edge_road_zombie"):
 		var to_spawn := _calc_spawn_count_for_round(round_index)
@@ -166,6 +295,10 @@ func start_enemy_phase() -> void:
 				break # no more valid edge cells
 
 		print("Spawned %d/%d enemies for Round %d" % [spawned, to_spawn, round_index])
+
+		call_deferred("_refresh_population_and_check")
+		if _game_over_triggered:
+			return
 
 	# ✅ Advance round counter NOW (enemy phase finished)
 	round_index += 1
@@ -297,7 +430,6 @@ func notify_player_moved(u: Unit) -> void:
 			M.set_unit_exhausted(u, true) # ✅ moved + no targets = done
 
 	_update_end_turn_button()
-	_update_end_turn_button()
 	_update_special_buttons()
 
 
@@ -308,8 +440,8 @@ func notify_player_attacked(u: Unit) -> void:
 		M.set_unit_exhausted(u, true)
 		
 	_update_end_turn_button()
-	_update_end_turn_button()
 	_update_special_buttons()
+	call_deferred("_refresh_population_and_check")
 
 # If you want “skip attack” as a button later:
 func skip_attack_for_selected(u: Unit) -> void:
@@ -918,15 +1050,6 @@ func _run_support_bots_phase() -> void:
 	_update_end_turn_button()
 	_update_special_buttons()
 
-func game_over(msg: String) -> void:
-	print(msg)
-	phase = Phase.BUSY
-	_update_end_turn_button()
-	_update_special_buttons()
-	# Optional: if you have a Game node, call it:
-	# var G := get_tree().get_first_node_in_group("Game")
-	# if G and G.has_method("game_over"): G.call("game_over", msg)
-
 func _on_pounce_pressed() -> void:
 	if phase != Phase.PLAYER:
 		return
@@ -1025,3 +1148,47 @@ func _on_menu_pressed() -> void:
 
 	get_tree().paused = false
 	get_tree().change_scene_to_file(title_scene_path)
+
+func game_over(msg: String) -> void:
+	if _game_over_triggered:
+		return
+	_game_over_triggered = true
+
+	print(msg)
+	phase = Phase.BUSY
+	_update_end_turn_button()
+	_update_special_buttons()
+
+	# Show loss panel (reuse your EndGamePanelRuntime)
+	if end_panel != null and is_instance_valid(end_panel):
+		end_panel.show_loss(msg)
+
+		# Turn "Continue" into a restart button
+		if end_panel.continue_button != null:
+			end_panel.continue_button.text = "RESTART RUN"
+			end_panel.continue_button.disabled = false
+
+		# Hack: allow Continue to fire (panel requires _picked)
+		# (Underscore isn't private in GDScript)
+		end_panel._picked = true
+
+func _wait_for_units_then_enable_loss_checks() -> void:
+	if _game_over_triggered:
+		return
+	if M == null:
+		return
+
+	var units := M.get_all_units()
+	if units != null and not units.is_empty():
+		# We have units in the scene — safe to start evaluating.
+		loss_checks_enabled = true
+		call_deferred("_refresh_population_and_check")
+		return
+
+	_spawn_wait_tries += 1
+	if _spawn_wait_tries >= _SPAWN_WAIT_MAX_TRIES:
+		# Give up quietly; we'll re-enable later when something happens (kills/spawns/end turn)
+		return
+
+	# Try again next frame
+	call_deferred("_wait_for_units_then_enable_loss_checks")
