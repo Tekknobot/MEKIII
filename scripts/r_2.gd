@@ -52,6 +52,8 @@ class_name R2
 @export var splash_ring_damage := 1
 @export var hit_structures_too := true               # cannon can smash buildings (toggle off if you want)
 
+var _delay_left := 0.0
+
 func _ready() -> void:
 	set_meta("portrait_tex", portrait_tex)
 	set_meta("display_name", display_name)
@@ -143,7 +145,7 @@ func perform_cannon(M: MapController, _target_cell: Vector2i) -> void:
 		_face_unit_toward_cell_world(M, c)
 
 		if projectile_stagger > 0.0:
-			await get_tree().create_timer(projectile_stagger).timeout
+			await _wait_seconds_no_timer(projectile_stagger)
 			if not _alive():
 				return
 
@@ -401,3 +403,17 @@ func _play_attack_anim_once() -> void:
 
 func _alive() -> bool:
 	return is_instance_valid(self) and hp > 0 and (not ("_dying" in self and self._dying))
+
+func _wait_seconds_no_timer(seconds: float) -> void:
+	if seconds <= 0.0:
+		return
+
+	_delay_left = seconds
+	# Wait frames until elapsed, but safely bail if we leave tree / die
+	while _delay_left > 0.0:
+		if not _alive():
+			return
+		if not is_inside_tree():
+			return
+		await get_tree().process_frame
+		_delay_left -= get_process_delta_time()

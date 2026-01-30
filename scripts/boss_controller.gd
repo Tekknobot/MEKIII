@@ -58,8 +58,20 @@ var planned_attacks: Array = []
 @export var boss_exit_ease := Tween.EASE_IN
 @export var boss_exit_trans := Tween.TRANS_QUAD
 
+signal boss_outro_finished
+
 var _boss_flash_tw: Tween = null
 var _exiting := false
+
+enum SpawnMode { CLUSTERED, SPREAD, TOP_RIGHT_BIASED }
+@export var weakpoint_spawn_mode: SpawnMode = SpawnMode.TOP_RIGHT_BIASED
+
+@export var weakpoint_min_separation := 3      # Manhattan distance between parts (SPREAD)
+@export var weakpoint_cluster_radius := 2      # Manhattan radius around anchor (CLUSTERED/TOP_RIGHT_BIASED)
+@export var weakpoint_bias_strength := 0.0    # 0..1 how strong the top-right bias is
+
+func _ready() -> void:
+	add_to_group("BossController")
 
 # -------------------------
 # Public setup
@@ -70,68 +82,161 @@ func setup(map_controller: MapController) -> void:
 	phase = 1
 	planned_attacks.clear()
 
-	_pick_valid_weakpoint_cells_top_right()
+	_pick_valid_weakpoint_cells()
 
 	_position_big_sprite()
 
 	_spawn_weakpoints()
 	_plan_next_turn()
 
-func _pick_valid_weakpoint_cells_top_right() -> void:
+func _pick_valid_weakpoint_cells() -> void:
 	if M == null:
 		return
+
+	var candidates := _gather_valid_spawn_cells()
+	if candidates.size() < 4:
+		# fallback: keep existing exports (but clamped)
+		var w := _get_map_w()
+		var h := _get_map_h()
+		left_arm_cell  = Vector2i(clampi(left_arm_cell.x, 0, w-1),  clampi(left_arm_cell.y, 0, h-1))
+		right_arm_cell = Vector2i(clampi(right_arm_cell.x, 0, w-1), clampi(right_arm_cell.y, 0, h-1))
+		core_cell      = Vector2i(clampi(core_cell.x, 0, w-1),      clampi(core_cell.y, 0, h-1))
+		legs_cell      = Vector2i(clampi(legs_cell.x, 0, w-1),      clampi(legs_cell.y, 0, h-1))
+		return
+
+	var picked: Array[Vector2i] = []
+
+	match weakpoint_spawn_mode:
+		SpawnMode.CLUSTERED:
+			picked = _pick_clustered(candidates, 4, weakpoint_cluster_radius, false)
+		SpawnMode.SPREAD:
+			picked = _pick_spread(candidates, 4, weakpoint_min_separation)
+		SpawnMode.TOP_RIGHT_BIASED:
+			picked = _pick_clustered(candidates, 4, weakpoint_cluster_radius, true)
+		_:
+			picked = _pick_clustered(candidates, 4, weakpoint_cluster_radius, true)
+
+	if picked.size() < 4:
+		# last resort: fill randomly without separation constraints
+		candidates.shuffle()
+		while picked.size() < 4 and not candidates.is_empty():
+			picked.append(candidates.pop_back())
+
+	# Assign parts (you can shuffle to randomize which part is where)
+	# If you want core more central, put core at picked[0] or anchor-adjacent etc.
+	left_arm_cell  = picked[0]
+	right_arm_cell = picked[1]
+	legs_cell      = picked[2]
+	core_cell      = picked[3]
+
+func _gather_valid_spawn_cells() -> Array[Vector2i]:
+	var out: Array[Vector2i] = []
+	var w := _get_map_w()
+	var h := _get_map_h()
+
+	var game := M.game_ref
+	var structure_blocked: Dictionary = {}
+	if game != null and ("structure_blocked" in game):
+		structure_blocked = game.structure_blocked
+
+	for y in range(h):
+		for x in range(w):
+			var c := Vector2i(x, y)
+
+			if not _in_bounds(c):
+				continue
+			if structure_blocked.has(c):
+				continue
+			if _cell_has_any_unit(c):
+				continue
+			if M.has_method("_is_walkable") and not M._is_walkable(c):
+				continue
+
+			out.append(c)
+
+	return out
+
+
+func _pick_clustered(candidates: Array[Vector2i], count: int, radius: int, top_right_bias: bool) -> Array[Vector2i]:
+	if candidates.is_empty():
+		return []
 
 	var w := _get_map_w()
 	var h := _get_map_h()
 
-	# Bias: top edge + between center and right corner
-	var base_x := clampi(int(round((w - 1) * 0.66)), 0, w - 1)
-	var base_y := clampi(2, 0, h - 1)
+	# Choose an anchor:
+	# - either random
+	# - or biased toward top-right (more likely there but still not hardcoded)
+	var anchor := candidates[randi() % candidates.size()]
+	if top_right_bias:
+		anchor = _pick_biased_anchor(candidates, w, h)
 
-	# Offsets for your 4 parts relative to an anchor
-	# (tweak these if you want a wider boss)
-	var rel := {
-		&"LEFT_ARM":  Vector2i(-2, 0),
-		&"RIGHT_ARM": Vector2i( 2, 0),
-		&"CORE":      Vector2i( 0, 1),
-		&"LEGS":      Vector2i( 0, 2),
-	}
+	# Filter candidates inside radius of anchor
+	var local: Array[Vector2i] = []
+	for c in candidates:
+		if abs(c.x - anchor.x) + abs(c.y - anchor.y) <= radius:
+			local.append(c)
 
-	# Try nearby anchors (spiral-ish search)
-	var tries: Array[Vector2i] = []
-	for r in range(0, 6):
-		for dx in range(-r, r + 1):
-			for dy in range(-r, r + 1):
-				if abs(dx) != r and abs(dy) != r:
-					continue
-				tries.append(Vector2i(dx, dy))
+	# If too few near anchor, just use full candidate list
+	if local.size() < count:
+		local = candidates.duplicate()
 
-	for off in tries:
-		var anchor := Vector2i(
-			clampi(base_x + off.x, 0, w - 1),
-			clampi(base_y + off.y, 0, h - 1)
-		)
+	local.shuffle()
+	var picked: Array[Vector2i] = []
+	var seen := {}
+	for c in local:
+		if seen.has(c):
+			continue
+		seen[c] = true
+		picked.append(c)
+		if picked.size() >= count:
+			break
 
-		var cells := {
-			&"LEFT_ARM":  anchor + rel[&"LEFT_ARM"],
-			&"RIGHT_ARM": anchor + rel[&"RIGHT_ARM"],
-			&"CORE":      anchor + rel[&"CORE"],
-			&"LEGS":      anchor + rel[&"LEGS"],
-		}
+	return picked
 
-		if _all_cells_valid_for_spawn(cells.values()):
-			left_arm_cell  = cells[&"LEFT_ARM"]
-			right_arm_cell = cells[&"RIGHT_ARM"]
-			core_cell      = cells[&"CORE"]
-			legs_cell      = cells[&"LEGS"]
-			return
 
-	# Fallback (if everything fails): keep existing exports
-	# but at least clamp them
-	left_arm_cell  = Vector2i(clampi(left_arm_cell.x, 0, w-1),  clampi(left_arm_cell.y, 0, h-1))
-	right_arm_cell = Vector2i(clampi(right_arm_cell.x, 0, w-1), clampi(right_arm_cell.y, 0, h-1))
-	core_cell      = Vector2i(clampi(core_cell.x, 0, w-1),      clampi(core_cell.y, 0, h-1))
-	legs_cell      = Vector2i(clampi(legs_cell.x, 0, w-1),      clampi(legs_cell.y, 0, h-1))
+func _pick_spread(candidates: Array[Vector2i], count: int, min_sep: int) -> Array[Vector2i]:
+	var pool := candidates.duplicate()
+	pool.shuffle()
+
+	var picked: Array[Vector2i] = []
+	for c in pool:
+		var ok := true
+		for p in picked:
+			if abs(c.x - p.x) + abs(c.y - p.y) < min_sep:
+				ok = false
+				break
+		if ok:
+			picked.append(c)
+			if picked.size() >= count:
+				break
+
+	return picked
+
+
+func _pick_biased_anchor(candidates: Array[Vector2i], w: int, h: int) -> Vector2i:
+	# Weight cells closer to top-right (low y, high x).
+	# We do a small lottery: sample a handful and keep the best score.
+	var best := candidates[randi() % candidates.size()]
+	var best_score := -999999.0
+	
+	var samples = min(40, candidates.size())
+	for i in range(samples):
+		var c := candidates[randi() % candidates.size()]
+
+		# Normalize: x in [0..1], y in [0..1] (top = 0)
+		var nx = float(c.x) / max(1.0, float(w - 1))
+		var ny = float(c.y) / max(1.0, float(h - 1))
+
+		# Score: prefer high x and low y. bias_strength blends this with randomness.
+		var score = (nx * 1.0) + ((1.0 - ny) * 1.0)
+		score = lerp(randf(), score, weakpoint_bias_strength)
+
+		if score > best_score:
+			best_score = score
+			best = c
+
+	return best
 
 func _all_cells_valid_for_spawn(cells: Array) -> bool:
 	if M == null:
@@ -199,10 +304,10 @@ func _spawn_weakpoints() -> void:
 	if M == null:
 		return
 
-	_spawn_wp(weakpoint_scene, left_arm_cell, &"LEFT_ARM", 3, 3, wp_left_arm_tex)
-	_spawn_wp(weakpoint_scene, right_arm_cell, &"RIGHT_ARM", 3, 3, wp_right_arm_tex)
-	_spawn_wp(weakpoint_scene, legs_cell, &"LEGS", 4, 3, wp_legs_tex)
-	_spawn_wp(weakpoint_scene, core_cell, &"CORE", 5, 6, wp_core_tex)
+	_spawn_wp(weakpoint_scene, left_arm_cell, &"LEFT_ARM", 16, 16, wp_left_arm_tex)
+	_spawn_wp(weakpoint_scene, right_arm_cell, &"RIGHT_ARM", 16, 16, wp_right_arm_tex)
+	_spawn_wp(weakpoint_scene, legs_cell, &"LEGS", 16, 16, wp_legs_tex)
+	_spawn_wp(weakpoint_scene, core_cell, &"CORE", 16, 16, wp_core_tex)
 
 func _spawn_wp(scene: PackedScene, cell: Vector2i, id: StringName, hp_val: int, boss_damage_on_destroy: int, tex: Texture2D) -> void:
 	if scene == null:
@@ -259,20 +364,15 @@ func on_weakpoint_destroyed(part_id: StringName, boss_damage: int) -> void:
 	if parts_alive.has(part_id):
 		parts_alive[part_id] = false
 
-	# ✅ flash boss immediately
 	_flash_boss_white(0.12)
-
-	# Apply boss HP damage (your existing behavior)
 	_apply_boss_damage(boss_damage)
 
-	# ✅ if all weakpoints are gone, fly up and free
 	if _all_parts_dead():
 		_clear_intents()
-		emit_signal("boss_defeated")
-		_exit_and_free()
+		emit_signal("boss_defeated") # “defeated, start outro”
+		_exit_and_free()             # plays tween, then boss_outro_finished
 		return
 
-	# Otherwise: re-plan so intents change next turn
 	_plan_next_turn()
 
 # -------------------------
@@ -766,25 +866,17 @@ func _all_parts_dead() -> bool:
 			return false
 	return true
 
-
 func _exit_and_free() -> void:
 	if _exiting:
 		return
 	_exiting = true
 
-	# stop planning/telegraphing
 	_clear_intents()
-
-	# Optional: disable processing if you use it
 	set_process(false)
 	set_physics_process(false)
 
-	# Tween up and fade out a bit
 	var start_pos := global_position
 	var end_pos := start_pos + Vector2(0, -boss_exit_rise_px)
-
-	# If you want it to go fully off-screen relative to the camera/viewport, you can
-	# increase boss_exit_rise_px or compute from viewport size. Keeping it simple here.
 
 	var tw := create_tween()
 	tw.set_trans(boss_exit_trans)
@@ -792,12 +884,12 @@ func _exit_and_free() -> void:
 
 	tw.tween_property(self, "global_position", end_pos, boss_exit_time)
 
-	# Fade if possible (boss art node)
 	var target := _get_flash_target()
 	if target != null:
 		tw.parallel().tween_property(target, "modulate:a", 0.0, boss_exit_time)
 
 	tw.finished.connect(func():
+		emit_signal("boss_outro_finished")
 		if is_instance_valid(self):
 			queue_free()
 	)

@@ -42,7 +42,26 @@ func _ready() -> void:
 
 	super._ready()
 
-	
+# ---------------------------------------------------------
+# No-Timer wait (no create_timer, no Timer nodes)
+# ---------------------------------------------------------
+func _wait_seconds_no_timer(seconds: float) -> void:
+	if seconds <= 0.0:
+		return
+
+	var start := Time.get_ticks_msec()
+	var ms := int(seconds * 1000.0)
+
+	while Time.get_ticks_msec() - start < ms:
+		var tree := get_tree()
+		if tree != null:
+			await tree.process_frame
+		else:
+			await (Engine.get_main_loop() as SceneTree).process_frame
+
+# ---------------------------------------------------------
+# BLADE
+# ---------------------------------------------------------
 func perform_blade(M: MapController, target_cell: Vector2i) -> void:
 	if M == null or not is_instance_valid(M):
 		return
@@ -63,7 +82,6 @@ func perform_blade(M: MapController, target_cell: Vector2i) -> void:
 			return false
 		if u.hp <= 0:
 			return false
-		# manhattan range from CURRENT cell at time of building list
 		var d = abs(u.cell.x - cell.x) + abs(u.cell.y - cell.y)
 		return d <= blade_range
 
@@ -71,6 +89,7 @@ func perform_blade(M: MapController, target_cell: Vector2i) -> void:
 	if _is_valid_enemy.call(clicked):
 		enemies.append(clicked)
 
+	# Stim bonus from meta (if active)
 	var stim_bonus := 0
 	if has_meta(&"stim_turns") and int(get_meta(&"stim_turns")) > 0:
 		if has_meta(&"stim_damage_bonus"):
@@ -85,7 +104,7 @@ func perform_blade(M: MapController, target_cell: Vector2i) -> void:
 		if _is_valid_enemy.call(u):
 			enemies.append(u)
 
-	# Sort remaining by distance to us (keeps the chain feeling snappy)
+	# Sort by distance so chain feels snappy
 	enemies.sort_custom(func(a: Unit, b: Unit) -> bool:
 		var da = abs(a.cell.x - cell.x) + abs(a.cell.y - cell.y)
 		var db = abs(b.cell.x - cell.x) + abs(b.cell.y - cell.y)
@@ -99,7 +118,6 @@ func perform_blade(M: MapController, target_cell: Vector2i) -> void:
 	# Helpers
 	# -----------------------------
 	var _adjacent_open_to := func(tcell: Vector2i) -> Vector2i:
-		# Prefer tiles closest to our current cell so dashes look natural
 		var adj: Array[Vector2i] = [
 			tcell + Vector2i(1, 0),
 			tcell + Vector2i(-1, 0),
@@ -143,9 +161,9 @@ func perform_blade(M: MapController, target_cell: Vector2i) -> void:
 		M._flash_unit_white(v, flash_time)
 		v.take_damage(dmg)
 
-		# Full cycle
+		# Full cycle (NO create_timer)
 		await M._wait_for_attack_anim(self)
-		await M.get_tree().create_timer(M.attack_anim_lock_time).timeout
+		await _wait_seconds_no_timer(M.attack_anim_lock_time)
 
 		M._cleanup_dead_at(cleanup_cell)
 
@@ -176,22 +194,21 @@ func perform_blade(M: MapController, target_cell: Vector2i) -> void:
 		# Find open adjacent tile to dash into
 		var dash_to = _adjacent_open_to.call(tcell)
 		if dash_to.x < 0:
-			# no adjacent open tile, skip this target
 			continue
 
 		# Dash into position
 		if cell != dash_to:
 			await M._push_unit_to_cell(self, dash_to)
 
-		# Reacquire after dash (target could die to something else, etc.)
+		# Reacquire after dash
 		target = M.unit_at_cell(tcell)
 		if target == null or not is_instance_valid(target) or target.team == team:
 			continue
 
-		# Primary hit
-		await _hit_once.call(target, blade_damage + + attack_damage + stim_bonus, 0.12, tcell)
+		# Primary hit (fixed extra '+')
+		await _hit_once.call(target, blade_damage + attack_damage + stim_bonus, 0.12, tcell)
 
-		# Cleave around target cell (each is its own full cycle)
+		# Cleave around target cell
 		var around := [
 			tcell + Vector2i(1, 0),
 			tcell + Vector2i(-1, 0),
@@ -206,12 +223,14 @@ func perform_blade(M: MapController, target_cell: Vector2i) -> void:
 	# Return to idle at end
 	M._play_idle_anim(self)
 
-# Human.gd (example)
+# ---------------------------------------------------------
+# Specials interface helpers (optional / used by your UI)
+# ---------------------------------------------------------
 func get_available_specials() -> Array[String]:
-	return ["Blade", "Stim"]  # only humans can place mines (example)
+	return ["Blade", "Stim"]
 
 func can_use_special(id: String) -> bool:
-	# your cooldown logic here
+	# hook into your cooldown system if you have one
 	return true
 
 func get_special_range(id: String) -> int:
@@ -222,39 +241,37 @@ func get_special_range(id: String) -> int:
 		return 0
 	return 0
 
-
+# ---------------------------------------------------------
+# STIM
+# ---------------------------------------------------------
 func perform_stim(M: MapController) -> void:
 	if not can_use_special("stim"):
 		return
 
-	# prevent double-stacking if pressed again somehow
+	# prevent double-stacking
 	if has_meta(&"stim_turns") and int(get_meta(&"stim_turns")) > 0:
 		return
 
-	# --- Apply bonuses (ACTUALLY change stats) ---
-	# move_range exists on your unit already
+	# Apply bonuses
 	move_range += stim_move_bonus
 
-	# attack damage: only if you have a property for it
-	# If your Unit uses "attack_damage" (common), this will work.
 	if "attack_damage" in self:
 		attack_damage = int(attack_damage) + stim_attack_damage_bonus
 
-	# --- Logical buff stored on the unit ---
+	# Store buff state in meta
 	set_meta(&"stim_turns", int(stim_duration_turns))
 	set_meta(&"stim_move_bonus", int(stim_move_bonus))
 	set_meta(&"stim_damage_bonus", int(stim_damage_bonus))
 
-	# --- Feedback ---
+	# Feedback
 	if M != null and is_instance_valid(M):
 		M._say(self, "Stim!")
 		M._sfx(&"ui_stim", M.sfx_volume_ui, 1.0, global_position)
 
 	_apply_stim_fx()
 
-	# --- Cooldown (your system) ---
+	# Cooldown (your system)
 	mark_special_used("stim", stim_cooldown_turns)
-
 
 func _apply_stim_fx() -> void:
 	var ci := _get_unit_render_node()
@@ -264,8 +281,6 @@ func _apply_stim_fx() -> void:
 		return
 
 	var sm: ShaderMaterial
-
-	# Reuse existing stim material if already applied
 	if ci.material is ShaderMaterial and (ci.material as ShaderMaterial).shader == stim_shader:
 		sm = ci.material as ShaderMaterial
 	else:
@@ -279,7 +294,7 @@ func _apply_stim_fx() -> void:
 	sm.set_shader_parameter("glow", 0.8)
 	sm.set_shader_parameter("jitter_px", 1.2)
 
-	# Punchy ramp + pulse + settle
+	# Ramp + pulse + settle
 	var tw := create_tween()
 	tw.set_trans(Tween.TRANS_SINE)
 	tw.set_ease(Tween.EASE_OUT)
@@ -293,7 +308,6 @@ func _apply_stim_fx() -> void:
 	tw.tween_property(sm, "shader_parameter/glow", 0.95, 0.14)
 
 func _get_unit_render_node() -> CanvasItem:
-	# Try common child names first (fast + stable)
 	var n := get_node_or_null("Render")
 	if n != null and n is CanvasItem:
 		return n as CanvasItem
@@ -306,7 +320,6 @@ func _get_unit_render_node() -> CanvasItem:
 	if n != null and n is CanvasItem:
 		return n as CanvasItem
 
-	# Fallback: first CanvasItem child
 	for c in get_children():
 		if c is CanvasItem:
 			return c as CanvasItem
@@ -317,7 +330,6 @@ func is_stim_active() -> bool:
 	return has_meta(&"stim_turns") and int(get_meta(&"stim_turns")) > 0
 
 func get_stim_damage_bonus() -> int:
-	# use the same key you set in perform_stim()
 	if has_meta(&"stim_damage_bonus"):
 		return int(get_meta(&"stim_damage_bonus"))
 	return 0

@@ -179,15 +179,20 @@ func get_special_range(id: String) -> int:
 	return 0
 
 func _play_sfx(cue: StringName) -> void:
-	# Find MapController safely
-	var M := get_tree().get_first_node_in_group("MapController") as Node
+	var tree := get_tree()
+	if tree == null:
+		tree = Engine.get_main_loop() as SceneTree
+	if tree == null:
+		return
+
+	var M := tree.get_first_node_in_group("MapController")
 	if M == null:
 		return
 	if not M.has_method("_sfx"):
 		return
 
-	# Call MapController's spatial SFX
 	M.call("_sfx", cue, 1.0, randf_range(0.95, 1.05), global_position)
+
 
 func get_move_range() -> int:
 	var r := move_range

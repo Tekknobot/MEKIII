@@ -1444,13 +1444,34 @@ func _do_attack(attacker: Unit, defender: Unit) -> void:
 	_sfx(&"attack_hit", sfx_volume_world, randf_range(0.95, 1.05), defender.global_position)
 
 	await _wait_for_attack_anim(attacker)
-	await get_tree().create_timer(attack_anim_lock_time).timeout
 
-	# ✅ defender might be freed now, so never pass it as a typed arg
+	if not is_inside_tree():
+		return
+	if attacker == null or not is_instance_valid(attacker):
+		return
+
+	if not await _safe_wait(attack_anim_lock_time):
+		return
+
 	_cleanup_dead_at(def_cell)
-
 	_play_idle_anim(attacker)
 
+
+func _safe_tree() -> SceneTree:
+	var t := get_tree()
+	if t != null:
+		return t
+	# Fallback: still works even if this node left the tree, as long as the game is running
+	return Engine.get_main_loop() as SceneTree
+
+func _safe_wait(seconds: float) -> bool:
+	if seconds <= 0.0:
+		return true
+	var t := _safe_tree()
+	if t == null:
+		return false
+	await t.create_timer(seconds).timeout
+	return true
 
 # --------------------------
 # Overlay helpers
@@ -2126,42 +2147,25 @@ func _get_attack_anim_length(u: Unit) -> float:
 	# fallback
 	return attack_anim_lock_time
 
-func _wait_for_attack_anim(u: Unit) -> void:
+func _wait_for_attack_anim(u: Unit, max_frames := 90) -> void:
 	if u == null or not is_instance_valid(u):
 		return
 
-	var a := u.get_node_or_null("AnimatedSprite2D") as AnimatedSprite2D
-	var fallback := _get_attack_anim_length(u)
-
-	# No AnimatedSprite2D attack anim -> just wait fallback time
-	if a == null or a.sprite_frames == null or not a.sprite_frames.has_animation("attack"):
-		await get_tree().create_timer(max(0.01, fallback)).timeout
+	var ap := u.get_node_or_null("AnimationPlayer") as AnimationPlayer
+	if ap == null:
 		return
 
-	# If attack isn't currently playing, just time fallback
-	if a.animation != "attack":
-		await get_tree().create_timer(max(0.01, fallback)).timeout
-		return
-
-	var done := false
-	var cb := func() -> void:
-		done = true
-
-	var callable := Callable(cb)
-
-	# Connect once
-	if not a.animation_finished.is_connected(callable):
-		a.animation_finished.connect(callable)
-
-	# Wait until finished OR timeout
-	var t := 0.0
-	while not done and t < fallback + 0.25:
+	# If you're not sure which anim is playing, just wait until it stops or timeout.
+	var frames := 0
+	while frames < max_frames:
+		if not is_instance_valid(ap):
+			return
+		if not ap.is_playing():
+			return
+		frames += 1
 		await get_tree().process_frame
-		t += get_process_delta_time()
-
-	# Disconnect safely
-	if a != null and is_instance_valid(a) and a.animation_finished.is_connected(callable):
-		a.animation_finished.disconnect(callable)
+	# timeout fallback:
+	return
 
 func get_all_units() -> Array[Unit]:
 	var out: Array[Unit] = []
@@ -2420,33 +2424,62 @@ func _is_zombie(u: Unit) -> bool:
 	return n.contains("zombie")
 
 
+func _wait_frames_on_unit(u: Node, frames: int) -> void:
+	if frames <= 0:
+		return
+	if u == null or not is_instance_valid(u):
+		return
+	if not u.is_inside_tree():
+		return
+
+	var st := u.get_tree()
+	if st == null:
+		return
+
+	while frames > 0:
+		if u == null or not is_instance_valid(u):
+			return
+		if not u.is_inside_tree():
+			return
+		await st.process_frame
+		frames -= 1
+
+
 func _play_death_and_wait(u: Unit) -> void:
 	if u == null or not is_instance_valid(u):
+		return
+	if not u.is_inside_tree():
 		return
 
 	# Preferred: unit-defined death handler (if you have one)
 	if u.has_method("play_death_anim"):
 		u.call("play_death_anim")
-		# If you also expose a wait method:
 		if u.has_method("wait_death_anim"):
+			# Important: this wait method must also avoid get_tree() on a dead caller
 			await u.call("wait_death_anim")
 			return
 		# else fall through to sprite wait
 
 	var a := u.get_node_or_null("AnimatedSprite2D") as AnimatedSprite2D
 	if a == null or a.sprite_frames == null:
-		# No anim; just a short delay so it still “feels” like it happened
-		await get_tree().create_timer(0.12).timeout
+		# No anim; small feel-delay without timers
+		await _wait_frames_on_unit(u, 8) # ~0.13s @ 60fps
 		return
 
+	var played := false
 	if a.sprite_frames.has_animation("death"):
 		a.play("death")
-		u._play_sfx("unit_death")
+		played = true
 	elif a.sprite_frames.has_animation("die"):
 		a.play("die")
-		u._play_sfx("unit_death")
+		played = true
+
+	if played:
+		# Call SFX safely (don't assume _play_sfx uses get_tree() on a null caller)
+		if u.has_method("_play_sfx"):
+			u.call("_play_sfx", &"unit_death")
 	else:
-		await get_tree().create_timer(0.12).timeout
+		await _wait_frames_on_unit(u, 8)
 		return
 
 	# Wait until the animation finishes (or a safe timeout)
@@ -2454,17 +2487,25 @@ func _play_death_and_wait(u: Unit) -> void:
 	var cb := func() -> void: done = true
 	var callable := Callable(cb)
 
-	if not a.animation_finished.is_connected(callable):
-		a.animation_finished.connect(callable)
+	# Guard: AnimatedSprite2D may vanish if unit is freed mid-wait
+	if a != null and is_instance_valid(a):
+		if not a.animation_finished.is_connected(callable):
+			a.animation_finished.connect(callable)
 
-	var t := 0.0
-	while not done and t < 0.5:
-		await get_tree().process_frame
-		t += get_process_delta_time()
+	var max_frames := 30 # ~0.5s @ 60fps
+	while not done and max_frames > 0:
+		if u == null or not is_instance_valid(u) or not u.is_inside_tree():
+			return
+		# Use *unit's* SceneTree, not the caller’s
+		var st := u.get_tree()
+		if st == null:
+			return
+		await st.process_frame
+		max_frames -= 1
 
+	# Cleanup signal connection if still valid
 	if a != null and is_instance_valid(a) and a.animation_finished.is_connected(callable):
 		a.animation_finished.disconnect(callable)
-
 
 func _remove_unit_from_board_at_cell(cell: Vector2i) -> void:
 	if not units_by_cell.has(cell):

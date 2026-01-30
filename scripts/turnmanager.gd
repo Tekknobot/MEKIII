@@ -1233,15 +1233,41 @@ func start_boss_battle() -> void:
 		boss.boss_defeated.connect(_on_boss_defeated)
 
 func _on_boss_defeated() -> void:
+	phase = Phase.BUSY
+	_update_end_turn_button()
+	_update_special_buttons()
+
+	# Save runstate flags now (fine)
 	var rs := get_tree().root.get_node_or_null("RunStateNode")
 	if rs != null:
 		rs.boss_defeated_this_run = true
 		rs.bomber_unlocked_this_run = true
 		rs.boss_mode_enabled_next_mission = false
-
-		# Mark overworld node cleared
 		if "overworld_cleared" in rs:
 			rs.overworld_cleared[str(int(rs.overworld_current_node_id))] = true
 
-	# Return to overworld scene (use your real path)
+	# Wait for boss outro tween to finish BEFORE changing scenes
+	if boss != null and is_instance_valid(boss):
+		if boss.has_signal("boss_outro_finished"):
+			# If not already connected, connect once
+			var done := false
+			var cb := func(): done = true
+			var callable := Callable(cb)
+			if not boss.boss_outro_finished.is_connected(callable):
+				boss.boss_outro_finished.connect(callable)
+
+			# Frame-based wait (no timers)
+			while not done:
+				if boss == null or not is_instance_valid(boss):
+					break
+				var st := boss.get_tree()
+				if st == null:
+					break
+				await st.process_frame
+
+			if boss != null and is_instance_valid(boss) and boss.boss_outro_finished.is_connected(callable):
+				boss.boss_outro_finished.disconnect(callable)
+
+	# NOW go back to overworld
+	await M._extract_allies_with_bomber()
 	get_tree().change_scene_to_file("res://scenes/overworld.tscn")

@@ -12,6 +12,7 @@ game_scene = ExtResource("2_356oe")
 [node name="OverworldRadar" parent="." instance=ExtResource("2_u2ss0")]
 grid_size = 6
 boss_node_count = 5
+boss_min_difficulty = 0.0
 
 [node name="Camera2D" type="Camera2D" parent="."]
 position = Vector2(576, 329)

@@ -16,3 +16,6 @@ res://scenes/overworld.tscn
 res://scripts/overworld_radar.gd
 res://scripts/unit.gd
 res://scripts/structure.gd
+res://scripts/weakpoint.gd
+res://scripts/humantwo.gd
+res://scripts/r_2.gd
