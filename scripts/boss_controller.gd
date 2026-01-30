@@ -50,6 +50,16 @@ var planned_attacks: Array = []
 @export var boss_top_x_bias := 0.50         # 0.50 = exact top center, 0.66 = between center & right, 0.75 = more right
 @export var boss_pixel_offset := Vector2.ZERO  # fine tune in pixels if needed
 
+@export var boss_flash_node_path: NodePath   # optional: set to your Sprite2D (or boss art root)
+@export var boss_flash_time := 0.10
+
+@export var boss_exit_rise_px := 260.0       # how far up it flies
+@export var boss_exit_time := 2.55
+@export var boss_exit_ease := Tween.EASE_IN
+@export var boss_exit_trans := Tween.TRANS_QUAD
+
+var _boss_flash_tw: Tween = null
+var _exiting := false
 
 # -------------------------
 # Public setup
@@ -155,8 +165,8 @@ func _all_cells_valid_for_spawn(cells: Array) -> bool:
 			# fallback: if you don't have _is_walkable accessible, at least require terrain exists
 			pass
 
-		# must not already have a unit
-		if M.units_by_cell.has(c):
+		# must not already have a unit (robust)
+		if _cell_has_any_unit(c):
 			return false
 
 		# must not be blocked by structures
@@ -203,8 +213,8 @@ func _spawn_wp(scene: PackedScene, cell: Vector2i, id: StringName, hp_val: int, 
 		return
 	if not _in_bounds(cell):
 		return
-	# don't overwrite an occupied cell
-	if M.units_by_cell.has(cell):
+	# don't overwrite an occupied cell (robust)
+	if _cell_has_any_unit(cell):
 		return
 
 	var u := scene.instantiate() as Unit
@@ -243,14 +253,27 @@ func _z_from_cell(c: Vector2i) -> int:
 	return base + (c.x + c.y)
 
 func on_weakpoint_destroyed(part_id: StringName, boss_damage: int) -> void:
+	if _exiting:
+		return
+
 	if parts_alive.has(part_id):
 		parts_alive[part_id] = false
 
+	# ✅ flash boss immediately
+	_flash_boss_white(0.12)
+
+	# Apply boss HP damage (your existing behavior)
 	_apply_boss_damage(boss_damage)
 
-	# Re-plan immediately so player sees the change next turn
-	_plan_next_turn()
+	# ✅ if all weakpoints are gone, fly up and free
+	if _all_parts_dead():
+		_clear_intents()
+		emit_signal("boss_defeated")
+		_exit_and_free()
+		return
 
+	# Otherwise: re-plan so intents change next turn
+	_plan_next_turn()
 
 # -------------------------
 # Boss HP / phases
@@ -292,16 +315,27 @@ func resolve_planned_attacks_async() -> void:
 	if planned_attacks.is_empty():
 		return
 
+	# delay before anything happens
 	if impact_delay_sec > 0.0:
 		await get_tree().create_timer(impact_delay_sec).timeout
 
-	var hit_set: Dictionary = {} # Vector2i -> true
-	var max_dmg_for_cell: Dictionary = {} # Vector2i -> int
+	var hit_set: Dictionary = {}              # splash+core damage targets
+	var max_dmg_for_cell: Dictionary = {}     # Vector2i -> int
+	var intent_fx_set: Dictionary = {}        # ONLY core intent tiles for VFX
 
+	# -------------------------
+	# Collect targets
+	# -------------------------
 	for a in planned_attacks:
 		var core_cells: Array = a.get("cells", [])
 		var dmg: int = int(a.get("dmg", 1))
 
+		# VFX only on core intent tiles
+		for cc in core_cells:
+			if cc is Vector2i and _in_bounds(cc):
+				intent_fx_set[cc] = true
+
+		# Damage applies to splash area (includes core)
 		var hit_cells: Array[Vector2i] = _cells_with_splash(core_cells, splash_radius)
 		for c in hit_cells:
 			hit_set[c] = true
@@ -309,20 +343,38 @@ func resolve_planned_attacks_async() -> void:
 			if dmg > prev:
 				max_dmg_for_cell[c] = dmg
 
-	# ✅ build ordered list from hit_set keys
+	# -------------------------
+	# Build ordered lists
+	# -------------------------
+	var fx_cells_ordered: Array[Vector2i] = []
+	for k in intent_fx_set.keys():
+		fx_cells_ordered.append(k as Vector2i)
+	fx_cells_ordered.sort_custom(func(a: Vector2i, b: Vector2i) -> bool:
+		return (a.x + a.y) < (b.x + b.y)
+	)
+
 	var hit_cells_ordered: Array[Vector2i] = []
 	for k in hit_set.keys():
 		hit_cells_ordered.append(k as Vector2i)
-
-	# optional: front-to-back ordering
 	hit_cells_ordered.sort_custom(func(a: Vector2i, b: Vector2i) -> bool:
 		return (a.x + a.y) < (b.x + b.y)
 	)
 
-	# ✅ ONE impact loop
-	for c in hit_cells_ordered:
+	# -------------------------
+	# VFX pass (intent tiles only) with stagger
+	# -------------------------
+	for c in fx_cells_ordered:
 		_spawn_explosion_at_cell(c)
+		if between_impacts_sec > 0.0:
+			await get_tree().create_timer(between_impacts_sec).timeout
 
+	# Optional tiny beat between VFX and damage (feel free to remove)
+	# await get_tree().create_timer(0.05).timeout
+
+	# -------------------------
+	# Damage pass (splash+core) with stagger
+	# -------------------------
+	for c in hit_cells_ordered:
 		var dmg := int(max_dmg_for_cell.get(c, 1))
 
 		var u = M.units_by_cell.get(c, null)
@@ -644,6 +696,7 @@ func _spawn_explosion_at_cell(c: Vector2i) -> void:
 			M.add_child(fx)
 
 		fx.global_position = M.terrain.to_global(M.terrain.map_to_local(c))
+		fx.global_position.y -= 16
 
 		# Layer by grid sum so it sits correctly
 		if fx is CanvasItem:
@@ -667,3 +720,106 @@ func _spawn_explosion_at_cell(c: Vector2i) -> void:
 			if is_instance_valid(p):
 				p.queue_free()
 		)
+
+func _get_flash_target() -> CanvasItem:
+	# Prefer explicit node
+	if boss_flash_node_path != NodePath(""):
+		var n := get_node_or_null(boss_flash_node_path)
+		if n != null and n is CanvasItem:
+			return n as CanvasItem
+
+	# Fallback: a child named "Sprite"
+	var spr := get_node_or_null("Sprite")
+	if spr != null and spr is CanvasItem:
+		return spr as CanvasItem
+
+	# Fallback: this node if it can modulate
+	if self is CanvasItem:
+		return self as CanvasItem
+
+	return null
+
+
+func _flash_boss_white(dur := -1.0) -> void:
+	if dur <= 0.0:
+		dur = boss_flash_time
+
+	var target := _get_flash_target()
+	if target == null:
+		return
+
+	if _boss_flash_tw != null and is_instance_valid(_boss_flash_tw):
+		_boss_flash_tw.kill()
+
+	# Store original modulation
+	var orig := target.modulate
+
+	# Flash to white and back
+	_boss_flash_tw = create_tween()
+	_boss_flash_tw.tween_property(target, "modulate", Color(1.0, 0.0, 0.0, 1.0), dur * 0.5)
+	_boss_flash_tw.tween_property(target, "modulate", orig, dur * 0.5)
+
+
+func _all_parts_dead() -> bool:
+	for k in parts_alive.keys():
+		if bool(parts_alive[k]) == true:
+			return false
+	return true
+
+
+func _exit_and_free() -> void:
+	if _exiting:
+		return
+	_exiting = true
+
+	# stop planning/telegraphing
+	_clear_intents()
+
+	# Optional: disable processing if you use it
+	set_process(false)
+	set_physics_process(false)
+
+	# Tween up and fade out a bit
+	var start_pos := global_position
+	var end_pos := start_pos + Vector2(0, -boss_exit_rise_px)
+
+	# If you want it to go fully off-screen relative to the camera/viewport, you can
+	# increase boss_exit_rise_px or compute from viewport size. Keeping it simple here.
+
+	var tw := create_tween()
+	tw.set_trans(boss_exit_trans)
+	tw.set_ease(boss_exit_ease)
+
+	tw.tween_property(self, "global_position", end_pos, boss_exit_time)
+
+	# Fade if possible (boss art node)
+	var target := _get_flash_target()
+	if target != null:
+		tw.parallel().tween_property(target, "modulate:a", 0.0, boss_exit_time)
+
+	tw.finished.connect(func():
+		if is_instance_valid(self):
+			queue_free()
+	)
+
+func _cell_has_any_unit(c: Vector2i) -> bool:
+	if M == null:
+		return false
+
+	# Primary truth in your game
+	if M.units_by_cell != null and M.units_by_cell.has(c):
+		var u = M.units_by_cell.get(c, null)
+		if u != null and is_instance_valid(u):
+			return true
+
+	# Extra safety: scan Units under units_root (covers cases where dict wasn't updated)
+	if M.units_root != null:
+		for ch in M.units_root.get_children():
+			if ch == null or not is_instance_valid(ch):
+				continue
+			if ch is Unit:
+				var uu := ch as Unit
+				if uu.cell == c and uu.hp > 0:
+					return true
+
+	return false

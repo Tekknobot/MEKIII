@@ -39,6 +39,7 @@ boss_max_hp = 32
 weakpoint_scene = ExtResource("2_l7liq")
 explosion_fx_scene = ExtResource("3_6l3x6")
 explosion_sfx = ExtResource("4_kx2pj")
+boss_flash_node_path = NodePath("AnimatedSprite2D")
 
 [node name="AnimatedSprite2D" type="AnimatedSprite2D" parent="."]
 sprite_frames = SubResource("SpriteFrames_kx2pj")
