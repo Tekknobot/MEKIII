@@ -1,4 +1,4 @@
-[gd_scene load_steps=92 format=3 uid="uid://bmtwqbsx674eo"]
+[gd_scene load_steps=93 format=3 uid="uid://bmtwqbsx674eo"]
 
 [ext_resource type="Script" uid="uid://bn08mhcoceqg" path="res://scripts/game.gd" id="1_400sg"]
 [ext_resource type="Texture2D" uid="uid://by1nnygq8fbib" path="res://sprites/Terrain/dirt.png" id="6_mcffj"]
@@ -27,6 +27,7 @@
 [ext_resource type="PackedScene" uid="uid://b8etqvuw07mhc" path="res://scenes/units/allies/human.tscn" id="26_rm8d8"]
 [ext_resource type="PackedScene" uid="uid://4iryuer0rpdr" path="res://scenes/move_tile.tscn" id="27_0bq3a"]
 [ext_resource type="PackedScene" uid="uid://cv6mfkhtkvxij" path="res://scenes/units/allies/humantwo.tscn" id="27_jipkd"]
+[ext_resource type="PackedScene" uid="uid://uqbsr086yq1" path="res://scenes/lunatic.tscn" id="28_6jll0"]
 [ext_resource type="PackedScene" uid="uid://bspxym863egnq" path="res://scenes/units/allies/M1.tscn" id="28_o01hm"]
 [ext_resource type="PackedScene" uid="uid://cp611yvmtvcua" path="res://scenes/units/allies/M2.tscn" id="29_uxlqh"]
 [ext_resource type="Texture2D" uid="uid://c1pruacv3xra5" path="res://sprites/Terrain/roads/16.png" id="30_1fiys"]
@@ -295,6 +296,7 @@ tilemap = NodePath("../Terrain")
 map_controller = NodePath("..")
 highlight_texture = ExtResource("11_2rd6h")
 mouse_offset = Vector2(0, 8)
+cursor_z_base = -1
 
 [node name="Highlight" type="TileMap" parent="."]
 tile_set = SubResource("TileSet_3xj3m")
@@ -386,6 +388,8 @@ cannon_button_path = NodePath("../UI/Cannon")
 quake_button_path = NodePath("../UI/Quake")
 nova_button_path = NodePath("../UI/Nova")
 beacon_deadline_round = 99
+boss_mode_enabled = true
+boss_controller_scene = ExtResource("28_6jll0")
 
 [node name="Pickups" type="Node2D" parent="."]
 z_index = 2

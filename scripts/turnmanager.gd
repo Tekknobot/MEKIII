@@ -89,6 +89,11 @@ var end_panel: EndGamePanelRuntime
 
 @export var end_game_panel_path: NodePath
 
+@export var boss_mode_enabled: bool = false
+@export var boss_controller_scene: PackedScene  # scene that has BossController + your big sprite
+
+var boss: BossController = null
+
 func _ready() -> void:
 	end_panel = EndGamePanelRuntime.new()
 
@@ -264,6 +269,12 @@ func start_enemy_phase() -> void:
 	phase = Phase.ENEMY
 	M.reset_turn_flags_for_enemies()
 
+	if boss_mode_enabled and boss != null and is_instance_valid(boss):
+		await boss.resolve_planned_attacks()
+		_refresh_population_and_check()
+		if _game_over_triggered:
+			return
+
 	_tick_buffs_enemy_phase_start()
 
 	_update_end_turn_button()
@@ -308,6 +319,9 @@ func start_enemy_phase() -> void:
 		if round_index > beacon_deadline_round and (not M.beacon_ready):
 			game_over("Beacon not completed by end of Round %d!" % beacon_deadline_round)
 			return
+
+	if boss_mode_enabled and boss != null and is_instance_valid(boss):
+		boss.plan_next_attacks()
 
 	start_player_phase()
 
@@ -1182,6 +1196,11 @@ func _wait_for_units_then_enable_loss_checks() -> void:
 	if units != null and not units.is_empty():
 		# We have units in the scene — safe to start evaluating.
 		loss_checks_enabled = true
+
+		# ✅ Start boss ONLY once, only if enabled
+		if boss_mode_enabled and (boss == null or not is_instance_valid(boss)):
+			start_boss_battle()
+
 		call_deferred("_refresh_population_and_check")
 		return
 
@@ -1192,3 +1211,37 @@ func _wait_for_units_then_enable_loss_checks() -> void:
 
 	# Try again next frame
 	call_deferred("_wait_for_units_then_enable_loss_checks")
+
+
+func start_boss_battle() -> void:
+	if M == null or boss_controller_scene == null:
+		return
+
+	if boss != null and is_instance_valid(boss):
+		boss.queue_free()
+
+	boss = boss_controller_scene.instantiate() as BossController
+
+	# Put boss behind grid visually
+	# (Add as child of something behind the grid if you have a specific node for it)
+	add_child(boss)
+	boss.z_index = -1000
+
+	boss.setup(M)
+
+	if not boss.boss_defeated.is_connected(_on_boss_defeated):
+		boss.boss_defeated.connect(_on_boss_defeated)
+
+func _on_boss_defeated() -> void:
+	var rs := get_tree().root.get_node_or_null("RunStateNode")
+	if rs != null:
+		rs.boss_defeated_this_run = true
+		rs.bomber_unlocked_this_run = true
+		rs.boss_mode_enabled_next_mission = false
+
+		# Mark overworld node cleared
+		if "overworld_cleared" in rs:
+			rs.overworld_cleared[str(int(rs.overworld_current_node_id))] = true
+
+	# Return to overworld scene (use your real path)
+	get_tree().change_scene_to_file("res://scenes/overworld.tscn")

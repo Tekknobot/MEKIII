@@ -278,6 +278,42 @@ const UNIQUE_GROUP := "UniqueBuilding"
 var _floppy_pity_accum := 0.0
 var _floppy_misses := 0
 
+# -------------------------
+# Boss intent overlay
+# -------------------------
+var _boss_intent_tiles: Array[Node] = []
+
+func boss_clear_intents() -> void:
+	for n in _boss_intent_tiles:
+		if n != null and is_instance_valid(n):
+			n.queue_free()
+	_boss_intent_tiles.clear()
+
+func boss_show_intents(cells: Array[Vector2i]) -> void:
+	boss_clear_intents()
+	if attack_tile_scene == null or overlay_root == null or terrain == null:
+		return
+
+	for c in cells:
+		var t := attack_tile_scene.instantiate()
+		overlay_root.add_child(t)
+
+		# ✅ Use TileMap for exact placement
+		t.position = terrain.map_to_local(c)
+
+		# ✅ Layer by grid sum (same rule as units / weakpoints)
+		t.z_index = _z_from_cell(c)
+
+		t.set_meta("boss_intent", true)
+		_boss_intent_tiles.append(t)
+
+func _z_from_cell(c: Vector2i) -> int:
+	# Intent tiles should sit:
+	# - above terrain
+	# - below units (adjust base if needed)
+	var base := 0
+	return base + (c.x + c.y)
+
 func _count_zombies_alive() -> int:
 	var n := 0
 	for uu in get_all_units():
@@ -4182,6 +4218,13 @@ func on_unit_died(u: Unit) -> void:
 	if _roll_floppy_drop():
 		spawn_pickup_at(u.cell, floppy_pickup_scene)
 
+	var part_id = u.get_meta("boss_part_id", null)
+	if part_id != null:
+		var dmg := int(u.get_meta("boss_damage_on_destroy", 3))
+		# Find boss via tree (or store a reference somewhere)
+		var tm := get_tree().root.get_node_or_null("TurnManager") # adjust to your path
+		if tm != null and tm.boss != null and is_instance_valid(tm.boss):
+			tm.boss.on_weakpoint_destroyed(part_id, dmg)
 
 func _on_pickup_collected(u: Unit, cell: Vector2i) -> void:
 	# give the unit a floppy

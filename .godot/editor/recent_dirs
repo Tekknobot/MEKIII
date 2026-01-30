@@ -1,5 +1,6 @@
 res://scripts
 res://scenes
+res://sprites/Mechas/lunatic
 res://sprites/Meks/S3
 res://sprites/Meks/S2
 res://sprites/Mechas/Bomber
@@ -19,4 +20,3 @@ res://sprites/Structures/district
 res://sprites/Structures
 res://sprites/Structures/stadium
 res://scenes/structures
-res://sprites/Structures/building_c/demolished

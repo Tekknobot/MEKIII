@@ -35,6 +35,11 @@ var recruited_scene_paths: Array[String] = []     # what you’ve recruited so f
 const SAVE_PATH := "user://runstate_save.json"
 const SAVE_VERSION := 1
 
+var boss_defeated_this_run: bool = false
+var bomber_unlocked_this_run: bool = false
+
+var boss_mode_enabled_next_mission: bool = false
+
 func has_save() -> bool:
 	return FileAccess.file_exists(SAVE_PATH)
 	

@@ -1,0 +1,45 @@
+[gd_scene load_steps=11 format=3 uid="uid://uqbsr086yq1"]
+
+[ext_resource type="Script" uid="uid://bhcl0fcovgbcf" path="res://scripts/boss_controller.gd" id="1_lbctv"]
+[ext_resource type="Texture2D" uid="uid://2dah024afssf" path="res://sprites/Mechas/Lunatic/lunatic1.png" id="1_qx6sg"]
+[ext_resource type="PackedScene" uid="uid://byvw2wssy6345" path="res://scenes/weakpoint.tscn" id="2_l7liq"]
+[ext_resource type="Texture2D" uid="uid://cf87js606paap" path="res://sprites/Mechas/Lunatic/lunatic2.png" id="2_lbctv"]
+[ext_resource type="PackedScene" uid="uid://bulgypadw5war" path="res://scenes/explosion.tscn" id="3_6l3x6"]
+[ext_resource type="Texture2D" uid="uid://dv5wj6dgou0in" path="res://sprites/Mechas/Lunatic/lunatic3.png" id="3_l7liq"]
+[ext_resource type="AudioStream" uid="uid://dogvi6q7030pk" path="res://audio/SFX/explosion_8bit.wav" id="4_kx2pj"]
+[ext_resource type="Texture2D" uid="uid://bpmquaicovqei" path="res://sprites/Mechas/Lunatic/lunatic4.png" id="4_mhiqk"]
+[ext_resource type="Texture2D" uid="uid://c7n48xjbxj2jr" path="res://sprites/Mechas/Lunatic/lunatic5.png" id="5_6l3x6"]
+
+[sub_resource type="SpriteFrames" id="SpriteFrames_kx2pj"]
+animations = [{
+"frames": [{
+"duration": 1.0,
+"texture": ExtResource("1_qx6sg")
+}, {
+"duration": 1.0,
+"texture": ExtResource("2_lbctv")
+}, {
+"duration": 1.0,
+"texture": ExtResource("3_l7liq")
+}, {
+"duration": 1.0,
+"texture": ExtResource("4_mhiqk")
+}, {
+"duration": 1.0,
+"texture": ExtResource("5_6l3x6")
+}],
+"loop": true,
+"name": &"default",
+"speed": 12.0
+}]
+
+[node name="Lunatic" type="Node2D"]
+script = ExtResource("1_lbctv")
+boss_max_hp = 32
+weakpoint_scene = ExtResource("2_l7liq")
+explosion_fx_scene = ExtResource("3_6l3x6")
+explosion_sfx = ExtResource("4_kx2pj")
+
+[node name="AnimatedSprite2D" type="AnimatedSprite2D" parent="."]
+sprite_frames = SubResource("SpriteFrames_kx2pj")
+autoplay = "default"

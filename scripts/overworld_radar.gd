@@ -100,6 +100,10 @@ var _hud_layer: CanvasLayer = null
 var _hud_panel: PanelContainer = null
 var _hud_row: HBoxContainer = null
 
+@export var boss_node_count: int = 3          # total boss nodes including the farthest one
+@export var boss_min_difficulty: float = 0.70 # only place bosses late in the route
+@export var boss_min_bfs_gap: int = 2         # keep bosses from clustering
+
 # -------------------------
 # LIFECYCLE
 # -------------------------
@@ -174,31 +178,126 @@ func _input(event: InputEvent) -> void:
 		hovered_node_id = hit if _can_click_node(hit) else -1
 		return
 
-	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
+	elif event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
 		var hit: int = _pick_node(get_global_mouse_position())
 		if hit < 0:
 			return
 		if not _can_click_node(hit):
 			return
 
-		# If current is uncleared, only current is allowed here -> launch
 		if hit == current_node_id and not nodes[current_node_id].cleared:
 			var rs := _rs()
 			if rs != null:
 				rs.mission_node_id = hit
 				rs.mission_difficulty = nodes[hit].difficulty
 				rs.mission_node_type = StringName(_type_name(nodes[hit].ntype).to_lower())
+				rs.boss_mode_enabled_next_mission = (nodes[hit].ntype == NodeType.BOSS)
+				rs.overworld_current_node_id = hit
 			emit_signal("mission_requested", hit, nodes[hit].ntype, nodes[hit].difficulty)
 			return
 
-		# Otherwise (current is cleared), allowed clicks are neighbors -> move selection
 		_move_to_node(hit)
 		return
 
-	if event is InputEventKey and event.pressed:
+	elif event is InputEventKey and event.pressed:
 		if event.keycode == KEY_ENTER or event.keycode == KEY_KP_ENTER:
-			if current_node_id >= 0:
+			if current_node_id >= 0 and not nodes[current_node_id].cleared:
+				var rs := _rs()
+				if rs != null:
+					rs.mission_node_id = current_node_id
+					rs.mission_difficulty = nodes[current_node_id].difficulty
+					rs.mission_node_type = StringName(_type_name(nodes[current_node_id].ntype).to_lower())
+					rs.boss_mode_enabled_next_mission = (nodes[current_node_id].ntype == NodeType.BOSS)
+					rs.overworld_current_node_id = current_node_id
+
 				emit_signal("mission_requested", current_node_id, nodes[current_node_id].ntype, nodes[current_node_id].difficulty)
+				return
+				
+	if event is InputEventKey and event.pressed:
+		# DEBUG CHEAT: clear path to nearest boss
+		if event.keycode == KEY_B:
+			_cheat_clear_path_to_nearest_boss()
+			return
+				
+func _cheat_clear_path_to_nearest_boss() -> void:
+	if current_node_id < 0 or current_node_id >= nodes.size():
+		return
+
+	# Find nearest boss and a parent map from BFS
+	var result := _bfs_to_nearest_boss(current_node_id)
+	var boss_target: int = int(result.get("boss", -1))
+	var parent: Dictionary = result.get("parent", {})
+
+	if boss_target < 0:
+		print("CHEAT: No reachable uncleared boss found.")
+		return
+
+	# Reconstruct path from boss back to start node
+	var path: Array[int] = []
+	var cur := boss_target
+	while cur != current_node_id and parent.has(cur):
+		path.append(cur)
+		cur = int(parent[cur])
+	path.append(current_node_id)
+	path.reverse() # now current -> ... -> boss
+
+	# Clear everything along the path EXCEPT the boss node itself
+	var rs := _rs()
+	for id in path:
+		if id == boss_target:
+			continue
+		if id < 0 or id >= nodes.size():
+			continue
+		nodes[id].cleared = true
+		if rs != null and ("overworld_cleared" in rs):
+			rs.overworld_cleared[str(id)] = true
+
+	# Jump current selection onto the boss node (leave it uncleared so it can launch)
+	current_node_id = boss_target
+	hovered_node_id = -1
+
+	if rs != null:
+		rs.overworld_current_node_id = current_node_id
+
+	print("CHEAT: Cleared path to boss node ", boss_target)
+
+	_build_packets()
+	queue_redraw()
+
+	if squad_hud_enabled:
+		_refresh_squad_hud()
+
+func _bfs_to_nearest_boss(src: int) -> Dictionary:
+	var parent: Dictionary = {}
+	var seen: Dictionary = {}
+	var q: Array[int] = []
+
+	seen[src] = true
+	q.append(src)
+
+	while not q.is_empty():
+		var cur: int = q.pop_front()
+
+		# Found nearest reachable uncleared boss
+		if nodes[cur].ntype == NodeType.BOSS and not nodes[cur].cleared:
+			return {"boss": cur, "parent": parent}
+
+		for nb in nodes[cur].neighbors:
+			if nb < 0 or nb >= nodes.size():
+				continue
+			if not alive[nb]:
+				continue
+			if nodes[nb].cleared:
+				# still allow traversing cleared nodes (path should include them)
+				pass
+			if seen.has(nb):
+				continue
+
+			seen[nb] = true
+			parent[nb] = cur
+			q.append(nb)
+
+	return {"boss": -1, "parent": parent}
 
 func _can_click_node(id: int) -> bool:
 	if id < 0 or id >= nodes.size():
@@ -272,7 +371,7 @@ func _generate_world() -> void:
 
 	# Assign node types
 	_assign_types()
-
+	_assign_extra_boss_nodes()
 	current_node_id = start_id
 
 
@@ -912,3 +1011,87 @@ func _get_prop_if_exists(obj: Object, prop: StringName) -> Variant:
 		if StringName(p.get("name", "")) == prop:
 			return obj.get(prop)
 	return null
+
+func _assign_extra_boss_nodes() -> void:
+	# Ensure at least 1 boss (your farthest node)
+	if boss_id < 0:
+		return
+
+	# Clamp desired count
+	var desired = max(1, boss_node_count)
+
+	# Already have 1 boss via _assign_types()
+	var remaining = desired - 1
+	if remaining <= 0:
+		return
+
+	# Distances from start so we can prefer late nodes
+	var dist := _bfs_dist(start_id)
+
+	# Candidates: alive, not cleared, not start, not existing boss_id, high difficulty
+	var candidates: Array[int] = []
+	for nd in nodes:
+		if not alive[nd.id]:
+			continue
+		if nd.id == start_id:
+			continue
+		if nd.id == boss_id:
+			continue
+		if nd.difficulty < boss_min_difficulty:
+			continue
+		candidates.append(nd.id)
+
+	# Shuffle deterministically
+	_rng_shuffle_int(candidates)
+
+	# Keep bosses spaced out by BFS distance between them
+	var chosen: Array[int] = [boss_id]
+
+	for id in candidates:
+		if remaining <= 0:
+			break
+
+		# spacing check: BFS gap between this id and all chosen bosses
+		var ok := true
+		for b in chosen:
+			var gap := _bfs_distance_between(id, b)
+			if gap >= 0 and gap < boss_min_bfs_gap:
+				ok = false
+				break
+		if not ok:
+			continue
+
+		# Promote to boss
+		nodes[id].ntype = NodeType.BOSS
+		chosen.append(id)
+		remaining -= 1
+
+func _bfs_distance_between(a: int, b: int) -> int:
+	if a == b:
+		return 0
+	if a < 0 or b < 0:
+		return -1
+	if a >= nodes.size() or b >= nodes.size():
+		return -1
+	if not alive[a] or not alive[b]:
+		return -1
+
+	var q: Array[int] = [a]
+	var dist: Dictionary = {}
+	dist[a] = 0
+
+	while not q.is_empty():
+		var cur: int = q.pop_front()
+		var cd: int = int(dist[cur])
+
+		for nb in nodes[cur].neighbors:
+			if not alive[nb]:
+				continue
+			if dist.has(nb):
+				continue
+			dist[nb] = cd + 1
+			if nb == b:
+				return cd + 1
+			q.append(nb)
+
+	return -1

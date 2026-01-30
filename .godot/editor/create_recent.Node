@@ -1,7 +1,7 @@
+AnimatedSprite2D
 Camera2D
 Node
 AudioStreamPlayer
-AnimatedSprite2D
 RichTextLabel
 TextureRect
 Label
@@ -12,4 +12,3 @@ Control
 HBoxContainer
 Button
 PanelContainer
-ColorRect
