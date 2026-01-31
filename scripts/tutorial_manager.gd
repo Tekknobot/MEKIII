@@ -324,7 +324,7 @@ func _roll_3_upgrades() -> Array:
 	# Returns Dictionary: { "SOLDIER": Texture2D, "MERCENARY": Texture2D, ... }
 	var key_to_thumb: Dictionary = _get_squad_key_to_thumb()
 
-	print("[UPGRADES] squad_scene_paths count = ", (get_tree().root.get_node_or_null("RunState") as Node).squad_scene_paths.size() if get_tree().root.get_node_or_null("RunState") != null and "squad_scene_paths" in get_tree().root.get_node_or_null("RunState") else -1)
+	print("[UPGRADES] squad_scene_paths count = ", (get_tree().root.get_node_or_null("RunStateNode") as Node).squad_scene_paths.size() if get_tree().root.get_node_or_null("RunStateNode") != null and "squad_scene_paths" in get_tree().root.get_node_or_null("RunStateNode") else -1)
 	print("[UPGRADES] key_to_thumb keys = ", key_to_thumb.keys())
 
 	var has_unit := func(key: String) -> bool:
@@ -446,9 +446,9 @@ func _roll_3_upgrades() -> Array:
 func _get_squad_display_names() -> Array[String]:
 	var out: Array[String] = []
 
-	var rs := get_tree().root.get_node_or_null("RunState")
+	var rs := get_tree().root.get_node_or_null("RunStateNode")
 	if rs == null:
-		rs = get_tree().root.get_node_or_null("RunStateNode")
+		rs = get_tree().root.get_node_or_null("RunState")
 	if rs == null:
 		return out
 	if not ("squad_scene_paths" in rs):
@@ -537,9 +537,9 @@ func _get_squad_name_to_thumb() -> Dictionary:
 	# Returns: { "Soldier": Texture2D, "Mercenary": Texture2D, ... } by DISPLAY NAME
 	var out: Dictionary = {}
 
-	var rs := get_tree().root.get_node_or_null("RunState")
+	var rs := get_tree().root.get_node_or_null("RunStateNode")
 	if rs == null:
-		rs = get_tree().root.get_node_or_null("RunStateNode")
+		rs = get_tree().root.get_node_or_null("RunState")
 	if rs == null:
 		return out
 	if not ("squad_scene_paths" in rs):
@@ -642,9 +642,9 @@ func _unit_key(s: String) -> String:
 func _get_squad_key_to_thumb() -> Dictionary:
 	var out: Dictionary = {}
 
-	var rs := get_tree().root.get_node_or_null("RunState")
+	var rs := get_tree().root.get_node_or_null("RunStateNode")
 	if rs == null:
-		rs = get_tree().root.get_node_or_null("RunStateNode")
+		rs = get_tree().root.get_node_or_null("RunState")
 	if rs == null:
 		print("[SQUAD THUMBS] No RunState found")
 		return out

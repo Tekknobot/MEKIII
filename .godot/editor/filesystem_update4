@@ -42,3 +42,5 @@ res://scripts/overworld.gd
 res://scenes/camera.gd
 res://scripts/tutorial_manager.gd
 res://scripts/end_game_panel_runtime.gd
+res://scripts/unit_registry.gd
+res://scripts/squad_deploy_screen.gd

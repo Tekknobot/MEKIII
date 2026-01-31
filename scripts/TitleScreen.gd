@@ -86,7 +86,7 @@ var _desat_tw: Tween = null
 @export var desat_hold := 0.06
 
 func _ready() -> void:
-	#MusicManagerNode.play_stream(preload("res://audio/Music/Track 1.wav"))	
+	MusicManagerNode.play_stream(preload("res://audio/Music/Track 3.wav"))	
 	
 	# Fade in from black
 	fade.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -115,9 +115,9 @@ func _ready() -> void:
 	_start_bg_cycle()
 	_start_clouds()
 
-	var rs := get_tree().root.get_node_or_null("RunState")
+	var rs := get_tree().root.get_node_or_null("RunStateNode")
 	if rs == null:
-		rs = get_tree().root.get_node_or_null("RunStateNode")
+		rs = get_tree().root.get_node_or_null("RunState")
 
 	var can_continue := _has_save(rs) and _has_selected_squad(rs)
 
@@ -167,9 +167,9 @@ func _on_start_pressed() -> void:
 	_type_running = false
 	await _fade_out()
 
-	var rs := get_tree().root.get_node_or_null("RunState")
+	var rs := get_tree().root.get_node_or_null("RunStateNode")
 	if rs == null:
-		rs = get_tree().root.get_node_or_null("RunStateNode")
+		rs = get_tree().root.get_node_or_null("RunState")
 
 	var can_continue := _has_save(rs) and _has_selected_squad(rs)
 
@@ -477,9 +477,9 @@ func _on_restart_pressed() -> void:
 	_type_running = false
 	await _fade_out()
 
-	var rs := get_tree().root.get_node_or_null("RunState")
+	var rs := get_tree().root.get_node_or_null("RunStateNode")
 	if rs == null:
-		rs = get_tree().root.get_node_or_null("RunStateNode")
+		rs = get_tree().root.get_node_or_null("RunState")
 
 	# ✅ clear disk save + reset in-memory state if you have it
 	if rs != null:
@@ -493,9 +493,9 @@ func _on_restart_pressed() -> void:
 	get_tree().change_scene_to_packed(game_scene)
 
 func _get_rs() -> Node:
-	var rs := get_tree().root.get_node_or_null("RunState")
+	var rs := get_tree().root.get_node_or_null("RunStateNode")
 	if rs == null:
-		rs = get_tree().root.get_node_or_null("RunStateNode")
+		rs = get_tree().root.get_node_or_null("RunState")
 	return rs
 
 func _has_save(rs: Node) -> bool:

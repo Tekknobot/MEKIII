@@ -210,18 +210,18 @@ func _find_roster_data(path: String) -> Dictionary:
 func _build_roster_async() -> void:
 	_roster.clear()
 
-	if not DirAccess.dir_exists_absolute(units_folder):
-		# DirAccess.dir_exists_absolute expects absolute; res:// is “virtual”.
-		# So we check by attempting open.
-		var test := DirAccess.open(units_folder)
-		if test == null:
-			push_error("SquadDeploy: units_folder not found or cannot open: " + units_folder)
-			return
+	var rs := _rs()
+	var paths: Array[String] = []
 
-	var paths := _scan_tscn_recursive(units_folder)
+	if rs != null and "roster_scene_paths" in rs and not rs.roster_scene_paths.is_empty():
+		paths = rs.roster_scene_paths.duplicate()
+	else:
+		paths = UnitRegistry.ALLY_PATHS.duplicate()
+
+	paths = paths.filter(func(p): return ResourceLoader.exists(p))
 	paths.sort()
 
-	print("SquadDeploy: Found .tscn count = ", paths.size(), " in ", units_folder)
+	print("SquadDeploy: roster paths = ", paths.size())
 
 	for p in paths:
 		var data := await _extract_unit_card_data(p)
@@ -229,10 +229,7 @@ func _build_roster_async() -> void:
 			continue
 		_roster.append(data)
 
-	# sort by display name
-	_roster.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
-		return str(a.get("name","")) < str(b.get("name",""))
-	)
+	_roster.sort_custom(func(a, b): return str(a.get("name","")) < str(b.get("name","")))
 
 func _scan_tscn_recursive(folder: String) -> Array[String]:
 	var out: Array[String] = []
@@ -407,6 +404,13 @@ func _on_start() -> void:
 		return
 
 	var rs := _rs()
+
+	print("[EXPORT CHECK] rs=", rs)
+	print("[EXPORT CHECK] squad_scene_paths=", rs.squad_scene_paths if rs != null and "squad_scene_paths" in rs else "NONE")
+
+	print("exists units=", DirAccess.dir_exists_absolute("res://scenes/units"))
+	print("exists allies=", DirAccess.dir_exists_absolute("res://scenes/units/allies"))
+	
 	if rs != null:
 		# ✅ store squad
 		if rs.has_method("set_squad"):

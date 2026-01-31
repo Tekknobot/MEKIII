@@ -2,6 +2,8 @@
 extends Node
 class_name RunState
 
+var _keep := UnitRegistry.FORCE_EXPORT
+
 # Overworld / mission
 var overworld_seed: int = 0
 var overworld_current_node_id: int = -1
@@ -244,8 +246,42 @@ func apply_upgrades_to_unit(u: Node) -> void:
 
 # --- Save / Load -------------------------------------------------
 func _ready() -> void:
-	# Autoload will hit this on startup
 	load_from_disk()
+	seed_roster_if_empty()
+
+	if roster_scene_paths.is_empty():
+		roster_scene_paths = UnitRegistry.ALLY_PATHS.duplicate()
+		roster_scene_paths = roster_scene_paths.filter(func(p): return ResourceLoader.exists(p))
+		roster_scene_paths.sort()
+
+		if squad_scene_paths.is_empty():
+			squad_scene_paths = roster_scene_paths.slice(0, min(3, roster_scene_paths.size()))
+
+		rebuild_recruit_pool()
+		save_to_disk()
+
+
+func _build_roster_from_dir(dir_path: String) -> void:
+	roster_scene_paths.clear()
+
+	var d := DirAccess.open(dir_path)
+	if d == null:
+		push_warning("[RUNSTATE] Failed to open allies dir: " + dir_path)
+		return
+
+	d.list_dir_begin()
+	while true:
+		var f := d.get_next()
+		if f == "":
+			break
+		if d.current_is_dir():
+			continue
+		if f.get_extension().to_lower() == "tscn":
+			roster_scene_paths.append(dir_path + "/" + f)
+	d.list_dir_end()
+
+	roster_scene_paths.sort()
+	print("[RUNSTATE] Roster initialized with ", roster_scene_paths.size(), " units")
 
 func _notification(what: int) -> void:
 	# Desktop close button
@@ -359,7 +395,7 @@ func load_from_disk() -> void:
 
 func wipe_save() -> void:
 	if FileAccess.file_exists(SAVE_PATH):
-		DirAccess.remove_absolute(SAVE_PATH)
+		DirAccess.remove_absolute(ProjectSettings.globalize_path(SAVE_PATH))
 
 func _dict_stringname_to_string(d: Dictionary) -> Dictionary:
 	var out := {}
@@ -402,40 +438,31 @@ func reset_run() -> void:
 	boss_defeated_this_run = false
 	bomber_unlocked_this_run = false	
 
-func resolve_supply_mission(crates_total: int, crates_collected: int, units_evaced: int, squad_wiped: bool, evac_timer_out: bool) -> void:
-	last_supply_crates_total = crates_total
-	last_supply_crates_collected = crates_collected
-	last_supply_units_evaced = units_evaced
+	squad_scene_paths.clear()
+	roster_scene_paths.clear()
+	recruit_pool_paths.clear()
+	recruited_scene_paths.clear()
+	
+	seed_roster_if_empty()
+	save_to_disk()
+	
+func seed_roster_if_empty() -> void:
+	# If roster already exists, don't stomp it
+	if not roster_scene_paths.is_empty():
+		return
 
-	# Decide success
-	if squad_wiped:
-		last_supply_success = false
-		last_supply_failed_reason = "wiped"
-	elif crates_collected < crates_total:
-		last_supply_success = false
-		last_supply_failed_reason = "missed_crate"
-	elif units_evaced <= 0 or evac_timer_out:
-		last_supply_success = false
-		last_supply_failed_reason = "no_evac"
-	else:
-		last_supply_success = true
-		last_supply_failed_reason = ""
+	# Touch preloads so export includes them
+	var _keep := UnitRegistry.FORCE_EXPORT
 
-	# Reward tiering
-	last_supply_reward_tier = 0
-	if last_supply_success:
-		# basic success
-		last_supply_reward_tier = 1
+	roster_scene_paths.clear()
+	for p in UnitRegistry.ALLY_PATHS:
+		if ResourceLoader.exists(p):
+			roster_scene_paths.append(p)
+		else:
+			push_warning("[RUNSTATE] Missing ally scene: " + p)
 
-		# clean
-		if units_evaced >= 2:
-			last_supply_reward_tier = 2
+	# Build recruit pool from roster
+	rebuild_recruit_pool()
 
-		# perfect (you can tighten this later: no downs, speed, etc.)
-		if units_evaced >= 3:
-			last_supply_reward_tier = 3
-
-	# IMPORTANT: always clear overworld node so player can move on
-	if mission_node_id >= 0:
-		overworld_cleared[str(mission_node_id)] = true
-		overworld_current_node_id = mission_node_id
+	print("[RUNSTATE] Seeded roster_scene_paths=", roster_scene_paths.size(),
+		" recruit_pool_paths=", recruit_pool_paths.size())
