@@ -1,6 +1,8 @@
 extends Unit
 class_name Weakpoint
 
+signal took_hit(dmg: int)
+
 # -------------------------
 # Hurt flash (on hit)
 # -------------------------
@@ -62,6 +64,8 @@ func _ready() -> void:
 
 func take_damage(amount: int) -> void:
 	super.take_damage(amount)
+
+	emit_signal("took_hit", amount)
 
 	if hp > 0:
 		_flash_hurt()
@@ -251,3 +255,11 @@ func _get_render_item() -> CanvasItem:
 		if ch is CanvasItem:
 			return ch as CanvasItem
 	return null
+
+func _on_cell_changed() -> void:
+	# re-anchor twitch to current cell position
+	_suppress_base_pos = global_position
+
+	# if currently suppressed, restart tween so it jitters around the NEW cell
+	if _suppress_active:
+		_start_suppress_twitch()

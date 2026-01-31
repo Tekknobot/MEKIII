@@ -85,8 +85,13 @@ var _suppress_active := false
 var _suppress_base_pos: Vector2
 var _suppress_base_modulate: Color = Color(1,1,1,1)
 
+var _boss_base_modulate: Color
 
 func _ready() -> void:
+	var t := _get_flash_target()
+	if t != null:
+		_boss_base_modulate = t.modulate
+			
 	add_to_group("BossController")
 
 # -------------------------
@@ -359,6 +364,8 @@ func _spawn_wp(scene: PackedScene, cell: Vector2i, id: StringName, hp_val: int, 
 	u.set_meta("boss_damage_on_destroy", boss_damage_on_destroy)
 	u.set_meta("is_boss_part", true)
 
+	if u is Weakpoint: u.took_hit.connect(func(_dmg): _flash_boss())
+
 	# Optional: set a texture if your weakpoint scene has Sprite2D child named "Sprite"
 	if tex != null:
 		var spr := u.get_node_or_null("Sprite") as Sprite2D
@@ -378,7 +385,7 @@ func on_weakpoint_destroyed(part_id: StringName, boss_damage: int) -> void:
 	if parts_alive.has(part_id):
 		parts_alive[part_id] = false
 
-	_flash_boss_white(0.12)
+	_flash_boss(0.12)
 	_apply_boss_damage(boss_damage)
 
 	if _all_parts_dead():
@@ -854,7 +861,7 @@ func _get_flash_target() -> CanvasItem:
 	return null
 
 
-func _flash_boss_white(dur := -1.0) -> void:
+func _flash_boss(dur := -1.0) -> void:
 	if dur <= 0.0:
 		dur = boss_flash_time
 
@@ -862,16 +869,26 @@ func _flash_boss_white(dur := -1.0) -> void:
 	if target == null:
 		return
 
-	if _boss_flash_tw != null and is_instance_valid(_boss_flash_tw):
+	if _boss_flash_tw and is_instance_valid(_boss_flash_tw):
 		_boss_flash_tw.kill()
+		_boss_flash_tw = null
 
-	# Store original modulation
-	var orig := target.modulate
+	# ✅ ALWAYS restore to true base color
+	target.modulate = _boss_base_modulate
 
-	# Flash to white and back
 	_boss_flash_tw = create_tween()
-	_boss_flash_tw.tween_property(target, "modulate", Color(1.0, 0.0, 0.0, 1.0), dur * 0.5)
-	_boss_flash_tw.tween_property(target, "modulate", orig, dur * 0.5)
+	_boss_flash_tw.tween_property(
+		target,
+		"modulate",
+		Color(1.0, 0.0, 0.0, 1.0),
+		dur * 0.5
+	)
+	_boss_flash_tw.tween_property(
+		target,
+		"modulate",
+		_boss_base_modulate,
+		dur * 0.5
+	)
 
 
 func _all_parts_dead() -> bool:

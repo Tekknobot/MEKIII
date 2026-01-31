@@ -35,3 +35,4 @@ res://shaders/title_crt_glow.gd
 res://shaders/title_crt_glow.gdshader
 res://scenes/units/allies/human.tscn
 res://scripts/human.gd
+res://scripts/zombie.gd

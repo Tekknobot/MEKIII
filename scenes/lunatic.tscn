@@ -41,7 +41,7 @@ weakpoint_hp = 50
 explosion_fx_scene = ExtResource("3_6l3x6")
 explosion_sfx = ExtResource("4_kx2pj")
 boss_flash_node_path = NodePath("AnimatedSprite2D")
-boss_flash_time = 1.6800000000000002
+boss_flash_time = 0.88
 weakpoint_min_separation = 5
 weakpoint_cluster_radius = 5
 

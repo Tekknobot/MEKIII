@@ -123,3 +123,11 @@ func _get_render_item() -> CanvasItem:
 		if ch is CanvasItem:
 			return ch as CanvasItem
 	return null
+
+func _on_cell_changed() -> void:
+	# re-anchor twitch to current cell position
+	_suppress_base_pos = global_position
+
+	# if currently suppressed, restart tween so it jitters around the NEW cell
+	if _suppress_active:
+		_start_suppress_twitch()

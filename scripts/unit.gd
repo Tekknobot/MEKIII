@@ -45,13 +45,18 @@ func _ready() -> void:
 	_update_depth()
 
 func set_cell(c: Vector2i, terrain: TileMap) -> void:
+	var old := cell
 	cell = c
 	_terrain_ref = terrain
 	if terrain and is_instance_valid(terrain):
 		global_position = terrain.to_global(terrain.map_to_local(c))
 	_update_depth()
-	
 	_apply_visual_offset()
+
+	# ✅ NEW: tell subclasses we teleported/moved cells
+	if old != cell and has_method("_on_cell_changed"):
+		call("_on_cell_changed")
+
 
 func _update_depth() -> void:
 	z_as_relative = false
