@@ -462,8 +462,9 @@ func _generate_world() -> void:
 
 	# Assign node types
 	_assign_types()
-	_assign_extra_elite_nodes()
 	_assign_extra_boss_nodes()
+	_assign_extra_elite_nodes()
+	_line_up_events()
 	current_node_id = start_id
 
 
@@ -657,30 +658,24 @@ func _assign_types() -> void:
 	if boss_id >= 0:
 		nodes[boss_id].ntype = NodeType.BOSS
 
-	# Sprinkle types by difficulty
+	# Sprinkle types by difficulty (equalized odds)
 	for nd in nodes:
 		if not alive[nd.id]:
 			continue
 		if nd.id == start_id or nd.id == boss_id:
 			continue
 
-		var r: float = rng.randf()
+		var r := rng.randf()
 
-		if nd.difficulty < 0.30:
-			if r < 0.22:
-				nd.ntype = NodeType.SUPPLY
-			else:
-				nd.ntype = NodeType.COMBAT
-		elif nd.difficulty < 0.65:
-			if r < 0.15:
-				nd.ntype = NodeType.EVENT
-			else:
-				nd.ntype = NodeType.COMBAT
+		# Same probabilities everywhere
+		if r < 0.22:
+			nd.ntype = NodeType.SUPPLY
+		elif r < 0.22 + 0.15:
+			nd.ntype = NodeType.EVENT
+		elif r < 0.22 + 0.15 + 0.35:
+			nd.ntype = NodeType.ELITE
 		else:
-			if r < 0.35:
-				nd.ntype = NodeType.ELITE
-			else:
-				nd.ntype = NodeType.COMBAT
+			nd.ntype = NodeType.COMBAT
 
 # -------------------------
 # PACKETS
@@ -782,68 +777,66 @@ func _draw_packets(jitter: Vector2) -> void:
 func _draw_nodes(jitter: Vector2) -> void:
 	var pulse: float = 0.5 + 0.5 * sin(time_sec * pulse_speed)
 
-	for nd in nodes:
-		if not alive[nd.id]:
-			continue
+	# draw in enum order
+	for t in [NodeType.START, NodeType.COMBAT, NodeType.SUPPLY, NodeType.ELITE, NodeType.EVENT, NodeType.BOSS]:
+		for nd in nodes:
+			if not alive[nd.id]:
+				continue
+			if nd.ntype != t:
+				continue
 
-		var pos: Vector2 = nd.pos + jitter
-		var ang: float = (pos - (origin + jitter)).angle()
-		var glow: float = _sweep_glow(ang)
+			var pos: Vector2 = nd.pos + jitter
+			var ang: float = (pos - (origin + jitter)).angle()
+			var glow: float = _sweep_glow(ang)
 
-		var r: float = node_radius
-		var col: Color = Color(0.2, 1.0, 0.2, 0.18 + 0.32 * glow)
+			var r: float = node_radius
+			var col: Color = Color(0.2, 1.0, 0.2, 0.18 + 0.32 * glow)
 
-		match nd.ntype:
-			NodeType.START:
-				r = node_radius + 2.0
-				col = Color(0.4, 1.0, 0.4, 0.30 + 0.45 * glow)
-			NodeType.SUPPLY:
-				col = Color(0.4, 1.0, 0.4, 0.14 + 0.38 * glow)
-			NodeType.EVENT:
-				col = Color(0.3, 1.0, 0.8, 0.14 + 0.38 * glow)
-			NodeType.ELITE:
-				col = Color(1.0, 0.7, 0.2, 0.14 + 0.38 * glow)
-			NodeType.BOSS:
-				r = boss_radius
-				col = Color(1.0, 0.3, 0.3, 0.16 + 0.55 * glow)
-			_:
-				pass
+			match nd.ntype:
+				NodeType.START:
+					r = node_radius + 2.0
+					col = Color(0.4, 1.0, 0.4, 0.30 + 0.45 * glow)
+				NodeType.SUPPLY:
+					col = Color(0.4, 1.0, 0.4, 0.14 + 0.38 * glow)
+				NodeType.EVENT:
+					col = Color(0.3, 1.0, 0.8, 0.14 + 0.38 * glow)
+				NodeType.ELITE:
+					col = Color(1.0, 0.7, 0.2, 0.14 + 0.38 * glow)
+				NodeType.BOSS:
+					r = boss_radius
+					col = Color(1.0, 0.3, 0.3, 0.16 + 0.55 * glow)
+				_:
+					pass
 
-		if nd.ntype != NodeType.BOSS and nd.ntype != NodeType.START:
-			col.a += 0.10 * nd.difficulty
+			if nd.ntype != NodeType.BOSS and nd.ntype != NodeType.START:
+				col.a += 0.10 * nd.difficulty
 
-		# Cleared nodes: dim + hollow + pure white X
-		if nd.cleared:
-			col.a *= 0.35
+			# Cleared nodes: dim + hollow + pure white X
+			if nd.cleared:
+				col.a *= 0.35
+				draw_circle(pos, r + 2.0, Color(col.r, col.g, col.b, col.a * 0.40))
+				draw_circle(pos, r - 1.0, Color(0.0, 0.0, 0.0, col.a * 0.22))
+				var xx := r * 0.85
+				var xcol := Color(1.0, 1.0, 1.0, 1.0)
+				draw_line(pos + Vector2(-xx, -xx), pos + Vector2(xx, xx), xcol, 2.0)
+				draw_line(pos + Vector2(-xx, xx),  pos + Vector2(xx, -xx), xcol, 2.0)
 
-			# hollow ring
-			draw_circle(pos, r + 2.0, Color(col.r, col.g, col.b, col.a * 0.40))
-			draw_circle(pos, r - 1.0, Color(0.0, 0.0, 0.0, col.a * 0.22))
+			# Current node highlight
+			if nd.id == current_node_id:
+				draw_circle(pos, r + 6.0, Color(0.6, 1.0, 0.6, 0.20 + 0.35 * glow))
 
-			# PURE WHITE X
-			var xx := r * 0.85
-			var xcol := Color(1.0, 1.0, 1.0, 1.0)
-			draw_line(pos + Vector2(-xx, -xx), pos + Vector2(xx, xx), xcol, 2.0)
-			draw_line(pos + Vector2(-xx, xx),  pos + Vector2(xx, -xx), xcol, 2.0)
+			# Hover highlight (only if allowed)
+			if nd.id == hovered_node_id and _can_click_node(nd.id):
+				draw_circle(pos, r + 4.0, Color(1.0, 1.0, 1.0, 0.10 + 0.20 * glow))
 
+			draw_circle(pos, r, col)
+			draw_circle(pos, max(2.0, r * 0.35), Color(col.r, col.g, col.b, 0.10 + 0.18 * pulse))
 
-		# Current node highlight
-		if nd.id == current_node_id:
-			draw_circle(pos, r + 6.0, Color(0.6, 1.0, 0.6, 0.20 + 0.35 * glow))
-
-		# Hover highlight (only if allowed)
-		if nd.id == hovered_node_id and _can_click_node(nd.id):
-			draw_circle(pos, r + 4.0, Color(1.0, 1.0, 1.0, 0.10 + 0.20 * glow))
-
-		draw_circle(pos, r, col)
-		draw_circle(pos, max(2.0, r * 0.35), Color(col.r, col.g, col.b, 0.10 + 0.18 * pulse))
-
-		if draw_labels and _font != null:
-			draw_string(_font, pos + Vector2(r + 4, -r - 2),
-				"%s %.2f" % [_type_name(nd.ntype), nd.difficulty],
-				HORIZONTAL_ALIGNMENT_LEFT, -1, label_font_size,
-				Color(0.2, 1.0, 0.2, label_alpha))
-
+			if draw_labels and _font != null:
+				draw_string(_font, pos + Vector2(r + 4, -r - 2),
+					"%s" % _type_name(nd.ntype),
+					HORIZONTAL_ALIGNMENT_LEFT, -1, label_font_size,
+					Color(0.2, 1.0, 0.2, label_alpha))
 
 func _sweep_glow(angle: float) -> float:
 	var d: float = abs(wrapf(angle - sweep_angle, -PI, PI))
@@ -1246,3 +1239,85 @@ func _assign_extra_elite_nodes() -> void:
 		chosen.append(id)
 
 	elite_ids = chosen
+
+func _line_up_events() -> void:
+	# Gather event nodes
+	var ev: Array[NodeData] = []
+	for nd in nodes:
+		if alive[nd.id] and nd.ntype == NodeType.EVENT:
+			ev.append(nd)
+	if ev.size() <= 1:
+		return
+
+	# Sort by difficulty so they "read" left-to-right early->late
+	ev.sort_custom(func(a: NodeData, b: NodeData) -> bool:
+		return a.difficulty < b.difficulty
+	)
+
+	# Choose a row: the median event's current row (keeps it "somewhere" sensible)
+	var row := ev[int(ev.size() * 0.5)].gy
+	row = clampi(row, 0, grid_size - 1)
+
+	# Get all alive nodes in that row, excluding start/boss, sorted by gx
+	var slots: Array[NodeData] = []
+	for nd in nodes:
+		if not alive[nd.id]:
+			continue
+		if nd.id == start_id or nd.id == boss_id:
+			continue
+		if nd.gy != row:
+			continue
+		slots.append(nd)
+
+	slots.sort_custom(func(a: NodeData, b: NodeData) -> bool:
+		return a.gx < b.gx
+	)
+
+	if slots.size() == 0:
+		return
+
+	# If not enough slots in that row, fall back to the fullest row
+	if slots.size() < ev.size():
+		var best_row := row
+		var best_count := slots.size()
+		for y in range(grid_size):
+			var c := 0
+			for nd in nodes:
+				if alive[nd.id] and nd.id != start_id and nd.id != boss_id and nd.gy == y:
+					c += 1
+			if c > best_count:
+				best_count = c
+				best_row = y
+		row = best_row
+
+		# rebuild slots for chosen row
+		slots.clear()
+		for nd in nodes:
+			if not alive[nd.id]:
+				continue
+			if nd.id == start_id or nd.id == boss_id:
+				continue
+			if nd.gy != row:
+				continue
+			slots.append(nd)
+		slots.sort_custom(func(a: NodeData, b: NodeData) -> bool:
+			return a.gx < b.gx
+		)
+
+		if slots.size() < ev.size():
+			# not enough space anywhere; give up safely
+			return
+
+	# Move event types onto that row by swapping types with the slot nodes
+	for i in range(ev.size()):
+		var a := ev[i]
+		var b := slots[i]
+		if a.id == b.id:
+			continue
+		var tmp := a.ntype
+		a.ntype = b.ntype
+		b.ntype = tmp
+
+	# After changing types, rebuild graph/difficulty if you want them consistent
+	_rebuild_graph()
+	_assign_difficulty_from(start_id)

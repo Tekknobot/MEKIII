@@ -8,9 +8,11 @@
 script = ExtResource("1_cn00k")
 label_font = ExtResource("2_hcx2u")
 label_font_size = 16
-grid_size = 7
+grid_size = 6
 jitter_px = 0.0
 back_button_font = ExtResource("2_hcx2u")
+elite_min_difficulty = 0.0
 squad_show_names = true
 squad_name_font_size = 16
 squad_name_font = ExtResource("3_dii4a")
+boss_min_difficulty = 0.0
