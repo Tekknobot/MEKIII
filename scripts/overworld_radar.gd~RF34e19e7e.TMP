@@ -576,67 +576,7 @@ func _generate_world() -> void:
 	_enforce_upgrade_before_battles()
 	_ensure_prebattle_upgrade_neighbors()
 	
-	_break_2x2_same_type_clusters()
-	
 	current_node_id = start_id
-
-func _break_2x2_same_type_clusters() -> void:
-	# Goal: prevent 2x2 blocks of the same *special* node type.
-	# If found, convert one of the four to COMBAT.
-	# (We intentionally do NOT care about 2x2 COMBAT blocks.)
-	var max_passes := 8
-	for _pass in range(max_passes):
-		var changed := false
-
-		for gy in range(grid_size - 1):
-			for gx in range(grid_size - 1):
-				var a := gy * grid_size + gx
-				var b := gy * grid_size + (gx + 1)
-				var c := (gy + 1) * grid_size + gx
-				var d := (gy + 1) * grid_size + (gx + 1)
-
-				# must all exist + alive
-				if not alive[a] or not alive[b] or not alive[c] or not alive[d]:
-					continue
-
-				var ta := nodes[a].ntype
-				if ta != nodes[b].ntype or ta != nodes[c].ntype or ta != nodes[d].ntype:
-					continue
-
-				# only break clusters for special types (replace with COMBAT)
-				if ta == NodeType.COMBAT:
-					continue
-				if ta == NodeType.START:
-					continue
-
-				# Don’t rewrite bosses. (Also protects your farthest boss + extra bosses.)
-				if ta == NodeType.BOSS:
-					continue
-
-				# Choose a safe victim among the 4 to flip to COMBAT
-				var candidates: Array[int] = [a, b, c, d]
-
-				# never rewrite start/boss ids even if someone mis-typed them somehow
-				candidates = candidates.filter(func(id:int) -> bool:
-					return id != start_id and id != boss_id and nodes[id].ntype != NodeType.BOSS
-				)
-
-				if candidates.is_empty():
-					continue
-
-				# Pick one to flip: prefer the highest difficulty (feels like “denser combat”)
-				var pick := candidates[0]
-				var best_d := nodes[pick].difficulty
-				for id in candidates:
-					if nodes[id].difficulty > best_d:
-						best_d = nodes[id].difficulty
-						pick = id
-
-				nodes[pick].ntype = NodeType.COMBAT
-				changed = true
-
-		if not changed:
-			break
 
 func _enforce_upgrade_before_battles() -> void:
 	var path := _path_start_to_boss()

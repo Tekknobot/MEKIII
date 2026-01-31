@@ -16,6 +16,7 @@ upgrade_body_font = ExtResource("4_qjxaj")
 upgrade_button_font = ExtResource("5_e184d")
 
 [node name="OverworldRadar" parent="." instance=ExtResource("2_u2ss0")]
+extra_links_chance = 0.0
 elite_node_count = 3
 
 [node name="Camera2D" type="Camera2D" parent="."]
