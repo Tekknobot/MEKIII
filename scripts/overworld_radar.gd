@@ -576,64 +576,93 @@ func _generate_world() -> void:
 	_enforce_upgrade_before_battles()
 	_ensure_prebattle_upgrade_neighbors()
 	
-	_break_2x2_same_type_clusters()
+	_break_adjacent_doubles_any_direction()
 	
 	current_node_id = start_id
 
-func _break_2x2_same_type_clusters() -> void:
-	# Goal: prevent 2x2 blocks of the same *special* node type.
-	# If found, convert one of the four to COMBAT.
-	# (We intentionally do NOT care about 2x2 COMBAT blocks.)
-	var max_passes := 8
+func _break_adjacent_doubles_any_direction() -> void:
+	# Break any adjacent pair of the same *special* type (8 directions).
+	# We convert one of the two to COMBAT.
+	#
+	# Notes:
+	# - We do NOT break COMBAT adjacency (combat can cluster).
+	# - We do NOT touch START or any BOSS nodes.
+	# - Runs multiple passes because flipping one node can create/resolve other doubles.
+
+	var max_passes := 12
 	for _pass in range(max_passes):
 		var changed := false
 
-		for gy in range(grid_size - 1):
-			for gx in range(grid_size - 1):
+		for gy in range(grid_size):
+			for gx in range(grid_size):
 				var a := gy * grid_size + gx
-				var b := gy * grid_size + (gx + 1)
-				var c := (gy + 1) * grid_size + gx
-				var d := (gy + 1) * grid_size + (gx + 1)
-
-				# must all exist + alive
-				if not alive[a] or not alive[b] or not alive[c] or not alive[d]:
+				if not alive[a]:
 					continue
 
 				var ta := nodes[a].ntype
-				if ta != nodes[b].ntype or ta != nodes[c].ntype or ta != nodes[d].ntype:
-					continue
 
-				# only break clusters for special types (replace with COMBAT)
+				# Only break doubles for these (you can add/remove types here)
 				if ta == NodeType.COMBAT:
 					continue
 				if ta == NodeType.START:
 					continue
-
-				# Don’t rewrite bosses. (Also protects your farthest boss + extra bosses.)
 				if ta == NodeType.BOSS:
 					continue
 
-				# Choose a safe victim among the 4 to flip to COMBAT
-				var candidates: Array[int] = [a, b, c, d]
+				# Check neighbors in 8 directions
+				for dy in [-1, 0, 1]:
+					for dx in [-1, 0, 1]:
+						if dx == 0 and dy == 0:
+							continue
 
-				# never rewrite start/boss ids even if someone mis-typed them somehow
-				candidates = candidates.filter(func(id:int) -> bool:
-					return id != start_id and id != boss_id and nodes[id].ntype != NodeType.BOSS
-				)
+						var nx = gx + dx
+						var ny = gy + dy
+						if nx < 0 or ny < 0 or nx >= grid_size or ny >= grid_size:
+							continue
 
-				if candidates.is_empty():
-					continue
+						var b = ny * grid_size + nx
+						if not alive[b]:
+							continue
 
-				# Pick one to flip: prefer the highest difficulty (feels like “denser combat”)
-				var pick := candidates[0]
-				var best_d := nodes[pick].difficulty
-				for id in candidates:
-					if nodes[id].difficulty > best_d:
-						best_d = nodes[id].difficulty
-						pick = id
+						# same type => a "double"
+						if nodes[b].ntype != ta:
+							continue
 
-				nodes[pick].ntype = NodeType.COMBAT
-				changed = true
+						# never touch bosses (even if some logic accidentally matched)
+						if nodes[b].ntype == NodeType.BOSS:
+							continue
+
+						# Choose which one to flip to COMBAT
+						# Prefer flipping the one that is NOT start/boss_id, and also prefer higher difficulty.
+						var victim := a
+
+						# protect start/boss ids
+						if a == start_id or a == boss_id:
+							victim = b
+						elif b == start_id or b == boss_id:
+							victim = a
+						else:
+							# pick the higher difficulty node to become combat (feels “harder later”)
+							victim = (b if nodes[b].difficulty > nodes[a].difficulty else a)
+
+						# final safety: don't flip START/BOSS types or IDs
+						if victim == start_id or victim == boss_id:
+							continue
+						if nodes[victim].ntype == NodeType.START:
+							continue
+						if nodes[victim].ntype == NodeType.BOSS:
+							continue
+
+						nodes[victim].ntype = NodeType.COMBAT
+						changed = true
+
+						# Early exit helps avoid over-flipping in a single pass
+						# (and reduces “chain reaction” surprises)
+						break
+					if changed:
+						break
+				if changed:
+					break
 
 		if not changed:
 			break
