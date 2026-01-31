@@ -114,6 +114,9 @@ var _hud_row: HBoxContainer = null
 # LIFECYCLE
 # -------------------------
 func _ready() -> void:
+	set_process_input(true)
+	set_process_unhandled_input(true)
+		
 	var rs: Node = _rs()
 
 	# --- seed ---
@@ -147,12 +150,23 @@ func _ready() -> void:
 	else:
 		current_node_id = start_id
 
+	_debug_counts()
+	_ensure_current_is_alive(rs)
 	_build_packets()
 	queue_redraw()
 
 	if squad_hud_enabled:
 		_build_squad_hud()
 		_refresh_squad_hud()
+
+func _unhandled_input(event: InputEvent) -> void:
+	if event is InputEventKey and event.pressed and not event.echo:
+		if event.keycode == KEY_B:
+			_cheat_clear_path_to_nearest_boss()
+			get_viewport().set_input_as_handled()
+		elif event.keycode == KEY_E:
+			_cheat_clear_path_to_nearest_elite()
+			get_viewport().set_input_as_handled()
 
 func _rs() -> Node:
 	var rs := get_tree().root.get_node_or_null("RunStateNode")
@@ -184,7 +198,7 @@ func _input(event: InputEvent) -> void:
 		hovered_node_id = hit if _can_click_node(hit) else -1
 		return
 
-	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
+	elif event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
 		var hit: int = _pick_node(get_global_mouse_position())
 		if hit < 0:
 			return
@@ -205,27 +219,18 @@ func _input(event: InputEvent) -> void:
 		_move_to_node(hit)
 		return
 
-	# ✅ ALL KEYBINDS IN ONE PLACE
-	if event is InputEventKey and event.pressed and not event.echo:
-		match event.keycode:
-			KEY_ENTER, KEY_KP_ENTER:
-				if current_node_id >= 0 and not nodes[current_node_id].cleared:
-					var rs := _rs()
-					if rs != null:
-						rs.mission_node_id = current_node_id
-						rs.mission_difficulty = nodes[current_node_id].difficulty
-						rs.mission_node_type = StringName(_type_name(nodes[current_node_id].ntype).to_lower())
-						rs.boss_mode_enabled_next_mission = (nodes[current_node_id].ntype == NodeType.BOSS)
-						rs.overworld_current_node_id = current_node_id
-					emit_signal("mission_requested", current_node_id, nodes[current_node_id].ntype, nodes[current_node_id].difficulty)
-				return
+	elif event is InputEventKey and event.pressed:
+		if event.keycode == KEY_ENTER or event.keycode == KEY_KP_ENTER:
+			if current_node_id >= 0 and not nodes[current_node_id].cleared:
+				var rs := _rs()
+				if rs != null:
+					rs.mission_node_id = current_node_id
+					rs.mission_difficulty = nodes[current_node_id].difficulty
+					rs.mission_node_type = StringName(_type_name(nodes[current_node_id].ntype).to_lower())
+					rs.boss_mode_enabled_next_mission = (nodes[current_node_id].ntype == NodeType.BOSS)
+					rs.overworld_current_node_id = current_node_id
 
-			KEY_B:
-				_cheat_clear_path_to_nearest_boss()
-				return
-
-			KEY_E:
-				_cheat_clear_path_to_nearest_elite()
+				emit_signal("mission_requested", current_node_id, nodes[current_node_id].ntype, nodes[current_node_id].difficulty)
 				return
 
 func _cheat_clear_path_to_nearest_elite() -> void:
@@ -310,6 +315,12 @@ func _bfs_to_nearest_elite(src: int) -> Dictionary:
 func _cheat_clear_path_to_nearest_boss() -> void:
 	if current_node_id < 0 or current_node_id >= nodes.size():
 		return
+
+	print("CHEAT DEBUG current=", current_node_id,
+		" alive=", (current_node_id >= 0 and current_node_id < alive.size() and alive[current_node_id]),
+		" type=", _type_name(nodes[current_node_id].ntype),
+		" cleared=", nodes[current_node_id].cleared)
+
 
 	# Find nearest boss and a parent map from BFS
 	var result := _bfs_to_nearest_boss(current_node_id)
@@ -499,6 +510,8 @@ func _carve_voids_connected() -> void:
 			alive[id] = true
 
 func _rebuild_graph() -> void:
+	edges.clear() # ✅ IMPORTANT: clear edges so _add_edge can repopulate neighbors
+
 	for nd in nodes:
 		nd.neighbors.clear()
 
@@ -1318,3 +1331,37 @@ func _line_up_events() -> void:
 	# After changing types, rebuild graph/difficulty if you want them consistent
 	_rebuild_graph()
 	_assign_difficulty_from(start_id)
+
+func _ensure_current_is_alive(rs: Node) -> void:
+	# If current is invalid or dead, fall back to start if alive, else any alive node.
+	if current_node_id < 0 or current_node_id >= nodes.size() or not alive[current_node_id]:
+		if start_id >= 0 and start_id < nodes.size() and alive[start_id]:
+			current_node_id = start_id
+		else:
+			current_node_id = _find_any_alive()
+
+		if rs != null:
+			rs.overworld_current_node_id = current_node_id
+
+func _debug_counts() -> void:
+	var bosses_total := 0
+	var bosses_uncleared := 0
+	var elites_total := 0
+	var elites_uncleared := 0
+
+	for nd in nodes:
+		if not alive[nd.id]:
+			continue
+
+		if nd.ntype == NodeType.BOSS:
+			bosses_total += 1
+			if not nd.cleared:
+				bosses_uncleared += 1
+
+		if nd.ntype == NodeType.ELITE:
+			elites_total += 1
+			if not nd.cleared:
+				elites_uncleared += 1
+
+	print("DEBUG bosses total=", bosses_total, " uncleared=", bosses_uncleared,
+		" | elites total=", elites_total, " uncleared=", elites_uncleared)
