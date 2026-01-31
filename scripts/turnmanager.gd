@@ -403,20 +403,37 @@ func _on_loss_restart_pressed() -> void:
 	if not _game_over_triggered:
 		return
 
-	# reset autoload run state
 	var rs := get_tree().root.get_node_or_null("RunStateNode")
+
+	# ✅ If we died during the Titan event, restart THIS mission with the event re-armed.
+	if _is_titan_event:
+		if rs != null:
+			rs.event_mode_enabled_next_mission = true
+			# keep the same seed if you want deterministic restarts:
+			# (do NOT wipe mission_seed)
+			# rs.event_id_next_mission = &"titan_overwatch"  # if you use it
+
+		_clear_titan_markers()
+		_event_turn = 0
+		_is_titan_event = false
+		_titan_turns_left = 0
+
+		get_tree().paused = false
+		get_tree().reload_current_scene()
+		return
+
+	# ✅ Otherwise it's a normal "restart run"
 	if rs != null and rs.has_method("reset_run"):
 		rs.call("reset_run")
 
-	# also clear local event markers so no leftovers flash
 	_clear_titan_markers()
 	_event_turn = 0
 	_is_titan_event = false
 	_titan_turns_left = 0
 
-	# reload scene
 	get_tree().paused = false
 	get_tree().reload_current_scene()
+
 
 # -----------------------
 # Phase control
@@ -1751,14 +1768,16 @@ func _titan_event_success() -> void:
 		await _fade_and_free(titan_mech, 1.5)
 		titan_mech = null
 
-	# mark cleared
+	# mark overworld node cleared
 	var rs := get_tree().root.get_node_or_null("RunStateNode")
 	if rs != null and ("overworld_cleared" in rs):
 		rs.overworld_cleared[str(int(rs.overworld_current_node_id))] = true
 
-	# ✅ SHOW REWARD PANEL INSTEAD OF INSTANT EXIT
-	await get_tree().process_frame
-	_show_event_rewards_panel()
+	if M != null and M.has_method("_extract_allies_with_bomber"):
+		await M._extract_allies_with_bomber()
+		emit_signal("tutorial_event", &"extraction_finished", {})
+
+	#get_tree().change_scene_to_file("res://scenes/overworld.tscn")
 
 func _map_top_apex_world() -> Vector2:
 	if M == null or M.terrain == null:
@@ -1856,61 +1875,3 @@ func _start_titan_event_autorun() -> void:
 	
 	# now run the first titan phase
 	await _titan_overwatch_enemy_phase()
-
-func _go_to_overworld_after_rewards() -> void:
-	# prevent double calls
-	if _pending_return_to_overworld:
-		return
-	_pending_return_to_overworld = true
-
-	# mark overworld node cleared (again is fine)
-	var rs := get_tree().root.get_node_or_null("RunStateNode")
-	if rs != null and ("overworld_cleared" in rs):
-		rs.overworld_cleared[str(int(rs.overworld_current_node_id))] = true
-
-func _show_event_rewards_panel() -> void:
-	if end_panel == null or not is_instance_valid(end_panel):
-		# fallback: just leave
-		await _go_to_overworld_after_rewards()
-		return
-
-	# lock input
-	phase = Phase.BUSY
-	_update_end_turn_button()
-	_update_special_buttons()
-
-	# IMPORTANT: make sure panel is in "upgrade" mode, not "loss" mode
-	# Use whichever method your EndGamePanelRuntime already uses on normal mission success.
-	# Common patterns:
-	# - end_panel.show_panel()
-	# - end_panel.show_rewards()
-	# - end_panel.show_upgrades()
-	# - end_panel.open()
-
-	if end_panel.has_method("show_upgrades"):
-		end_panel.call("show_upgrades")
-	elif end_panel.has_method("show_panel"):
-		end_panel.call("show_panel")
-	else:
-		# If you ONLY have show_loss(), you need to add a success/upgrades method in EndGamePanelRuntime.
-		push_warning("EndGamePanelRuntime missing show_upgrades/show_panel; skipping rewards.")
-		await _go_to_overworld_after_rewards()
-		return
-
-	# When upgrade is picked OR continue pressed, go back.
-	# (Pick the signal your panel actually emits.)
-	if end_panel.has_signal("upgrade_selected"):
-		if not end_panel.upgrade_selected.is_connected(_on_event_reward_picked):
-			end_panel.upgrade_selected.connect(_on_event_reward_picked, CONNECT_ONE_SHOT)
-
-	# Some panels also have a Continue button after pick:
-	if end_panel.has_signal("continue_pressed"):
-		if not end_panel.continue_pressed.is_connected(_on_event_reward_continue):
-			end_panel.continue_pressed.connect(_on_event_reward_continue, CONNECT_ONE_SHOT)
-
-func _on_event_reward_picked(_id: StringName) -> void:
-	# your panel probably already applied the upgrade internally, or it emits and you apply elsewhere
-	await _go_to_overworld_after_rewards()
-
-func _on_event_reward_continue() -> void:
-	await _go_to_overworld_after_rewards()
