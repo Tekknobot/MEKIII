@@ -4494,46 +4494,36 @@ func _any_ally_on_beacon() -> Unit:
 	return null
 
 func _check_and_trigger_beacon_sweep() -> void:
-	# Already fired? stop
 	if _beacon_sweep_started:
 		return
 
-	# ----------------------------
-	# 1) ARM the beacon if enough parts collected
-	# ----------------------------
+	# 1) ARM the beacon if enough parts collected (banked + carried)
 	if not beacon_ready:
 		var team_total := _team_floppy_total_allies()
-		if team_total >= beacon_parts_needed:
+		var total := beacon_parts_collected + team_total
+		if total >= beacon_parts_needed:
 			beacon_ready = true
 			_sfx(&"beacon_ready", 1.0, 1.0, _cell_world(beacon_cell))
-			_update_beacon_marker()   # start pulsing
-			# --- Tutorial hook ---
+			_update_beacon_marker()
 			emit_signal("tutorial_event", &"beacon_ready", {"cell": beacon_cell, "parts_needed": beacon_parts_needed})
 		else:
-			return   # not armed yet, nothing else to do
+			return
 
-	# ----------------------------
 	# 2) If armed, check for ally standing on beacon
-	# ----------------------------
 	var carrier := _any_ally_on_beacon()
 	if carrier == null:
 		return
 
-	# ----------------------------
 	# 3) Trigger sweep
-	# ----------------------------
 	_beacon_sweep_started = true
-	# --- Tutorial hook ---
 	emit_signal("tutorial_event", &"beacon_upload_started", {"cell": beacon_cell})
-
 	_sfx(&"beacon_upload", 1.0, 1.0, _cell_world(beacon_cell))
 
-	# Optional: clear floppy parts after upload
+	# clear carried parts (optional)
 	for u in get_all_units():
 		if u != null and is_instance_valid(u) and u.team == Unit.Team.ALLY and ("floppy_parts" in u):
 			u.set("floppy_parts", 0)
 
-	# Fire sweep async
 	call_deferred("_run_satellite_sweep_async")
 
 func _run_satellite_sweep_async() -> void:

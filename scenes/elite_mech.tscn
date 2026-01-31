@@ -1,8 +1,10 @@
-[gd_scene load_steps=28 format=3 uid="uid://d05mwlbkobqyd"]
+[gd_scene load_steps=30 format=3 uid="uid://d05mwlbkobqyd"]
 
 [ext_resource type="Script" uid="uid://crpx54tgclw42" path="res://scripts/elite_mech.gd" id="1_3sk1l"]
 [ext_resource type="Texture2D" uid="uid://btmthk3elumpp" path="res://sprites/Mechas/Rob1/rob1.png" id="1_tyjfv"]
+[ext_resource type="PackedScene" uid="uid://bulgypadw5war" path="res://scenes/explosion.tscn" id="2_0gnu1"]
 [ext_resource type="Texture2D" uid="uid://3c4l4ouccj0b" path="res://sprites/Mechas/Rob1/rob2.png" id="2_3sk1l"]
+[ext_resource type="PackedScene" uid="uid://bapcpjpr3xx60" path="res://scenes/bullet.tscn" id="2_lr6eu"]
 [ext_resource type="Texture2D" uid="uid://f7qv7y6r3m3p" path="res://sprites/Mechas/Rob1/rob3.png" id="3_lr6eu"]
 [ext_resource type="Texture2D" uid="uid://ca1sqsm6uvejo" path="res://sprites/Mechas/Rob1/rob4.png" id="4_0gnu1"]
 [ext_resource type="Texture2D" uid="uid://dljt88n83sue3" path="res://sprites/Mechas/Rob1/rob5.png" id="5_2c65x"]
@@ -167,7 +169,12 @@ animations = [{
 }]
 
 [node name="Unit" type="CharacterBody2D"]
+z_as_relative = false
 script = ExtResource("1_3sk1l")
+explosion_scene = ExtResource("2_0gnu1")
+special_damage = 1
+special_cooldown_turns = 0
+projectile_scene = ExtResource("2_lr6eu")
 display_name = "Elite Mech"
 team = 1
 footprint_size = Vector2i(2, 2)
@@ -193,3 +200,6 @@ script = ExtResource("42_uppwk")
 unit_path = NodePath("..")
 show_as_fraction = false
 prefix = ""
+
+[node name="Emitter" type="Node2D" parent="."]
+position = Vector2(-43, -1)

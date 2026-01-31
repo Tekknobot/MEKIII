@@ -290,8 +290,6 @@ position = Vector2(-255, -150)
 [node name="Overlays" type="Node2D" parent="."]
 z_as_relative = false
 
-[node name="Units" type="Node2D" parent="."]
-
 [node name="Cursor" parent="." node_paths=PackedStringArray("tilemap", "map_controller") instance=ExtResource("7_bneo8")]
 tilemap = NodePath("../Terrain")
 map_controller = NodePath("..")
@@ -364,6 +362,8 @@ script = ExtResource("8_400sg")
 follow_enabled = true
 recenter_smoothness = 2.0
 
+[node name="Units" type="Node2D" parent="."]
+
 [node name="TurnManager" type="Node2D" parent="."]
 script = ExtResource("24_jai3c")
 map_controller_path = NodePath("../MapController")
@@ -418,6 +418,7 @@ sfx_streams = {
 "bomber_in": ExtResource("50_uxlqh"),
 "bomber_out": ExtResource("50_uxlqh"),
 "bomber_pickup": ExtResource("49_o01hm"),
+"bullet": ExtResource("44_rm8d8"),
 "cannon_fire": ExtResource("44_rm8d8"),
 "drop_thump": ExtResource("49_o01hm"),
 "explosion_small": ExtResource("39_evnk2"),

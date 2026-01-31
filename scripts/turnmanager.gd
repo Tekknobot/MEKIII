@@ -542,10 +542,18 @@ func _enemy_take_turn(z: Unit) -> void:
 		await get_tree().create_timer(0.12).timeout
 		return
 
+	# 1) Try special first (EliteMech artillery)
+	if z is EliteMech:
+		var did := await (z as EliteMech).ai_try_special(M)
+		if did:
+			return
+
+	# 2) Otherwise do normal attack
 	var target := _pick_best_attack_target(z)
 	if target != null:
 		await M.ai_attack(z, target)
 		return
+
 
 	# ✅ after awaits / damage events, check again
 	if z == null or not is_instance_valid(z) or z.hp <= 0:
@@ -1007,6 +1015,10 @@ func _tick_buffs_enemy_phase_start() -> void:
 		if u == null or not is_instance_valid(u):
 			continue
 
+		# ✅ tick elite special cooldowns
+		if u is EliteMech:
+			(u as EliteMech).tick_cooldowns()
+			
 		# Stim ticks down on ENEMY phase start
 		if u.has_meta("stim_turns"):
 			var t := int(u.get_meta("stim_turns"))

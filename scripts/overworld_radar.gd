@@ -184,7 +184,7 @@ func _input(event: InputEvent) -> void:
 		hovered_node_id = hit if _can_click_node(hit) else -1
 		return
 
-	elif event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
+	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
 		var hit: int = _pick_node(get_global_mouse_position())
 		if hit < 0:
 			return
@@ -205,31 +205,28 @@ func _input(event: InputEvent) -> void:
 		_move_to_node(hit)
 		return
 
-	elif event is InputEventKey and event.pressed:
-		if event.keycode == KEY_ENTER or event.keycode == KEY_KP_ENTER:
-			if current_node_id >= 0 and not nodes[current_node_id].cleared:
-				var rs := _rs()
-				if rs != null:
-					rs.mission_node_id = current_node_id
-					rs.mission_difficulty = nodes[current_node_id].difficulty
-					rs.mission_node_type = StringName(_type_name(nodes[current_node_id].ntype).to_lower())
-					rs.boss_mode_enabled_next_mission = (nodes[current_node_id].ntype == NodeType.BOSS)
-					rs.overworld_current_node_id = current_node_id
-
-				emit_signal("mission_requested", current_node_id, nodes[current_node_id].ntype, nodes[current_node_id].difficulty)
+	# ✅ ALL KEYBINDS IN ONE PLACE
+	if event is InputEventKey and event.pressed and not event.echo:
+		match event.keycode:
+			KEY_ENTER, KEY_KP_ENTER:
+				if current_node_id >= 0 and not nodes[current_node_id].cleared:
+					var rs := _rs()
+					if rs != null:
+						rs.mission_node_id = current_node_id
+						rs.mission_difficulty = nodes[current_node_id].difficulty
+						rs.mission_node_type = StringName(_type_name(nodes[current_node_id].ntype).to_lower())
+						rs.boss_mode_enabled_next_mission = (nodes[current_node_id].ntype == NodeType.BOSS)
+						rs.overworld_current_node_id = current_node_id
+					emit_signal("mission_requested", current_node_id, nodes[current_node_id].ntype, nodes[current_node_id].difficulty)
 				return
-				
-	if event is InputEventKey and event.pressed:
-		# DEBUG CHEAT: clear path to nearest boss
-		if event.keycode == KEY_B:
-			_cheat_clear_path_to_nearest_boss()
-			return
 
-	if event is InputEventKey and event.pressed:
-		# DEBUG CHEAT: clear path to nearest elite
-		if event.keycode == KEY_E:
-			_cheat_clear_path_to_nearest_elite()
-			return
+			KEY_B:
+				_cheat_clear_path_to_nearest_boss()
+				return
+
+			KEY_E:
+				_cheat_clear_path_to_nearest_elite()
+				return
 
 func _cheat_clear_path_to_nearest_elite() -> void:
 	if current_node_id < 0 or current_node_id >= nodes.size():

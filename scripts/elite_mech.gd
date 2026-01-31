@@ -18,6 +18,7 @@ var _suppress_active := false
 # Identity / visuals
 # -------------------------
 @export var portrait_tex: Texture2D = preload("res://sprites/Portraits/Mechas/rob1_port.png") # swap to your asset
+@export var explosion_scene: PackedScene
 
 # Optional: if your mech scene has a Sprite2D/AnimatedSprite2D you want as primary render
 @export var render_node_name: StringName = &"Sprite2D"
@@ -32,6 +33,34 @@ var _suppress_active := false
 var _death_tw: Tween = null
 var _saved_material: Material = null
 
+# -------------------------
+# SPECIAL: Artillery Burst
+# -------------------------
+@export var special_name: String = "ARTILLERY"
+@export var special_desc: String = "Fire a shell that explodes for splash damage."
+
+@export var special_range: int = 6
+@export var special_damage: int = 3
+@export var splash_radius: int = 1          # 1 = center + 4-neighbors (Manhattan)
+@export var special_cooldown_turns: int = 3
+
+@export var projectile_scene: PackedScene   # optional (recommended)
+@export var explosion_sfx: StringName = &"explosion_small"
+
+var _special_cd: int = 0
+const Z_BASE := 2
+const Z_PER  := 0
+const Z_PROJ_ABOVE := 0
+const Z_FX_ABOVE   := 0
+
+func _z_for_cell(c: Vector2i) -> int:
+	return Z_BASE + (c.x + c.y)
+
+func _cell_from_world(M: MapController, world_pos: Vector2) -> Vector2i:
+	# convert world -> map cell (safe for your terrain usage)
+	var local := M.terrain.to_local(world_pos)
+	return M.terrain.local_to_map(local)
+
 func _ready() -> void:
 	# Mark as enemy + give UI identity
 	team = Unit.Team.ENEMY
@@ -40,6 +69,9 @@ func _ready() -> void:
 	set_meta("display_name", display_name)
 	set_meta(&"is_elite", true)
 	set_meta("vision", vision)
+
+	set_meta("special", special_name)
+	set_meta("special_desc", special_desc)
 
 	# If you want a simple armor hook later:
 	# (Only matters if your damage code checks it)
@@ -58,6 +90,10 @@ func _ready() -> void:
 
 	super._ready()
 
+	var e := get_node_or_null("Emitter") as Node2D
+	if e:
+		e.position = visual_offset
+		
 	_suppress_base_pos = global_position
 	var ci := _get_render_item()
 	if ci != null:
@@ -211,3 +247,323 @@ func play_death_anim() -> void:
 		if is_instance_valid(self):
 			queue_free()
 	)
+
+func tick_cooldowns() -> void:
+	if _special_cd > 0:
+		_special_cd -= 1
+
+func can_use_special(M) -> bool:
+	return _special_cd <= 0 and M != null
+
+func special_cells(M) -> Array[Vector2i]:
+	var out: Array[Vector2i] = []
+	if M == null:
+		return out
+	for x in range(-special_range, special_range + 1):
+		for y in range(-special_range, special_range + 1):
+			var c := cell + Vector2i(x, y)
+			# Manhattan range (diamond) — change to Euclid if you want
+			if abs(x) + abs(y) > special_range:
+				continue
+			if M._in_bounds(c): # if MapController has this; otherwise remove this line
+				out.append(c)
+	return out
+
+func _splash_cells(center: Vector2i) -> Array[Vector2i]:
+	var out: Array[Vector2i] = []
+	for dx in range(-splash_radius, splash_radius + 1):
+		for dy in range(-splash_radius, splash_radius + 1):
+			if abs(dx) + abs(dy) > splash_radius:
+				continue
+			out.append(center + Vector2i(dx, dy))
+	return out
+
+func ai_try_special(M: MapController) -> bool:
+	# returns true if it performed the special
+	if M == null:
+		return false
+	if not can_use_special(M):
+		return false
+
+	# pick best target cell near allies
+	var target := _ai_pick_best_special_cell(M)
+	if target == Vector2i(999999, 999999):
+		return false
+
+	# fire it
+	await _fire_salvo_3x3(M, target)
+	return true
+
+func _ai_pick_best_special_cell(M: MapController) -> Vector2i:
+	# score cells in range: prefer hitting multiple allies, avoid empty shots
+	var best := Vector2i(999999, 999999)
+	var best_score := -999999
+
+	# iterate diamond in range
+	for dx in range(-special_range, special_range + 1):
+		for dy in range(-special_range, special_range + 1):
+			if abs(dx) + abs(dy) > special_range:
+				continue
+
+			var c := cell + Vector2i(dx, dy)
+
+			# (optional) bounds guard if you have it
+			if M.has_method("_in_bounds"):
+				if not M.call("_in_bounds", c):
+					continue
+
+			# score splash
+			var score := 0
+			var hits := 0
+
+			for sc in _splash_cells(c):
+				if not (sc in M.units_by_cell):
+					continue
+				var u = M.units_by_cell[sc]
+				if u == null or not is_instance_valid(u) or u.hp <= 0:
+					continue
+
+				# Only score allies as targets
+				if u.team != Unit.Team.ALLY:
+					continue
+
+				hits += 1
+				# prefer low hp (finish kills)
+				score += 10 + (20 - int(u.hp))
+
+			# don’t waste cooldown on 0 hits
+			if hits <= 0:
+				continue
+
+			# mild preference: closer (less travel time / feels snappier)
+			score -= (abs(dx) + abs(dy))
+
+			if score > best_score:
+				best_score = score
+				best = c
+
+	return best
+
+func _fire_projectile_and_explode(M, target_cell: Vector2i) -> void:
+	if M == null or projectile_scene == null:
+		_impact_cell(M, target_cell)
+		return
+
+	var to_world: Vector2 = M.terrain.to_global(M.terrain.map_to_local(target_cell))
+	_face_world_pos(to_world)
+
+	var emit := _emitter()
+	var from_world := emit.global_position
+
+	# 🔊 Bullet SFX at muzzle
+	if M.has_method("_sfx"):
+		M.call("_sfx", &"bullet", 1.0, 1.0, from_world)
+
+	var p := projectile_scene.instantiate() as Node2D
+	if p == null:
+		_impact_cell(M, target_cell)
+		return
+
+	M.units_root.add_child(p)
+	p.global_position = from_world
+	p.z_as_relative = false
+
+	# layer by emitter cell (so it feels "attached" to shooter depth)
+	var from_cell := _cell_from_world(M, from_world)
+	p.z_index = _z_for_cell(from_cell) + Z_PROJ_ABOVE
+
+	# face travel direction
+	var dir := (to_world - from_world)
+	if dir.length() > 0.001:
+		p.rotation = dir.angle()
+
+	# slower projectile
+	var speed_px_per_sec := 20.0
+	var dist := from_world.distance_to(to_world)
+	var t = clamp(dist / speed_px_per_sec, 0.20, 0.90)
+
+	var tw := p.create_tween()
+	tw.set_trans(Tween.TRANS_SINE)
+	tw.set_ease(Tween.EASE_IN_OUT)
+
+	# optional: as it travels, update depth to match the cell it's currently over
+	tw.tween_method(func(_v: float) -> void:
+		if p == null or not is_instance_valid(p): return
+		var c := _cell_from_world(M, p.global_position)
+		p.z_index = _z_for_cell(c) + Z_PROJ_ABOVE
+	, 0.0, 1.0, t)
+
+	tw.parallel().tween_property(p, "global_position", to_world, t)
+
+	await tw.finished
+	if is_instance_valid(p):
+		p.queue_free()
+
+	_impact_cell(M, target_cell)
+
+func _explode_once(M, target_cell: Vector2i) -> void:
+	if M == null:
+		return
+
+	var world_pos: Vector2 = M.terrain.to_global(M.terrain.map_to_local(target_cell))
+
+	if explosion_scene != null:
+		var e := explosion_scene.instantiate() as Node2D
+		if e != null:
+			M.units_root.add_child(e)
+			e.global_position = world_pos
+			e.z_as_relative = false
+			e.z_index = _z_for_cell(target_cell) + Z_FX_ABOVE
+
+			var ap := e.get_node_or_null("AnimationPlayer") as AnimationPlayer
+			if ap != null:
+				if ap.has_animation("explode"):
+					ap.play("explode")
+				else:
+					ap.play()
+				ap.animation_finished.connect(func(_n):
+					if is_instance_valid(e): e.queue_free()
+				)
+			else:
+				var a := e.get_node_or_null("AnimatedSprite2D") as AnimatedSprite2D
+				if a != null:
+					a.play()
+					a.animation_finished.connect(func():
+						if is_instance_valid(e): e.queue_free()
+					)
+				else:
+					await get_tree().create_timer(0.35).timeout
+					if is_instance_valid(e): e.queue_free()
+
+	if M.has_method("_sfx"):
+		M.call("_sfx", &"explosion_small", 1.0, 1.0, world_pos)
+
+	_apply_splash_damage(M, target_cell)
+
+func _apply_splash_damage(M, center: Vector2i) -> void:
+	var cells := [
+		center,
+		center + Vector2i(1, 0),
+		center + Vector2i(-1, 0),
+		center + Vector2i(0, 1),
+		center + Vector2i(0, -1),
+	]
+
+	for c in cells:
+		var u = M.units_by_cell.get(c, null)
+		if u == null or not is_instance_valid(u):
+			continue
+		if u == self:
+			continue
+		if u.hp <= 0:
+			continue
+
+		# hit everything in splash (allies + zombies + bosses + weakpoints)
+		u.take_damage(special_damage)
+
+func _explode(M, center_cell: Vector2i) -> void:
+	# sfx (optional)
+	if M != null and M.has_method("_sfx"):
+		M.call("_sfx", explosion_sfx, 1.0, 1.0, M.terrain.map_to_local(center_cell))
+
+	# splash damage
+	for c in _splash_cells(center_cell):
+		# ignore out of bounds safely
+		if M == null:
+			continue
+		if not (c in M.units_by_cell):
+			continue
+
+		var u = M.units_by_cell[c]
+		if u == null or not is_instance_valid(u):
+			continue
+		if u == self:
+			continue
+
+		# Only hit allies? Or hit everything? Pick one:
+		# Hit ALLY team only:
+		if u.team != Unit.Team.ALLY:
+			continue
+
+		# apply damage (call your existing damage pipeline if present)
+		if u.has_method("take_damage"):
+			u.call("take_damage", special_damage)
+		elif ("hp" in u):
+			u.hp -= special_damage
+
+func _emitter() -> Node2D:
+	var e := get_node_or_null("Emitter")
+	if e is Node2D:
+		return e as Node2D
+	return self
+
+func _face_world_pos(world_pos: Vector2) -> void:
+	# default sprite faces LEFT
+	var spr := get_node_or_null("Sprite2D") as Sprite2D
+	if spr == null:
+		return
+
+	# If target is to the RIGHT, flip to face right.
+	spr.flip_h = (world_pos.x > global_position.x)
+
+func _cells_3x3(center: Vector2i) -> Array[Vector2i]:
+	var out: Array[Vector2i] = []
+	for dx in range(-1, 2):
+		for dy in range(-1, 2):
+			out.append(center + Vector2i(dx, dy))
+	return out
+
+func _impact_cell(M: MapController, target_cell: Vector2i) -> void:
+	if M == null:
+		return
+
+	var world_pos: Vector2 = M.terrain.to_global(M.terrain.map_to_local(target_cell))
+
+	# VFX
+	if explosion_scene != null:
+		var e := explosion_scene.instantiate() as Node2D
+		if e != null:
+			M.units_root.add_child(e)
+			e.global_position = world_pos
+			e.z_index = 10_000
+
+			var ap := e.get_node_or_null("AnimationPlayer") as AnimationPlayer
+			if ap != null:
+				if ap.has_animation("explode"):
+					ap.play("explode")
+				else:
+					ap.play()
+				ap.animation_finished.connect(func(_n):
+					if is_instance_valid(e): e.queue_free()
+				)
+			else:
+				var a := e.get_node_or_null("AnimatedSprite2D") as AnimatedSprite2D
+				if a != null:
+					a.play()
+					a.animation_finished.connect(func():
+						if is_instance_valid(e): e.queue_free()
+					)
+				else:
+					e.queue_free()
+
+	# SFX
+	if M.has_method("_sfx"):
+		M.call("_sfx", &"explosion_small", 1.0, 1.0, world_pos)
+
+	# Damage ONLY the unit on that cell (any team)
+	var u = M.units_by_cell.get(target_cell, null)
+	if u != null and is_instance_valid(u) and u != self and u.hp > 0:
+		u.take_damage(special_damage)
+
+func _fire_salvo_3x3(M: MapController, center_cell: Vector2i) -> void:
+	if M == null:
+		return
+
+	for c in _cells_3x3(center_cell):
+		# (optional) bounds guard
+		if M.has_method("_in_bounds") and not M.call("_in_bounds", c):
+			continue
+
+		# fire each projectile (sequential, simple + reliable)
+		_fire_projectile_and_explode(M, c)
+		await get_tree().create_timer(0.1).timeout
