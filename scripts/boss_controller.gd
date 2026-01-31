@@ -624,9 +624,9 @@ func _pat_slam_3x3() -> Dictionary:
 	var center := _pick_target_cell_prefer_allies()
 	var cells: Array[Vector2i] = []
 
-	var dmg := 1
+	var dmg := 2
 	if phase == 3:
-		dmg = 2
+		dmg = 3
 
 	var dxs := [-1, 0, 1]
 	var dys := [-1, 0, 1]
@@ -680,9 +680,9 @@ func _pat_core_burst_plus() -> Dictionary:
 	elif phase == 3:
 		length = 5
 
-	var dmg := 1
+	var dmg := 2
 	if phase == 3:
-		dmg = 2
+		dmg = 3
 
 	var cells: Array[Vector2i] = []
 	if _in_bounds(center):
