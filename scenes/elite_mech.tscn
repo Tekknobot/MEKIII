@@ -58,7 +58,7 @@ animations = [{
 }],
 "loop": false,
 "name": &"attack",
-"speed": 24.0
+"speed": 48.0
 }, {
 "frames": [{
 "duration": 1.0,
@@ -134,7 +134,7 @@ animations = [{
 }],
 "loop": true,
 "name": &"idle",
-"speed": 6.0
+"speed": 12.0
 }, {
 "frames": [{
 "duration": 1.0,
@@ -163,7 +163,7 @@ animations = [{
 }],
 "loop": true,
 "name": &"move",
-"speed": 12.0
+"speed": 24.0
 }]
 
 [node name="Unit" type="CharacterBody2D"]
@@ -180,7 +180,7 @@ shape = SubResource("RectangleShape2D_o6twh")
 
 [node name="AnimatedSprite2D" type="AnimatedSprite2D" parent="."]
 sprite_frames = SubResource("SpriteFrames_0pyg8")
-animation = &"idle"
+animation = &"attack"
 autoplay = "idle"
 
 [node name="HPLabel" type="Label" parent="."]

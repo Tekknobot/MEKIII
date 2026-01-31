@@ -28,3 +28,4 @@ res://scenes/units/allies/S3.tscn
 res://scripts/s_3.gd
 res://shaders/pixel_dissolve.gdshader
 res://scenes/units/allies/R2.tscn
+res://scripts/infestation_hud.gd

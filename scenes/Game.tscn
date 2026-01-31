@@ -369,6 +369,7 @@ script = ExtResource("24_jai3c")
 map_controller_path = NodePath("../MapController")
 end_turn_button_path = NodePath("../UI/EndTurnButton")
 menu_button_path = NodePath("../UI/MenuButton")
+zombie_limit = 48
 infestation_title_font = ExtResource("52_px4p2")
 infestation_body_font = ExtResource("53_x0rj3")
 infestation_button_font = ExtResource("32_1gdd5")
