@@ -14,12 +14,23 @@ func _on_mission_requested(node_id: int, node_type: int, difficulty: float) -> v
 		# persist overworld position
 		rs.overworld_current_node_id = node_id
 
-		# mission payload
+		# mission payload (fine to keep)
 		rs.mission_node_id = node_id
 		rs.mission_difficulty = difficulty
 		rs.mission_node_type = _type_to_key(node_type)
 
-		# seed: stable per node (so re-entering same node is repeatable)
+		# ✅ boss latch (consume in TurnManager)
+		rs.boss_mode_enabled_next_mission = (node_type == OverworldRadar.NodeType.BOSS)
+
+		# ✅ event latch (consume in TurnManager)
+		if node_type == OverworldRadar.NodeType.EVENT:
+			rs.event_mode_enabled_next_mission = true
+			rs.event_id_next_mission = &"titan_overwatch"
+		else:
+			rs.event_mode_enabled_next_mission = false
+			rs.event_id_next_mission = &""
+
+		# seed: stable per node
 		var base_seed := int(rs.overworld_seed) if ("overworld_seed" in rs) else 0
 		if base_seed == 0:
 			base_seed = randi()

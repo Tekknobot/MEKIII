@@ -110,6 +110,8 @@ var _hud_row: HBoxContainer = null
 @export var boss_min_difficulty: float = 0.70 # only place bosses late in the route
 @export var boss_min_bfs_gap: int = 2         # keep bosses from clustering
 
+@export var cheat_event_key_enabled := true
+
 # -------------------------
 # LIFECYCLE
 # -------------------------
@@ -193,6 +195,13 @@ func _process(delta: float) -> void:
 	queue_redraw()
 
 func _input(event: InputEvent) -> void:
+	if not cheat_event_key_enabled:
+		return
+
+	if event is InputEventKey and event.pressed and not event.echo:
+		if event.keycode == KEY_V:
+			_cheat_clear_path_to_nearest_event()
+				
 	if event is InputEventMouseMotion:
 		var hit := _pick_node(get_global_mouse_position())
 		hovered_node_id = hit if _can_click_node(hit) else -1
@@ -232,6 +241,7 @@ func _input(event: InputEvent) -> void:
 
 				emit_signal("mission_requested", current_node_id, nodes[current_node_id].ntype, nodes[current_node_id].difficulty)
 				return
+
 
 func _cheat_clear_path_to_nearest_elite() -> void:
 	if current_node_id < 0 or current_node_id >= nodes.size():
@@ -281,6 +291,89 @@ func _cheat_clear_path_to_nearest_elite() -> void:
 	if squad_hud_enabled:
 		_refresh_squad_hud()
 
+func _cheat_clear_path_to_nearest_event() -> void:
+	if current_node_id < 0 or current_node_id >= nodes.size():
+		return
+
+	# Find nearest event and a parent map from BFS
+	var result := _bfs_to_nearest_event(current_node_id)
+	var event_target: int = int(result.get("event", -1))
+	var parent: Dictionary = result.get("parent", {})
+
+	if event_target < 0:
+		print("CHEAT: No reachable uncleared EVENT found.")
+		return
+
+	# Reconstruct path from event back to current node
+	var path: Array[int] = []
+	var cur := event_target
+	while cur != current_node_id and parent.has(cur):
+		path.append(cur)
+		cur = int(parent[cur])
+	path.append(current_node_id)
+	path.reverse() # now current -> ... -> event
+
+	# Clear everything along the path EXCEPT the event node itself
+	var rs := _rs()
+	for id in path:
+		if id == event_target:
+			continue
+		if id < 0 or id >= nodes.size():
+			continue
+		nodes[id].cleared = true
+		if rs != null and ("overworld_cleared" in rs):
+			rs.overworld_cleared[str(id)] = true
+
+	# Jump current selection onto the event node (leave it uncleared so it can launch)
+	current_node_id = event_target
+	hovered_node_id = -1
+
+	if rs != null:
+		rs.overworld_current_node_id = current_node_id
+
+	print("CHEAT: Cleared path to event node ", event_target)
+
+	_build_packets()
+	queue_redraw()
+
+	if squad_hud_enabled:
+		_refresh_squad_hud()
+
+func _bfs_to_nearest_event(start_id: int) -> Dictionary:
+	var q: Array[int] = []
+	var visited: Dictionary = {}
+	var parent: Dictionary = {}
+
+	q.append(start_id)
+	visited[start_id] = true
+
+	while not q.is_empty():
+		var cur = q.pop_front()
+
+		# ✅ target: reachable + uncleared + EVENT
+		if cur != start_id and cur >= 0 and cur < nodes.size():
+			if (not nodes[cur].cleared) and (nodes[cur].ntype == OverworldRadar.NodeType.EVENT):
+				return {"event": cur, "parent": parent}
+
+		# Explore neighbors (this is your adjacency list)
+		if cur < 0 or cur >= nodes.size():
+			continue
+
+		for nxt in nodes[cur].neighbors:
+			var ni := int(nxt)
+			if visited.has(ni):
+				continue
+
+			if ni < 0 or ni >= nodes.size():
+				continue
+			if nodes[ni].cleared:
+				continue
+
+			visited[ni] = true
+			parent[ni] = cur
+			q.append(ni)
+
+	return {"event": -1, "parent": parent}
 
 func _bfs_to_nearest_elite(src: int) -> Dictionary:
 	var parent: Dictionary = {}

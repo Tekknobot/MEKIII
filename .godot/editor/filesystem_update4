@@ -37,3 +37,5 @@ res://scenes/units/allies/human.tscn
 res://scripts/human.gd
 res://scripts/zombie.gd
 res://scenes/overworld_radar.tscn
+res://scenes/titan.tscn
+res://scripts/overworld.gd

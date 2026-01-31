@@ -94,6 +94,35 @@ var end_panel: EndGamePanelRuntime
 
 var boss: BossController = null
 
+# -------------------------
+# EVENT: Titan Overwatch
+# -------------------------
+@export var titan_event_enabled := true
+
+@export var titan_turns_to_survive := 3
+@export var titan_strikes_per_turn := 6
+@export var titan_strike_damage := 2
+
+@export var titan_warn_time := 0.35 # seconds before impact
+
+# Optional: show your Titan mech art off-map during the event
+@export var titan_mech_scene: PackedScene
+var titan_mech: Node2D = null
+
+# Optional: spawn explosions (recommended if you have a prefab)
+@export var titan_explosion_scene: PackedScene
+
+# Optional: sound hook if MapController has _sfx(name, ...)
+@export var titan_sfx_fire: StringName = &"bullet"
+@export var titan_sfx_explode: StringName = &"explosion_small"
+
+var _is_titan_event := false
+var _titan_turns_left := 0
+var _titan_rng := RandomNumberGenerator.new()
+
+# warning markers we spawn each turn
+var _titan_markers: Array[Node2D] = []
+
 func _ready() -> void:
 	end_panel = EndGamePanelRuntime.new()
 
@@ -193,16 +222,40 @@ func _ready() -> void:
 
 	var rs := get_tree().root.get_node_or_null("RunStateNode")
 	if rs != null:
-		# safest: trust the explicit flag set by OverworldRadar
+		# boss latch
 		if "boss_mode_enabled_next_mission" in rs:
 			boss_mode_enabled = bool(rs.boss_mode_enabled_next_mission)
 		else:
 			boss_mode_enabled = false
 
-		# optional fallback if you want:
-		# boss_mode_enabled = boss_mode_enabled or (("mission_node_type" in rs) and (rs.mission_node_type == &"boss"))
-	else:
-		boss_mode_enabled = false
+		# ✅ EVENT latch (this is what overworld.gd sets)
+		if "event_mode_enabled_next_mission" in rs:
+			titan_event_enabled = bool(rs.event_mode_enabled_next_mission)
+		else:
+			titan_event_enabled = false
+
+		# ✅ if event is enabled, run titan event
+		if titan_event_enabled and titan_event_enabled:
+			_is_titan_event = true
+			_titan_turns_left = titan_turns_to_survive
+
+			# stable RNG per node seed
+			if "mission_seed" in rs:
+				_titan_rng.seed = int(rs.mission_seed) ^ 0xA51C0DE
+			else:
+				_titan_rng.randomize()
+
+			# ✅ consume
+			rs.event_mode_enabled_next_mission = false
+			rs.event_id_next_mission = &""
+
+			if titan_mech != null:
+				titan_mech.visible = true
+
+			call_deferred("_titan_event_setup")
+		else:
+			_is_titan_event = false
+
 		
 func _on_map_tutorial_event(id: StringName, _payload: Dictionary) -> void:
 	# enemy_died is guaranteed from MapController.on_unit_died()
@@ -281,6 +334,11 @@ func start_enemy_phase() -> void:
 	phase = Phase.ENEMY
 	M.reset_turn_flags_for_enemies()
 
+	# ✅ EVENT: Titan Overwatch
+	if _is_titan_event:
+		await _titan_overwatch_enemy_phase()
+		return
+		
 	if boss_mode_enabled and boss != null and is_instance_valid(boss):
 		await boss.resolve_planned_attacks()
 		_refresh_population_and_check()
@@ -1314,3 +1372,305 @@ func _enemy_can_see_any_ally(z: Unit, allies: Array[Unit]) -> bool:
 			return true
 
 	return false
+
+func _titan_event_setup() -> void:
+	if M == null:
+		return
+
+	# kill enemies (event is survival-only)
+	for u in M.get_all_units():
+		if u == null or not is_instance_valid(u):
+			continue
+		if u.team == Unit.Team.ENEMY:
+			u.take_damage(999)
+
+	# Disable normal pacing
+	beacon_deadline_round = 999999
+	spawn_base = 0
+	spawn_per_round = 0
+	spawn_bonus_every = 0
+	spawn_bonus_amount = 0
+
+	# Spawn Titan mech
+	if titan_mech_scene != null:
+		titan_mech = titan_mech_scene.instantiate() as Node2D
+		if titan_mech != null:
+			# Add ABOVE terrain but BELOW UI
+			var tm := M.terrain
+			if tm != null and is_instance_valid(tm):
+				var parent := tm.get_parent()
+				if parent != null:
+					parent.add_child(titan_mech)
+				else:
+					add_child(titan_mech) # fallback
+			else:
+				add_child(titan_mech) # fallback
+
+			# Put it behind the terrain tilemap
+			titan_mech.z_index = tm.z_index - 10 if tm != null else -99999
+
+			# Position it just off-map (top-right isometric corner)
+			_position_titan_off_map()
+	
+	_clear_titan_markers()
+
+func _position_titan_off_map() -> void:
+	if titan_mech == null:
+		return
+
+	var apex := _map_top_apex_world()
+	var center_local := _titan_visual_center_local()
+
+	# Put the Titan so its visual center sits on the map apex
+	titan_mech.global_position = apex - center_local
+
+
+func _clear_titan_markers() -> void:
+	for m in _titan_markers:
+		if m != null and is_instance_valid(m):
+			m.queue_free()
+	_titan_markers.clear()
+
+
+func _titan_cell_to_world(cell: Vector2i) -> Vector2:
+	if M == null or M.terrain == null:
+		return Vector2.ZERO
+	return M.terrain.to_global(M.terrain.map_to_local(cell))
+
+func _titan_spawn_marker(cell: Vector2i) -> void:
+	if M == null or M.terrain == null:
+		return
+	if M.attack_tile_scene == null:
+		return
+
+	var marker := M.attack_tile_scene.instantiate() as Node2D
+	if marker == null:
+		return
+
+	# iso depth: same rule as units / overlays
+	marker.z_index = cell.x + cell.y
+
+	# position on grid
+	marker.global_position = M.terrain.to_global(
+		M.terrain.map_to_local(cell)
+	)
+
+	# put it with other overlays if possible
+	if M.overlay_root != null:
+		M.overlay_root.add_child(marker)
+	else:
+		add_child(marker)
+
+	_titan_markers.append(marker)
+
+func _titan_apply_strike(cell: Vector2i) -> void:
+	# Explosion visual (optional)
+	if titan_explosion_scene != null:
+		var e := titan_explosion_scene.instantiate() as Node2D
+		if e != null:
+			e.global_position = _titan_cell_to_world(cell)
+			e.global_position.y -= 16
+			add_child(e)
+
+	# Damage any unit in that cell
+	if M == null:
+		return
+
+	for u in M.get_all_units():
+		if u == null or not is_instance_valid(u) or u.hp <= 0:
+			continue
+		if u.cell == cell:
+			u.take_damage(titan_strike_damage)
+
+func _titan_overwatch_enemy_phase() -> void:
+	# plan strikes: random cells, but try to bias toward where allies are
+	_clear_titan_markers()
+
+	var allies: Array[Unit] = []
+	var minx := 999
+	var miny := 999
+	var maxx := -999
+	var maxy := -999
+
+	for u in M.get_all_units():
+		if u == null or not is_instance_valid(u) or u.hp <= 0:
+			continue
+		if u.team == Unit.Team.ALLY:
+			allies.append(u)
+			minx = min(minx, u.cell.x)
+			miny = min(miny, u.cell.y)
+			maxx = max(maxx, u.cell.x)
+			maxy = max(maxy, u.cell.y)
+
+	# If no allies, treat as fail-safe exit
+	if allies.is_empty():
+		game_over("No allies remaining.")
+		return
+
+	# strike region = around allies (keeps it tense even on big maps)
+	var pad := 4
+	var x0 := minx - pad
+	var x1 := maxx + pad
+	var y0 := miny - pad
+	var y1 := maxy + pad
+
+	var chosen: Dictionary = {} # Vector2i -> true
+	var cells: Array[Vector2i] = []
+
+	var tries := 0
+	var w := int(M.grid.w)
+	var h := int(M.grid.h)
+	while cells.size() < titan_strikes_per_turn and tries < 300:
+		tries += 1
+
+		var cx := _titan_rng.randi_range(x0, x1)
+		var cy := _titan_rng.randi_range(y0, y1)
+
+		# ❌ reject off-map
+		if cx < 0 or cy < 0 or cx >= w or cy >= h:
+			continue
+
+		var c := Vector2i(cx, cy)
+
+		if chosen.has(c):
+			continue
+
+		chosen[c] = true
+		cells.append(c)
+
+		if chosen.has(c):
+			continue
+		chosen[c] = true
+		cells.append(c)
+
+	# warn markers
+	for c in cells:
+		_titan_spawn_marker(c)
+
+	# SFX fire (optional)
+	if M != null and M.has_method("_sfx"):
+		M.call("_sfx", titan_sfx_fire, 1.0, 1.0, Vector2.ZERO)
+
+	# wait briefly before impact
+	var t := 0.0
+	while t < titan_warn_time:
+		await get_tree().process_frame
+		t += get_process_delta_time()
+
+	# impact
+	for c in cells:
+		_titan_apply_strike(c)
+
+	if M != null and M.has_method("_sfx"):
+		M.call("_sfx", titan_sfx_explode, 1.0, 1.0, Vector2.ZERO)
+
+	call_deferred("_refresh_population_and_check")
+	if _game_over_triggered:
+		return
+
+	# advance event counter
+	_titan_turns_left -= 1
+
+	# still advance rounds so your UI keeps moving
+	round_index += 1
+
+	# success!
+	if _titan_turns_left <= 0:
+		await _titan_event_success()
+		return
+
+	# go back to player phase
+	start_player_phase()
+
+func _titan_event_success() -> void:
+	phase = Phase.BUSY
+	_update_end_turn_button()
+	_update_special_buttons()
+
+	_clear_titan_markers()
+
+	# despawn Titan
+	if titan_mech != null and is_instance_valid(titan_mech):
+		await _fade_and_free(titan_mech, 1.5)
+		titan_mech = null
+
+	# mark overworld node cleared
+	var rs := get_tree().root.get_node_or_null("RunStateNode")
+	if rs != null and ("overworld_cleared" in rs):
+		rs.overworld_cleared[str(int(rs.overworld_current_node_id))] = true
+
+	if M != null and M.has_method("_extract_allies_with_bomber"):
+		await M._extract_allies_with_bomber()
+
+	get_tree().change_scene_to_file("res://scenes/overworld.tscn")
+
+func _map_top_apex_world() -> Vector2:
+	if M == null or M.terrain == null:
+		return Vector2.ZERO
+	var tm := M.terrain
+	# cell (0,0) is the top corner in your generated maps
+	var p := tm.to_global(tm.map_to_local(Vector2i(0, 0)))
+	# small nudge upward to hit the “point” of the diamond
+	return p + Vector2(0, -16)
+
+func _titan_visual_center_local() -> Vector2:
+	if titan_mech == null or not is_instance_valid(titan_mech):
+		return Vector2.ZERO
+
+	# 1) Prefer AnimatedSprite2D if present (your case)
+	var a := titan_mech.get_node_or_null("AnimatedSprite2D") as AnimatedSprite2D
+	if a != null and a.sprite_frames != null:
+		var tex := a.sprite_frames.get_frame_texture(a.animation, a.frame)
+		if tex != null:
+			# AnimatedSprite2D is typically drawn centered on its position
+			# (there is no "centered" toggle like Sprite2D)
+			return a.position
+
+	# 2) Fallback: Sprite2D
+	var s := titan_mech.get_node_or_null("Sprite2D") as Sprite2D
+	if s != null and s.texture != null:
+		if s.centered:
+			return s.position
+		else:
+			return s.position + s.texture.get_size() * 0.5
+
+	# 3) Generic fallback: use CanvasItem bounding boxes *only for types that support it*
+	# (Control has get_rect; Node2D sprites don't)
+	var rect := Rect2()
+	var first := true
+
+	for ch in titan_mech.get_children():
+		if ch is Control:
+			var c := ch as Control
+			var r := c.get_rect()
+			r.position += c.position
+			if first:
+				rect = r
+				first = false
+			else:
+				rect = rect.merge(r)
+
+	if not first:
+		return rect.position + rect.size * 0.5
+
+	# 4) Last fallback
+	return Vector2.ZERO
+
+func _fade_and_free(node: CanvasItem, time := 0.35) -> void:
+	if node == null or not is_instance_valid(node):
+		return
+
+	var tw := create_tween()
+	tw.tween_property(node, "modulate:a", 0.0, time)\
+		.set_trans(Tween.TRANS_SINE)\
+		.set_ease(Tween.EASE_IN_OUT)
+
+	await tw.finished
+	if node != null and is_instance_valid(node):
+		node.queue_free()
+
+func _clear_titan_markers_fade() -> void:
+	for m in _titan_markers:
+		if m != null and is_instance_valid(m):
+			_fade_and_free(m, 0.25)
+	_titan_markers.clear()

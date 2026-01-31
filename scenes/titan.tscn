@@ -1,0 +1,95 @@
+[gd_scene load_steps=22 format=3 uid="uid://b4wa86cjcwm3x"]
+
+[ext_resource type="Script" uid="uid://bhcl0fcovgbcf" path="res://scripts/boss_controller.gd" id="1_8h2rw"]
+[ext_resource type="PackedScene" uid="uid://byvw2wssy6345" path="res://scenes/weakpoint.tscn" id="2_4mrbg"]
+[ext_resource type="PackedScene" uid="uid://bulgypadw5war" path="res://scenes/explosion.tscn" id="3_k0kty"]
+[ext_resource type="AudioStream" uid="uid://dogvi6q7030pk" path="res://audio/SFX/explosion_8bit.wav" id="4_xsvwn"]
+[ext_resource type="Texture2D" uid="uid://c5ch02hdxdrus" path="res://sprites/Mechas/Titan/titan1.png" id="5_jjuen"]
+[ext_resource type="Texture2D" uid="uid://crf1f5sfalwth" path="res://sprites/Mechas/Titan/titan2.png" id="6_gn6sl"]
+[ext_resource type="Texture2D" uid="uid://dm2aw7boag5t" path="res://sprites/Mechas/Titan/titan3.png" id="7_kwvjk"]
+[ext_resource type="Texture2D" uid="uid://ddeuboup3rvjn" path="res://sprites/Mechas/Titan/titan4.png" id="8_mvx2r"]
+[ext_resource type="Texture2D" uid="uid://bf48sads4itw2" path="res://sprites/Mechas/Titan/titan5.png" id="9_12wx4"]
+[ext_resource type="Texture2D" uid="uid://doxlt2vxk8q5j" path="res://sprites/Mechas/Titan/titan6.png" id="10_h1iy0"]
+[ext_resource type="Texture2D" uid="uid://8u08mpqlvbee" path="res://sprites/Mechas/Titan/titan7.png" id="11_pggvb"]
+[ext_resource type="Texture2D" uid="uid://dm2r6lmflt0mj" path="res://sprites/Mechas/Titan/titan8.png" id="12_6a0n6"]
+[ext_resource type="Texture2D" uid="uid://dk5vow54eck1l" path="res://sprites/Mechas/Titan/titan9.png" id="13_1fh5w"]
+[ext_resource type="Texture2D" uid="uid://dv7iabia7vtup" path="res://sprites/Mechas/Titan/titan10.png" id="14_32pet"]
+[ext_resource type="Texture2D" uid="uid://du73xinvlhfjw" path="res://sprites/Mechas/Titan/titan11.png" id="15_jfljp"]
+[ext_resource type="Texture2D" uid="uid://bu000gxvi6t3y" path="res://sprites/Mechas/Titan/titan12.png" id="16_yjbce"]
+[ext_resource type="Texture2D" uid="uid://cqod05ms453ve" path="res://sprites/Mechas/Titan/titan13.png" id="17_7v0sg"]
+[ext_resource type="Texture2D" uid="uid://d1bo21wpjq6fs" path="res://sprites/Mechas/Titan/titan14.png" id="18_u5uye"]
+[ext_resource type="Texture2D" uid="uid://dcxmjb2ndjhm1" path="res://sprites/Mechas/Titan/titan15.png" id="19_oy54j"]
+[ext_resource type="Texture2D" uid="uid://hxue8bkr8lum" path="res://sprites/Mechas/Titan/titan16.png" id="20_1ultj"]
+
+[sub_resource type="SpriteFrames" id="SpriteFrames_kx2pj"]
+animations = [{
+"frames": [{
+"duration": 1.0,
+"texture": ExtResource("5_jjuen")
+}, {
+"duration": 1.0,
+"texture": ExtResource("6_gn6sl")
+}, {
+"duration": 1.0,
+"texture": ExtResource("7_kwvjk")
+}, {
+"duration": 1.0,
+"texture": ExtResource("8_mvx2r")
+}, {
+"duration": 1.0,
+"texture": ExtResource("9_12wx4")
+}, {
+"duration": 1.0,
+"texture": ExtResource("10_h1iy0")
+}, {
+"duration": 1.0,
+"texture": ExtResource("11_pggvb")
+}, {
+"duration": 1.0,
+"texture": ExtResource("12_6a0n6")
+}, {
+"duration": 1.0,
+"texture": ExtResource("13_1fh5w")
+}, {
+"duration": 1.0,
+"texture": ExtResource("14_32pet")
+}, {
+"duration": 1.0,
+"texture": ExtResource("15_jfljp")
+}, {
+"duration": 1.0,
+"texture": ExtResource("16_yjbce")
+}, {
+"duration": 1.0,
+"texture": ExtResource("17_7v0sg")
+}, {
+"duration": 1.0,
+"texture": ExtResource("18_u5uye")
+}, {
+"duration": 1.0,
+"texture": ExtResource("19_oy54j")
+}, {
+"duration": 1.0,
+"texture": ExtResource("20_1ultj")
+}],
+"loop": true,
+"name": &"default",
+"speed": 6.0
+}]
+
+[node name="Titan" type="Node2D"]
+script = ExtResource("1_8h2rw")
+boss_max_hp = 9999
+weakpoint_scene = ExtResource("2_4mrbg")
+weakpoint_hp = 50
+explosion_fx_scene = ExtResource("3_k0kty")
+explosion_sfx = ExtResource("4_xsvwn")
+boss_flash_node_path = NodePath("AnimatedSprite2D")
+boss_flash_time = 0.88
+weakpoint_min_separation = 5
+weakpoint_cluster_radius = 5
+
+[node name="AnimatedSprite2D" type="AnimatedSprite2D" parent="."]
+sprite_frames = SubResource("SpriteFrames_kx2pj")
+autoplay = "default"
+flip_h = true

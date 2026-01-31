@@ -39,6 +39,9 @@ var boss_defeated_this_run: bool = false
 var bomber_unlocked_this_run: bool = false
 
 var boss_mode_enabled_next_mission: bool = false
+var event_mode_enabled_next_mission: bool = false
+var event_id_next_mission: StringName = &""  # e.g. &"titan_overwatch"
+
 
 func has_save() -> bool:
 	return FileAccess.file_exists(SAVE_PATH)
@@ -54,6 +57,9 @@ func clear() -> void:
 	roster_scene_paths.clear()
 	recruit_pool_paths.clear()
 	recruited_scene_paths.clear()
+	
+	event_mode_enabled_next_mission = false
+	event_id_next_mission = &""	
 
 func add_upgrade(id: StringName) -> void:
 	run_upgrades.append(id)
@@ -264,6 +270,9 @@ func to_save_dict() -> Dictionary:
 		"roster_scene_paths": roster_scene_paths.duplicate(),
 		"recruit_pool_paths": recruit_pool_paths.duplicate(),
 		"recruited_scene_paths": recruited_scene_paths.duplicate(),
+		
+		"event_mode_enabled_next_mission": event_mode_enabled_next_mission,
+		"event_id_next_mission": String(event_id_next_mission),
 	}
 
 func load_from_save_dict(d: Dictionary) -> void:
@@ -360,3 +369,7 @@ func reset_run() -> void:
 	roster_scene_paths.clear()
 	recruit_pool_paths.clear()
 	recruited_scene_paths.clear()
+	
+	event_mode_enabled_next_mission = false
+	event_id_next_mission = &""
+	
