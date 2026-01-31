@@ -1,9 +1,9 @@
+TextureRect
 AnimatedSprite2D
 Camera2D
 Node
 AudioStreamPlayer
 RichTextLabel
-TextureRect
 Label
 VBoxContainer
 Panel

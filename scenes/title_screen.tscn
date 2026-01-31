@@ -1,4 +1,4 @@
-[gd_scene load_steps=54 format=3 uid="uid://rriol7fhna81"]
+[gd_scene load_steps=55 format=3 uid="uid://rriol7fhna81"]
 
 [ext_resource type="Script" uid="uid://q37bmmrkofy5" path="res://scripts/TitleScreen.gd" id="1_fgkus"]
 [ext_resource type="PackedScene" uid="uid://dp7v6b7f0bh4u" path="res://scenes/overworld.tscn" id="2_6uh13"]
@@ -16,9 +16,10 @@
 [ext_resource type="Shader" uid="uid://184giwfb5rkg" path="res://shaders/wobble_shimmer.gdshader" id="13_12ga3"]
 [ext_resource type="Script" uid="uid://dc2tnq1wwbdig" path="res://scripts/weather_particles.gd" id="13_frs5l"]
 [ext_resource type="Script" uid="uid://dkqyh6slusnok" path="res://scripts/title_screen_map.gd" id="14_jr68i"]
-[ext_resource type="Shader" uid="uid://4obdbrd1sgkq" path="res://shaders/text_outline_1px.gdshader" id="14_yrrko"]
+[ext_resource type="Shader" uid="uid://dymflaaxdlp3e" path="res://shaders/pixel_metallic.gdshader" id="15_6uh13"]
 [ext_resource type="Texture2D" uid="uid://by1nnygq8fbib" path="res://sprites/Terrain/dirt.png" id="15_b344i"]
 [ext_resource type="PackedScene" uid="uid://crup4kaqa4cia" path="res://scenes/structures/building.tscn" id="15_htdhw"]
+[ext_resource type="Texture2D" uid="uid://s0qvyjpho5sq" path="res://sprites/TitleScreen/zombiemecha_logotype.png" id="16_6uh13"]
 [ext_resource type="PackedScene" uid="uid://dwtvwjgxljh78" path="res://scenes/structures/district.tscn" id="16_12ga3"]
 [ext_resource type="Texture2D" uid="uid://bvs7gpxakq282" path="res://sprites/Terrain/sandstone.png" id="16_gm4k0"]
 [ext_resource type="Texture2D" uid="uid://dqnyvmrsprmvf" path="res://sprites/Terrain/grass_snow.png" id="17_mce2t"]
@@ -55,11 +56,16 @@ corner_radius_top_right = 2
 corner_radius_bottom_right = 2
 corner_radius_bottom_left = 2
 
-[sub_resource type="ShaderMaterial" id="ShaderMaterial_aidx5"]
-shader = ExtResource("14_yrrko")
-shader_parameter/font_color = Color(0.8, 0, 0, 1)
-shader_parameter/outline_color = Color(1, 1, 1, 1)
-shader_parameter/outline_px = 4.0
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_y8m2v"]
+shader = ExtResource("15_6uh13")
+shader_parameter/metal_strength = 0.330000015675
+shader_parameter/shine_speed = 1.2
+shader_parameter/shine_width = 0.12
+shader_parameter/shine_angle = 0.9
+shader_parameter/rim_strength = 0.45
+shader_parameter/dither_amount = 0.12
+shader_parameter/metal_tint = Color(0.85, 0.92, 1, 1)
+shader_parameter/pixel_grid = 32.0
 
 [sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_r0uj2"]
 texture = ExtResource("15_b344i")
@@ -309,14 +315,11 @@ layout_mode = 2
 [node name="VBoxContainer" type="VBoxContainer" parent="Center/PanelContainer/MarginContainer"]
 layout_mode = 2
 
-[node name="Title" type="RichTextLabel" parent="Center/PanelContainer/MarginContainer/VBoxContainer"]
-material = SubResource("ShaderMaterial_aidx5")
+[node name="Title" type="TextureRect" parent="Center/PanelContainer/MarginContainer/VBoxContainer"]
+material = SubResource("ShaderMaterial_y8m2v")
 custom_minimum_size = Vector2(120, 73)
 layout_mode = 2
-theme_override_fonts/normal_font = ExtResource("2_aidx5")
-theme_override_font_sizes/normal_font_size = 48
-text = "ZOMBIEMECHA"
-horizontal_alignment = 1
+texture = ExtResource("16_6uh13")
 
 [node name="Buttons" type="HBoxContainer" parent="Center/PanelContainer/MarginContainer/VBoxContainer"]
 layout_mode = 2

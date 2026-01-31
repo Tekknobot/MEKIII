@@ -71,6 +71,21 @@ enum SpawnMode { CLUSTERED, SPREAD, TOP_RIGHT_BIASED }
 @export var weakpoint_cluster_radius := 2      # Manhattan radius around anchor (CLUSTERED/TOP_RIGHT_BIASED)
 @export var weakpoint_bias_strength := 0.0    # 0..1 how strong the top-right bias is
 
+# -------------------------
+# SUPPRESS FX (boss twitch + flash)
+# -------------------------
+@export var suppress_twitch_strength := 0.8          # px
+@export var suppress_twitch_interval := 0.016        # sec
+@export var suppress_flash_strength := 1.35          # >1 brightens
+@export var suppress_color := Color(1.0, 1.0, 1.0, 1.0)
+
+var suppress_turns: int = 0
+var _suppress_tw: Tween = null
+var _suppress_active := false
+var _suppress_base_pos: Vector2
+var _suppress_base_modulate: Color = Color(1,1,1,1)
+
+
 func _ready() -> void:
 	add_to_group("BossController")
 
@@ -870,6 +885,8 @@ func _exit_and_free() -> void:
 		return
 	_exiting = true
 
+	_stop_suppress_twitch()
+
 	_clear_intents()
 	set_process(false)
 	set_physics_process(false)
@@ -914,3 +931,110 @@ func _cell_has_any_unit(c: Vector2i) -> bool:
 					return true
 
 	return false
+
+func apply_suppress(turns: int) -> void:
+	# Call this when the boss gets suppressed
+	suppress_turns = max(suppress_turns, turns)
+	if suppress_turns > 0 and not _suppress_active:
+		_suppress_active = true
+		_start_suppress_twitch()
+
+func tick_suppress() -> void:
+	# Call once per turn (enemy turn tick) if you want it to decay
+	if suppress_turns > 0:
+		suppress_turns -= 1
+		if suppress_turns <= 0:
+			suppress_turns = 0
+			if _suppress_active:
+				_suppress_active = false
+				_stop_suppress_twitch()
+
+func _process(delta: float) -> void:
+	# keep original _process work if you have any (you do sweep in radar, boss currently doesn't)
+	# Keep base position updated when NOT suppressed so movement/outro doesn't fight it
+	if not _suppress_active:
+		_suppress_base_pos = global_position
+
+func _start_suppress_twitch() -> void:
+	_stop_suppress_twitch()
+
+	_suppress_base_pos = global_position
+
+	var ci := _get_flash_target()
+	if ci != null:
+		_suppress_base_modulate = ci.modulate
+	else:
+		_suppress_base_modulate = Color(1,1,1,1)
+
+	_suppress_tw = create_tween()
+	_suppress_tw.set_loops()
+	_suppress_tw.set_trans(Tween.TRANS_SINE)
+	_suppress_tw.set_ease(Tween.EASE_IN_OUT)
+
+	var step = max(0.04, suppress_twitch_interval)
+
+	# jitter + brighten
+	_suppress_tw.tween_callback(func():
+		if not is_instance_valid(self): return
+
+		global_position = _suppress_base_pos + Vector2(
+			randf_range(-suppress_twitch_strength, suppress_twitch_strength),
+			randf_range(-suppress_twitch_strength, suppress_twitch_strength)
+		)
+
+		var tgt := _get_flash_target()
+		if tgt != null and is_instance_valid(tgt):
+			var base := _suppress_base_modulate
+			tgt.modulate = Color(
+				min(base.r * suppress_flash_strength * suppress_color.r, 2.0),
+				min(base.g * suppress_flash_strength * suppress_color.g, 2.0),
+				min(base.b * suppress_flash_strength * suppress_color.b, 2.0),
+				base.a
+			)
+	)
+
+	_suppress_tw.tween_interval(step * 0.5)
+
+	# restore
+	_suppress_tw.tween_callback(func():
+		if not is_instance_valid(self): return
+		global_position = _suppress_base_pos
+		var tgt := _get_flash_target()
+		if tgt != null and is_instance_valid(tgt):
+			tgt.modulate = _suppress_base_modulate
+	)
+
+	_suppress_tw.tween_interval(step * 0.5)
+
+func _stop_suppress_twitch() -> void:
+	if _suppress_tw != null and is_instance_valid(_suppress_tw):
+		_suppress_tw.kill()
+	_suppress_tw = null
+
+	global_position = _suppress_base_pos
+	var tgt := _get_flash_target()
+	if tgt != null and is_instance_valid(tgt):
+		tgt.modulate = _suppress_base_modulate
+
+func apply_suppress_to_weakpoints(turns: int) -> void:
+	if M == null or turns <= 0:
+		return
+	if M.units_root == null:
+		return
+
+	for ch in M.units_root.get_children():
+		if ch == null or not is_instance_valid(ch):
+			continue
+		if not (ch is Unit):
+			continue
+
+		var u := ch as Unit
+		if u.hp <= 0:
+			continue
+
+		# only weakpoints (boss parts)
+		if u.has_meta("is_boss_part") and bool(u.get_meta("is_boss_part")) == true:
+			var cur := 0
+			if u.has_meta("suppress_turns"):
+				cur = int(u.get_meta("suppress_turns"))
+			u.set_meta("suppress_turns", max(cur, turns))

@@ -4313,6 +4313,8 @@ func on_unit_died(u: Unit) -> void:
 	if u.team != Unit.Team.ENEMY:
 		return
 
+	_cleanup_dead_at(u.cell)
+
 	# --- Tutorial hook ---
 	emit_signal("tutorial_event", &"enemy_died", {"cell": u.cell})
 

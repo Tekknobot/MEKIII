@@ -8,8 +8,8 @@ extends Control
 @onready var start_button: Button = $Center/PanelContainer/MarginContainer/VBoxContainer/Buttons/StartButton
 @onready var quit_button: Button = $Center/PanelContainer/MarginContainer/VBoxContainer/Buttons/QuitButton
 @onready var restart_button: Button = $Center/PanelContainer/MarginContainer/VBoxContainer/Buttons/RestartButton
+@onready var title: TextureRect = $Center/PanelContainer/MarginContainer/VBoxContainer/Title
 
-@onready var title: RichTextLabel = $Center/PanelContainer/MarginContainer/VBoxContainer/Title
 
 # --- Story (typewriter) ---
 @onready var story_clip: Control = $StoryClip
@@ -24,10 +24,6 @@ var _type_index := 0
 var _type_accum := 0.0
 var _type_running := false
 var _type_timer: SceneTreeTimer = null
-
-# --- Title vibe ---
-@export var title_float_px := 6.0
-@export var title_float_time := 1.4
 
 @export var sick_color_a := Color("1a1a1aff") # neon green
 @export var sick_color_b := Color("4b4b4bff") # lighter green
@@ -112,10 +108,6 @@ func _ready() -> void:
 	story.text = "" # start empty
 
 	_apply_fonts()
-	
-	# Start animations
-	_start_title_anim()
-	_start_sick_color_anim()
 
 	# Start typewriter
 	_start_typewriter()
@@ -208,46 +200,6 @@ func _kill_tw() -> void:
 	_tw = null
 
 # -------------------------
-# Title animations
-# -------------------------
-func _start_title_anim() -> void:
-	if title == null:
-		return
-
-	if _title_tw != null and is_instance_valid(_title_tw):
-		_title_tw.kill()
-	_title_tw = null
-
-	var base_y := title.position.y
-
-	_title_tw = create_tween()
-	_title_tw.set_loops()
-	_title_tw.set_trans(Tween.TRANS_SINE)
-	_title_tw.set_ease(Tween.EASE_IN_OUT)
-
-	_title_tw.tween_property(title, "position:y", base_y - title_float_px, title_float_time)
-	_title_tw.tween_property(title, "position:y", base_y, title_float_time)
-
-func _start_sick_color_anim() -> void:
-	if _sick_tw != null and is_instance_valid(_sick_tw):
-		_sick_tw.kill()
-	_sick_tw = null
-
-	_sick_tw = create_tween()
-	_sick_tw.set_loops()
-	_sick_tw.set_trans(Tween.TRANS_SINE)
-	_sick_tw.set_ease(Tween.EASE_IN_OUT)
-
-	if title != null:
-		_sick_tw.tween_property(title, "modulate", sick_color_a, sick_pulse_time)
-		_sick_tw.tween_property(title, "modulate", sick_color_b, sick_pulse_time)
-
-	# Story tied to same vibe (slightly dimmer)
-	if story != null:
-		story.modulate = story_color # force pure white
-
-
-# -------------------------
 # Typewriter (NO SCROLLING)
 # -------------------------
 func _start_typewriter() -> void:
@@ -302,17 +254,6 @@ func _update_typewriter(delta: float) -> void:
 			_type_accum += newline_speed_boost
 
 func _apply_fonts() -> void:
-	# Title (Godot 4 Label uses LabelSettings)
-	if title != null:
-		if title_font != null:
-			title.add_theme_font_override("normal_font", title_font)
-			title.add_theme_font_override("bold_font", title_font)
-			title.add_theme_font_override("italics_font", title_font)
-			title.add_theme_font_override("bold_italics_font", title_font)
-			title.add_theme_font_override("mono_font", title_font)
-		if title_font_size > 0:
-			title.add_theme_font_size_override("normal_font_size", title_font_size)
-
 	# Story (RichTextLabel)
 	if story != null:
 		if body_font != null:

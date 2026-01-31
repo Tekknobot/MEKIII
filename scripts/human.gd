@@ -128,7 +128,8 @@ func perform_suppress(map: MapController, target_cell: Vector2i) -> void:
 		# debuff via meta
 		t.set_meta("suppress_turns", suppress_duration_turns)
 		t.set_meta("suppress_move_penalty", suppress_move_penalty)
-
+		t.set_meta("suppress_turns", suppress_move_penalty)
+		
 		# allow the attack anim to show
 		#await map._wait_for_attack_anim(self)
 		await map.get_tree().create_timer(lock).timeout
