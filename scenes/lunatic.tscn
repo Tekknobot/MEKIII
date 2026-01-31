@@ -46,6 +46,7 @@ weakpoint_min_separation = 5
 weakpoint_cluster_radius = 5
 
 [node name="AnimatedSprite2D" type="AnimatedSprite2D" parent="."]
+modulate = Color(0.5877506, 0.58775055, 0.5877505, 1)
 sprite_frames = SubResource("SpriteFrames_kx2pj")
 autoplay = "default"
 flip_h = true

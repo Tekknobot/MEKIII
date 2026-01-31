@@ -499,18 +499,21 @@ func _can_click_node(id: int) -> bool:
 		return false
 	if not alive[id]:
 		return false
-	if nodes[id].cleared:
-		return false
-	if current_node_id < 0:
+	if current_node_id < 0 or current_node_id >= nodes.size():
 		return false
 
-	# If the current node is NOT cleared yet: only it is clickable (launch)
+	# If current node NOT cleared: only it is clickable (launch)
 	if not nodes[current_node_id].cleared:
 		return id == current_node_id
 
-	# If the current node IS cleared: only its neighbors are clickable (move)
-	return nodes[current_node_id].neighbors.has(id)
+	# Current node IS cleared: normally, only neighbors are clickable (move)
+	if _has_uncleared_neighbor(current_node_id):
+		# allow moving onto cleared neighbors too (so you can backtrack)
+		return nodes[current_node_id].neighbors.has(id)
 
+	# DEAD END CASE:
+	# no uncleared neighbors — let the player click ANY reachable uncleared node
+	return _is_reachable_uncleared(current_node_id, id)
 
 func _move_to_node(id: int) -> void:
 	if id == current_node_id:
@@ -1695,3 +1698,50 @@ func _path_start_to_boss() -> Array[int]:
 		cur = int(parent[cur])
 	path.reverse()
 	return path
+
+func _has_uncleared_neighbor(from_id: int) -> bool:
+	if from_id < 0 or from_id >= nodes.size():
+		return false
+	for nb in nodes[from_id].neighbors:
+		if nb < 0 or nb >= nodes.size():
+			continue
+		if not alive[nb]:
+			continue
+		if not nodes[nb].cleared:
+			return true
+	return false
+
+
+func _is_reachable_uncleared(src: int, target: int) -> bool:
+	# BFS that can traverse alive nodes (cleared or not),
+	# but target must be alive + uncleared.
+	if src < 0 or src >= nodes.size():
+		return false
+	if target < 0 or target >= nodes.size():
+		return false
+	if not alive[target]:
+		return false
+	if nodes[target].cleared:
+		return false
+
+	var q: Array[int] = [src]
+	var seen: Dictionary = {}
+	seen[src] = true
+
+	while not q.is_empty():
+		var cur = q.pop_front()
+		if cur == target:
+			return true
+
+		for nb in nodes[cur].neighbors:
+			if nb < 0 or nb >= nodes.size():
+				continue
+			if not alive[nb]:
+				continue
+			if seen.has(nb):
+				continue
+			# allow walking through cleared nodes to escape dead ends
+			seen[nb] = true
+			q.append(nb)
+
+	return false
