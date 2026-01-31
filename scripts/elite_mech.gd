@@ -400,7 +400,7 @@ func _fire_projectile_and_explode(M, target_cell: Vector2i) -> void:
 	if is_instance_valid(p):
 		p.queue_free()
 
-	_impact_cell(M, target_cell)
+	_explode_once(M, target_cell)
 
 func _explode_once(M, target_cell: Vector2i) -> void:
 	if M == null:
