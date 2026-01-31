@@ -63,13 +63,18 @@ var _titan_target_pos := Vector2.ZERO
 @export var titan_reveal_time := 0.6
 @export var titan_reveal_zoom_index := 0 # 0 = most zoomed OUT in your list
 
+# Only run titan reveal on specific overworld node types
+@export var titan_only_on_event_maps := true
+@export var titan_allowed_node_type: StringName = &"EVENT"  # match your NodeType name
+
 func start_titan_reveal_after_center() -> void:
-	# If we’re already centered, just do it immediately
+	if titan_only_on_event_maps and not _is_event_node_map():
+		return
+
 	if not _recentering:
 		_start_titan_reveal()
 		return
 
-	# Otherwise wait for the map_centered signal once, then reveal
 	if not is_connected("map_centered", Callable(self, "_on_map_centered_for_titan")):
 		connect("map_centered", Callable(self, "_on_map_centered_for_titan"), CONNECT_ONE_SHOT)
 
@@ -94,6 +99,17 @@ func _ready() -> void:
 	_zoom_index = clamp(default_zoom_index, 0, zoom_levels.size() - 1)
 	zoom = Vector2.ONE * float(zoom_levels[_zoom_index])
 
+	# --- Gate titan reveal based on overworld mission type ---
+	var rs := get_tree().root.get_node_or_null("RunStateNode")
+	if rs == null:
+		rs = get_tree().root.get_node_or_null("RunState")
+
+	var mtype := ""
+	if rs != null and ("mission_node_type" in rs):
+		mtype = str(rs.mission_node_type).to_lower()
+
+	titan_cinematic_enabled = (mtype == "event")
+
 	# ✅ camera-owned flow: when centering completes, auto-reveal if enabled
 	if not map_centered.is_connected(_on_map_centered):
 		map_centered.connect(_on_map_centered)
@@ -102,6 +118,10 @@ func _ready() -> void:
 	_map_center = _compute_map_center()
 	global_position = _map_center
 
+	# ✅ if this is an EVENT mission, start reveal now (no need for map_centered)
+	if titan_cinematic_enabled:
+		start_titan_reveal_after_center()
+		
 	# Find initial follow target if enabled
 	if follow_enabled:
 		_find_follow_target()
@@ -288,13 +308,27 @@ func _map_top_apex_world() -> Vector2:
 	return p + Vector2(0, -16)
 
 func _on_map_centered() -> void:
-	# only do this on the event level
 	if not titan_cinematic_enabled:
+		return
+	if titan_only_on_event_maps and not _is_event_node_map():
 		return
 
 	# pick ONE cinematic method (don’t run both)
-	# Option A: simple tween pan
 	_start_titan_reveal()
+	# or: start_titan_cinematic()
 
-	# Option B: your lerp cinematic
-	# start_titan_cinematic()
+func _is_event_node_map() -> bool:
+	if not titan_only_on_event_maps:
+		return true
+
+	var rs := get_tree().root.get_node_or_null("RunStateNode")
+	if rs == null:
+		rs = get_tree().root.get_node_or_null("RunState")
+	if rs == null:
+		return false
+
+	# Mission-scene gate: use mission_node_type set by OverworldRadar
+	if ("mission_node_type" in rs):
+		return str(rs.mission_node_type).to_lower() == "event"
+
+	return false
