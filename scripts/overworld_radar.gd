@@ -52,6 +52,12 @@ signal node_enter_requested(node_id: int)
 @export var back_button_font_size := 16
 @export var back_button_font: Font
 
+@export var elite_node_count: int = 2          # how many ELITE nodes total
+@export var elite_min_difficulty: float = 0.70 # only place ELITEs late in the route
+@export var elite_min_bfs_gap: int = 2         # keep ELITEs from clustering
+
+var elite_ids: Array[int] = []                # optional: for debugging / reference
+
 # -------------------------
 # DATA
 # -------------------------
@@ -218,6 +224,91 @@ func _input(event: InputEvent) -> void:
 		if event.keycode == KEY_B:
 			_cheat_clear_path_to_nearest_boss()
 			return
+
+	if event is InputEventKey and event.pressed:
+		# DEBUG CHEAT: clear path to nearest elite
+		if event.keycode == KEY_E:
+			_cheat_clear_path_to_nearest_elite()
+			return
+
+func _cheat_clear_path_to_nearest_elite() -> void:
+	if current_node_id < 0 or current_node_id >= nodes.size():
+		return
+
+	# Find nearest elite and a parent map from BFS
+	var result := _bfs_to_nearest_elite(current_node_id)
+	var elite_target: int = int(result.get("elite", -1))
+	var parent: Dictionary = result.get("parent", {})
+
+	if elite_target < 0:
+		print("CHEAT: No reachable uncleared ELITE found.")
+		return
+
+	# Reconstruct path from elite back to current node
+	var path: Array[int] = []
+	var cur := elite_target
+	while cur != current_node_id and parent.has(cur):
+		path.append(cur)
+		cur = int(parent[cur])
+	path.append(current_node_id)
+	path.reverse() # now current -> ... -> elite
+
+	# Clear everything along the path EXCEPT the elite node itself
+	var rs := _rs()
+	for id in path:
+		if id == elite_target:
+			continue
+		if id < 0 or id >= nodes.size():
+			continue
+		nodes[id].cleared = true
+		if rs != null and ("overworld_cleared" in rs):
+			rs.overworld_cleared[str(id)] = true
+
+	# Jump current selection onto the elite node (leave it uncleared so it can launch)
+	current_node_id = elite_target
+	hovered_node_id = -1
+
+	if rs != null:
+		rs.overworld_current_node_id = current_node_id
+
+	print("CHEAT: Cleared path to elite node ", elite_target)
+
+	_build_packets()
+	queue_redraw()
+
+	if squad_hud_enabled:
+		_refresh_squad_hud()
+
+
+func _bfs_to_nearest_elite(src: int) -> Dictionary:
+	var parent: Dictionary = {}
+	var seen: Dictionary = {}
+	var q: Array[int] = []
+
+	seen[src] = true
+	q.append(src)
+
+	while not q.is_empty():
+		var cur: int = q.pop_front()
+
+		# Found nearest reachable uncleared elite
+		if nodes[cur].ntype == NodeType.ELITE and not nodes[cur].cleared:
+			return {"elite": cur, "parent": parent}
+
+		for nb in nodes[cur].neighbors:
+			if nb < 0 or nb >= nodes.size():
+				continue
+			if not alive[nb]:
+				continue
+			# allow traversing cleared nodes
+			if seen.has(nb):
+				continue
+
+			seen[nb] = true
+			parent[nb] = cur
+			q.append(nb)
+
+	return {"elite": -1, "parent": parent}
 				
 func _cheat_clear_path_to_nearest_boss() -> void:
 	if current_node_id < 0 or current_node_id >= nodes.size():
@@ -371,6 +462,7 @@ func _generate_world() -> void:
 
 	# Assign node types
 	_assign_types()
+	_assign_extra_elite_nodes()
 	_assign_extra_boss_nodes()
 	current_node_id = start_id
 
@@ -1095,3 +1187,62 @@ func _bfs_distance_between(a: int, b: int) -> int:
 			q.append(nb)
 
 	return -1
+
+func _assign_extra_elite_nodes() -> void:
+	elite_ids.clear()
+
+	# Clamp desired count
+	var desired = max(0, elite_node_count)
+	if desired <= 0:
+		return
+
+	# Candidates: alive, not cleared, not start, not boss, late difficulty
+	var candidates: Array[int] = []
+	for nd in nodes:
+		if not alive[nd.id]:
+			continue
+		if nd.id == start_id:
+			continue
+		if nd.ntype == NodeType.BOSS:
+			continue
+		if nd.difficulty < elite_min_difficulty:
+			continue
+
+		# Don’t steal other special nodes unless you want to allow it
+		# (If you DO want elites to overwrite COMBAT/EVENT/SUPPLY, remove this check.)
+		if nd.ntype != NodeType.COMBAT:
+			continue
+
+		candidates.append(nd.id)
+
+	_rng_shuffle_int(candidates)
+
+	# Keep ELITEs spaced out
+	var chosen: Array[int] = []
+
+	for id in candidates:
+		if chosen.size() >= desired:
+			break
+
+		var ok := true
+
+		# keep away from other elites
+		for e in chosen:
+			var gap := _bfs_distance_between(id, e)
+			if gap >= 0 and gap < elite_min_bfs_gap:
+				ok = false
+				break
+		if not ok:
+			continue
+
+		# optional: also keep away from bosses a bit
+		# (uncomment if you want)
+		# if boss_id >= 0:
+		# 	var gb := _bfs_distance_between(id, boss_id)
+		# 	if gb >= 0 and gb < elite_min_bfs_gap:
+		# 		continue
+
+		nodes[id].ntype = NodeType.ELITE
+		chosen.append(id)
+
+	elite_ids = chosen

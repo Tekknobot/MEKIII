@@ -20,3 +20,10 @@ res://scripts/weakpoint.gd
 res://scripts/humantwo.gd
 res://scripts/r_2.gd
 res://shaders/pixel_metallic.gdshader
+res://scenes/units/allies/M2.tscn
+res://scenes/zombie.tscn
+res://scenes/elite_mech.tscn
+res://scripts/elite_mech.gd
+res://scenes/units/allies/S3.tscn
+res://scripts/s_3.gd
+res://shaders/pixel_dissolve.gdshader

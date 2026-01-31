@@ -38,6 +38,8 @@ var _terrain_ref: TileMap = null
 var floppy_parts: int = 0
 signal died(u: Unit)
 
+@export var visual_offset: Vector2 = Vector2.ZERO
+
 func _ready() -> void:
 	hp = clamp(hp, 0, max_hp)
 	_update_depth()
@@ -48,6 +50,8 @@ func set_cell(c: Vector2i, terrain: TileMap) -> void:
 	if terrain and is_instance_valid(terrain):
 		global_position = terrain.to_global(terrain.map_to_local(c))
 	_update_depth()
+	
+	_apply_visual_offset()
 
 func _update_depth() -> void:
 	z_as_relative = false
@@ -266,3 +270,23 @@ func get_thumbnail_texture() -> Texture2D:
 
 	# 3) fallback to portrait
 	return get_portrait_texture()
+
+func _get_render_canvas_item() -> CanvasItem:
+	# Try common names first
+	var spr := get_node_or_null("Sprite2D")
+	if spr is CanvasItem:
+		return spr
+	var anim := get_node_or_null("AnimatedSprite2D")
+	if anim is CanvasItem:
+		return anim
+
+	# Fallback: first CanvasItem child
+	for ch in get_children():
+		if ch is CanvasItem:
+			return ch
+	return null
+
+func _apply_visual_offset() -> void:
+	var ci: CanvasItem = _get_render_canvas_item()
+	if ci != null and is_instance_valid(ci):
+		ci.position = visual_offset

@@ -8,6 +8,7 @@ class_name MapController
 
 @export var ally_scenes: Array[PackedScene] = []
 @export var enemy_zombie_scene: PackedScene
+@export var enemy_elite_mech_scene: PackedScene 
 
 @export var move_tile_scene: PackedScene
 @export var attack_tile_scene: PackedScene
@@ -670,7 +671,20 @@ func spawn_units() -> void:
 		enemy_zone_cells = valid_cells.duplicate()
 
 	_rebuild_recruit_pool_from_allies()
-	_spawn_zombies_in_clusters(enemy_zone_cells, max_zombies)
+
+	var rs := get_tree().root.get_node_or_null("RunStateNode")
+	var is_elite_mission = (rs != null and ("mission_node_type" in rs) and rs.mission_node_type == &"elite")
+
+	# If elite mission, spawn one fewer normal zombie so total pressure stays similar
+	var zombies_to_spawn := max_zombies
+	if is_elite_mission:
+		zombies_to_spawn = maxi(0, max_zombies - 1)
+
+	_spawn_zombies_in_clusters(enemy_zone_cells, zombies_to_spawn)
+
+	# Spawn the EliteMech in the enemy zone
+	if is_elite_mission:
+		_spawn_elite_mech_in_zone(enemy_zone_cells, structure_blocked)
 
 	# ---------------------------------------------------
 	# 3) Allies AFTER (bomber drop)
@@ -708,7 +722,6 @@ func spawn_units() -> void:
 		u.team = Unit.Team.ALLY
 
 		# ✅ Apply RunState upgrades to THIS unit
-		var rs := get_tree().root.get_node_or_null("RunStateNode")
 		if rs != null and rs.has_method("apply_upgrades_to_unit"):
 			rs.apply_upgrades_to_unit(u)
 
@@ -744,6 +757,60 @@ func spawn_units() -> void:
 		TM.on_units_spawned()
 
 	_ensure_beacon_marker()
+
+func _spawn_elite_mech_in_zone(zone_cells: Array[Vector2i], structure_blocked: Dictionary) -> bool:
+	if units_root == null or terrain == null:
+		return false
+
+	var scene := enemy_elite_mech_scene
+	if scene == null:
+		push_warning("MapController: enemy_elite_mech_scene not assigned; skipping elite spawn.")
+		return false
+
+	# Build valid spawn list
+	var valid: Array[Vector2i] = []
+	for c in zone_cells:
+		if not _is_walkable(c):
+			continue
+		if structure_blocked.has(c):
+			continue
+		if units_by_cell.has(c):
+			continue
+		valid.append(c)
+
+	if valid.is_empty():
+		push_warning("MapController: no valid cells to spawn EliteMech.")
+		return false
+
+	var cell = valid.pick_random()
+
+	var u := scene.instantiate() as Unit
+	if u == null:
+		return false
+
+	units_root.add_child(u)
+	_wire_unit_signals(u)
+
+	u.team = Unit.Team.ENEMY
+	u.hp = u.max_hp
+
+	u.set_cell(cell, terrain)
+	units_by_cell[cell] = u
+	_set_unit_depth_from_world(u, u.global_position)
+
+	# Fade in (same vibe as zombies)
+	var ci := _get_unit_render_node(u)
+	if ci != null and is_instance_valid(ci):
+		var m := ci.modulate
+		m.a = 0.0
+		ci.modulate = m
+
+		var tw := create_tween()
+		tw.set_trans(Tween.TRANS_SINE)
+		tw.set_ease(Tween.EASE_OUT)
+		tw.tween_property(ci, "modulate:a", 1.0, enemy_fade_time)
+
+	return true
 
 func _pick_far_center(cells: Array[Vector2i], from_center: Vector2i) -> Vector2i:
 	if cells.is_empty():

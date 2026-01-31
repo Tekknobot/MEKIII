@@ -1,4 +1,4 @@
-[gd_scene load_steps=93 format=3 uid="uid://bmtwqbsx674eo"]
+[gd_scene load_steps=94 format=3 uid="uid://bmtwqbsx674eo"]
 
 [ext_resource type="Script" uid="uid://bn08mhcoceqg" path="res://scripts/game.gd" id="1_400sg"]
 [ext_resource type="Texture2D" uid="uid://by1nnygq8fbib" path="res://sprites/Terrain/dirt.png" id="6_mcffj"]
@@ -44,6 +44,7 @@
 [ext_resource type="AudioStream" uid="uid://c7wah0i8xrgkm" path="res://audio/SFX/Retro FootStep 03.wav" id="36_m2g6u"]
 [ext_resource type="AudioStream" uid="uid://b7n22ud1fbmt5" path="res://audio/SFX/slash.wav" id="37_27c7x"]
 [ext_resource type="AudioStream" uid="uid://cvmadfryrn0ar" path="res://audio/SFX/Hit8.wav" id="38_ho5ir"]
+[ext_resource type="PackedScene" uid="uid://d05mwlbkobqyd" path="res://scenes/elite_mech.tscn" id="38_ly0d1"]
 [ext_resource type="AudioStream" uid="uid://dogvi6q7030pk" path="res://audio/SFX/explosion_8bit.wav" id="39_evnk2"]
 [ext_resource type="AudioStream" uid="uid://dpslt5sraa3ko" path="res://audio/Zombie/zombie_massacre_vocal_impact_pain_hurt_01.wav" id="40_27c7x"]
 [ext_resource type="Texture2D" uid="uid://bsyc60b8surhm" path="res://sprites/Tiles_UI/mek3/1x1_no_attack.png" id="41_evnk2"]
@@ -402,6 +403,7 @@ units_root_path = NodePath("../Units")
 overlay_root_path = NodePath("../Overlays")
 ally_scenes = Array[PackedScene]([ExtResource("26_rm8d8"), ExtResource("27_jipkd"), ExtResource("28_o01hm"), ExtResource("29_uxlqh"), ExtResource("30_xlhy4"), ExtResource("31_6jll0"), ExtResource("32_ly0d1")])
 enemy_zombie_scene = ExtResource("26_0bq3a")
+enemy_elite_mech_scene = ExtResource("38_ly0d1")
 move_tile_scene = ExtResource("27_0bq3a")
 attack_tile_scene = ExtResource("26_jhsr3")
 attack_flash_time = 0.48

@@ -1,0 +1,195 @@
+[gd_scene load_steps=28 format=3 uid="uid://d05mwlbkobqyd"]
+
+[ext_resource type="Script" uid="uid://crpx54tgclw42" path="res://scripts/elite_mech.gd" id="1_3sk1l"]
+[ext_resource type="Texture2D" uid="uid://btmthk3elumpp" path="res://sprites/Mechas/Rob1/rob1.png" id="1_tyjfv"]
+[ext_resource type="Texture2D" uid="uid://3c4l4ouccj0b" path="res://sprites/Mechas/Rob1/rob2.png" id="2_3sk1l"]
+[ext_resource type="Texture2D" uid="uid://f7qv7y6r3m3p" path="res://sprites/Mechas/Rob1/rob3.png" id="3_lr6eu"]
+[ext_resource type="Texture2D" uid="uid://ca1sqsm6uvejo" path="res://sprites/Mechas/Rob1/rob4.png" id="4_0gnu1"]
+[ext_resource type="Texture2D" uid="uid://dljt88n83sue3" path="res://sprites/Mechas/Rob1/rob5.png" id="5_2c65x"]
+[ext_resource type="Texture2D" uid="uid://d2uysve5vy4vj" path="res://sprites/Mechas/Rob1/rob6.png" id="6_5oufl"]
+[ext_resource type="Texture2D" uid="uid://rmdvu0a5mqhp" path="res://sprites/Mechas/Rob1/rob7.png" id="7_ekwvq"]
+[ext_resource type="Texture2D" uid="uid://dr8llj7kpsh10" path="res://sprites/Mechas/Rob1/rob8.png" id="8_fxrfp"]
+[ext_resource type="Texture2D" uid="uid://bkylv8dfqnkcg" path="res://sprites/Explosion/explosion1.png" id="9_vt382"]
+[ext_resource type="Texture2D" uid="uid://5rowb55gcpdo" path="res://sprites/Explosion/explosion2.png" id="10_3lff8"]
+[ext_resource type="Texture2D" uid="uid://bd7brxhvng8x2" path="res://sprites/Explosion/explosion3.png" id="11_2d6jb"]
+[ext_resource type="Texture2D" uid="uid://dba6mxmkieou5" path="res://sprites/Explosion/explosion4.png" id="12_tmxhd"]
+[ext_resource type="Texture2D" uid="uid://7vhtauytorjm" path="res://sprites/Explosion/explosion5.png" id="13_6mqg0"]
+[ext_resource type="Texture2D" uid="uid://cx563mikd8xgq" path="res://sprites/Explosion/explosion6.png" id="14_nmq2a"]
+[ext_resource type="Texture2D" uid="uid://colhte0st8rgu" path="res://sprites/Explosion/explosion7.png" id="15_muokr"]
+[ext_resource type="Texture2D" uid="uid://duocys137b0ff" path="res://sprites/Explosion/explosion8.png" id="16_8suqg"]
+[ext_resource type="Texture2D" uid="uid://12yes4vjuccq" path="res://sprites/Explosion/explosion9.png" id="17_wh5xv"]
+[ext_resource type="Texture2D" uid="uid://d0b35fj4u2wvh" path="res://sprites/Explosion/explosion10.png" id="18_2jrco"]
+[ext_resource type="Texture2D" uid="uid://b0cc4uuasjv8a" path="res://sprites/Explosion/explosion11.png" id="19_4onab"]
+[ext_resource type="Texture2D" uid="uid://btqqeif8wuqwt" path="res://sprites/Explosion/explosion12.png" id="20_t2t10"]
+[ext_resource type="Texture2D" uid="uid://ohqnd0ucje5w" path="res://sprites/Explosion/explosion13.png" id="21_7n6kb"]
+[ext_resource type="Texture2D" uid="uid://bevk2t4jsk0ry" path="res://sprites/Explosion/explosion14.png" id="22_b1oip"]
+[ext_resource type="FontFile" uid="uid://buw362wjb8o8d" path="res://fonts/magofonts/mago2.ttf" id="41_kblk2"]
+[ext_resource type="Script" uid="uid://lmsma3lhwhb8" path="res://scripts/hp_label.gd" id="42_uppwk"]
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_o6twh"]
+size = Vector2(20, 6)
+
+[sub_resource type="SpriteFrames" id="SpriteFrames_0pyg8"]
+animations = [{
+"frames": [{
+"duration": 1.0,
+"texture": ExtResource("1_tyjfv")
+}, {
+"duration": 1.0,
+"texture": ExtResource("2_3sk1l")
+}, {
+"duration": 1.0,
+"texture": ExtResource("3_lr6eu")
+}, {
+"duration": 1.0,
+"texture": ExtResource("4_0gnu1")
+}, {
+"duration": 1.0,
+"texture": ExtResource("5_2c65x")
+}, {
+"duration": 1.0,
+"texture": ExtResource("6_5oufl")
+}, {
+"duration": 1.0,
+"texture": ExtResource("7_ekwvq")
+}, {
+"duration": 1.0,
+"texture": ExtResource("8_fxrfp")
+}],
+"loop": false,
+"name": &"attack",
+"speed": 24.0
+}, {
+"frames": [{
+"duration": 1.0,
+"texture": ExtResource("9_vt382")
+}, {
+"duration": 1.0,
+"texture": ExtResource("10_3lff8")
+}, {
+"duration": 1.0,
+"texture": ExtResource("11_2d6jb")
+}, {
+"duration": 1.0,
+"texture": ExtResource("12_tmxhd")
+}, {
+"duration": 1.0,
+"texture": ExtResource("13_6mqg0")
+}, {
+"duration": 1.0,
+"texture": ExtResource("14_nmq2a")
+}, {
+"duration": 1.0,
+"texture": ExtResource("15_muokr")
+}, {
+"duration": 1.0,
+"texture": ExtResource("16_8suqg")
+}, {
+"duration": 1.0,
+"texture": ExtResource("17_wh5xv")
+}, {
+"duration": 1.0,
+"texture": ExtResource("18_2jrco")
+}, {
+"duration": 1.0,
+"texture": ExtResource("19_4onab")
+}, {
+"duration": 1.0,
+"texture": ExtResource("20_t2t10")
+}, {
+"duration": 1.0,
+"texture": ExtResource("21_7n6kb")
+}, {
+"duration": 1.0,
+"texture": ExtResource("22_b1oip")
+}],
+"loop": false,
+"name": &"death",
+"speed": 18.0
+}, {
+"frames": [{
+"duration": 1.0,
+"texture": ExtResource("1_tyjfv")
+}, {
+"duration": 1.0,
+"texture": ExtResource("2_3sk1l")
+}, {
+"duration": 1.0,
+"texture": ExtResource("3_lr6eu")
+}, {
+"duration": 1.0,
+"texture": ExtResource("4_0gnu1")
+}, {
+"duration": 1.0,
+"texture": ExtResource("5_2c65x")
+}, {
+"duration": 1.0,
+"texture": ExtResource("6_5oufl")
+}, {
+"duration": 1.0,
+"texture": ExtResource("7_ekwvq")
+}, {
+"duration": 1.0,
+"texture": ExtResource("8_fxrfp")
+}],
+"loop": true,
+"name": &"idle",
+"speed": 6.0
+}, {
+"frames": [{
+"duration": 1.0,
+"texture": ExtResource("1_tyjfv")
+}, {
+"duration": 1.0,
+"texture": ExtResource("2_3sk1l")
+}, {
+"duration": 1.0,
+"texture": ExtResource("3_lr6eu")
+}, {
+"duration": 1.0,
+"texture": ExtResource("4_0gnu1")
+}, {
+"duration": 1.0,
+"texture": ExtResource("5_2c65x")
+}, {
+"duration": 1.0,
+"texture": ExtResource("6_5oufl")
+}, {
+"duration": 1.0,
+"texture": ExtResource("7_ekwvq")
+}, {
+"duration": 1.0,
+"texture": ExtResource("8_fxrfp")
+}],
+"loop": true,
+"name": &"move",
+"speed": 12.0
+}]
+
+[node name="Unit" type="CharacterBody2D"]
+script = ExtResource("1_3sk1l")
+display_name = "Elite Mech"
+team = 1
+footprint_size = Vector2i(2, 2)
+attack_range = 4
+visual_offset = Vector2(0, -64)
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="."]
+position = Vector2(0, -9)
+shape = SubResource("RectangleShape2D_o6twh")
+
+[node name="AnimatedSprite2D" type="AnimatedSprite2D" parent="."]
+sprite_frames = SubResource("SpriteFrames_0pyg8")
+animation = &"idle"
+autoplay = "idle"
+
+[node name="HPLabel" type="Label" parent="."]
+offset_top = -122.0
+offset_right = 40.0
+offset_bottom = -109.0
+theme_override_fonts/font = ExtResource("41_kblk2")
+text = "3"
+script = ExtResource("42_uppwk")
+unit_path = NodePath("..")
+show_as_fraction = false
+prefix = ""

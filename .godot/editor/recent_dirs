@@ -1,3 +1,5 @@
+res://sprites/Explosion
+res://sprites/Mechas/Rob1
 res://sprites/Zombies/zomb/crusher/attack
 res://sprites/Zombies/zomb/crusher/death
 res://sprites/Zombies/zomb/crusher/move
@@ -18,5 +20,3 @@ res://icon
 res://sprites/Tiles_UI/mek3
 res://sprites/Bots/Blue
 res://audio/SFX
-res://sprites/Zombies/zomb
-res://sprites/Structures/tower

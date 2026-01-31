@@ -204,6 +204,13 @@ func _apply_damage_at_cell(M: MapController, c: Vector2i, dmg: int) -> void:
 	if tgt != null and is_instance_valid(tgt):
 		if ("team" in tgt) and (tgt.team == team):
 			return
+
+		# ✅ flash white on hit
+		if M.has_method("_flash_unit_white"):
+			M.call("_flash_unit_white", tgt, 0.10)
+		elif M.has_method("flash_unit_white"):
+			M.call("flash_unit_white", tgt, 0.10)
+
 		_apply_damage_safely(tgt, dmg)
 
 	# Optional: structures
@@ -238,6 +245,13 @@ func _apply_nova_splash_damage(M: MapController, center: Vector2i) -> void:
 			if tgt != null and is_instance_valid(tgt):
 				if (not nova_splash_hits_allies) and ("team" in tgt) and (tgt.team == team):
 					continue
+
+				# ✅ flash white on splash hit
+				if M.has_method("_flash_unit_white"):
+					M.call("_flash_unit_white", tgt, 0.08)
+				elif M.has_method("flash_unit_white"):
+					M.call("flash_unit_white", tgt, 0.08)
+
 				_apply_damage_safely(tgt, nova_splash_damage)
 
 			# Structures (optional)
