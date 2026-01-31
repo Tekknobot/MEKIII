@@ -39,3 +39,4 @@ res://scripts/zombie.gd
 res://scenes/overworld_radar.tscn
 res://scenes/titan.tscn
 res://scripts/overworld.gd
+res://scenes/camera.gd

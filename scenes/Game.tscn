@@ -362,6 +362,9 @@ zoom = Vector2(2, 2)
 script = ExtResource("8_400sg")
 follow_enabled = true
 recenter_smoothness = 2.0
+titan_cinematic_enabled = true
+titan_reveal_pan_px = 80.0
+titan_reveal_time = 5.0
 
 [node name="Units" type="Node2D" parent="."]
 
@@ -370,10 +373,7 @@ script = ExtResource("24_jai3c")
 map_controller_path = NodePath("../MapController")
 end_turn_button_path = NodePath("../UI/EndTurnButton")
 menu_button_path = NodePath("../UI/MenuButton")
-title_scene_path = null
 zombie_limit = 48
-show_infestation_hud = null
-zombie_portrait_tex = null
 infestation_title_font = ExtResource("52_px4p2")
 infestation_body_font = ExtResource("53_x0rj3")
 infestation_button_font = ExtResource("32_1gdd5")
@@ -394,23 +394,11 @@ cannon_button_path = NodePath("../UI/Cannon")
 quake_button_path = NodePath("../UI/Quake")
 nova_button_path = NodePath("../UI/Nova")
 beacon_deadline_round = 99
-spawn_base = null
-spawn_per_round = null
-spawn_bonus_every = null
-spawn_bonus_amount = null
-spawn_cap = null
-end_game_panel_path = null
-boss_mode_enabled = null
 boss_controller_scene = ExtResource("28_6jll0")
 titan_event_enabled = false
-titan_turns_to_survive = 5
-titan_strikes_per_turn = null
-titan_strike_damage = null
-titan_warn_time = null
+titan_turns_to_survive = 32
 titan_mech_scene = ExtResource("29_nc8ee")
 titan_explosion_scene = ExtResource("32_426vi")
-titan_sfx_fire = null
-titan_sfx_explode = null
 
 [node name="Pickups" type="Node2D" parent="."]
 z_index = 2

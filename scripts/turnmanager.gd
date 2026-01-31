@@ -123,6 +123,88 @@ var _titan_rng := RandomNumberGenerator.new()
 # warning markers we spawn each turn
 var _titan_markers: Array[Node2D] = []
 
+var _event_turn := 0
+@export var event_base_cells := 1
+@export var event_max_cells := 16
+
+enum EventPattern { SCATTER, LINE, CROSS, RING }
+
+var _titan_autorun_started := false
+
+var _pending_return_to_overworld := false
+var _pending_event_success := false
+
+func _pick_pattern() -> int:
+	# early turns: simple; later: nastier
+	if _event_turn <= 1:
+		return EventPattern.SCATTER
+	elif _event_turn == 2:
+		return _titan_rng.randi_range(0, 1) # scatter/line
+	elif _event_turn == 3:
+		return _titan_rng.randi_range(1, 2) # line/cross
+	else:
+		return _titan_rng.randi_range(1, 3) # line/cross/ring
+
+func _pattern_candidates(pattern: int) -> Array[Vector2i]:
+	var out: Array[Vector2i] = []
+
+	var game_map := get_tree().get_first_node_in_group("GameMap")
+
+	# pick an anchor on the board
+	var cx := _titan_rng.randi_range(0, game_map.map_width - 1)
+	var cy := _titan_rng.randi_range(0, game_map.map_height - 1)
+	var c := Vector2i(cx, cy)
+
+	match pattern:
+		EventPattern.SCATTER:
+			# whole board candidates
+			for x in range(game_map.map_width):
+				for y in range(game_map.map_height):
+					out.append(Vector2i(x, y))
+
+		EventPattern.LINE:
+			var horiz := _titan_rng.randi() % 2 == 0
+			if horiz:
+				for x in range(game_map.map_width):
+					out.append(Vector2i(x, c.y))
+			else:
+				for y in range(game_map.map_height):
+					out.append(Vector2i(c.x, y))
+
+		EventPattern.CROSS:
+			for x in range(game_map.map_width):
+				out.append(Vector2i(x, c.y))
+			for y in range(game_map.map_height):
+				out.append(Vector2i(c.x, y))
+
+		EventPattern.RING:
+			# diamond ring at radius 2–4 (scales with turns)
+			var r := clampi(2 + _event_turn, 2, 4)
+			for dx in range(-r, r + 1):
+				var dy = r - abs(dx)
+				out.append(c + Vector2i(dx,  dy))
+				out.append(c + Vector2i(dx, -dy))
+
+	# filter: in bounds, not blocked (optional)
+	var filtered: Array[Vector2i] = []
+	for cell in out:
+		if cell.x < 0 or cell.y < 0 or cell.x >= game_map.map_width or cell.y >= game_map.map_height:
+			continue
+		filtered.append(cell)
+
+	return filtered
+
+func _choose_cells(cands: Array[Vector2i], count: int) -> Array[Vector2i]:
+	var pool := cands.duplicate()
+	pool.shuffle()
+	var picked: Array[Vector2i] = []
+	for cell in pool:
+		if picked.size() >= count:
+			break
+		# optional: avoid allies so it’s “fair”, or DO target allies to be mean
+		picked.append(cell)
+	return picked
+
 func _ready() -> void:
 	end_panel = EndGamePanelRuntime.new()
 
@@ -235,7 +317,7 @@ func _ready() -> void:
 			titan_event_enabled = false
 
 		# ✅ if event is enabled, run titan event
-		if titan_event_enabled and titan_event_enabled:
+		if titan_event_enabled:
 			_is_titan_event = true
 			_titan_turns_left = titan_turns_to_survive
 
@@ -256,6 +338,17 @@ func _ready() -> void:
 		else:
 			_is_titan_event = false
 
+func _wait_until_allies_exist(max_frames := 1200) -> bool:
+	# 1200 frames ≈ 20 seconds @ 60fps (deployment/fades can be long)
+	var frames := 0
+	while frames < max_frames:
+		if M != null:
+			for u in M.get_all_units():
+				if u != null and is_instance_valid(u) and u.hp > 0 and u.team == Unit.Team.ALLY:
+					return true
+		frames += 1
+		await get_tree().process_frame
+	return false
 		
 func _on_map_tutorial_event(id: StringName, _payload: Dictionary) -> void:
 	# enemy_died is guaranteed from MapController.on_unit_died()
@@ -307,9 +400,22 @@ func _refresh_population_and_check() -> void:
 		return
 
 func _on_loss_restart_pressed() -> void:
-	# EndGamePanelRuntime "Continue" will behave like RESTART for loss
 	if not _game_over_triggered:
 		return
+
+	# reset autoload run state
+	var rs := get_tree().root.get_node_or_null("RunStateNode")
+	if rs != null and rs.has_method("reset_run"):
+		rs.call("reset_run")
+
+	# also clear local event markers so no leftovers flash
+	_clear_titan_markers()
+	_event_turn = 0
+	_is_titan_event = false
+	_titan_turns_left = 0
+
+	# reload scene
+	get_tree().paused = false
 	get_tree().reload_current_scene()
 
 # -----------------------
@@ -449,6 +555,13 @@ func _update_end_turn_button() -> void:
 
 func on_units_spawned() -> void:
 	_update_special_buttons()
+
+	if _is_titan_event and not _titan_autorun_started:
+		_titan_autorun_started = true
+		phase = Phase.BUSY
+		_update_end_turn_button()
+		_update_special_buttons()
+		call_deferred("_start_titan_event_autorun")
 
 func _all_allies_done() -> bool:
 	for u in _moved.keys():
@@ -1377,12 +1490,28 @@ func _titan_event_setup() -> void:
 	if M == null:
 		return
 
-	# kill enemies (event is survival-only)
+	# despawn enemies silently (no death => no drops)
+	var to_remove: Array = []
 	for u in M.get_all_units():
 		if u == null or not is_instance_valid(u):
 			continue
 		if u.team == Unit.Team.ENEMY:
-			u.take_damage(999)
+			to_remove.append(u)
+
+	# if an enemy was selected, clear selection first
+	if M.selected != null and is_instance_valid(M.selected) and M.selected.team == Unit.Team.ENEMY:
+		M.selected = null
+
+	for u in to_remove:
+		# remove from grid registry so MapController doesn't keep a dead reference
+		if "units_by_cell" in M:
+			var c: Vector2i = u.cell
+			if M.units_by_cell.has(c) and M.units_by_cell[c] == u:
+				M.units_by_cell.erase(c)
+
+		# free without triggering death logic
+		u.queue_free()
+
 
 	# Disable normal pacing
 	beacon_deadline_round = 999999
@@ -1483,67 +1612,76 @@ func _titan_apply_strike(cell: Vector2i) -> void:
 			u.take_damage(titan_strike_damage)
 
 func _titan_overwatch_enemy_phase() -> void:
-	# plan strikes: random cells, but try to bias toward where allies are
+	# ✅ PATTERN + DOUBLING strikes per turn: 1,2,4,8,16...
 	_clear_titan_markers()
 
+	# Gather allies (fail-safe)
 	var allies: Array[Unit] = []
-	var minx := 999
-	var miny := 999
-	var maxx := -999
-	var maxy := -999
-
 	for u in M.get_all_units():
 		if u == null or not is_instance_valid(u) or u.hp <= 0:
 			continue
 		if u.team == Unit.Team.ALLY:
 			allies.append(u)
-			minx = min(minx, u.cell.x)
-			miny = min(miny, u.cell.y)
-			maxx = max(maxx, u.cell.x)
-			maxy = max(maxy, u.cell.y)
 
-	# If no allies, treat as fail-safe exit
 	if allies.is_empty():
-		game_over("No allies remaining.")
-		return
+		# bomber deploy can cause a brief window where no allies are placed yet
+		var ok := await _wait_until_allies_placed(60) # ~1 sec @60fps
+		
+		allies.clear()
+		for u in M.get_all_units():
+			if u != null and is_instance_valid(u) and u.hp > 0 and u.team == Unit.Team.ALLY:
+				allies.append(u)
+		
+		if not ok:
+			game_over("No allies remaining.")
+			return
 
-	# strike region = around allies (keeps it tense even on big maps)
+
+	# -----------------------------
+	# Pick strike cells (patterned)
+	# -----------------------------
+	_event_turn += 1  # drives doubling curve
+
+	var n := _event_cells_this_turn()              # 1,2,4,8,16 (clamped)
+	var pattern := _pick_pattern()
+	var cands := _pattern_candidates(pattern)
+
+	# Optional: bias candidates toward ally region a bit (keeps it tense)
+	# If you DON'T want bias, delete this whole block.
 	var pad := 4
+	var minx := 999
+	var miny := 999
+	var maxx := -999
+	var maxy := -999
+	for a in allies:
+		minx = min(minx, a.cell.x)
+		miny = min(miny, a.cell.y)
+		maxx = max(maxx, a.cell.x)
+		maxy = max(maxy, a.cell.y)
+
 	var x0 := minx - pad
 	var x1 := maxx + pad
 	var y0 := miny - pad
 	var y1 := maxy + pad
 
-	var chosen: Dictionary = {} # Vector2i -> true
-	var cells: Array[Vector2i] = []
-
-	var tries := 0
 	var w := int(M.grid.w)
 	var h := int(M.grid.h)
-	while cells.size() < titan_strikes_per_turn and tries < 300:
-		tries += 1
 
-		var cx := _titan_rng.randi_range(x0, x1)
-		var cy := _titan_rng.randi_range(y0, y1)
-
-		# ❌ reject off-map
-		if cx < 0 or cy < 0 or cx >= w or cy >= h:
+	# Filter candidates to a padded ally box, but keep a fallback if it becomes empty.
+	var boxed: Array[Vector2i] = []
+	for c in cands:
+		if c.x < 0 or c.y < 0 or c.x >= w or c.y >= h:
 			continue
-
-		var c := Vector2i(cx, cy)
-
-		if chosen.has(c):
+		if c.x < x0 or c.x > x1 or c.y < y0 or c.y > y1:
 			continue
+		boxed.append(c)
 
-		chosen[c] = true
-		cells.append(c)
+	var pool := boxed if not boxed.is_empty() else cands
+	var cells := _choose_cells(pool, n)
 
-		if chosen.has(c):
-			continue
-		chosen[c] = true
-		cells.append(c)
-
-	# warn markers
+	# --------------------------------
+	# Preview (your existing markers)
+	# --------------------------------
 	for c in cells:
 		_titan_spawn_marker(c)
 
@@ -1557,7 +1695,9 @@ func _titan_overwatch_enemy_phase() -> void:
 		await get_tree().process_frame
 		t += get_process_delta_time()
 
-	# impact
+	# -------------------
+	# Impact (damage)
+	# -------------------
 	for c in cells:
 		_titan_apply_strike(c)
 
@@ -1579,8 +1719,25 @@ func _titan_overwatch_enemy_phase() -> void:
 		await _titan_event_success()
 		return
 
-	# go back to player phase
-	start_player_phase()
+	# auto-continue (no player phase)
+	if not _game_over_triggered:
+		call_deferred("_start_titan_event_autorun")
+		
+func _wait_until_allies_placed(max_frames := 60) -> bool:
+	var frames := 0
+	while frames < max_frames:
+		if M != null and "units_by_cell" in M:
+			for u in M.get_all_units():
+				if u == null or not is_instance_valid(u) or u.hp <= 0:
+					continue
+				if u.team != Unit.Team.ALLY:
+					continue
+				# ✅ "placed" means registered on the grid
+				if M.units_by_cell.has(u.cell) and M.units_by_cell[u.cell] == u:
+					return true
+		frames += 1
+		await get_tree().process_frame
+	return false
 
 func _titan_event_success() -> void:
 	phase = Phase.BUSY
@@ -1594,15 +1751,14 @@ func _titan_event_success() -> void:
 		await _fade_and_free(titan_mech, 1.5)
 		titan_mech = null
 
-	# mark overworld node cleared
+	# mark cleared
 	var rs := get_tree().root.get_node_or_null("RunStateNode")
 	if rs != null and ("overworld_cleared" in rs):
 		rs.overworld_cleared[str(int(rs.overworld_current_node_id))] = true
 
-	if M != null and M.has_method("_extract_allies_with_bomber"):
-		await M._extract_allies_with_bomber()
-
-	get_tree().change_scene_to_file("res://scenes/overworld.tscn")
+	# ✅ SHOW REWARD PANEL INSTEAD OF INSTANT EXIT
+	await get_tree().process_frame
+	_show_event_rewards_panel()
 
 func _map_top_apex_world() -> Vector2:
 	if M == null or M.terrain == null:
@@ -1674,3 +1830,87 @@ func _clear_titan_markers_fade() -> void:
 		if m != null and is_instance_valid(m):
 			_fade_and_free(m, 0.25)
 	_titan_markers.clear()
+
+func _event_cells_this_turn() -> int:
+	var n := event_base_cells * int(pow(2.0, float(_event_turn)))
+	return clampi(n, 1, event_max_cells)
+
+func _start_titan_event_autorun() -> void:
+	if _game_over_triggered:
+		return
+	if not _is_titan_event:
+		return
+
+	# lock input
+	phase = Phase.BUSY
+	_update_end_turn_button()
+	_update_special_buttons()
+
+	# ✅ wait for allies to actually exist
+	var ok := await _wait_until_allies_exist()
+	if not ok:
+		game_over("No allies remaining.")
+		return
+
+	await get_tree().create_timer(0.1).timeout
+	
+	# now run the first titan phase
+	await _titan_overwatch_enemy_phase()
+
+func _go_to_overworld_after_rewards() -> void:
+	# prevent double calls
+	if _pending_return_to_overworld:
+		return
+	_pending_return_to_overworld = true
+
+	# mark overworld node cleared (again is fine)
+	var rs := get_tree().root.get_node_or_null("RunStateNode")
+	if rs != null and ("overworld_cleared" in rs):
+		rs.overworld_cleared[str(int(rs.overworld_current_node_id))] = true
+
+func _show_event_rewards_panel() -> void:
+	if end_panel == null or not is_instance_valid(end_panel):
+		# fallback: just leave
+		await _go_to_overworld_after_rewards()
+		return
+
+	# lock input
+	phase = Phase.BUSY
+	_update_end_turn_button()
+	_update_special_buttons()
+
+	# IMPORTANT: make sure panel is in "upgrade" mode, not "loss" mode
+	# Use whichever method your EndGamePanelRuntime already uses on normal mission success.
+	# Common patterns:
+	# - end_panel.show_panel()
+	# - end_panel.show_rewards()
+	# - end_panel.show_upgrades()
+	# - end_panel.open()
+
+	if end_panel.has_method("show_upgrades"):
+		end_panel.call("show_upgrades")
+	elif end_panel.has_method("show_panel"):
+		end_panel.call("show_panel")
+	else:
+		# If you ONLY have show_loss(), you need to add a success/upgrades method in EndGamePanelRuntime.
+		push_warning("EndGamePanelRuntime missing show_upgrades/show_panel; skipping rewards.")
+		await _go_to_overworld_after_rewards()
+		return
+
+	# When upgrade is picked OR continue pressed, go back.
+	# (Pick the signal your panel actually emits.)
+	if end_panel.has_signal("upgrade_selected"):
+		if not end_panel.upgrade_selected.is_connected(_on_event_reward_picked):
+			end_panel.upgrade_selected.connect(_on_event_reward_picked, CONNECT_ONE_SHOT)
+
+	# Some panels also have a Continue button after pick:
+	if end_panel.has_signal("continue_pressed"):
+		if not end_panel.continue_pressed.is_connected(_on_event_reward_continue):
+			end_panel.continue_pressed.connect(_on_event_reward_continue, CONNECT_ONE_SHOT)
+
+func _on_event_reward_picked(_id: StringName) -> void:
+	# your panel probably already applied the upgrade internally, or it emits and you apply elsewhere
+	await _go_to_overworld_after_rewards()
+
+func _on_event_reward_continue() -> void:
+	await _go_to_overworld_after_rewards()

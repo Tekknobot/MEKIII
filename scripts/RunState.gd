@@ -373,3 +373,6 @@ func reset_run() -> void:
 	event_mode_enabled_next_mission = false
 	event_id_next_mission = &""
 	
+	boss_mode_enabled_next_mission = false
+	boss_defeated_this_run = false
+	bomber_unlocked_this_run = false	
