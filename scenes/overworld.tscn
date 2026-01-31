@@ -1,19 +1,22 @@
-[gd_scene load_steps=5 format=3 uid="uid://dp7v6b7f0bh4u"]
+[gd_scene load_steps=8 format=3 uid="uid://dp7v6b7f0bh4u"]
 
 [ext_resource type="Script" uid="uid://dl0f3yc10sent" path="res://scripts/overworld.gd" id="1_16ktt"]
 [ext_resource type="PackedScene" uid="uid://bmtwqbsx674eo" path="res://scenes/Game.tscn" id="2_356oe"]
 [ext_resource type="PackedScene" uid="uid://daw4tavxwlaxm" path="res://scenes/overworld_radar.tscn" id="2_u2ss0"]
+[ext_resource type="FontFile" uid="uid://dgugahs6bc7so" path="res://fonts/magofonts/mago3.ttf" id="3_fkyvp"]
 [ext_resource type="Script" uid="uid://bh08gfncx0601" path="res://scripts/overworld_camera.gd" id="4_356oe"]
+[ext_resource type="FontFile" uid="uid://csnhk3q4gx0" path="res://fonts/magofonts/mago1.ttf" id="4_qjxaj"]
+[ext_resource type="FontFile" uid="uid://buw362wjb8o8d" path="res://fonts/magofonts/mago2.ttf" id="5_e184d"]
 
 [node name="Overworld" type="Node2D"]
 script = ExtResource("1_16ktt")
 game_scene = ExtResource("2_356oe")
+upgrade_title_font = ExtResource("3_fkyvp")
+upgrade_body_font = ExtResource("4_qjxaj")
+upgrade_button_font = ExtResource("5_e184d")
 
 [node name="OverworldRadar" parent="." instance=ExtResource("2_u2ss0")]
-grid_size = 6
 elite_node_count = 3
-elite_min_difficulty = 0.0
-boss_min_difficulty = 0.0
 
 [node name="Camera2D" type="Camera2D" parent="."]
 position = Vector2(576, 329)

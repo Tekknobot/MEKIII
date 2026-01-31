@@ -294,9 +294,11 @@ func _on_you_win() -> void:
 			
 	var rs := get_tree().root.get_node_or_null("RunStateNode")
 	if rs != null:
-		# node id you played (store this when mission launched)
-		rs.overworld_cleared[rs.overworld_current_node_id] = true
-			
+		var nid := int(rs.mission_node_id)
+		if nid >= 0:
+			rs.overworld_cleared[str(nid)] = true
+			rs.overworld_current_node_id = nid
+		rs.save_to_disk()	
 
 func _on_continue_pressed() -> void:
 	reset_tutorial(Step.INTRO_SELECT)

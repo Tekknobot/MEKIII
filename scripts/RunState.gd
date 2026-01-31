@@ -42,6 +42,15 @@ var boss_mode_enabled_next_mission: bool = false
 var event_mode_enabled_next_mission: bool = false
 var event_id_next_mission: StringName = &""  # e.g. &"titan_overwatch"
 
+# -------------------------
+# Supply mission result (NEW)
+# -------------------------
+var last_supply_success: bool = false
+var last_supply_crates_total: int = 0
+var last_supply_crates_collected: int = 0
+var last_supply_units_evaced: int = 0
+var last_supply_reward_tier: int = 0  # 0 none, 1 rough, 2 clean, 3 perfect
+var last_supply_failed_reason: String = "" # "missed_crate" / "no_evac" / "wiped" / etc
 
 func has_save() -> bool:
 	return FileAccess.file_exists(SAVE_PATH)
@@ -273,6 +282,14 @@ func to_save_dict() -> Dictionary:
 		
 		"event_mode_enabled_next_mission": event_mode_enabled_next_mission,
 		"event_id_next_mission": String(event_id_next_mission),
+		
+		"last_supply_success": last_supply_success,
+		"last_supply_crates_total": last_supply_crates_total,
+		"last_supply_crates_collected": last_supply_crates_collected,
+		"last_supply_units_evaced": last_supply_units_evaced,
+		"last_supply_reward_tier": last_supply_reward_tier,
+		"last_supply_failed_reason": last_supply_failed_reason,
+		
 	}
 
 func load_from_save_dict(d: Dictionary) -> void:
@@ -308,6 +325,14 @@ func load_from_save_dict(d: Dictionary) -> void:
 
 	recruited_scene_paths.clear()
 	recruited_scene_paths.append_array(d.get("recruited_scene_paths", []))
+	
+	last_supply_success = bool(d.get("last_supply_success", false))
+	last_supply_crates_total = int(d.get("last_supply_crates_total", 0))
+	last_supply_crates_collected = int(d.get("last_supply_crates_collected", 0))
+	last_supply_units_evaced = int(d.get("last_supply_units_evaced", 0))
+	last_supply_reward_tier = int(d.get("last_supply_reward_tier", 0))
+	last_supply_failed_reason = str(d.get("last_supply_failed_reason", ""))
+	
 
 
 func save_to_disk() -> void:
@@ -376,3 +401,41 @@ func reset_run() -> void:
 	boss_mode_enabled_next_mission = false
 	boss_defeated_this_run = false
 	bomber_unlocked_this_run = false	
+
+func resolve_supply_mission(crates_total: int, crates_collected: int, units_evaced: int, squad_wiped: bool, evac_timer_out: bool) -> void:
+	last_supply_crates_total = crates_total
+	last_supply_crates_collected = crates_collected
+	last_supply_units_evaced = units_evaced
+
+	# Decide success
+	if squad_wiped:
+		last_supply_success = false
+		last_supply_failed_reason = "wiped"
+	elif crates_collected < crates_total:
+		last_supply_success = false
+		last_supply_failed_reason = "missed_crate"
+	elif units_evaced <= 0 or evac_timer_out:
+		last_supply_success = false
+		last_supply_failed_reason = "no_evac"
+	else:
+		last_supply_success = true
+		last_supply_failed_reason = ""
+
+	# Reward tiering
+	last_supply_reward_tier = 0
+	if last_supply_success:
+		# basic success
+		last_supply_reward_tier = 1
+
+		# clean
+		if units_evaced >= 2:
+			last_supply_reward_tier = 2
+
+		# perfect (you can tighten this later: no downs, speed, etc.)
+		if units_evaced >= 3:
+			last_supply_reward_tier = 3
+
+	# IMPORTANT: always clear overworld node so player can move on
+	if mission_node_id >= 0:
+		overworld_cleared[str(mission_node_id)] = true
+		overworld_current_node_id = mission_node_id

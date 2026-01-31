@@ -134,6 +134,8 @@ var _titan_autorun_started := false
 var _pending_return_to_overworld := false
 var _pending_event_success := false
 
+enum MissionState { DROP, SCRAMBLE, EVAC }
+
 func _pick_pattern() -> int:
 	# early turns: simple; later: nastier
 	if _event_turn <= 1:

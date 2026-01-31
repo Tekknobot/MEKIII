@@ -40,3 +40,5 @@ res://scenes/overworld_radar.tscn
 res://scenes/titan.tscn
 res://scripts/overworld.gd
 res://scenes/camera.gd
+res://scripts/tutorial_manager.gd
+res://scripts/end_game_panel_runtime.gd

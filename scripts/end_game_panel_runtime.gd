@@ -505,3 +505,7 @@ func _make_card_style(bg: Color, border: Color = Color(1,1,1,0.10)) -> StyleBoxF
 	sb.content_margin_top = 10
 	sb.content_margin_bottom = 10
 	return sb
+
+func set_panel_title(t: String) -> void:
+	if title_label != null:
+		title_label.text = t

@@ -169,6 +169,9 @@ func _unhandled_input(event: InputEvent) -> void:
 		elif event.keycode == KEY_E:
 			_cheat_clear_path_to_nearest_elite()
 			get_viewport().set_input_as_handled()
+		elif event.keycode == KEY_S:
+			_cheat_clear_path_to_nearest_supply()
+			get_viewport().set_input_as_handled()
 
 func _rs() -> Node:
 	var rs := get_tree().root.get_node_or_null("RunStateNode")
@@ -566,8 +569,84 @@ func _generate_world() -> void:
 	_assign_extra_boss_nodes()
 	_assign_extra_elite_nodes()
 	_line_up_events()
+	
+	_enforce_upgrade_before_battles()
+	_ensure_prebattle_upgrade_neighbors()
+	
 	current_node_id = start_id
 
+func _enforce_upgrade_before_battles() -> void:
+	var path := _path_start_to_boss()
+	if path.size() < 3:
+		return
+
+	# We’ll make pattern: UPGRADE -> BATTLE -> UPGRADE -> BATTLE ...
+	# Starting after START.
+	for i in range(1, path.size()):
+		var id := path[i]
+		if id < 0 or id >= nodes.size():
+			continue
+		if not alive[id]:
+			continue
+		if id == boss_id:
+			continue # boss stays boss
+
+		# Decide what this step should be based on index parity
+		# i=1 => upgrade, i=2 => battle, i=3 => upgrade ...
+		var should_be_upgrade := (i % 2 == 1)
+
+		if should_be_upgrade:
+			# Don’t overwrite special fights if you want; but usually ok to force upgrade slots
+			if nodes[id].ntype == NodeType.START or nodes[id].ntype == NodeType.BOSS:
+				continue
+			nodes[id].ntype = (NodeType.SUPPLY if rng.randf() < 0.55 else NodeType.EVENT)
+		else:
+			# battle slot: prefer COMBAT early, ELITE later
+			if nodes[id].ntype == NodeType.BOSS or nodes[id].ntype == NodeType.START:
+				continue
+			var d := nodes[id].difficulty
+			if d > 0.65 and rng.randf() < 0.55:
+				nodes[id].ntype = NodeType.ELITE
+			else:
+				nodes[id].ntype = NodeType.COMBAT
+
+func _ensure_prebattle_upgrade_neighbors() -> void:
+	for nd in nodes:
+		if not alive[nd.id]:
+			continue
+		if nd.ntype != NodeType.COMBAT and nd.ntype != NodeType.ELITE and nd.ntype != NodeType.BOSS:
+			continue
+
+		# Find neighbors "before" this node (lower difficulty)
+		var prev: Array[int] = []
+		for nb in nd.neighbors:
+			if not alive[nb]:
+				continue
+			if nodes[nb].difficulty < nd.difficulty:
+				prev.append(nb)
+
+		if prev.is_empty():
+			continue
+
+		# If any previous neighbor already upgrade, we’re good
+		var has_upgrade := false
+		for nb in prev:
+			if nodes[nb].ntype == NodeType.SUPPLY or nodes[nb].ntype == NodeType.EVENT:
+				has_upgrade = true
+				break
+		if has_upgrade:
+			continue
+
+		# Force one previous neighbor to upgrade (prefer one that isn’t start/boss)
+		prev.sort_custom(func(a:int, b:int) -> bool:
+			return nodes[a].difficulty > nodes[b].difficulty # choose the closest “before” node
+		)
+
+		for nb in prev:
+			if nodes[nb].ntype == NodeType.START or nodes[nb].ntype == NodeType.BOSS:
+				continue
+			nodes[nb].ntype = (NodeType.SUPPLY if rng.randf() < 0.55 else NodeType.EVENT)
+			break
 
 func _carve_voids_connected() -> void:
 	var n: int = grid_size * grid_size
@@ -750,6 +829,7 @@ func _bfs_dist(src: int) -> Dictionary:
 	return dist
 
 func _assign_types() -> void:
+	# baseline
 	for nd in nodes:
 		if not alive[nd.id]:
 			continue
@@ -761,21 +841,45 @@ func _assign_types() -> void:
 	if boss_id >= 0:
 		nodes[boss_id].ntype = NodeType.BOSS
 
-	# Sprinkle types by difficulty (equalized odds)
 	for nd in nodes:
 		if not alive[nd.id]:
 			continue
-		if nd.id == start_id or nd.id == boss_id:
+		if nd.id == start_id:
+			continue
+		if nd.id == boss_id:
+			continue
+		if nd.ntype == NodeType.BOSS:
 			continue
 
-		var r := rng.randf()
+		var d := clampf(nd.difficulty, 0.0, 1.0)
 
-		# Same probabilities everywhere
-		if r < 0.22:
+		# -------------------------
+		# Difficulty-gated weights
+		# -------------------------
+		# early: lots of SUPPLY, few ELITE, some EVENT
+		# mid:   more EVENT, some ELITE, some SUPPLY
+		# late:  more ELITE, fewer SUPPLY/EVENT
+		var w_supply := lerpf(0.30, 0.08, d)  # 30% -> 8%
+		var w_event  := lerpf(0.10, 0.14, d)  # 10% -> 14% (slightly more mid/late)
+		var w_elite  := lerpf(0.04, 0.28, d)  # 4%  -> 28%
+
+		# Optional: avoid upgrades right next to the boss (feels weird)
+		if d > 0.85:
+			w_supply *= 0.35
+			w_event  *= 0.50
+
+		# Remaining probability becomes COMBAT
+		var w_combat = max(0.0, 1.0 - (w_supply + w_event + w_elite))
+
+		# -------------------------
+		# Roll
+		# -------------------------
+		var r := rng.randf()
+		if r < w_supply:
 			nd.ntype = NodeType.SUPPLY
-		elif r < 0.22 + 0.15:
+		elif r < w_supply + w_event:
 			nd.ntype = NodeType.EVENT
-		elif r < 0.22 + 0.15 + 0.35:
+		elif r < w_supply + w_event + w_elite:
 			nd.ntype = NodeType.ELITE
 		else:
 			nd.ntype = NodeType.COMBAT
@@ -936,10 +1040,28 @@ func _draw_nodes(jitter: Vector2) -> void:
 			draw_circle(pos, max(2.0, r * 0.35), Color(col.r, col.g, col.b, 0.10 + 0.18 * pulse))
 
 			if draw_labels and _font != null:
-				draw_string(_font, pos + Vector2(r + 4, -r - 2),
-					"%s" % _type_name(nd.ntype),
-					HORIZONTAL_ALIGNMENT_LEFT, -1, label_font_size,
-					Color(0.2, 1.0, 0.2, label_alpha))
+				draw_string(
+					_font,
+					pos + Vector2(r + 4, -r - 4),
+					"%s %s" % [
+						_type_name(nd.ntype),
+						_difficulty_tier_name(nd.difficulty)
+					],
+					HORIZONTAL_ALIGNMENT_LEFT, -1,
+					label_font_size,
+					Color(0.2, 1.0, 0.2, label_alpha)
+				)
+
+
+func _difficulty_tier_name(d: float) -> String:
+	if d < 0.25:
+		return "I"
+	elif d < 0.50:
+		return "II"
+	elif d < 0.75:
+		return "III"
+	else:
+		return "IV"
 
 func _sweep_glow(angle: float) -> float:
 	var d: float = abs(wrapf(angle - sweep_angle, -PI, PI))
@@ -1458,3 +1580,118 @@ func _debug_counts() -> void:
 
 	print("DEBUG bosses total=", bosses_total, " uncleared=", bosses_uncleared,
 		" | elites total=", elites_total, " uncleared=", elites_uncleared)
+
+func _cheat_clear_path_to_nearest_supply() -> void:
+	if current_node_id < 0 or current_node_id >= nodes.size():
+		return
+
+	var result := _bfs_to_nearest_supply(current_node_id)
+	var supply_target: int = int(result.get("supply", -1))
+	var parent: Dictionary = result.get("parent", {})
+
+	if supply_target < 0:
+		print("CHEAT: No reachable uncleared SUPPLY found.")
+		return
+
+	# Reconstruct path from supply back to current
+	var path: Array[int] = []
+	var cur := supply_target
+	while cur != current_node_id and parent.has(cur):
+		path.append(cur)
+		cur = int(parent[cur])
+	path.append(current_node_id)
+	path.reverse() # current -> ... -> supply
+
+	# Clear everything along the path EXCEPT the supply node itself
+	var rs := _rs()
+	for id in path:
+		if id == supply_target:
+			continue
+		if id < 0 or id >= nodes.size():
+			continue
+		nodes[id].cleared = true
+		if rs != null and ("overworld_cleared" in rs):
+			rs.overworld_cleared[str(id)] = true
+
+	# Jump onto the supply node (leave it uncleared so it can be clicked)
+	current_node_id = supply_target
+	hovered_node_id = -1
+
+	if rs != null:
+		rs.overworld_current_node_id = current_node_id
+		if rs.has_method("save_to_disk"):
+			rs.call("save_to_disk")
+
+	print("CHEAT: Cleared path to supply node ", supply_target)
+
+	_build_packets()
+	queue_redraw()
+
+	if squad_hud_enabled:
+		_refresh_squad_hud()
+
+
+func _bfs_to_nearest_supply(start_id: int) -> Dictionary:
+	var q: Array[int] = []
+	var visited: Dictionary = {}
+	var parent: Dictionary = {}
+
+	q.append(start_id)
+	visited[start_id] = true
+
+	while not q.is_empty():
+		var cur: int = q.pop_front()
+
+		# ✅ target: reachable + uncleared + SUPPLY (not the starting node)
+		if cur != start_id and cur >= 0 and cur < nodes.size():
+			if (not nodes[cur].cleared) and (nodes[cur].ntype == NodeType.SUPPLY):
+				return {"supply": cur, "parent": parent}
+
+		if cur < 0 or cur >= nodes.size():
+			continue
+
+		for nxt in nodes[cur].neighbors:
+			var ni := int(nxt)
+			if visited.has(ni):
+				continue
+			if ni < 0 or ni >= nodes.size():
+				continue
+			if not alive[ni]:
+				continue
+
+			# NOTE: unlike your event BFS, we allow walking through cleared nodes
+			# (because the whole point is to clear a path quickly)
+			visited[ni] = true
+			parent[ni] = cur
+			q.append(ni)
+
+	return {"supply": -1, "parent": parent}
+
+func _path_start_to_boss() -> Array[int]:
+	var parent: Dictionary = {}
+	var q: Array[int] = [start_id]
+	parent[start_id] = -1
+
+	while not q.is_empty():
+		var cur: int = q.pop_front()
+		if cur == boss_id:
+			break
+		for nb in nodes[cur].neighbors:
+			if not alive[nb]:
+				continue
+			if parent.has(nb):
+				continue
+			parent[nb] = cur
+			q.append(nb)
+
+	if not parent.has(boss_id):
+		return []
+
+	# reconstruct
+	var path: Array[int] = []
+	var cur := boss_id
+	while cur != -1:
+		path.append(cur)
+		cur = int(parent[cur])
+	path.reverse()
+	return path
