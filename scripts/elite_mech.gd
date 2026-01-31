@@ -349,7 +349,8 @@ func _fire_projectile_and_explode(M, target_cell: Vector2i) -> void:
 		_impact_cell(M, target_cell)
 		return
 
-	var to_world: Vector2 = M.terrain.to_global(M.terrain.map_to_local(target_cell))
+	var to_world: Vector2 = M.terrain.to_global(M.terrain.map_to_local(target_cell)) + Vector2(0, -16)
+
 	_face_world_pos(to_world)
 
 	var emit := _emitter()
@@ -405,7 +406,7 @@ func _explode_once(M, target_cell: Vector2i) -> void:
 	if M == null:
 		return
 
-	var world_pos: Vector2 = M.terrain.to_global(M.terrain.map_to_local(target_cell))
+	var world_pos: Vector2 = M.terrain.to_global(M.terrain.map_to_local(target_cell)) + Vector2(0, -16)
 
 	if explosion_scene != null:
 		var e := explosion_scene.instantiate() as Node2D
@@ -449,47 +450,53 @@ func _apply_splash_damage(M, center: Vector2i) -> void:
 		center + Vector2i(0, -1),
 	]
 
+	var flashed := {} # Unit -> true
+
 	for c in cells:
+		var u = M.units_by_cell.get(c, null)
+		if u == null or not is_instance_valid(u):
+			continue
+		if u == self or u.hp <= 0:
+			continue
+
+		u.take_damage(special_damage)
+
+		# flash once per unit, immediately
+		if not flashed.has(u) and is_instance_valid(u) and u.hp > 0:
+			flashed[u] = true
+			M._flash_unit_white(u, 0.88)
+
+func _explode(M, center_cell: Vector2i) -> void:
+	if M != null and M.has_method("_sfx"):
+		M.call("_sfx", explosion_sfx, 1.0, 1.0, M.terrain.map_to_local(center_cell))
+
+	var flashed := {} # Unit -> true (prevents double-flash)
+
+	for c in _splash_cells(center_cell):
+		if M == null:
+			return # if M is null, bail; continuing makes no sense
+
 		var u = M.units_by_cell.get(c, null)
 		if u == null or not is_instance_valid(u):
 			continue
 		if u == self:
 			continue
-		if u.hp <= 0:
-			continue
 
-		# hit everything in splash (allies + zombies + bosses + weakpoints)
-		u.take_damage(special_damage)
-
-func _explode(M, center_cell: Vector2i) -> void:
-	# sfx (optional)
-	if M != null and M.has_method("_sfx"):
-		M.call("_sfx", explosion_sfx, 1.0, 1.0, M.terrain.map_to_local(center_cell))
-
-	# splash damage
-	for c in _splash_cells(center_cell):
-		# ignore out of bounds safely
-		if M == null:
-			continue
-		if not (c in M.units_by_cell):
-			continue
-
-		var u = M.units_by_cell[c]
-		if u == null or not is_instance_valid(u):
-			continue
-		if u == self:
-			continue
-
-		# Only hit allies? Or hit everything? Pick one:
 		# Hit ALLY team only:
 		if u.team != Unit.Team.ALLY:
 			continue
 
-		# apply damage (call your existing damage pipeline if present)
+		# --- DAMAGE ---
 		if u.has_method("take_damage"):
 			u.call("take_damage", special_damage)
 		elif ("hp" in u):
 			u.hp -= special_damage
+
+		# --- FLASH (immediately after damage) ---
+		# If take_damage killed it and it got freed / queued, this will safely skip.
+		if not flashed.has(u) and is_instance_valid(u) and (not ("hp" in u) or u.hp > 0):
+			flashed[u] = true
+			M._flash_unit_white(u, 0.88)
 
 func _emitter() -> Node2D:
 	var e := get_node_or_null("Emitter")
