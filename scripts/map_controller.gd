@@ -2290,26 +2290,41 @@ func ai_move(u: Unit, target: Vector2i) -> void:
 		return
 	if _is_moving:
 		return
-		
-	# Drive the existing move logic safely:
-	if u == null or not is_instance_valid(u):
+
+	# Must be inside tree to await frames safely
+	if not is_inside_tree():
 		return
-	if _is_moving:
+
+	var tree := get_tree()
+	if tree == null:
 		return
 
 	# Temporarily select the unit so _move_selected_to works
 	var prev := selected
 	selected = u
+
 	_clear_overlay()
 	valid_move_cells.clear()
 	valid_move_cells[target] = true
 
 	_move_selected_to(target)
-	# wait until movement finishes
-	while _is_moving:
-		await get_tree().process_frame
 
-	selected = prev
+	# Wait until movement finishes, but bail if scene reloads / node exits
+	var safety := 240  # ~4 seconds @ 60fps, adjust if your moves are longer
+	while _is_moving and safety > 0:
+		# if we got removed (scene reload), stop cleanly
+		if not is_inside_tree():
+			return
+		if tree == null:
+			return
+		await tree.process_frame
+		safety -= 1
+
+	# Restore selection if still valid
+	if is_instance_valid(prev):
+		selected = prev
+	else:
+		selected = null
 
 func ai_attack(attacker: Unit, defender: Unit) -> void:
 	if attacker == null or defender == null:

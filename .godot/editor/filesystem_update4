@@ -1,0 +1,16 @@
+res://scenes/title_screen.tscn
+res://shaders/stim_jacked.gdshader
+res://shaders/pixel_dissolve.gdshader
+res://shaders/wobble_shimmer.gdshader
+res://shaders/pixel_metallic.gdshader
+res://shaders/outline_1px.gdshader
+res://shaders/color_me.gdshader
+res://shaders/text_outline_1px.gdshader
+res://shaders/desaturate.gdshader
+res://scripts/TitleScreen.gd
+res://scenes/Game.tscn
+res://scripts/turnmanager.gd
+res://scenes/units/allies/R1.tscn
+res://scripts/r_1.gd
+res://scripts/map_controller.gd
+res://scripts/unit.gd

@@ -425,8 +425,12 @@ func _on_loss_restart_pressed() -> void:
 		return
 
 	# ✅ Otherwise it's a normal "restart run"
-	if rs != null and rs.has_method("reset_run"):
-		rs.call("reset_run")
+	if rs != null:
+		rs.boss_mode_enabled_next_mission = boss_mode_enabled
+		rs.event_mode_enabled_next_mission = false
+		rs.event_id_next_mission = &""
+		rs.save_to_disk()
+	get_tree().reload_current_scene()
 
 	_clear_titan_markers()
 	_event_turn = 0

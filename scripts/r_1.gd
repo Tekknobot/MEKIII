@@ -52,6 +52,11 @@ class_name R1
 @export var splash_ring_damage := 1                  # used only if falloff=true
 @export var hit_structures_too := false              # if you want structures to be damaged by splash
 
+@export var explosion_sfx_id: StringName = &"explosion_small"   # set to whatever your SFX dispatcher expects
+@export var explosion_sfx_volume := 1.0
+@export var explosion_sfx_pitch_min := 0.97
+@export var explosion_sfx_pitch_max := 1.03
+
 func _ready() -> void:
 	set_meta("portrait_tex", portrait_tex)
 	set_meta("display_name", display_name)
@@ -252,7 +257,7 @@ func _apply_splash_damage(M: MapController, center_cell: Vector2i) -> void:
 	if splash_radius <= 0:
 		# treat as single-tile
 		_damage_enemy_on_cell(M, center_cell, volley_damage + attack_damage)
-		_damage_structure_on_cell_if_enabled(M, center_cell, volley_damage)
+		_damage_structure_on_cell_if_enabled(M, center_cell, volley_damage + attack_damage)
 		return
 
 	# square splash (radius 1 => 3x3)
@@ -292,24 +297,85 @@ func _damage_structure_on_cell_if_enabled(M: MapController, c: Vector2i, dmg: in
 	elif M.game_ref.has_method("apply_structure_damage_at"):
 		M.game_ref.call("apply_structure_damage_at", c, dmg, self)
 
-
 func _spawn_explosion_fx(M: MapController, c: Vector2i) -> void:
-	# Prefer your existing spawner if you have one (like your M1)
-	if M != null:
-		if M.has_method("spawn_explosion_at_cell"):
-			M.call("spawn_explosion_at_cell", c)
-			return
-		if M.has_method("_spawn_explosion_at_cell"):
-			M.call("_spawn_explosion_at_cell", c)
-			return
+	# Prefer an assigned explosion scene (pure VFX)
+	var scene: PackedScene = explosion_fx_scene
 
-	# Otherwise, use an assigned explosion scene (optional)
-	if explosion_fx_scene != null and M != null:
-		var fx := explosion_fx_scene.instantiate()
-		M.add_child(fx)
-		if fx is Node2D:
-			(fx as Node2D).global_position = _cell_to_global(M, c)
+	# Fallback: reuse MapController's explosion_scene visually (NO damage call)
+	if scene == null and M != null:
+		var maybe = M.get("explosion_scene")
+		if maybe is PackedScene:
+			scene = maybe
 
+	if scene == null or M == null or M.terrain == null:
+		return
+
+	# ✅ Explosion SFX at cell (world-pos)
+	_sfx_at_cell_scaled(M, explosion_sfx_id, c, explosion_sfx_volume)
+
+	var fx := scene.instantiate() as Node2D
+	if fx == null:
+		return
+
+	# add above terrain (prefer overlay_root if present)
+	var parent: Node = M
+	var overlay = M.get("overlay_root")
+	if overlay != null and overlay is Node:
+		parent = overlay as Node
+	parent.add_child(fx)
+
+	# position (match MapController world placement)
+	var world_pos := M.terrain.to_global(M.terrain.map_to_local(c))
+
+	var y_off := 0
+	var off_val = M.get("explosion_y_offset_px")
+	if typeof(off_val) == TYPE_INT:
+		y_off = int(off_val)
+	elif typeof(off_val) == TYPE_FLOAT:
+		y_off = int(off_val)
+
+	world_pos += Vector2(0, y_off)
+	fx.global_position = world_pos
+
+	# ✅ Layer using x+y sum (iso painter's order)
+	# bigger sum = "lower" on screen = draw on top
+	# scale factor just spreads the z values out so ties are rarer
+	var z_base := 0 + c.x + c.y
+	fx.z_index = z_base
+
+	# play anim if present, then free
+	var anim_name := "explode"
+	var anim_val = M.get("explosion_anim_name")
+	if typeof(anim_val) == TYPE_STRING_NAME or typeof(anim_val) == TYPE_STRING:
+		anim_name = str(anim_val)
+
+	var a := fx.get_node_or_null("AnimatedSprite2D") as AnimatedSprite2D
+	if a != null and a.sprite_frames != null and a.sprite_frames.has_animation(anim_name):
+		a.play(anim_name)
+		a.animation_finished.connect(func():
+			if is_instance_valid(fx):
+				fx.queue_free()
+		)
+	else:
+		var fallback := 0.35
+		var fb = M.get("explosion_fallback_seconds")
+		if typeof(fb) == TYPE_FLOAT or typeof(fb) == TYPE_INT:
+			fallback = float(fb)
+		get_tree().create_timer(fallback).timeout.connect(func():
+			if is_instance_valid(fx):
+				fx.queue_free()
+		)
+
+func _sfx_at_cell_scaled(M: MapController, sfx_id: StringName, c: Vector2i, vol: float) -> void:
+	if M == null:
+		return
+	if sfx_id == &"":
+		return
+	if not M.has_method("_sfx"):
+		return
+
+	var pitch := randf_range(explosion_sfx_pitch_min, explosion_sfx_pitch_max)
+	M.call("_sfx", sfx_id, vol, pitch, _cell_to_global(M, c))
 
 func _face_unit_toward_cell_world(M: MapController, c: Vector2i) -> void:
 	# If your MapController has the nicer world-facing helper, use it.

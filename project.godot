@@ -10,7 +10,7 @@ config_version=5
 
 [application]
 
-config/name="Zombiemecha"
+config/name="ZombieMECHA"
 run/main_scene="uid://rriol7fhna81"
 config/features=PackedStringArray("4.5", "Forward Plus")
 boot_splash/bg_color=Color(0, 0, 0, 1)
