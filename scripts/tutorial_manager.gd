@@ -270,35 +270,41 @@ func set_enabled(v: bool) -> void:
 		_show_step()
 
 func _on_you_win() -> void:
-	# stop tutorial toast from fighting the UI
 	_hide_toast()
-
-	# If you want to fully lock tutorial after win:
 	enabled = false
+
+	var rs := get_tree().root.get_node_or_null("RunStateNode")
+
+	# Detect EVENT map (works with your RunState.mission_node_type StringName)
+	var is_event := false
+	if rs != null and "mission_node_type" in rs:
+		is_event = (rs.mission_node_type == &"event")
+
+	# (Optional) if you also have a local flag for special events like titan overwatch:
+	# is_event = is_event or _is_titan_event
 
 	# Show your upgrade panel
 	if end_panel != null and is_instance_valid(end_panel):
 		if end_panel.has_method("show_win"):
-			# try to pass a rounds value if you have it
 			var rounds := 0
 			if TM != null and is_instance_valid(TM) and "round_index" in TM:
 				rounds = int(TM.round_index)
-			end_panel.call("show_win", rounds, _roll_3_upgrades())
+
+			# pass the extra flag (you'll add this param next)
+			end_panel.call("show_win", rounds, _roll_3_upgrades(), is_event)
 		else:
-			# fallback: just make it visible
 			end_panel.visible = true
 
 	if end_panel != null and is_instance_valid(end_panel):
 		if end_panel.has_signal("continue_pressed") and not end_panel.continue_pressed.is_connected(_on_continue_pressed):
 			end_panel.continue_pressed.connect(_on_continue_pressed)
-			
-	var rs := get_tree().root.get_node_or_null("RunStateNode")
+
 	if rs != null:
 		var nid := int(rs.mission_node_id)
 		if nid >= 0:
 			rs.overworld_cleared[str(nid)] = true
 			rs.overworld_current_node_id = nid
-		rs.save_to_disk()	
+		rs.save_to_disk()
 
 func _on_continue_pressed() -> void:
 	reset_tutorial(Step.INTRO_SELECT)

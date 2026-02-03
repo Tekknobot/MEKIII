@@ -405,40 +405,41 @@ func _on_loss_restart_pressed() -> void:
 	if not _game_over_triggered:
 		return
 
-	var rs := get_tree().root.get_node_or_null("RunStateNode")
-
-	# ✅ If we died during the Titan event, restart THIS mission with the event re-armed.
-	if _is_titan_event:
-		if rs != null:
-			rs.event_mode_enabled_next_mission = true
-			# keep the same seed if you want deterministic restarts:
-			# (do NOT wipe mission_seed)
-			# rs.event_id_next_mission = &"titan_overwatch"  # if you use it
-
-		_clear_titan_markers()
-		_event_turn = 0
-		_is_titan_event = false
-		_titan_turns_left = 0
-
-		get_tree().paused = false
-		get_tree().reload_current_scene()
+	var tree := get_tree()
+	if tree == null:
 		return
 
-	# ✅ Otherwise it's a normal "restart run"
+	var rs := tree.root.get_node_or_null("RunStateNode")
+
+	# ---- Always clear local event state BEFORE reload ----
+	_clear_titan_markers()
+	_event_turn = 0
+	_titan_turns_left = 0
+
+	# ---- If we died during Titan event, re-arm it for next mission ----
+	if _is_titan_event:
+		_is_titan_event = false
+
+		if rs != null:
+			rs.event_mode_enabled_next_mission = true
+			# keep mission_seed if you want deterministic restarts
+
+		tree.paused = false
+		tree.reload_current_scene()
+		return
+
+	# ---- Normal restart run ----
+	_is_titan_event = false
+
 	if rs != null:
 		rs.boss_mode_enabled_next_mission = boss_mode_enabled
 		rs.event_mode_enabled_next_mission = false
 		rs.event_id_next_mission = &""
 		rs.save_to_disk()
-	get_tree().reload_current_scene()
 
-	_clear_titan_markers()
-	_event_turn = 0
-	_is_titan_event = false
-	_titan_turns_left = 0
+	tree.paused = false
+	tree.reload_current_scene()
 
-	get_tree().paused = false
-	get_tree().reload_current_scene()
 
 
 # -----------------------
@@ -465,7 +466,8 @@ func start_enemy_phase() -> void:
 
 	# ✅ EVENT: Titan Overwatch
 	if _is_titan_event:
-		await _titan_overwatch_enemy_phase()
+		# Event is cinematic; no enemy phase logic.
+		#await _titan_overwatch_enemy_phase()
 		return
 		
 	if boss_mode_enabled and boss != null and is_instance_valid(boss):
@@ -584,7 +586,7 @@ func on_units_spawned() -> void:
 		phase = Phase.BUSY
 		_update_end_turn_button()
 		_update_special_buttons()
-		call_deferred("_start_titan_event_autorun")
+		call_deferred("_start_event_cinematic_autorun")
 
 func _all_allies_done() -> bool:
 	for u in _moved.keys():
@@ -1782,7 +1784,7 @@ func _titan_event_success() -> void:
 	if M != null and M.has_method("_extract_allies_with_bomber"):
 		await M._extract_allies_with_bomber()
 		emit_signal("tutorial_event", &"extraction_finished", {})
-
+			
 	#get_tree().change_scene_to_file("res://scenes/overworld.tscn")
 
 func _map_top_apex_world() -> Vector2:
@@ -1881,3 +1883,211 @@ func _start_titan_event_autorun() -> void:
 	
 	# now run the first titan phase
 	await _titan_overwatch_enemy_phase()
+
+func _start_event_cinematic_autorun() -> void:
+	if _game_over_triggered:
+		return
+	if not _is_titan_event:
+		return
+	if M == null:
+		return
+
+	# lock input
+	phase = Phase.BUSY
+	_update_end_turn_button()
+	_update_special_buttons()
+
+	# Make sure allies exist (deployment/fade windows)
+	var ok := await _wait_until_allies_exist()
+	if not ok:
+		game_over("No allies remaining.")
+		return
+
+	# Remove enemies + stop spawns for the cinematic
+	_event_cinematic_setup_no_enemies()
+
+	# Run the dialogue + movement beats
+	await _run_event_cinematic_sequence()
+
+	# Fade out + evac (your existing flow)
+	await _titan_event_success()
+
+
+func _event_cinematic_setup_no_enemies() -> void:
+	if M == null:
+		return
+
+	# despawn enemies silently (no drops)
+	var to_remove: Array[Unit] = []
+	for u in M.get_all_units():
+		if u == null or not is_instance_valid(u):
+			continue
+		if u.team == Unit.Team.ENEMY:
+			to_remove.append(u)
+
+	# clear selection if it was an enemy
+	if M.selected != null and is_instance_valid(M.selected) and M.selected.team == Unit.Team.ENEMY:
+		M.selected = null
+
+	for u in to_remove:
+		if u == null or not is_instance_valid(u):
+			continue
+
+		# remove from grid registry so we don't leave dead references
+		if "units_by_cell" in M:
+			var c: Vector2i = u.cell
+			if M.units_by_cell.has(c) and M.units_by_cell[c] == u:
+				M.units_by_cell.erase(c)
+
+		u.queue_free()
+
+	# disable normal pacing / spawns during event
+	beacon_deadline_round = 999999
+	spawn_base = 0
+	spawn_per_round = 0
+	spawn_bonus_every = 0
+	spawn_bonus_amount = 0
+
+func _event_beat(sec: float) -> void:
+	if M == null:
+		return
+	var tree := M.get_tree()
+	if tree == null:
+		return
+	await tree.create_timer(sec).timeout
+
+func _run_event_cinematic_sequence() -> void:
+	if M == null:
+		return
+	
+	await get_tree().create_timer(5).timeout
+	
+	# -------- pacing knobs (TUNE THESE) --------
+	var beat_short := 0.45
+	var beat_med   := 0.75
+	var beat_long  := 1.10
+	var run_step_beat := 0.08   # pause between each step (movement speed)
+	# -------------------------------------------
+
+	# Gather allies (stable order)
+	var allies: Array[Unit] = []
+	for u in M.get_all_units():
+		if u == null or not is_instance_valid(u):
+			continue
+		if u.hp <= 0:
+			continue
+		if u.team == Unit.Team.ALLY:
+			allies.append(u)
+
+	if allies.is_empty():
+		return
+
+	# Pick speakers
+	var a0: Unit = allies[0]
+	var a1: Unit = allies[1] if allies.size() > 1 else a0
+	var a2: Unit = allies[2] if allies.size() > 2 else a0
+
+	# -------------------------------------------------------
+	# 1) LONG MOVEMENT FIRST: run toward the TOP of the map
+	# -------------------------------------------------------
+	# pick a "top lane" target y (keep a little padding)
+	var top_y := 1
+
+	# decide how many steps to try (big run)
+	# This is intentionally a lot; steps that fail will just do nothing if _cinematic_step blocks.
+	var steps := 8
+
+	# Move them in a staggered “column” feel: a0 then a1 then a2, repeat
+	for i in range(steps):
+		await _cinematic_step(a0, Vector2i(0, -1))
+		await _event_beat(run_step_beat)
+
+		await _cinematic_step(a1, Vector2i(0, -1))
+		await _event_beat(run_step_beat)
+
+		await _cinematic_step(a2, Vector2i(0, -1))
+		await _event_beat(run_step_beat)
+
+		# little breath pauses mid-run so it reads as “distance”
+		if i == 2:
+			await _event_beat(0.35)
+		if i == 5:
+			await _event_beat(0.45)
+
+		# optional: stop early if lead unit reached top band
+		if a0 != null and is_instance_valid(a0) and a0.cell.y <= top_y:
+			break
+
+	# small settle pause at destination
+	await _event_beat(0.60)
+
+	# -------------------
+	# 2) Dialogue beats
+	# -------------------
+	await M._say(a0, "…do you feel that vibration?")
+	await _event_beat(beat_med)
+
+	await M._say(a1, "Yeah. That’s not thunder.")
+	await _event_beat(beat_short)
+
+	await M._say(a2, "Something big is moving out there.")
+	await _event_beat(beat_long)
+
+	# --- Cinematic movement (your original) ---
+	await _cinematic_step(a0, Vector2i(1, 0))
+	await _event_beat(0.25)
+	await _cinematic_step(a1, Vector2i(1, 0))
+	await _event_beat(0.35)
+
+	await M._say(a0, "Keep it tight. Eyes up.")
+	await _event_beat(beat_med)
+
+	await M._say(a1, "That silhouette… a giant mecha?")
+	await _event_beat(beat_long)
+
+	await M._say(a2, "We’re not equipped for that.")
+	await _event_beat(beat_med)
+
+	# Step back like they’re backing off
+	await _cinematic_step(a0, Vector2i(-1, 0))
+	await _event_beat(0.25)
+	await _cinematic_step(a1, Vector2i(-1, 0))
+	await _event_beat(0.35)
+
+	await M._say(a0, "No fight. We’re leaving— now.")
+	await _event_beat(beat_med)
+
+	await M._say(a2, "Bomber, get us out of here!")
+	await _event_beat(beat_long)
+
+func _cinematic_step(u: Unit, delta: Vector2i) -> void:
+	if M == null:
+		return
+	if u == null or not is_instance_valid(u):
+		return
+	if u.hp <= 0:
+		return
+
+	var dst := u.cell + delta
+
+	# bounds check
+	if M.grid != null and M.grid.has_method("in_bounds"):
+		if not bool(M.grid.in_bounds(dst)):
+			return
+
+	# cell occupancy check (avoid clipping)
+	if "units_by_cell" in M:
+		if M.units_by_cell.has(dst):
+			return
+
+	# Prefer your real movement pipeline if it exists
+	if M.has_method("ai_move"):
+		await M.ai_move(u, dst)
+		return
+
+	# Fallback: just tween visually (does NOT change cell)
+	var start := u.global_position
+	var end := start + Vector2(16, 8) # small iso-ish nudge (safe fallback)
+	var tw := create_tween()
+	tw.tween_property(u, "global_position", end, 0.18)
+	await tw.finished

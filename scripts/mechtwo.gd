@@ -77,7 +77,7 @@ func _on_support_missile_arrived(M: MapController, impact_cell: Vector2i) -> voi
 			emit_signal("support_impacts_done")
 		return
 
-	await M._apply_splash_damage(impact_cell, missile_splash_radius, missile_damage)
+	await M._apply_splash_damage(impact_cell, missile_splash_radius, missile_damage + attack_damage)
 	M._apply_structure_splash_damage(impact_cell, missile_splash_radius, M.structure_hit_damage)
 	M.spawn_explosion_at_cell(impact_cell)
 
@@ -95,7 +95,7 @@ func _impact_task(M: MapController, impact_cell: Vector2i, delay: float) -> void
 	if M == null or not is_instance_valid(M):
 		return
 
-	await M._apply_splash_damage(impact_cell, missile_splash_radius, missile_damage)
+	await M._apply_splash_damage(impact_cell, missile_splash_radius, missile_damage + attack_damage)
 	M._apply_structure_splash_damage(impact_cell, missile_splash_radius, M.structure_hit_damage)
 	M.spawn_explosion_at_cell(impact_cell)
 func _spawn_impact_task(M: MapController, impact_cell: Vector2i) -> void:
@@ -113,7 +113,7 @@ func _impact_coroutine(M: MapController, impact_cell: Vector2i) -> void:
 		return
 
 	# Impact damage (splash + structures + fx)
-	await M._apply_splash_damage(impact_cell, missile_splash_radius, missile_damage)
+	await M._apply_splash_damage(impact_cell, missile_splash_radius, missile_damage + attack_damage)
 	M._apply_structure_splash_damage(impact_cell, missile_splash_radius, M.structure_hit_damage)
 	M.spawn_explosion_at_cell(impact_cell)
 

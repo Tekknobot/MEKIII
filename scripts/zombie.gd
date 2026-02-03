@@ -20,7 +20,19 @@ func _ready() -> void:
 	attack_range = 1
 	attack_damage = 1
 
-	max_hp = max(max_hp, 10) # <----------------- ZOMBIE HP
+	# --- map-to-map scaling via RunState.mission_difficulty (0..1) ---
+	var rs := get_node_or_null("/root/RunState") as RunState
+	if rs == null:
+		rs = get_node_or_null("/root/RunStateNode") as RunState  # fallback if your autoload is named this
+
+	var base_hp := 10
+	var bonus_hp := 0
+
+	if rs != null:
+		# +0..+4 hp depending on mission difficulty
+		bonus_hp = int(round(rs.mission_difficulty * 15.0))
+
+	max_hp = max(max_hp, base_hp + bonus_hp)
 	hp = clamp(hp, 0, max_hp)
 
 	super._ready()

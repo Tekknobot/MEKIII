@@ -14,3 +14,13 @@ res://scenes/units/allies/R1.tscn
 res://scripts/r_1.gd
 res://scripts/map_controller.gd
 res://scripts/unit.gd
+res://scripts/zombie.gd
+res://scenes/units/allies/humantwo.tscn
+res://scripts/humantwo.gd
+res://scenes/units/allies/mechtwo.tscn
+res://scripts/mechtwo.gd
+res://scenes/overworld.tscn
+res://scenes/titan.tscn
+res://shaders/titan_cinematic.gdshader
+res://scripts/end_game_panel_runtime.gd
+res://scripts/tutorial_manager.gd

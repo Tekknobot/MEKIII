@@ -83,7 +83,7 @@ func perform_blade(M: MapController, target_cell: Vector2i) -> void:
 		if u.hp <= 0:
 			return false
 		var d = abs(u.cell.x - cell.x) + abs(u.cell.y - cell.y)
-		return d <= blade_range
+		return d <= blade_range + attack_range
 
 	# Add clicked target first if valid
 	if _is_valid_enemy.call(clicked):
@@ -188,7 +188,7 @@ func perform_blade(M: MapController, target_cell: Vector2i) -> void:
 			continue
 
 		# Still in range from our *current* position?
-		if abs(tcell.x - cell.x) + abs(tcell.y - cell.y) > blade_range:
+		if abs(tcell.x - cell.x) + abs(tcell.y - cell.y) > blade_range + attack_range:
 			continue
 
 		# Find open adjacent tile to dash into

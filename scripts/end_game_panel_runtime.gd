@@ -265,7 +265,7 @@ func _build_ui() -> void:
 # -------------------------
 # Public API
 # -------------------------
-func show_win(rounds_survived: int, upgrades: Array) -> void:
+func show_win(rounds_survived: int, upgrades: Array, is_event: bool = false) -> void:
 	_shown_upgrades = upgrades
 
 	_picked = false
@@ -274,11 +274,38 @@ func show_win(rounds_survived: int, upgrades: Array) -> void:
 		continue_button.disabled = true
 
 	if title_label != null:
-		title_label.text = "MISSION COMPLETE"
+		if is_event:
+			title_label.text = "EVENT COMPLETE"
+		else:
+			title_label.text = "MISSION COMPLETE"
+
 	if body_label != null:
-		body_label.text = "Satellite sweep confirmed.\nRounds survived: %d\n\nChoose ONE upgrade:" % rounds_survived
+		if is_event:
+			body_label.text = "Objective complete.\nRounds survived: %d\n\nChoose ONE upgrade:" % rounds_survived
+		else:
+			body_label.text = "Satellite sweep confirmed.\nRounds survived: %d\n\nChoose ONE upgrade:" % rounds_survived
 
 	_apply_upgrade_ui()
+	show_panel()
+
+func show_event_success(title_text: String, body_text: String, button_text: String = "EVAC") -> void:
+	# Event success has no upgrades (or keep them if you want)
+	_shown_upgrades = []
+	_picked = true
+	_picked_upgrade = &""
+
+	if continue_button != null:
+		continue_button.disabled = false
+		continue_button.text = button_text
+
+	if title_label != null:
+		title_label.text = title_text
+	if body_label != null:
+		body_label.text = body_text
+
+	# Hide/clear upgrade UI if your panel has it
+	_apply_upgrade_ui()
+
 	show_panel()
 
 func show_loss(msg: String) -> void:
