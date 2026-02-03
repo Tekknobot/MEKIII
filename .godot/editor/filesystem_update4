@@ -25,3 +25,5 @@ res://shaders/titan_cinematic.gdshader
 res://scripts/end_game_panel_runtime.gd
 res://scripts/tutorial_manager.gd
 res://scenes/camera.gd
+res://scenes/elite_mech.tscn
+res://scripts/elite_mech.gd

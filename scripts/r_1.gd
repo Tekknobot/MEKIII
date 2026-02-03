@@ -57,6 +57,9 @@ class_name R1
 @export var explosion_sfx_pitch_min := 0.97
 @export var explosion_sfx_pitch_max := 1.03
 
+@export var volley_flash_strength := 0.68
+@export var volley_flash_time := 0.10
+
 func _ready() -> void:
 	set_meta("portrait_tex", portrait_tex)
 	set_meta("display_name", display_name)
@@ -278,12 +281,11 @@ func _apply_splash_damage(M: MapController, center_cell: Vector2i) -> void:
 			_damage_enemy_on_cell(M, c, dmg)
 			_damage_structure_on_cell_if_enabled(M, c, dmg)
 
-
 func _damage_enemy_on_cell(M: MapController, c: Vector2i, dmg: int) -> void:
 	var u := M.unit_at_cell(c)
 	if u != null and is_instance_valid(u) and u.team != team:
 		_apply_damage_safely(u, dmg)
-
+		_flash_hit(M, u)
 
 func _damage_structure_on_cell_if_enabled(M: MapController, c: Vector2i, dmg: int) -> void:
 	if not hit_structures_too:
@@ -474,3 +476,22 @@ func _play_attack_anim_once() -> void:
 
 	sprA.stop()
 	sprA.play(anim)
+
+func _flash_hit(M: MapController, u: Unit) -> void:
+	if M == null or u == null or not is_instance_valid(u):
+		return
+
+	# Prefer the public method name you asked for
+	if M.has_method("flash_unit_white"):
+		M.call("flash_unit_white", u, volley_flash_strength, volley_flash_time)
+		return
+
+	# Fallbacks in case your MapController uses different names/signatures
+	if M.has_method("_flash_unit_white"):
+		# many of your scripts used: M._flash_unit_white(u, strength)
+		M.call("_flash_unit_white", u, volley_flash_strength)
+		return
+
+	if M.has_method("flash_unit"):
+		M.call("flash_unit", u)
+		return

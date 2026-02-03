@@ -85,7 +85,7 @@ func _ready() -> void:
 	attack_damage = 2
 
 	# Elite durability
-	max_hp = max(max_hp, 32)
+	max_hp = max(max_hp, 50)
 	hp = clamp(hp, 0, max_hp)
 
 	super._ready()
