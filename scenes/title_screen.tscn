@@ -244,6 +244,7 @@ cloud_swap_every = 2.0
 
 [node name="StarryNight" parent="." instance=ExtResource("10_tklts")]
 z_index = -4096
+position = Vector2(665, 297)
 
 [node name="CloudsA" type="TextureRect" parent="."]
 visible = false
@@ -346,11 +347,15 @@ text = "Restart"
 [node name="StoryClip" type="Control" parent="."]
 z_index = 4096
 custom_minimum_size = Vector2(120, 120)
-anchors_preset = 0
-offset_left = 885.0
-offset_top = 33.0
-offset_right = 1005.0
-offset_bottom = 153.0
+layout_mode = 1
+anchors_preset = 1
+anchor_left = 1.0
+anchor_right = 1.0
+offset_left = -272.0
+offset_top = 21.0
+offset_right = -152.0
+offset_bottom = 141.0
+grow_horizontal = 0
 
 [node name="PanelContainer" type="PanelContainer" parent="StoryClip"]
 layout_mode = 0
