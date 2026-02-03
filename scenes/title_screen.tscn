@@ -234,7 +234,7 @@ title_font_size = 48
 body_font = ExtResource("3_mgrm8")
 body_font_size = 16
 button_font = ExtResource("2_sa3yf")
-button_font_size = 16
+button_font_size = 32
 bg_texture_rect_path = NodePath("Thumbnail")
 bg_textures = Array[Texture2D]([ExtResource("5_3yumr"), ExtResource("6_cs5ya"), ExtResource("7_mykxm"), ExtResource("8_tklts"), ExtResource("9_mykxm")])
 clouds_a_path = NodePath("CloudsA")
@@ -272,11 +272,15 @@ texture = ExtResource("12_frs5l")
 
 [node name="Copyright" type="Label" parent="."]
 z_index = 4096
-layout_mode = 0
-offset_left = 22.0
-offset_top = 619.0
-offset_right = 534.0
-offset_bottom = 632.0
+layout_mode = 1
+anchors_preset = 2
+anchor_top = 1.0
+anchor_bottom = 1.0
+offset_left = 14.0
+offset_top = -29.0
+offset_right = 526.0
+offset_bottom = -16.0
+grow_vertical = 0
 theme_override_fonts/font = ExtResource("2_sa3yf")
 text = "© 2026 -- All Brains Reserved -- Into the Brains anyone?"
 
@@ -327,21 +331,24 @@ layout_mode = 2
 alignment = 1
 
 [node name="StartButton" type="Button" parent="Center/PanelContainer/MarginContainer/VBoxContainer/Buttons"]
-custom_minimum_size = Vector2(80, 16)
+custom_minimum_size = Vector2(120, 16)
 layout_mode = 2
 theme_override_fonts/font = ExtResource("2_sa3yf")
+theme_override_font_sizes/font_size = 32
 text = "Start"
 
 [node name="QuitButton" type="Button" parent="Center/PanelContainer/MarginContainer/VBoxContainer/Buttons"]
-custom_minimum_size = Vector2(80, 16)
+custom_minimum_size = Vector2(120, 16)
 layout_mode = 2
 theme_override_fonts/font = ExtResource("2_sa3yf")
+theme_override_font_sizes/font_size = 32
 text = "Quit"
 
 [node name="RestartButton" type="Button" parent="Center/PanelContainer/MarginContainer/VBoxContainer/Buttons"]
-custom_minimum_size = Vector2(80, 16)
+custom_minimum_size = Vector2(120, 16)
 layout_mode = 2
 theme_override_fonts/font = ExtResource("2_sa3yf")
+theme_override_font_sizes/font_size = 32
 text = "Restart"
 
 [node name="StoryClip" type="Control" parent="."]
