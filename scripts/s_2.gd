@@ -420,3 +420,9 @@ func get_special_min_distance(id: String) -> int:
 	if id == "quake":
 		return quake_min_safe_dist
 	return 0
+
+func get_hud_extras() -> Dictionary:
+	return {
+		"Quake Range": str(quake_range),
+		"Quake Damage": str(quake_damage + attack_damage),
+	}

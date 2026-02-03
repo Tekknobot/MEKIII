@@ -445,3 +445,9 @@ func _spawn_nova_explosion(M: MapController, c: Vector2i) -> void:
 
 func _alive() -> bool:
 	return is_instance_valid(self) and (not ("_dying" in self and self._dying)) and hp > 0
+
+func get_hud_extras() -> Dictionary:
+	return {
+		"Nova Range": str(nova_range),
+		"Nova Damage": str(nova_damage + attack_damage),
+	}

@@ -1,3 +1,4 @@
+VBoxContainer
 Node2D
 TextureRect
 AnimatedSprite2D
@@ -6,10 +7,8 @@ Node
 AudioStreamPlayer
 RichTextLabel
 Label
-VBoxContainer
 Panel
 ProgressBar
 Control
 HBoxContainer
 Button
-PanelContainer

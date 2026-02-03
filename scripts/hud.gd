@@ -16,6 +16,8 @@ var _dmg_val: Label
 
 var _unit: Unit = null
 
+var extras_box: VBoxContainer
+
 func _ready() -> void:
 	_unit_card = get_node_or_null(unit_card_path) as Control
 	if _unit_card == null:
@@ -30,6 +32,8 @@ func _ready() -> void:
 	_move_val  = _unit_card.get_node("Margin/Row/Right/StatsGrid/MoveVal") as Label
 	_range_val = _unit_card.get_node("Margin/Row/Right/StatsGrid/RangeVal") as Label
 	_dmg_val   = _unit_card.get_node("Margin/Row/Right/StatsGrid/DmgVal") as Label
+
+	extras_box = _unit_card.get_node("Margin/Row/Right/ExtrasBox") as VBoxContainer
 
 	_unit_card.visible = false
 
@@ -53,8 +57,44 @@ func set_unit(u: Unit) -> void:
 	if not _unit.is_connected("died", Callable(self, "_on_unit_died")):
 		_unit.connect("died", Callable(self, "_on_unit_died"))
 
+	_render_extras(u)
 	_refresh()
 
+func _render_extras(u):
+	if extras_box == null:
+		return
+
+	for ch in extras_box.get_children():
+		ch.queue_free()
+
+	if u == null:
+		return
+
+	var extras := {}
+	if u.has_method("get_hud_extras"):
+		extras = u.call("get_hud_extras")
+
+	for k in extras.keys():
+		var row := HBoxContainer.new()
+		row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+
+		var key_lbl := Label.new()
+		key_lbl.text = str(k)
+		key_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		key_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+		key_lbl.modulate.a = 0.85
+
+		var val_lbl := Label.new()
+		val_lbl.text = str(extras[k])
+		val_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+		val_lbl.modulate.a = 0.95
+
+		row.add_child(key_lbl)
+		row.add_child(val_lbl)
+
+		extras_box.add_child(row)
+
+		
 func _process(_dt: float) -> void:
 	if _unit != null and is_instance_valid(_unit) and _unit_card.visible:
 		_refresh()

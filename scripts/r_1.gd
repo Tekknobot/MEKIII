@@ -67,7 +67,7 @@ func _ready() -> void:
 	footprint_size = Vector2i(1, 1)
 	move_range = base_move_range
 	attack_range = base_attack_range
-
+	
 	max_hp = max(max_hp, base_max_hp)
 	hp = clamp(hp, 0, max_hp)
 
@@ -105,7 +105,7 @@ func perform_basic_attack(M: MapController, target_cell: Vector2i) -> void:
 		return
 	_face_toward_cell(target_cell)
 	_play_attack_anim_once()
-	_apply_damage_safely(tgt, basic_ranged_damage)
+	_apply_damage_safely(tgt, attack_damage)
 
 # -------------------------------------------------------
 # Special: NINEFOLD VOLLEY (AUTO)
@@ -259,8 +259,8 @@ func _fire_projectile_to_cell_with_explosion(M: MapController, dest_cell: Vector
 func _apply_splash_damage(M: MapController, center_cell: Vector2i) -> void:
 	if splash_radius <= 0:
 		# treat as single-tile
-		_damage_enemy_on_cell(M, center_cell, attack_damage)
-		_damage_structure_on_cell_if_enabled(M, center_cell, attack_damage)
+		_damage_enemy_on_cell(M, center_cell, volley_damage)
+		_damage_structure_on_cell_if_enabled(M, center_cell, volley_damage)
 		return
 
 	# square splash (radius 1 => 3x3)
@@ -270,7 +270,7 @@ func _apply_splash_damage(M: MapController, center_cell: Vector2i) -> void:
 			if not _cell_in_bounds(M, c):
 				continue
 
-			var dmg := attack_damage
+			var dmg := volley_damage
 			if splash_damage_falloff:
 				if ox != 0 or oy != 0:
 					dmg = splash_ring_damage
@@ -495,3 +495,9 @@ func _flash_hit(M: MapController, u: Unit) -> void:
 	if M.has_method("flash_unit"):
 		M.call("flash_unit", u)
 		return
+
+func get_hud_extras() -> Dictionary:
+	return {
+		"Volley Range": str(volley_range),
+		"Volley Damage": str(volley_damage),
+	}

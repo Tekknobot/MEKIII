@@ -333,3 +333,9 @@ func get_stim_damage_bonus() -> int:
 	if has_meta(&"stim_damage_bonus"):
 		return int(get_meta(&"stim_damage_bonus"))
 	return 0
+
+func get_hud_extras() -> Dictionary:
+	return {
+		"Blade Range": str(blade_range),
+		"Blade Damage": str(blade_damage + attack_damage),	
+	}

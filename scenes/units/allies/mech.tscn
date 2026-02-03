@@ -214,6 +214,7 @@ animations = [{
 [node name="Unit" type="CharacterBody2D"]
 script = ExtResource("1_0w1yf")
 thumbnail = ExtResource("2_m4nn4")
+mine_damage = 999
 display_name = "ROBODOG"
 attack_damage = 2
 max_hp = 4

@@ -28,7 +28,6 @@ func _ready() -> void:
 
 	super._ready()
 
-
 func perform_place_mine(M: MapController, target_cell: Vector2i) -> void:
 	# range check
 	if abs(target_cell.x - cell.x) + abs(target_cell.y - cell.y) > mine_place_range:
@@ -112,3 +111,8 @@ func end_mine_special(commit_cooldown: bool = true) -> void:
 	placing_mines = false
 	if commit_cooldown:
 		mark_special_used("mines", 2)
+
+func get_hud_extras() -> Dictionary:
+	return {
+		"Mine Damage": str(mine_damage),
+	}

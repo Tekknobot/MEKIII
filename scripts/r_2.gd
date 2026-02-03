@@ -417,3 +417,9 @@ func _wait_seconds_no_timer(seconds: float) -> void:
 			return
 		await get_tree().process_frame
 		_delay_left -= get_process_delta_time()
+
+func get_hud_extras() -> Dictionary:
+	return {
+		"Cannon Range": str(cannon_range),
+		"Cannon Damage": str(cannon_damage + attack_damage),
+	}

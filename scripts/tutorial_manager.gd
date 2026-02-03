@@ -358,8 +358,8 @@ func _roll_3_upgrades() -> Array:
 		var t: Texture2D = thumb.call("MERCENARY")
 		pool.append_array([
 			{"id": &"merc_move_plus_1",  "title": "QUICK CONTRACT",      "desc": "+1 Move for Mercenary.",          "thumb": t},
-			{"id": &"merc_range_plus_1", "title": "LONG SIGHT",          "desc": "+1 Attack Range for Mercenary.",  "thumb": t},
-			{"id": &"merc_dmg_plus_1",   "title": "OVERCHARGED ROUNDS",  "desc": "+1 Damage for Mercenary.",        "thumb": t},
+			{"id": &"merc_range_plus_1", "title": "WIDE SWEEP", 		 "desc": "+1 Blade Range for Mercenary.",   "thumb": t},
+			{"id": &"merc_dmg_plus_1",   "title": "OVERCHARGED SLASH",  "desc": "+1 Damage for Mercenary.",        "thumb": t},
 		])
 
 	# ROBODOG

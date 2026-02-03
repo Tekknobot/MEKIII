@@ -60,7 +60,7 @@ func perform_hellfire(M: MapController, target: Vector2i) -> void:
 		var victim := M.unit_at_cell(c)
 		if victim != null and is_instance_valid(victim) and victim.team != team:
 			M._flash_unit_white(victim, 0.12)
-			victim.take_damage(hellfire_damage + attack_range)
+			victim.take_damage(hellfire_damage + attack_damage)
 			M._cleanup_dead_at(c)
 
 		await get_tree().create_timer(hellfire_delay).timeout
@@ -161,3 +161,10 @@ func get_special_range(id: String) -> int:
 	if id == "suppress":
 		return attack_range
 	return 0
+
+func get_hud_extras() -> Dictionary:
+	return {
+		"Suppress Range": str(suppress_range),
+		"Suppress Damage": str(suppress_damage + attack_damage),
+		"Hellfire Damage": str(hellfire_damage + attack_damage),		
+	}

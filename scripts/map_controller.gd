@@ -2888,8 +2888,7 @@ func _trigger_mine_if_present(u: Unit) -> void:
 	u.take_damage(dmg)
 
 	if u != null and is_instance_valid(u) and u.hp <= 0:
-		await _play_death_and_wait(u)
-		_remove_unit_from_board_at_cell(c)
+		_remove_unit_from_board(u) # remove using the unit instance
 		return
 
 	_cleanup_dead_at(c)
@@ -4876,7 +4875,7 @@ func apply_run_upgrades() -> void:
 				&"merc_move_plus_1":
 					if u is HumanTwo: u.move_range += 1 * n
 				&"merc_range_plus_1":
-					if u is HumanTwo: u.attack_range += 1 * n
+					if u is HumanTwo: u.blade_range += 1 * n
 				&"merc_dmg_plus_1":
 					if u is HumanTwo: u.attack_damage += 1 * n
 

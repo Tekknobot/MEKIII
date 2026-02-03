@@ -1,4 +1,4 @@
-[gd_scene load_steps=7 format=3 uid="uid://b6wrxn53ynbat"]
+[gd_scene load_steps=8 format=3 uid="uid://b6wrxn53ynbat"]
 
 [ext_resource type="Script" uid="uid://vc2m5p8p5r3" path="res://scripts/hud.gd" id="1_qpvh6"]
 [ext_resource type="FontFile" uid="uid://dgugahs6bc7so" path="res://fonts/magofonts/mago3.ttf" id="2_1etfg"]
@@ -20,6 +20,10 @@ bg_color = Color(0, 0, 0, 1)
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_nysna"]
 bg_color = Color(0, 1, 0, 1)
+
+[sub_resource type="Theme" id="Theme_1etfg"]
+default_font = ExtResource("2_fls4u")
+default_font_size = 16
 
 [node name="HUD" type="CanvasLayer"]
 layer = 10
@@ -121,3 +125,7 @@ text = "DMG"
 layout_mode = 2
 theme_override_fonts/font = ExtResource("2_fls4u")
 text = "-"
+
+[node name="ExtrasBox" type="VBoxContainer" parent="UnitCard/Margin/Row/Right"]
+layout_mode = 2
+theme = SubResource("Theme_1etfg")

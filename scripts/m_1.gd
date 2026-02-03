@@ -286,3 +286,9 @@ func _wait_attack_anim() -> void:
 
 	# Wait until this specific animation finishes
 	await spr.animation_finished
+
+func get_hud_extras() -> Dictionary:
+	return {
+		"Sunder Range": str(sunder_range),
+		"Sunder Damage": str(sunder_damage + attack_damage),
+	}

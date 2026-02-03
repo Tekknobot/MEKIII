@@ -425,3 +425,9 @@ func _cell_is_water_or_nonwalkable(M: MapController, c: Vector2i) -> bool:
 
 	# Fallback: if you can’t tell, don’t auto-kill.
 	return false
+
+func get_hud_extras() -> Dictionary:
+	return {
+		"Pounce Range": str(pounce_range),
+		"Pounce Damage": str(pounce_damage + attack_damage),
+	}
