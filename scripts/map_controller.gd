@@ -611,7 +611,7 @@ func spawn_units() -> void:
 
 	for x in range(w):
 		for y in range(h):
-			var c := Vector2i(x,y)
+			var c := Vector2i(x, y)
 			if not _is_walkable(c):
 				continue
 			if structure_blocked.has(c):
@@ -626,7 +626,7 @@ func spawn_units() -> void:
 	# ---------------------------------------------------
 	var cluster_center: Vector2i = valid_cells.pick_random()
 
-	valid_cells.sort_custom(func(a:Vector2i, b:Vector2i) -> bool:
+	valid_cells.sort_custom(func(a: Vector2i, b: Vector2i) -> bool:
 		var da = abs(a.x - cluster_center.x) + abs(a.y - cluster_center.y)
 		var db = abs(b.x - cluster_center.x) + abs(b.y - cluster_center.y)
 		return da < db
@@ -661,6 +661,13 @@ func spawn_units() -> void:
 		chosen_cells.append(chosen)
 
 	# ---------------------------------------------------
+	# 1.5) Reserve ally cells so enemies can never spawn there
+	# ---------------------------------------------------
+	var reserved_ally: Dictionary = {} # cell -> true
+	for c in chosen_cells:
+		reserved_ally[c] = true
+
+	# ---------------------------------------------------
 	# 2) Zombies FIRST (based on far center from cluster_center)
 	# ---------------------------------------------------
 	var enemy_center := _pick_far_center(valid_cells, cluster_center)
@@ -669,6 +676,11 @@ func spawn_units() -> void:
 	var enemy_zone_cells := _cells_within_radius(valid_cells, enemy_center, enemy_zone_radius)
 	if enemy_zone_cells.size() < max_zombies:
 		enemy_zone_cells = valid_cells.duplicate()
+
+	# ✅ Remove reserved ally cells from enemy spawn zone up-front
+	enemy_zone_cells = enemy_zone_cells.filter(func(c: Vector2i) -> bool:
+		return not reserved_ally.has(c)
+	)
 
 	_rebuild_recruit_pool_from_allies()
 
@@ -680,11 +692,11 @@ func spawn_units() -> void:
 	if is_elite_mission:
 		zombies_to_spawn = maxi(0, max_zombies - 1)
 
-	_spawn_zombies_in_clusters(enemy_zone_cells, zombies_to_spawn)
+	_spawn_zombies_in_clusters(enemy_zone_cells, zombies_to_spawn, reserved_ally)
 
 	# Spawn the EliteMech in the enemy zone
 	if is_elite_mission:
-		_spawn_elite_mech_in_zone(enemy_zone_cells, structure_blocked)
+		_spawn_elite_mech_in_zone(enemy_zone_cells, structure_blocked, reserved_ally)
 
 	# ---------------------------------------------------
 	# 3) Allies AFTER (bomber drop)
@@ -758,7 +770,7 @@ func spawn_units() -> void:
 
 	_ensure_beacon_marker()
 
-func _spawn_elite_mech_in_zone(zone_cells: Array[Vector2i], structure_blocked: Dictionary) -> bool:
+func _spawn_elite_mech_in_zone(zone_cells: Array[Vector2i], structure_blocked: Dictionary, reserved_ally: Dictionary = {}) -> bool:
 	if units_root == null or terrain == null:
 		return false
 
@@ -770,6 +782,8 @@ func _spawn_elite_mech_in_zone(zone_cells: Array[Vector2i], structure_blocked: D
 	# Build valid spawn list
 	var valid: Array[Vector2i] = []
 	for c in zone_cells:
+		if reserved_ally.has(c):
+			continue
 		if not _is_walkable(c):
 			continue
 		if structure_blocked.has(c):
@@ -782,7 +796,7 @@ func _spawn_elite_mech_in_zone(zone_cells: Array[Vector2i], structure_blocked: D
 		push_warning("MapController: no valid cells to spawn EliteMech.")
 		return false
 
-	var cell = valid.pick_random()
+	var cell: Vector2i = valid.pick_random()
 
 	var u := scene.instantiate() as Unit
 	if u == null:
@@ -812,6 +826,68 @@ func _spawn_elite_mech_in_zone(zone_cells: Array[Vector2i], structure_blocked: D
 
 	return true
 
+func _spawn_zombies_in_clusters(zone_cells: Array[Vector2i], total: int, reserved_ally: Dictionary = {}) -> void:
+	if total <= 0 or zone_cells.is_empty():
+		return
+
+	# Remove reserved ally cells from the pool (extra safety)
+	zone_cells = zone_cells.filter(func(c: Vector2i) -> bool:
+		return not reserved_ally.has(c)
+	)
+
+	zone_cells.shuffle()
+
+	# Build multiple clusters, but keep spawning until we hit TOTAL
+	var remaining := total
+	var max_cluster_size := 4  # tweak: bigger = tighter blobs
+
+	while remaining > 0 and not zone_cells.is_empty():
+		# pick an anchor
+		var anchor: Vector2i = zone_cells.pop_back()
+
+		# ✅ guard: never spawn on reserved/occupied
+		if reserved_ally.has(anchor) or units_by_cell.has(anchor) or (not _is_walkable(anchor)):
+			continue
+
+		# Only decrement remaining if we successfully spawned
+		if _spawn_unit_walkable(anchor, Unit.Team.ENEMY):
+			remaining -= 1
+		else:
+			continue
+
+		if remaining <= 0:
+			break
+
+		# decide how many more for this cluster
+		var want = min(remaining, randi_range(1, max_cluster_size - 1))
+
+		# pick nearest cells to anchor from remaining pool
+		var near := _neighbors_sorted_by_distance(zone_cells, anchor, 6)
+
+		while want > 0 and not near.is_empty():
+			var c: Vector2i = near.pop_front()
+
+			# ✅ guard: never spawn on reserved/occupied
+			if reserved_ally.has(c) or units_by_cell.has(c) or (not _is_walkable(c)):
+				# still remove from pool so we don't keep re-trying it forever
+				var idx0 := zone_cells.find(c)
+				if idx0 != -1:
+					zone_cells.remove_at(idx0)
+				continue
+
+			# spawn (only count if success)
+			if _spawn_unit_walkable(c, Unit.Team.ENEMY):
+				remaining -= 1
+				want -= 1
+
+			# remove from zone pool so it can't be used again
+			var idx := zone_cells.find(c)
+			if idx != -1:
+				zone_cells.remove_at(idx)
+
+			if remaining <= 0:
+				break
+
 func _pick_far_center(cells: Array[Vector2i], from_center: Vector2i) -> Vector2i:
 	if cells.is_empty():
 		return Vector2i(-1, -1)
@@ -825,7 +901,6 @@ func _pick_far_center(cells: Array[Vector2i], from_center: Vector2i) -> Vector2i
 			best = c
 	return best
 
-
 func _cells_within_radius(cells: Array[Vector2i], center: Vector2i, r: int) -> Array[Vector2i]:
 	var out: Array[Vector2i] = []
 	for c in cells:
@@ -833,46 +908,6 @@ func _cells_within_radius(cells: Array[Vector2i], center: Vector2i, r: int) -> A
 		if d <= r:
 			out.append(c)
 	return out
-
-
-func _spawn_zombies_in_clusters(zone_cells: Array[Vector2i], total: int) -> void:
-	if total <= 0 or zone_cells.is_empty():
-		return
-
-	zone_cells.shuffle()
-
-	# Build multiple clusters, but keep spawning until we hit TOTAL
-	var remaining := total
-	var max_cluster_size := 4  # tweak: bigger = tighter blobs
-
-	while remaining > 0 and not zone_cells.is_empty():
-		# pick an anchor
-		var anchor = zone_cells.pop_back()
-		_spawn_unit_walkable(anchor, Unit.Team.ENEMY)
-		remaining -= 1
-		if remaining <= 0:
-			break
-
-		# decide how many more for this cluster
-		var want = min(remaining, randi_range(1, max_cluster_size - 1))
-
-		# pick nearest cells to anchor from remaining pool
-		var near := _neighbors_sorted_by_distance(zone_cells, anchor, 6)
-
-		while want > 0 and not near.is_empty():
-			var c = near.pop_front()
-			_spawn_unit_walkable(c, Unit.Team.ENEMY)
-			remaining -= 1
-			want -= 1
-
-			# remove from zone pool so it can't be used again
-			var idx := zone_cells.find(c)
-			if idx != -1:
-				zone_cells.remove_at(idx)
-
-			if remaining <= 0:
-				break
-
 
 func _neighbors_sorted_by_distance(cells: Array[Vector2i], anchor: Vector2i, max_r: int) -> Array[Vector2i]:
 	var near: Array[Vector2i] = []
@@ -929,34 +964,38 @@ func clear_all() -> void:
 	mines_by_cell.clear()
 	_clear_beacon_marker()
 
-func _spawn_unit_walkable(preferred: Vector2i, team: int) -> void:
-	var c := _find_nearest_open_walkable(preferred)
+func _spawn_unit_walkable(preferred: Vector2i, team: int, reserved_ally: Dictionary = {}) -> bool:
+	var c := _find_nearest_open_walkable(preferred, reserved_ally)
 	if c.x < 0:
 		push_warning("MapController: no WALKABLE open land found near %s" % [preferred])
-		return
+		return false
+
+	# Final safety: never allow enemies to use reserved ally cells
+	if team != Unit.Team.ALLY and reserved_ally.has(c):
+		return false
 
 	var scene: PackedScene
 
 	if team == Unit.Team.ALLY:
 		if ally_scenes.is_empty():
 			push_error("MapController: ally_scenes is empty.")
-			return
+			return false
 		scene = ally_scenes.pick_random()
 	else:
 		scene = enemy_zombie_scene
 		if scene == null:
 			push_error("MapController: enemy_zombie_scene not assigned.")
-			return
+			return false
 
 	var inst := scene.instantiate()
 	var u := inst as Unit
 	if u == null:
 		push_error("MapController: scene root is not a Unit (must extend Unit).")
-		return
+		return false
 
 	units_root.add_child(u)
 	_wire_unit_signals(u)
-	
+
 	u.team = team
 	u.hp = u.max_hp
 
@@ -964,6 +1003,7 @@ func _spawn_unit_walkable(preferred: Vector2i, team: int) -> void:
 	units_by_cell[c] = u
 
 	print("Spawned", ("ALLY" if team == Unit.Team.ALLY else "ZOMBIE"), "at", c, "world", u.global_position)
+	return true
 
 # --------------------------
 # Walkable + placement search
@@ -976,31 +1016,26 @@ func _is_walkable(c: Vector2i) -> bool:
 	# T_WATER == 5 in your Game
 	return grid.terrain[c.x][c.y] != 5
 
-func _find_nearest_open_walkable(start: Vector2i) -> Vector2i:
-	if grid == null:
-		return Vector2i(-1, -1)
+func _find_nearest_open_walkable(preferred: Vector2i, reserved_ally: Dictionary = {}, max_r: int = 12) -> Vector2i:
+	# Check preferred first
+	if _is_walkable(preferred) and (not units_by_cell.has(preferred)) and (not reserved_ally.has(preferred)):
+		return preferred
 
-	var w := int(grid.w) if "w" in grid else 0
-	var h := int(grid.h) if "h" in grid else 0
-	if w <= 0 or h <= 0:
-		return Vector2i(-1, -1)
+	# Expand outward in Manhattan rings
+	for r in range(1, max_r + 1):
+		for dx in range(-r, r + 1):
+			var dy = r - abs(dx)
 
-	var best := Vector2i(-1, -1)
-	var best_d := 999999
+			var c1 := preferred + Vector2i(dx, dy)
+			if _is_walkable(c1) and (not units_by_cell.has(c1)) and (not reserved_ally.has(c1)):
+				return c1
 
-	for x in range(w):
-		for y in range(h):
-			var c := Vector2i(x, y)
-			if not _is_walkable(c):
-				continue
-			if unit_at_cell(c) != null:
-				continue
-			var d = abs(start.x - c.x) + abs(start.y - c.y)
-			if d < best_d:
-				best_d = d
-				best = c
+			if dy != 0:
+				var c2 := preferred + Vector2i(dx, -dy)
+				if _is_walkable(c2) and (not units_by_cell.has(c2)) and (not reserved_ally.has(c2)):
+					return c2
 
-	return best
+	return Vector2i(-1, -1)
 
 # --------------------------
 # Input: select + attack
