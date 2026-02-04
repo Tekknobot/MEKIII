@@ -3391,7 +3391,6 @@ func set_overwatch(u: Unit, enabled: bool, r: int = 0, turns := 1) -> void:
 	_sfx(sfx_overwatch_on, sfx_volume_ui, 1.0)
 	_say(u, "Overwatch set.")
 
-
 func is_overwatching(u: Unit) -> bool:
 	return u != null and is_instance_valid(u) and overwatch_by_unit.has(u)
 
@@ -3439,6 +3438,10 @@ func _check_overwatch_trigger(_mover: Unit, _entered_cell: Vector2i) -> void:
 		_sfx(sfx_overwatch_shot, sfx_volume_world, randf_range(0.95, 1.05), w.global_position)
 
 		await _do_attack(w, t)
+		
+		# ✅ If overwatch killed it, force the unit to fully die + free
+		if is_instance_valid(t) and ("hp" in t) and int(t.hp) <= 0:
+			await t._die()		
 
 func _get_unit_render_node(u: Unit) -> CanvasItem:
 	if u == null or not is_instance_valid(u):

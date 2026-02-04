@@ -17,3 +17,5 @@ res://scenes/blood_particles.tscn
 res://scripts/blood_burst.gd
 res://scripts/unit.gd
 res://scenes/overworld_radar.tscn
+res://scenes/units/allies/mech.tscn
+res://scripts/map_controller.gd
