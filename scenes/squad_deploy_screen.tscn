@@ -1,11 +1,24 @@
-[gd_scene load_steps=8 format=3 uid="uid://yuv3ki773sul"]
+[gd_scene load_steps=12 format=3 uid="uid://yuv3ki773sul"]
 
 [ext_resource type="Script" uid="uid://bpqdlu5ei0n4s" path="res://scripts/squad_deploy_screen.gd" id="1_ojx2h"]
 [ext_resource type="PackedScene" uid="uid://bmtwqbsx674eo" path="res://scenes/Game.tscn" id="2_jek1g"]
 [ext_resource type="PackedScene" uid="uid://dp7v6b7f0bh4u" path="res://scenes/overworld.tscn" id="3_6856t"]
 [ext_resource type="FontFile" uid="uid://dgugahs6bc7so" path="res://fonts/magofonts/mago3.ttf" id="4_5wfc2"]
 [ext_resource type="FontFile" uid="uid://csnhk3q4gx0" path="res://fonts/magofonts/mago1.ttf" id="5_r4wy4"]
+[ext_resource type="Shader" uid="uid://cyl5d5rrn8tmm" path="res://shaders/radar.gdshader" id="7_3tvho"]
+[ext_resource type="Texture2D" uid="uid://dviis5c1md2jn" path="res://sprites/Backgrounds/Cockpit.png" id="7_623tr"]
+[ext_resource type="Script" uid="uid://ctsryacxldjgt" path="res://scripts/center_with_camera.gd" id="9_ojx2h"]
 [ext_resource type="FontFile" uid="uid://buw362wjb8o8d" path="res://fonts/magofonts/mago2.ttf" id="10_iuh7l"]
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_5vrpl"]
+shader = ExtResource("7_3tvho")
+shader_parameter/intensity = 2.0
+shader_parameter/noise_amount = 1.0
+shader_parameter/scanline_amount = 1.0
+shader_parameter/glow_amount = 2.0
+shader_parameter/glow_speed = 4.0
+shader_parameter/vignette_amount = 1.0
+shader_parameter/scanline_density = 2048.0
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_cod3f"]
 bg_color = Color(0.6, 0.6, 0.6, 0)
@@ -20,6 +33,27 @@ grow_vertical = 2
 script = ExtResource("1_ojx2h")
 game_scene = ExtResource("2_jek1g")
 overworld_scene = ExtResource("3_6856t")
+
+[node name="BG" type="TextureRect" parent="."]
+modulate = Color(0.41215247, 0.41215247, 0.41215247, 1)
+z_index = -4096
+material = SubResource("ShaderMaterial_5vrpl")
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -473.0
+offset_top = -334.0
+offset_right = 464.07617
+offset_bottom = 495.0
+grow_horizontal = 2
+grow_vertical = 2
+texture = ExtResource("7_623tr")
+expand_mode = 1
+script = ExtResource("9_ojx2h")
+screen_offset = Vector2(0, 64)
 
 [node name="UI" type="HBoxContainer" parent="."]
 layout_mode = 0

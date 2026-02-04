@@ -1,4 +1,4 @@
-[gd_scene load_steps=55 format=3 uid="uid://rriol7fhna81"]
+[gd_scene load_steps=59 format=3 uid="uid://rriol7fhna81"]
 
 [ext_resource type="Script" uid="uid://q37bmmrkofy5" path="res://scripts/TitleScreen.gd" id="1_fgkus"]
 [ext_resource type="PackedScene" uid="uid://dp7v6b7f0bh4u" path="res://scenes/overworld.tscn" id="2_6uh13"]
@@ -14,11 +14,14 @@
 [ext_resource type="Texture2D" uid="uid://sh0qp53v5skq" path="res://sprites/Clouds/Re_ Indie Developer from Toronto, Canada looking for pixel mech artist_/layer2.png" id="11_ib7db"]
 [ext_resource type="Texture2D" uid="uid://bkumpbg4gebvj" path="res://sprites/Clouds/Re_ Indie Developer from Toronto, Canada looking for pixel mech artist_/layer1.png" id="12_frs5l"]
 [ext_resource type="Shader" uid="uid://184giwfb5rkg" path="res://shaders/wobble_shimmer.gdshader" id="13_12ga3"]
+[ext_resource type="Shader" uid="uid://cyl5d5rrn8tmm" path="res://shaders/radar.gdshader" id="13_16pxe"]
 [ext_resource type="Script" uid="uid://dc2tnq1wwbdig" path="res://scripts/weather_particles.gd" id="13_frs5l"]
+[ext_resource type="Texture2D" uid="uid://dviis5c1md2jn" path="res://sprites/Backgrounds/Cockpit.png" id="14_dujhn"]
 [ext_resource type="Script" uid="uid://dkqyh6slusnok" path="res://scripts/title_screen_map.gd" id="14_jr68i"]
 [ext_resource type="Shader" uid="uid://dymflaaxdlp3e" path="res://shaders/pixel_metallic.gdshader" id="15_6uh13"]
 [ext_resource type="Texture2D" uid="uid://by1nnygq8fbib" path="res://sprites/Terrain/dirt.png" id="15_b344i"]
 [ext_resource type="PackedScene" uid="uid://crup4kaqa4cia" path="res://scenes/structures/building.tscn" id="15_htdhw"]
+[ext_resource type="Script" uid="uid://ctsryacxldjgt" path="res://scripts/center_with_camera.gd" id="15_uapth"]
 [ext_resource type="Texture2D" uid="uid://s0qvyjpho5sq" path="res://sprites/TitleScreen/zombiemecha_logotype.png" id="16_6uh13"]
 [ext_resource type="PackedScene" uid="uid://dwtvwjgxljh78" path="res://scenes/structures/district.tscn" id="16_12ga3"]
 [ext_resource type="Texture2D" uid="uid://bvs7gpxakq282" path="res://sprites/Terrain/sandstone.png" id="16_gm4k0"]
@@ -31,6 +34,16 @@
 [ext_resource type="Texture2D" uid="uid://c1pruacv3xra5" path="res://sprites/Terrain/roads/16.png" id="21_aidx5"]
 [ext_resource type="Texture2D" uid="uid://bp4obyr2a6lhr" path="res://sprites/Terrain/roads/17.png" id="22_6uh13"]
 [ext_resource type="Texture2D" uid="uid://bkcixujm222r0" path="res://sprites/Terrain/roads/18.png" id="23_y8m2v"]
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_vnqit"]
+shader = ExtResource("13_16pxe")
+shader_parameter/intensity = 2.0
+shader_parameter/noise_amount = 1.0
+shader_parameter/scanline_amount = 1.0
+shader_parameter/glow_amount = 2.0
+shader_parameter/glow_speed = 4.0
+shader_parameter/vignette_amount = 1.0
+shader_parameter/scanline_density = 2048.0
 
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_yrrko"]
 shader = ExtResource("13_12ga3")
@@ -242,6 +255,27 @@ clouds_b_path = NodePath("CloudsB")
 cloud_textures = Array[Texture2D]([ExtResource("11_ib7db"), ExtResource("12_frs5l")])
 cloud_swap_every = 2.0
 
+[node name="BG" type="TextureRect" parent="."]
+modulate = Color(0.41215247, 0.41215247, 0.41215247, 1)
+z_index = -4096
+material = SubResource("ShaderMaterial_vnqit")
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -454.0
+offset_top = -337.0
+offset_right = 483.07617
+offset_bottom = 492.0
+grow_horizontal = 2
+grow_vertical = 2
+texture = ExtResource("14_dujhn")
+expand_mode = 1
+script = ExtResource("15_uapth")
+screen_offset = Vector2(0, 64)
+
 [node name="StarryNight" parent="." instance=ExtResource("10_tklts")]
 z_index = -4096
 position = Vector2(665, 297)
@@ -384,7 +418,8 @@ theme_override_font_sizes/normal_font_size = 16
 bbcode_enabled = true
 
 [node name="Map" type="Node2D" parent="."]
-position = Vector2(293, 304)
+visible = false
+position = Vector2(563, 304)
 script = ExtResource("14_jr68i")
 building_scenes = Array[PackedScene]([null, ExtResource("15_htdhw"), ExtResource("16_12ga3"), ExtResource("17_yrrko"), ExtResource("18_aidx5")])
 unique_building_scenes = Array[PackedScene]([ExtResource("16_12ga3"), ExtResource("17_yrrko"), ExtResource("18_aidx5")])
