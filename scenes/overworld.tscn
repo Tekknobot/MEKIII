@@ -1,4 +1,4 @@
-[gd_scene load_steps=8 format=3 uid="uid://dp7v6b7f0bh4u"]
+[gd_scene load_steps=11 format=3 uid="uid://dp7v6b7f0bh4u"]
 
 [ext_resource type="Script" uid="uid://dl0f3yc10sent" path="res://scripts/overworld.gd" id="1_16ktt"]
 [ext_resource type="PackedScene" uid="uid://bmtwqbsx674eo" path="res://scenes/Game.tscn" id="2_356oe"]
@@ -7,6 +7,18 @@
 [ext_resource type="Script" uid="uid://bh08gfncx0601" path="res://scripts/overworld_camera.gd" id="4_356oe"]
 [ext_resource type="FontFile" uid="uid://csnhk3q4gx0" path="res://fonts/magofonts/mago1.ttf" id="4_qjxaj"]
 [ext_resource type="FontFile" uid="uid://buw362wjb8o8d" path="res://fonts/magofonts/mago2.ttf" id="5_e184d"]
+[ext_resource type="Shader" uid="uid://cyl5d5rrn8tmm" path="res://shaders/radar.gdshader" id="7_e184d"]
+[ext_resource type="Texture2D" uid="uid://dviis5c1md2jn" path="res://sprites/Backgrounds/Cockpit.png" id="7_qjxaj"]
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_nesqq"]
+shader = ExtResource("7_e184d")
+shader_parameter/intensity = 2.0
+shader_parameter/noise_amount = 1.0
+shader_parameter/scanline_amount = 1.0
+shader_parameter/glow_amount = 2.0
+shader_parameter/glow_speed = 4.0
+shader_parameter/vignette_amount = 1.0
+shader_parameter/scanline_density = 2048.0
 
 [node name="Overworld" type="Node2D"]
 script = ExtResource("1_16ktt")
@@ -20,6 +32,17 @@ camera_path = NodePath("OverworldCamera")
 [node name="OverworldRadar" parent="." instance=ExtResource("2_u2ss0")]
 extra_links_chance = 0.0
 elite_node_count = 3
+
+[node name="BG" type="TextureRect" parent="OverworldRadar"]
+modulate = Color(0.41215247, 0.41215247, 0.41215247, 1)
+z_index = -4096
+material = SubResource("ShaderMaterial_nesqq")
+offset_left = 110.0
+offset_top = -17.0
+offset_right = 1047.0762
+offset_bottom = 812.0
+texture = ExtResource("7_qjxaj")
+expand_mode = 1
 
 [node name="OverworldCamera" type="Camera2D" parent="."]
 position = Vector2(576, 329)

@@ -1,9 +1,9 @@
+TextureRect
 CPUParticles2D
 GPUParticles2D
 AnimatedSprite2D
 VBoxContainer
 Node2D
-TextureRect
 Camera2D
 Node
 AudioStreamPlayer
