@@ -1834,3 +1834,12 @@ func _is_reachable_uncleared(src: int, target: int) -> bool:
 			q.append(nb)
 
 	return false
+
+func get_center_world() -> Vector2:
+	# origin is in radar-local coordinates; convert to world
+	return to_global(origin)
+
+func get_node_world_pos(id: int) -> Vector2:
+	if id < 0 or id >= nodes.size():
+		return get_center_world()
+	return to_global(nodes[id].pos)

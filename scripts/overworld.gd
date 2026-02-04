@@ -16,6 +16,12 @@ var _pending_supply_node_id: int = -1
 @export var upgrade_body_font_size := 16
 @export var upgrade_button_font_size := 16
 
+@export var radar_path: NodePath
+@export var camera_path: NodePath
+
+@onready var cam := get_node_or_null(camera_path) as OverworldCamera
+
+
 func _ready() -> void:
 	if radar != null:
 		radar.mission_requested.connect(_on_mission_requested)
@@ -57,6 +63,10 @@ func _on_mission_requested(node_id: int, node_type: int, difficulty: float) -> v
 
 	# go to game
 	if game_scene != null:
+		var target_pos = radar.get_node_world_pos(node_id)
+		cam.play_launch_cinematic(target_pos)
+		
+		await get_tree().create_timer(2).timeout
 		get_tree().change_scene_to_packed(game_scene)
 	else:
 		get_tree().change_scene_to_file("res://scenes/Game.tscn")

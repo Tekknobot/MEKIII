@@ -14,11 +14,15 @@ game_scene = ExtResource("2_356oe")
 upgrade_title_font = ExtResource("3_fkyvp")
 upgrade_body_font = ExtResource("4_qjxaj")
 upgrade_button_font = ExtResource("5_e184d")
+radar_path = NodePath("OverworldRadar")
+camera_path = NodePath("OverworldCamera")
 
 [node name="OverworldRadar" parent="." instance=ExtResource("2_u2ss0")]
 extra_links_chance = 0.0
 elite_node_count = 3
 
-[node name="Camera2D" type="Camera2D" parent="."]
+[node name="OverworldCamera" type="Camera2D" parent="."]
 position = Vector2(576, 329)
 script = ExtResource("4_356oe")
+radar_path = NodePath("../OverworldRadar")
+launch_time = 1.35

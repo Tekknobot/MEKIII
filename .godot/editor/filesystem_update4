@@ -19,3 +19,7 @@ res://scripts/unit.gd
 res://scenes/overworld_radar.tscn
 res://scenes/units/allies/mech.tscn
 res://scripts/map_controller.gd
+res://scenes/overworld.tscn
+res://scripts/overworld_radar.gd
+res://scripts/overworld_camera.gd
+res://scripts/overworld.gd
