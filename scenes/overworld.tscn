@@ -19,7 +19,7 @@ shader_parameter/scanline_amount = 1.0
 shader_parameter/glow_amount = 2.0
 shader_parameter/glow_speed = 4.0
 shader_parameter/vignette_amount = 1.0
-shader_parameter/scanline_density = 2048.0
+shader_parameter/scanline_density = 480.0
 shader_parameter/pixelate = 4.000000142499999
 
 [node name="Overworld" type="Node2D"]
