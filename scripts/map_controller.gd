@@ -605,6 +605,24 @@ func spawn_units() -> void:
 	if game_ref != null and "structure_blocked" in game_ref:
 		structure_blocked = game_ref.structure_blocked
 
+	# ✅ NEW: reserve boss/weakpoint cells BEFORE picking allies
+	var reserved_boss: Dictionary = {} # Vector2i -> true
+	var rs := get_tree().root.get_node_or_null("RunStateNode")
+	var is_boss_mission = (rs != null and ("mission_node_type" in rs) and rs.mission_node_type == &"boss")
+
+	if is_boss_mission:
+		# Option A: if your Game/BossController provides explicit cells:
+		# set game_ref.weakpoint_reserved_cells = [Vector2i(...), ...]
+		if game_ref != null and ("weakpoint_reserved_cells" in game_ref):
+			for c in game_ref.weakpoint_reserved_cells:
+				reserved_boss[c] = true
+
+		# Option B (fallback): reserve a top band so boss always has space
+		# (tune the number; 3–5 rows usually enough)
+		for x in range(int(grid.w)):
+			for y in range(0, 4):
+				reserved_boss[Vector2i(x, y)] = true
+
 	var valid_cells: Array[Vector2i] = []
 	var w := int(grid.w)
 	var h := int(grid.h)
@@ -615,6 +633,9 @@ func spawn_units() -> void:
 			if not _is_walkable(c):
 				continue
 			if structure_blocked.has(c):
+				continue
+			# ✅ NEW: keep allies out of boss-reserved cells
+			if reserved_boss.has(c):
 				continue
 			valid_cells.append(c)
 
@@ -684,7 +705,6 @@ func spawn_units() -> void:
 
 	_rebuild_recruit_pool_from_allies()
 
-	var rs := get_tree().root.get_node_or_null("RunStateNode")
 	var is_elite_mission = (rs != null and ("mission_node_type" in rs) and rs.mission_node_type == &"elite")
 
 	# If elite mission, spawn one fewer normal zombie so total pressure stays similar
