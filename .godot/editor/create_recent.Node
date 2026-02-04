@@ -1,7 +1,9 @@
+CPUParticles2D
+GPUParticles2D
+AnimatedSprite2D
 VBoxContainer
 Node2D
 TextureRect
-AnimatedSprite2D
 Camera2D
 Node
 AudioStreamPlayer
@@ -10,5 +12,3 @@ Label
 Panel
 ProgressBar
 Control
-HBoxContainer
-Button

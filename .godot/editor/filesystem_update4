@@ -13,3 +13,7 @@ res://scenes/elite_mech.tscn
 res://scripts/elite_mech.gd
 res://scenes/units/allies/S2.tscn
 res://scripts/s_2.gd
+res://scenes/blood_particles.tscn
+res://scripts/blood_burst.gd
+res://scripts/unit.gd
+res://scenes/overworld_radar.tscn

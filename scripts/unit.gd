@@ -40,6 +40,8 @@ signal died(u: Unit)
 
 @export var visual_offset: Vector2 = Vector2.ZERO
 
+const BLOOD_FX_SCENE := preload("res://scenes/blood_particles.tscn")
+
 func _ready() -> void:
 	hp = clamp(hp, 0, max_hp)
 	_update_depth()
@@ -116,6 +118,8 @@ func _die() -> void:
 
 	_play_sfx(sfx_death)
 	emit_signal("died", self)
+	
+	_spawn_blood_fx()
 	
 	# Prefer unit-specific death behavior if you add it later.
 	# IMPORTANT: your custom play_death_anim should NOT queue_free immediately,
@@ -295,3 +299,27 @@ func _apply_visual_offset() -> void:
 	var ci: CanvasItem = _get_render_canvas_item()
 	if ci != null and is_instance_valid(ci):
 		ci.position = visual_offset
+
+func _spawn_blood_fx() -> void:
+	# Only enemies bleed (change if you want allies to bleed too)
+	if team != Team.ENEMY:
+		return
+
+	if BLOOD_FX_SCENE == null:
+		return
+
+	var fx := BLOOD_FX_SCENE.instantiate() as Node2D
+	if fx == null:
+		return
+
+	# Iso "feet" position
+	fx.global_position = global_position + death_fx_offset + Vector2(0, -16)
+
+	# Add to same parent so depth sorting feels right
+	if get_parent() != null:
+		get_parent().add_child(fx)
+	else:
+		get_tree().current_scene.add_child(fx)
+
+	# Slightly above the unit
+	fx.z_index = z_index + 1

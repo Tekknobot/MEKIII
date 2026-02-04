@@ -1,0 +1,17 @@
+[gd_scene load_steps=2 format=3 uid="uid://dc65towlhbdlc"]
+
+[ext_resource type="Script" uid="uid://dg506c1lpjkgy" path="res://scripts/blood_burst.gd" id="1_hjwtm"]
+
+[node name="BloodBurstCPU" type="Node2D"]
+script = ExtResource("1_hjwtm")
+float_time = 1.45
+fade_time = 0.88
+
+[node name="CPUParticles2D" type="CPUParticles2D" parent="."]
+amount = 16
+lifetime = 2.0
+explosiveness = 0.64
+emission_shape = 1
+emission_sphere_radius = 8.0
+gravity = Vector2(0, -16)
+color = Color(0.79897434, 4.379898e-06, 6.738305e-07, 1)
