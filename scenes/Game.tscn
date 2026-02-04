@@ -1,4 +1,4 @@
-[gd_scene load_steps=95 format=3 uid="uid://bmtwqbsx674eo"]
+[gd_scene load_steps=97 format=3 uid="uid://bmtwqbsx674eo"]
 
 [ext_resource type="Script" uid="uid://bn08mhcoceqg" path="res://scripts/game.gd" id="1_400sg"]
 [ext_resource type="Texture2D" uid="uid://by1nnygq8fbib" path="res://sprites/Terrain/dirt.png" id="6_mcffj"]
@@ -18,6 +18,7 @@
 [ext_resource type="PackedScene" uid="uid://crup4kaqa4cia" path="res://scenes/structures/building.tscn" id="21_1fiys"]
 [ext_resource type="PackedScene" uid="uid://dwtvwjgxljh78" path="res://scenes/structures/district.tscn" id="22_ho5ir"]
 [ext_resource type="PackedScene" uid="uid://cqe28tyh7hada" path="res://scenes/structures/stadium.tscn" id="23_evnk2"]
+[ext_resource type="Shader" uid="uid://08w28ktcnvvn" path="res://shaders/camera.gdshader" id="23_ochta"]
 [ext_resource type="PackedScene" uid="uid://p5f35eddc3kl" path="res://scenes/structures/tower.tscn" id="24_ca228"]
 [ext_resource type="Script" uid="uid://c5qxy87uee84f" path="res://scripts/turnmanager.gd" id="24_jai3c"]
 [ext_resource type="Script" uid="uid://tcy0f4y2y347" path="res://scripts/map_controller.gd" id="24_ocgqw"]
@@ -268,6 +269,20 @@ tile_size = Vector2i(32, 16)
 sources/0 = SubResource("TileSetAtlasSource_a8wo8")
 sources/1 = SubResource("TileSetAtlasSource_pn7ev")
 
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_ochta"]
+shader = ExtResource("23_ochta")
+shader_parameter/pixel_size = 2.0
+shader_parameter/scanline_amount = 0.15
+shader_parameter/scanline_density = 240.0
+shader_parameter/noise_amount = 0.05
+shader_parameter/contrast = 1.1
+shader_parameter/saturation = 1.15
+shader_parameter/color_tint = Color(1, 0.9156691, 0.77950203, 1)
+shader_parameter/vignette_amount = 0.2
+shader_parameter/vignette_softness = 0.8
+shader_parameter/chromatic_aberration = 0.5
+shader_parameter/shake_amount = 0.0
+
 [node name="Game" type="Node2D" node_paths=PackedStringArray("camera") groups=["GameMap"]]
 script = ExtResource("1_400sg")
 camera = NodePath("Camera2D")
@@ -477,6 +492,19 @@ toast_path = NodePath("../UI/TutorialToast")
 end_game_panel_path = NodePath("../UI/EndGamePanelRuntime")
 
 [node name="UI" type="CanvasLayer" parent="."]
+
+[node name="ViewportShader" type="ColorRect" parent="UI"]
+material = SubResource("ShaderMaterial_ochta")
+custom_minimum_size = Vector2(1152, 643)
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_top = 5.0
+offset_right = 1152.0
+offset_bottom = 648.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 1
 
 [node name="Hellfire" type="Button" parent="UI"]
 z_index = 4096

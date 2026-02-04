@@ -26,3 +26,4 @@ res://scripts/overworld.gd
 res://shaders/radar.gdshader
 res://scripts/center_with_camera.gd
 res://scenes/squad_deploy_screen.tscn
+res://shaders/camera.gdshader
