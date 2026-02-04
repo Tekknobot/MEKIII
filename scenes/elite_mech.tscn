@@ -178,7 +178,7 @@ projectile_scene = ExtResource("2_lr6eu")
 display_name = "Elite Mech"
 team = 1
 footprint_size = Vector2i(2, 2)
-attack_range = 4
+attack_range = 6
 visual_offset = Vector2(0, -64)
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="."]

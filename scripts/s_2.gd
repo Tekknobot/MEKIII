@@ -219,6 +219,7 @@ func _quake_bump_cell_async(M: MapController, c: Vector2i, dist: int) -> void:
 	if u != null and is_instance_valid(u):
 		if "team" in u and u.team != team:
 			_apply_damage_safely(u, quake_damage + attack_damage)
+			M._flash_unit_white(u, 0.68)
 			_sfx_at_cell(M, quake_hit_sfx_id, c)
 
 	# Down tween
@@ -384,7 +385,8 @@ func _apply_quake_splash_damage(M: MapController, center: Vector2i) -> void:
 					pass
 				else:
 					_apply_damage_safely(tgt, quake_splash_damage)
-
+					M._flash_unit_white(tgt, 0.68)
+					
 			# --------------------
 			# 2) Structures (optional)
 			# --------------------

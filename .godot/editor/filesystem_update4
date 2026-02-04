@@ -9,3 +9,7 @@ res://shaders/text_outline_1px.gdshader
 res://shaders/desaturate.gdshader
 res://shaders/titan_cinematic.gdshader
 res://scenes/title_screen.tscn
+res://scenes/elite_mech.tscn
+res://scripts/elite_mech.gd
+res://scenes/units/allies/S2.tscn
+res://scripts/s_2.gd

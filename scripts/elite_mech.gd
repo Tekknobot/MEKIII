@@ -81,7 +81,6 @@ func _ready() -> void:
 	# Basic unit stats (tune as you like)
 	footprint_size = Vector2i(1, 1)
 	move_range = 4
-	attack_range = 2
 	attack_damage = 2
 
 	# Elite durability
