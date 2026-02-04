@@ -1,7 +1,7 @@
 D:/Godot/_Builds/Web/ZombieMECHA_Web
+res://scripts
 D:/Godot/_Builds/WIndows/Zombiemecha
 D:/Godot/_Builds/Web
-res://scripts
 D:/Godot/_Builds/Android
 C:/Program Files/Eclipse Adoptium
 res://sprites/Mechas/Titan
@@ -20,5 +20,3 @@ res://sprites/Mechas/Bomber
 res://fonts/Boycott
 res://sprites/Meks/R2
 res://sprites/Meks/R1
-res://sprites/Meks/M2
-res://sprites/Meks/M1

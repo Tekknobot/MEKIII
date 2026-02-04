@@ -1,4 +1,4 @@
-[gd_scene load_steps=11 format=3 uid="uid://dp7v6b7f0bh4u"]
+[gd_scene load_steps=12 format=3 uid="uid://dp7v6b7f0bh4u"]
 
 [ext_resource type="Script" uid="uid://dl0f3yc10sent" path="res://scripts/overworld.gd" id="1_16ktt"]
 [ext_resource type="PackedScene" uid="uid://bmtwqbsx674eo" path="res://scenes/Game.tscn" id="2_356oe"]
@@ -9,6 +9,7 @@
 [ext_resource type="FontFile" uid="uid://buw362wjb8o8d" path="res://fonts/magofonts/mago2.ttf" id="5_e184d"]
 [ext_resource type="Shader" uid="uid://cyl5d5rrn8tmm" path="res://shaders/radar.gdshader" id="7_e184d"]
 [ext_resource type="Texture2D" uid="uid://dviis5c1md2jn" path="res://sprites/Backgrounds/Cockpit.png" id="7_qjxaj"]
+[ext_resource type="Script" uid="uid://ctsryacxldjgt" path="res://scripts/center_with_camera.gd" id="10_nesqq"]
 
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_nesqq"]
 shader = ExtResource("7_e184d")
@@ -33,19 +34,28 @@ camera_path = NodePath("OverworldCamera")
 extra_links_chance = 0.0
 elite_node_count = 3
 
-[node name="BG" type="TextureRect" parent="OverworldRadar"]
-modulate = Color(0.41215247, 0.41215247, 0.41215247, 1)
-z_index = -4096
-material = SubResource("ShaderMaterial_nesqq")
-offset_left = 110.0
-offset_top = -17.0
-offset_right = 1047.0762
-offset_bottom = 812.0
-texture = ExtResource("7_qjxaj")
-expand_mode = 1
-
 [node name="OverworldCamera" type="Camera2D" parent="."]
 position = Vector2(576, 329)
 script = ExtResource("4_356oe")
 radar_path = NodePath("../OverworldRadar")
 launch_time = 1.35
+
+[node name="BG" type="TextureRect" parent="."]
+modulate = Color(0.41215247, 0.41215247, 0.41215247, 1)
+z_index = -4096
+material = SubResource("ShaderMaterial_nesqq")
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = 109.0
+offset_top = -25.0
+offset_right = 1046.0762
+offset_bottom = 804.0
+grow_horizontal = 2
+grow_vertical = 2
+texture = ExtResource("7_qjxaj")
+expand_mode = 1
+script = ExtResource("10_nesqq")
+screen_offset = Vector2(0, 64)

@@ -24,3 +24,4 @@ res://scripts/overworld_radar.gd
 res://scripts/overworld_camera.gd
 res://scripts/overworld.gd
 res://shaders/radar.gdshader
+res://scripts/center_with_camera.gd
