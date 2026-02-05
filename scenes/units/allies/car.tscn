@@ -117,6 +117,26 @@ animations = [{
 "loop": true,
 "name": &"right_up",
 "speed": 5.0
+}, {
+"frames": [],
+"loop": true,
+"name": &"turn_left_down",
+"speed": 24.0
+}, {
+"frames": [],
+"loop": true,
+"name": &"turn_left_up",
+"speed": 24.0
+}, {
+"frames": [],
+"loop": true,
+"name": &"turn_right_down",
+"speed": 24.0
+}, {
+"frames": [],
+"loop": true,
+"name": &"turn_right_up",
+"speed": 24.0
 }]
 
 [node name="Car" type="CharacterBody2D"]
@@ -144,7 +164,7 @@ shape = SubResource("RectangleShape2D_ke0dx")
 [node name="AnimatedSprite2D" type="AnimatedSprite2D" parent="Visual"]
 position = Vector2(0, -20)
 sprite_frames = SubResource("SpriteFrames_eiewe")
-animation = &"death"
+animation = &"turn_left_down"
 autoplay = "default"
 
 [node name="HPLabel" type="Label" parent="."]
