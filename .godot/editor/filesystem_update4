@@ -14,3 +14,4 @@ res://scripts/unit_registry.gd
 res://scripts/car.gd
 res://scenes/units/allies/mechtwo.tscn
 res://scripts/map_controller.gd
+res://scripts/procedural_car_sfx.gd

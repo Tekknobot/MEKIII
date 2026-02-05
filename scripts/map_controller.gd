@@ -1992,7 +1992,10 @@ func _move_selected_to(target: Vector2i) -> void:
 	# ✅ Only play default move anim if NOT CarBot
 	if not is_carbot:
 		_play_move_anim(u, true)
-	
+	else:
+		if u.has_method("car_start_move_sfx"):
+			u.call("car_start_move_sfx")
+
 	var step_time := _duration_for_step()
 	for step_cell in path:
 		var from_world := u.global_position
@@ -2007,6 +2010,9 @@ func _move_selected_to(target: Vector2i) -> void:
 				u.call("play_move_step_anim", from_world, to_world)
 		else:
 			_face_unit_for_step(u, from_world, to_world)
+
+		if u.has_method("car_step_sfx"):
+			u.call("car_step_sfx")
 
 		_sfx(&"move_step", sfx_volume_world * 0.55, randf_range(0.95, 1.05), to_world)
 		var tw := create_tween()
@@ -2063,7 +2069,9 @@ func _move_selected_to(target: Vector2i) -> void:
 		# CarBot returns to idle
 		if u.has_method("play_idle_anim"):
 			u.call("play_idle_anim")
-	
+		if u.has_method("car_end_move_sfx"):
+			u.call("car_end_move_sfx")
+
 	_sfx(&"move_end", sfx_volume_world, 1.0, _cell_world(target))
 	
 	_is_moving = false

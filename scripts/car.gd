@@ -68,6 +68,8 @@ var _terrain: TileMap
 @export var anim_left_up: StringName = &"left_up"
 @export var anim_left_down: StringName = &"left_down"
 
+@onready var car_sfx: ProceduralCarSFX = get_node_or_null("CarSFX") as ProceduralCarSFX
+
 func play_idle_anim() -> void:
 	if _anim == null:
 		return
@@ -128,6 +130,8 @@ func _crush_enemy_if_present(M: MapController, at_cell: Vector2i) -> void:
 	var victim := _get_enemy_at_cell(M, at_cell)
 	if victim != null and is_instance_valid(victim) and victim.hp > 0:
 		victim.take_damage(crush_damage)
+		if car_sfx != null:
+			car_sfx.hit(1.0)
 		if M != null and M.has_method("_sfx"):
 			M.call("_sfx", crush_sfx, 1.0, randf_range(0.95, 1.05), M._cell_world(at_cell))
 
@@ -151,6 +155,10 @@ func auto_drive_action(M: MapController) -> void:
 	_driving = true
 	_set_motor_mode_driving()
 
+	if car_sfx != null:
+		car_sfx.set_engine(true)
+		car_sfx.set_rpm01(0.65) # cruising RPM
+
 	_pending_steps = path.size()
 	for i in range(path.size()):
 		var next_cell := path[i]
@@ -158,6 +166,11 @@ func auto_drive_action(M: MapController) -> void:
 
 	# done
 	_driving = false
+	
+	if car_sfx != null:
+		car_sfx.set_rpm01(0.15)
+		car_sfx.set_engine(false)
+	
 	_set_motor_mode_idle()
 
 	if M != null and is_instance_valid(M):
@@ -178,6 +191,10 @@ func _drive_step(M: MapController, next_cell: Vector2i) -> void:
 	# GRID dir for anim (turns included)
 	var grid_dir := next_cell - cell
 	_last_step_dir = grid_dir
+	
+	if car_sfx != null:
+		car_sfx.set_rpm01(0.75) # little push per step
+		car_sfx.tick(1.0)
 	
 	if _terrain == null and M != null and "terrain" in M:
 		_terrain = M.terrain
@@ -668,3 +685,18 @@ func _resolve_terrain_from_group() -> TileMap:
 						stack.append(ch)
 
 	return null
+
+func car_step_sfx() -> void:
+	if car_sfx != null:
+		car_sfx.set_rpm01(0.7)
+		car_sfx.tick(1.0)
+
+func car_start_move_sfx() -> void:
+	if car_sfx != null:
+		car_sfx.set_engine(true)
+		car_sfx.set_rpm01(0.55)
+
+func car_end_move_sfx() -> void:
+	if car_sfx != null:
+		car_sfx.set_rpm01(0.15)
+		car_sfx.set_engine(false)

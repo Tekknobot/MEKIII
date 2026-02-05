@@ -1,4 +1,4 @@
-[gd_scene load_steps=27 format=3 uid="uid://i0rdy5x8lv2r"]
+[gd_scene load_steps=28 format=3 uid="uid://i0rdy5x8lv2r"]
 
 [ext_resource type="Script" uid="uid://cj8o8f6hsm6a7" path="res://scripts/car.gd" id="1_w1uy7"]
 [ext_resource type="Texture2D" uid="uid://dwt0e7n5ejhtg" path="res://sprites/Portraits/cockpits/bg3.png" id="2_coow6"]
@@ -24,6 +24,7 @@
 [ext_resource type="Texture2D" uid="uid://bsxlcbrtecefk" path="res://sprites/Vehicles/Corvette/corvette4.png" id="18_is1m3"]
 [ext_resource type="Texture2D" uid="uid://5v1up1fab74o" path="res://sprites/Vehicles/Corvette/mirror/corvette_left_down.png" id="19_cb6sm"]
 [ext_resource type="Texture2D" uid="uid://qw7upshm42mx" path="res://sprites/Vehicles/Corvette/mirror/corvette_left_up.png" id="20_fxvqs"]
+[ext_resource type="Script" uid="uid://bhbfmv5ck1ep1" path="res://scripts/procedural_car_sfx.gd" id="25_fxvqs"]
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_ke0dx"]
 size = Vector2(20, 6)
@@ -156,3 +157,6 @@ script = ExtResource("4_s3toj")
 unit_path = NodePath("..")
 show_as_fraction = false
 prefix = ""
+
+[node name="CarSFX" type="Node2D" parent="."]
+script = ExtResource("25_fxvqs")
