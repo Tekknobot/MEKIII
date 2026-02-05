@@ -1998,6 +1998,11 @@ func _move_selected_to(target: Vector2i) -> void:
 		var from_world := u.global_position
 		var to_world := _cell_world(step_cell)
 
+		# ✅ NEW: tell units the step direction (for CarBot diagonal anim selection)
+		var step_dir: Vector2i = step_cell - u.cell
+		if u.has_method("set_step_dir"):
+			u.call("set_step_dir", step_dir)
+			
 		_face_unit_for_step(u, from_world, to_world)
 
 		_sfx(&"move_step", sfx_volume_world * 0.55, randf_range(0.95, 1.05), to_world)
@@ -2021,6 +2026,10 @@ func _move_selected_to(target: Vector2i) -> void:
 
 		await tw.finished
 
+		# ✅ IMPORTANT: update logical cell each step so next step_dir is correct
+		if u != null and is_instance_valid(u):
+			u.cell = step_cell
+			
 		# Unit may have died/freed during the step
 		if u == null or not is_instance_valid(u):
 			_is_moving = false
@@ -2079,6 +2088,23 @@ func _move_selected_to(target: Vector2i) -> void:
 
 	emit_signal("aim_changed", int(aim_mode), special_id)
 
+func _find_anim_sprite(root: Node) -> AnimatedSprite2D:
+	if root == null:
+		return null
+
+	# breadth-first search so we find the closest one first
+	var q: Array[Node] = [root]
+	while not q.is_empty():
+		var n = q.pop_front()
+
+		if n is AnimatedSprite2D:
+			return n as AnimatedSprite2D
+
+		for ch in n.get_children():
+			if ch is Node:
+				q.append(ch)
+
+	return null
 
 func reset_turn_flags_for_enemies() -> void:
 	for u in get_all_units():
@@ -2102,28 +2128,21 @@ func _face_unit_for_step(u: Unit, from_world: Vector2, to_world: Vector2) -> voi
 	if abs(dx) < 0.001:
 		return
 
-	# Default faces LEFT, so flip when moving RIGHT
-	var flip := dx > 0.0
+	# MapController convention: dx > 0 means "facing right"
+	var facing_right := dx > 0.0
 
-	# Try a few common child names first
-	var spr := u.get_node_or_null("Sprite2D") as Sprite2D
-	if spr != null:
-		spr.flip_h = flip
+	# ✅ Best: unit-defined facing hook (CarBot will use this)
+	if u.has_method("set_facing_right"):
+		u.call("set_facing_right", facing_right)
+		_sync_ghost_facing(u)
 		return
 
-	var anim := u.get_node_or_null("AnimatedSprite2D") as AnimatedSprite2D
-	if anim != null:
-		anim.flip_h = flip
-		return
-
-	# Generic fallback: find the first Sprite2D / AnimatedSprite2D anywhere under the unit
-	for ch in u.get_children():
-		if ch is Sprite2D:
-			(ch as Sprite2D).flip_h = flip
-			return
-		if ch is AnimatedSprite2D:
-			(ch as AnimatedSprite2D).flip_h = flip
-			return
+	# ✅ Otherwise: flip the actual render node (recursive)
+	var src := _get_unit_render_node(u)
+	if src is Sprite2D:
+		(src as Sprite2D).flip_h = facing_right
+	elif src is AnimatedSprite2D:
+		(src as AnimatedSprite2D).flip_h = facing_right
 
 	_sync_ghost_facing(u)
 

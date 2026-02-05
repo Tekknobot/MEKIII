@@ -1359,15 +1359,17 @@ func _run_support_bots_phase() -> void:
 			continue
 		if u.team != Unit.Team.ALLY:
 			continue
-		if not (u is RecruitBot):
-			continue
+
+		# If you want cars to still “idle rumble” even with no enemies,
+		# do NOT break here. Otherwise keep this.
 		if M.get_all_enemies().is_empty():
 			break
 
-		await (u as RecruitBot).auto_support_action(M)
+		if u.has_method("auto_support_action"):
+			await u.call("auto_support_action", M)
+		elif u.has_method("auto_drive_action"):
+			await u.call("auto_drive_action", M)
 
-	# leave it BUSY if we're transitioning to enemy anyway,
-	# but restore if caller wasn't doing a transition
 	phase = prev
 	_update_end_turn_button()
 	_update_special_buttons()

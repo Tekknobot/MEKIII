@@ -1,0 +1,156 @@
+[gd_scene load_steps=27 format=3 uid="uid://i0rdy5x8lv2r"]
+
+[ext_resource type="Script" uid="uid://cj8o8f6hsm6a7" path="res://scripts/car.gd" id="1_w1uy7"]
+[ext_resource type="Texture2D" uid="uid://dwt0e7n5ejhtg" path="res://sprites/Portraits/cockpits/bg3.png" id="2_coow6"]
+[ext_resource type="Texture2D" uid="uid://cdbcj3ohcmssm" path="res://sprites/Vehicles/Corvette/corvette12.png" id="2_t7g3s"]
+[ext_resource type="Texture2D" uid="uid://bkylv8dfqnkcg" path="res://sprites/Explosion/explosion1.png" id="3_elj8q"]
+[ext_resource type="Texture2D" uid="uid://chvkb73riusnj" path="res://sprites/Thumbnails/Allies/corvette.png" id="3_jeejy"]
+[ext_resource type="FontFile" uid="uid://buw362wjb8o8d" path="res://fonts/magofonts/mago2.ttf" id="3_w1uy7"]
+[ext_resource type="Texture2D" uid="uid://5rowb55gcpdo" path="res://sprites/Explosion/explosion2.png" id="4_jeejy"]
+[ext_resource type="Script" uid="uid://lmsma3lhwhb8" path="res://scripts/hp_label.gd" id="4_s3toj"]
+[ext_resource type="Texture2D" uid="uid://bd7brxhvng8x2" path="res://sprites/Explosion/explosion3.png" id="5_coow6"]
+[ext_resource type="Texture2D" uid="uid://dba6mxmkieou5" path="res://sprites/Explosion/explosion4.png" id="6_qejcs"]
+[ext_resource type="Texture2D" uid="uid://7vhtauytorjm" path="res://sprites/Explosion/explosion5.png" id="7_cb6sm"]
+[ext_resource type="Texture2D" uid="uid://cx563mikd8xgq" path="res://sprites/Explosion/explosion6.png" id="8_fxvqs"]
+[ext_resource type="Texture2D" uid="uid://colhte0st8rgu" path="res://sprites/Explosion/explosion7.png" id="9_v4lbm"]
+[ext_resource type="Texture2D" uid="uid://duocys137b0ff" path="res://sprites/Explosion/explosion8.png" id="10_a2qap"]
+[ext_resource type="Texture2D" uid="uid://12yes4vjuccq" path="res://sprites/Explosion/explosion9.png" id="11_86p5j"]
+[ext_resource type="Texture2D" uid="uid://d0b35fj4u2wvh" path="res://sprites/Explosion/explosion10.png" id="12_uqiv6"]
+[ext_resource type="Texture2D" uid="uid://b0cc4uuasjv8a" path="res://sprites/Explosion/explosion11.png" id="13_pxw4e"]
+[ext_resource type="Texture2D" uid="uid://btqqeif8wuqwt" path="res://sprites/Explosion/explosion12.png" id="14_m8eln"]
+[ext_resource type="Texture2D" uid="uid://ohqnd0ucje5w" path="res://sprites/Explosion/explosion13.png" id="15_q8k1d"]
+[ext_resource type="Texture2D" uid="uid://bevk2t4jsk0ry" path="res://sprites/Explosion/explosion14.png" id="16_aps11"]
+[ext_resource type="Texture2D" uid="uid://orbjk7xcpd7p" path="res://sprites/Vehicles/Corvette/corvette10.png" id="17_dr3j6"]
+[ext_resource type="Texture2D" uid="uid://bsxlcbrtecefk" path="res://sprites/Vehicles/Corvette/corvette4.png" id="18_is1m3"]
+[ext_resource type="Texture2D" uid="uid://5v1up1fab74o" path="res://sprites/Vehicles/Corvette/mirror/corvette_left_down.png" id="19_cb6sm"]
+[ext_resource type="Texture2D" uid="uid://qw7upshm42mx" path="res://sprites/Vehicles/Corvette/mirror/corvette_left_up.png" id="20_fxvqs"]
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_ke0dx"]
+size = Vector2(20, 6)
+
+[sub_resource type="SpriteFrames" id="SpriteFrames_eiewe"]
+animations = [{
+"frames": [{
+"duration": 1.0,
+"texture": ExtResource("3_elj8q")
+}, {
+"duration": 1.0,
+"texture": ExtResource("4_jeejy")
+}, {
+"duration": 1.0,
+"texture": ExtResource("5_coow6")
+}, {
+"duration": 1.0,
+"texture": ExtResource("6_qejcs")
+}, {
+"duration": 1.0,
+"texture": ExtResource("7_cb6sm")
+}, {
+"duration": 1.0,
+"texture": ExtResource("8_fxvqs")
+}, {
+"duration": 1.0,
+"texture": ExtResource("9_v4lbm")
+}, {
+"duration": 1.0,
+"texture": ExtResource("10_a2qap")
+}, {
+"duration": 1.0,
+"texture": ExtResource("11_86p5j")
+}, {
+"duration": 1.0,
+"texture": ExtResource("12_uqiv6")
+}, {
+"duration": 1.0,
+"texture": ExtResource("13_pxw4e")
+}, {
+"duration": 1.0,
+"texture": ExtResource("14_m8eln")
+}, {
+"duration": 1.0,
+"texture": ExtResource("15_q8k1d")
+}, {
+"duration": 1.0,
+"texture": ExtResource("16_aps11")
+}],
+"loop": true,
+"name": &"death",
+"speed": 12.0
+}, {
+"frames": [{
+"duration": 1.0,
+"texture": ExtResource("2_t7g3s")
+}],
+"loop": true,
+"name": &"default",
+"speed": 6.0
+}, {
+"frames": [{
+"duration": 1.0,
+"texture": ExtResource("19_cb6sm")
+}],
+"loop": true,
+"name": &"left_down",
+"speed": 5.0
+}, {
+"frames": [{
+"duration": 1.0,
+"texture": ExtResource("20_fxvqs")
+}],
+"loop": true,
+"name": &"left_up",
+"speed": 5.0
+}, {
+"frames": [{
+"duration": 1.0,
+"texture": ExtResource("17_dr3j6")
+}],
+"loop": true,
+"name": &"right_down",
+"speed": 5.0
+}, {
+"frames": [{
+"duration": 1.0,
+"texture": ExtResource("18_is1m3")
+}],
+"loop": true,
+"name": &"right_up",
+"speed": 5.0
+}]
+
+[node name="Car" type="CharacterBody2D"]
+script = ExtResource("1_w1uy7")
+portrait_tex = ExtResource("2_coow6")
+thumbnail = ExtResource("3_jeejy")
+anim_idle = &"default"
+anim_path = NodePath("Visual/AnimatedSprite2D")
+display_name = "COBRUH A.I."
+move_range = 8
+attack_range = 4
+attack_damage = 3
+max_hp = 5
+hp = 5
+death_fx_offset = Vector2(0, -16)
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="."]
+position = Vector2(0, -9)
+shape = SubResource("RectangleShape2D_ke0dx")
+
+[node name="Visual" type="Node2D" parent="."]
+
+[node name="AnimatedSprite2D" type="AnimatedSprite2D" parent="Visual"]
+position = Vector2(0, -20)
+sprite_frames = SubResource("SpriteFrames_eiewe")
+animation = &"left_up"
+autoplay = "default"
+
+[node name="HPLabel" type="Label" parent="."]
+offset_top = -38.0
+offset_right = 40.0
+offset_bottom = -25.0
+theme_override_fonts/font = ExtResource("3_w1uy7")
+text = "3"
+script = ExtResource("4_s3toj")
+unit_path = NodePath("..")
+show_as_fraction = false
+prefix = ""

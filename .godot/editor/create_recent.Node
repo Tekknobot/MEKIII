@@ -1,3 +1,5 @@
+Node2D
+CharacterBody2D
 ColorRect
 TextureRect
 TextEdit
@@ -5,11 +7,8 @@ CPUParticles2D
 GPUParticles2D
 AnimatedSprite2D
 VBoxContainer
-Node2D
 Camera2D
 Node
 AudioStreamPlayer
 RichTextLabel
 Label
-Panel
-ProgressBar
