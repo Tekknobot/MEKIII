@@ -1,4 +1,4 @@
-[gd_scene load_steps=97 format=3 uid="uid://bmtwqbsx674eo"]
+[gd_scene load_steps=98 format=3 uid="uid://bmtwqbsx674eo"]
 
 [ext_resource type="Script" uid="uid://bn08mhcoceqg" path="res://scripts/game.gd" id="1_400sg"]
 [ext_resource type="Texture2D" uid="uid://by1nnygq8fbib" path="res://sprites/Terrain/dirt.png" id="6_mcffj"]
@@ -66,6 +66,7 @@
 [ext_resource type="FontFile" uid="uid://dgugahs6bc7so" path="res://fonts/magofonts/mago3.ttf" id="52_px4p2"]
 [ext_resource type="FontFile" uid="uid://csnhk3q4gx0" path="res://fonts/magofonts/mago1.ttf" id="53_x0rj3"]
 [ext_resource type="PackedScene" uid="uid://b6wrxn53ynbat" path="res://scenes/HUD.tscn" id="55_kg1ax"]
+[ext_resource type="AudioStream" uid="uid://27jfmu1rhtj1" path="res://audio/SFX/web_shoot.wav" id="58_d6agh"]
 
 [sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_g4kob"]
 texture = ExtResource("11_2rd6h")
@@ -408,6 +409,8 @@ volley_button_path = NodePath("../UI/Volley")
 cannon_button_path = NodePath("../UI/Cannon")
 quake_button_path = NodePath("../UI/Quake")
 nova_button_path = NodePath("../UI/Nova")
+web_button_path = NodePath("../UI/Web")
+slam_button_path = NodePath("../UI/Slam")
 beacon_deadline_round = 99
 boss_controller_scene = ExtResource("28_6jll0")
 titan_event_enabled = false
@@ -460,7 +463,8 @@ sfx_streams = {
 "ui_select": ExtResource("34_m1oc7"),
 "unit_death": ExtResource("41_ho5ir"),
 "unit_hurt": ExtResource("40_27c7x"),
-"volley_fire": ExtResource("44_rm8d8")
+"volley_fire": ExtResource("44_rm8d8"),
+"web_shoot": ExtResource("58_d6agh")
 }
 tnt_unit_splash_damage = 1
 bubble_ui_root_path = NodePath("../UI/Bubbles")
@@ -740,6 +744,40 @@ grow_vertical = 0
 theme_override_fonts/font = ExtResource("32_1gdd5")
 theme_override_font_sizes/font_size = 32
 text = "Watcher"
+
+[node name="Slam" type="Button" parent="UI"]
+z_index = 4096
+anchors_preset = 7
+anchor_left = 0.5
+anchor_top = 1.0
+anchor_right = 0.5
+anchor_bottom = 1.0
+offset_left = -246.0
+offset_top = -90.0
+offset_right = -126.0
+offset_bottom = -56.0
+grow_horizontal = 2
+grow_vertical = 0
+theme_override_fonts/font = ExtResource("32_1gdd5")
+theme_override_font_sizes/font_size = 32
+text = "Slam"
+
+[node name="Web" type="Button" parent="UI"]
+z_index = 4096
+anchors_preset = 7
+anchor_left = 0.5
+anchor_top = 1.0
+anchor_right = 0.5
+anchor_bottom = 1.0
+offset_left = -246.0
+offset_top = -90.0
+offset_right = -126.0
+offset_bottom = -56.0
+grow_horizontal = 2
+grow_vertical = 0
+theme_override_fonts/font = ExtResource("32_1gdd5")
+theme_override_font_sizes/font_size = 32
+text = "Web"
 
 [node name="EndTurnButton" type="Button" parent="UI"]
 anchors_preset = 3

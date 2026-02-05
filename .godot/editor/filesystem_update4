@@ -27,3 +27,9 @@ res://shaders/radar.gdshader
 res://scripts/center_with_camera.gd
 res://scenes/squad_deploy_screen.tscn
 res://shaders/camera.gdshader
+res://scripts/end_game_panel_runtime.gd
+res://scripts/turnmanager.gd
+res://scenes/units/allies/S3.tscn
+res://scripts/s_3.gd
+res://scenes/units/allies/M1.tscn
+res://scripts/m_1.gd

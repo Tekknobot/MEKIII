@@ -1263,7 +1263,14 @@ func _perform_special(u: Unit, id: String, target_cell: Vector2i) -> void:
 		
 	elif id == "nova" and u.has_method("perform_nova"):
 		await u.call("perform_nova", self, target_cell)
-					
+
+	elif id == "web" and u.has_method("perform_web"):
+		await u.call("perform_web", self, target_cell)
+
+	elif id == "slam" and u.has_method("perform_slam"):
+		await u.call("perform_slam", self, target_cell)
+
+							
 	_is_moving = false
 
 func _mouse_to_cell() -> Vector2i:
@@ -1772,23 +1779,28 @@ func _draw_special_range(u: Unit, special: String) -> void:
 			if grid != null and grid.has_method("in_bounds") and not grid.in_bounds(c):
 				continue
 
-			if id == "nova":
-				var dist = abs(c.x - origin.x) + abs(c.y - origin.y)
+			# Range shape rules -----------------------------
 
-				# Ask unit for minimum safe distance if it provides one
+			if id == "nova":
+				var dist_n = abs(c.x - origin.x) + abs(c.y - origin.y)
 				var min_d := 1
 				if u.has_method("get_special_min_distance"):
 					min_d = int(u.call("get_special_min_distance", "nova"))
 				elif "nova_min_safe_dist" in u:
 					min_d = int(u.nova_min_safe_dist)
-
-				if dist < min_d:
+				if dist_n < min_d:
 					continue
 
-				# Optional: disallow targeting structure-blocked tiles if you want
-				# (NOVA can still damage stuff there, but clicking "dead" tiles can feel weird)
-				# if structure_blocked.has(c):
-				#     continue
+			# ✅ WEB: enforce min distance too (same pattern)
+			if id == "web":
+				var dist_w = abs(c.x - origin.x) + abs(c.y - origin.y)
+				var min_w := 1
+				if u.has_method("get_special_min_distance"):
+					min_w = int(u.call("get_special_min_distance", "web"))
+				elif "web_min_safe_dist" in u:
+					min_w = int(u.web_min_safe_dist)
+				if dist_w < min_w:
+					continue
 
 			# ✅ SUNDER: straight line only (no diagonals)
 			if id == "sunder":
@@ -1803,34 +1815,39 @@ func _draw_special_range(u: Unit, special: String) -> void:
 				if abs(dx) + abs(dy) > r:
 					continue
 
+			# You currently require walkable for all specials
 			if not _is_walkable(c):
 				continue
 
-			# ✅ for sunder, don’t allow targeting into structure-blocked tiles
-			# (sunder stops on blocked; targeting blocked would “do nothing” and feel broken)
-			if id == "sunder":
-				if structure_blocked.has(c):
+			if id == "sunder" and structure_blocked.has(c):
+				continue
+
+			# Per-special validity --------------------------
+
+			if id == "quake":
+				var dist_q = abs(c.x - origin.x) + abs(c.y - origin.y)
+				var min_q := 1
+				if u.has_method("get_special_min_distance"):
+					min_q = int(u.call("get_special_min_distance", "quake"))
+				elif "quake_min_safe_dist" in u:
+					min_q = int(u.quake_min_safe_dist)
+				if dist_q < min_q:
 					continue
 
-			# --- per-special validity (your existing logic) ---
-			if id == "quake":
-				var dist = abs(c.x - origin.x) + abs(c.y - origin.y)
-
-				# Ask unit for minimum safe distance if it provides one
-				var min_d := 1
+			# ✅ SLAM: same targeting rules as QUAKE (min safe distance)
+			if id == "slam":
+				var dist_s = abs(c.x - origin.x) + abs(c.y - origin.y)
+				var min_s := 1
 				if u.has_method("get_special_min_distance"):
-					min_d = int(u.call("get_special_min_distance", "quake"))
-				elif "quake_min_safe_dist" in u:
-					min_d = int(u.quake_min_safe_dist)
-
-				if dist < min_d:
+					min_s = int(u.call("get_special_min_distance", "slam"))
+				elif "slam_min_safe_dist" in u:
+					min_s = int(u.slam_min_safe_dist)
+				if dist_s < min_s:
 					continue
 
 			if id == "blade":
 				var tgt := unit_at_cell(c)
-				if tgt == null:
-					continue
-				if tgt.team == u.team:
+				if tgt == null or tgt.team == u.team:
 					continue
 
 			if id == "mines":
@@ -1843,48 +1860,41 @@ func _draw_special_range(u: Unit, special: String) -> void:
 
 			if id == "suppress":
 				var tgt2 := unit_at_cell(c)
-				if tgt2 == null:
-					continue
-				if tgt2.team == u.team:
+				if tgt2 == null or tgt2.team == u.team:
 					continue
 
 			if id == "pounce":
-				# Must target an enemy
 				var tgtp := unit_at_cell(c)
-				if tgtp == null:
-					continue
-				if tgtp.team == u.team:
+				if tgtp == null or tgtp.team == u.team:
 					continue
 
 			if id == "volley":
-				# Must target an enemy (like pounce/suppress)
 				var tgtv := unit_at_cell(c)
-				if tgtv == null:
-					continue
-				if tgtv.team == u.team:
+				if tgtv == null or tgtv.team == u.team:
 					continue
 
 			if id == "cannon":
-				# Must target an enemy (so player clicks an enemy to fire)
 				var tgtc := unit_at_cell(c)
-				if tgtc == null:
+				if tgtc == null or tgtc.team == u.team:
 					continue
-				if tgtc.team == u.team:
-					continue
-
-				# Optional: require clear path (structures block)
-				# (keep this ONLY ONCE — you had it twice)
 				if not _has_clear_attack_path(origin, c):
 					continue
 
+			# ✅ WEB: must click an enemy (same as volley/pounce)
+			if id == "web":
+				var tgtw := unit_at_cell(c)
+				if tgtw == null or tgtw.team == u.team:
+					continue
+
+			# -----------------------------------------------
 			valid_special_cells[c] = true
 
 			var t := attack_tile_scene.instantiate() as Node2D
 			_ensure_overlay_subroots()
 			if overlay_tiles_root == null:
 				return
-			overlay_tiles_root.add_child(t)
 
+			overlay_tiles_root.add_child(t)
 			t.global_position = terrain.to_global(terrain.map_to_local(c))
 			t.z_as_relative = false
 			t.z_index = 0 + (c.x + c.y)
@@ -2845,7 +2855,11 @@ func _unit_can_use_special(u: Unit, id: String) -> bool:
 			return u.has_method("perform_quake")
 		"nova":
 			return u.has_method("perform_nova")
-										
+		"web":
+			return u.has_method("perform_web")
+		"slam":
+			return u.has_method("perform_slam")
+														
 	return false
 
 func select_unit(u: Unit) -> void:

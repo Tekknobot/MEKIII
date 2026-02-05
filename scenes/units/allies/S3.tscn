@@ -159,6 +159,8 @@ nova_explosion_scene = ExtResource("4_imubk")
 nova_ring_delay = 0.1
 nova_splash_hits_allies = true
 nova_splash_hits_structures = true
+web_target_count = 8
+web_cooldown = 0
 display_name = "ARACHNOBOT"
 death_fx_offset = Vector2(0, -16)
 

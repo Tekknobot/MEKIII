@@ -15,7 +15,7 @@
 shader = ExtResource("7_e184d")
 shader_parameter/intensity = 2.0
 shader_parameter/noise_amount = 1.0
-shader_parameter/scanline_amount = 1.0
+shader_parameter/scanline_amount = 0.12
 shader_parameter/glow_amount = 2.0
 shader_parameter/glow_speed = 4.0
 shader_parameter/vignette_amount = 1.0

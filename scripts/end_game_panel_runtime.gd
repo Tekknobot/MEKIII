@@ -367,7 +367,7 @@ func _apply_upgrade_ui() -> void:
 				upgrade_thumbs[i].visible = (tex != null)
 		else:
 			upgrade_buttons[i].disabled = true
-			upgrade_buttons[i].text = "—"
+			upgrade_buttons[i].text = "NONE"
 			upgrade_descs[i].text = ""
 
 			if i < upgrade_thumbs.size() and upgrade_thumbs[i] != null:

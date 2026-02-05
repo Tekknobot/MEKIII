@@ -1,16 +1,17 @@
 extends Unit
 class_name S3
 # Spiderbot-style mech
-# Special: NOVA — an 8-point star burst (cross + diagonals) centered on a target cell,
+# Special 1: NOVA - an 8-point star burst (cross + diagonals) centered on a target cell,
 # then a delayed "aftershock" ring one tile farther out.
+# Special 2: WEB - shoot sticky webs at multiple targets, pulling them together and dealing damage
 
 # -------------------------
 # Visual / identity
 # -------------------------
 @export var portrait_tex: Texture2D = preload("res://sprites/Portraits/dog_port.png") # swap to spider portrait
 @export var thumbnail: Texture2D
-@export var special: String = "NOVA"
-@export var special_desc: String = "Detonate a starburst blast, then an aftershock ring."
+@export var specials: Array[String] = ["NOVA", "WEB"]
+@export var special_desc: String = "Detonate a starburst blast, or ensnare enemies with sticky webs."
 
 @export var attack_anim_name: StringName = &"attack"
 @export var idle_anim_name: StringName = &"idle"
@@ -24,19 +25,19 @@ class_name S3
 @export var basic_melee_damage := 2
 
 # -------------------------
-# Special: NOVA tuning
+# Special 1: NOVA tuning
 # -------------------------
 @export var nova_range := 6
-@export var nova_radius := 3          # length of star arms
+@export var nova_radius := 3
 @export var nova_damage := 2
 @export var nova_cooldown := 5
-@export var nova_min_safe_dist := 2   # can't target your own cell; 2 = must be 2+ away, etc.
+@export var nova_min_safe_dist := 2
 
 # Aftershock ring (optional)
 @export var aftershock_enabled := true
 @export var aftershock_delay := 0.12
 @export var aftershock_damage := 1
-@export var aftershock_radius_offset := 1  # ring at (nova_radius + offset)
+@export var aftershock_radius_offset := 1
 
 # VFX / SFX (optional)
 @export var nova_explosion_scene: PackedScene
@@ -44,18 +45,38 @@ class_name S3
 @export var nova_sfx_id: StringName = &"nova"
 @export var nova_hit_sfx_id: StringName = &"nova_hit"
 
-# If your visuals are anchored with a feet offset, keep this consistent with your project
 @export var iso_feet_offset_y := 16.0
-
-# Wave feel
-@export var nova_ring_delay := 0.05     # delay per ring (Manhattan distance from center)
-@export var nova_max_rings_per_frame := 999  # keep high unless you want perf throttling
+@export var nova_ring_delay := 0.05
+@export var nova_max_rings_per_frame := 999
 
 # Splash (AoE around each struck cell)
 @export var nova_splash_radius := 1
 @export var nova_splash_damage := 1
 @export var nova_splash_hits_allies := false
 @export var nova_splash_hits_structures := false
+
+# -------------------------
+# Special 2: WEB tuning
+# -------------------------
+@export var web_range := 7
+@export var web_target_count := 3  # how many enemies to tether
+@export var web_damage := 2
+@export var web_pull_distance := 2  # how many cells to pull enemies
+@export var web_cooldown := 6
+@export var web_min_safe_dist := 2
+
+# Web visuals
+@export var web_line_color: Color = Color(0.7, 0.9, 0.7, 0.8)  # greenish web
+@export var web_line_width := 4.0
+@export var web_glow_color: Color = Color(0.4, 1.0, 0.4, 0.6)
+@export var web_duration := 0.8  # how long lines stay visible
+@export var web_pull_duration := 0.4  # animation time for pull
+@export var web_pulse_speed := 8.0  # energy pulse along web
+
+# Web SFX
+@export var web_shoot_sfx_id: StringName = &"web_shoot"
+@export var web_hit_sfx_id: StringName = &"web_hit"
+@export var web_pull_sfx_id: StringName = &"web_pull"
 
 func _ready() -> void:
 	set_meta("portrait_tex", portrait_tex)
@@ -74,24 +95,30 @@ func _ready() -> void:
 # Specials list (for UI)
 # -------------------------
 func get_available_specials() -> Array[String]:
-	return ["Nova"]
+	return specials
 
 func can_use_special(id: String) -> bool:
 	id = id.to_lower()
-	if id != "nova":
-		return false
-	return int(special_cd.get("nova", 0)) <= 0
+	if id == "nova":
+		return int(special_cd.get("nova", 0)) <= 0
+	elif id == "web":
+		return int(special_cd.get("web", 0)) <= 0
+	return false
 
 func get_special_range(id: String) -> int:
 	id = id.to_lower()
 	if id == "nova":
 		return nova_range
+	elif id == "web":
+		return web_range
 	return 0
 
 func get_special_min_distance(id: String) -> int:
 	id = id.to_lower()
 	if id == "nova":
 		return nova_min_safe_dist
+	elif id == "web":
+		return web_min_safe_dist
 	return 0
 
 # -------------------------------------------------------
@@ -112,10 +139,7 @@ func perform_basic_attack(M: MapController, target_cell: Vector2i) -> void:
 	_apply_damage_safely(tgt, basic_melee_damage)
 
 # -------------------------------------------------------
-# Special: NOVA
-# - Pick a target cell in range
-# - Hit an 8-point star (cross + diagonals) out to nova_radius
-# - Optional aftershock ring one tile farther out
+# Special 1: NOVA
 # -------------------------------------------------------
 func perform_nova(M: MapController, target_cell: Vector2i) -> void:
 	if M == null:
@@ -159,6 +183,195 @@ func perform_nova(M: MapController, target_cell: Vector2i) -> void:
 	_play_idle_anim()
 	special_cd[id_key] = nova_cooldown
 
+# -------------------------------------------------------
+# Special 2: WEB
+# Shoots sticky webs at multiple enemies, then pulls them together
+# -------------------------------------------------------
+func perform_web(M: MapController, target_cell: Vector2i) -> void:
+	if M == null:
+		return
+	if not _alive():
+		return
+
+	var id_key := "web"
+	if int(special_cd.get(id_key, 0)) > 0:
+		return
+
+	var d = abs(target_cell.x - cell.x) + abs(target_cell.y - cell.y)
+	if d < web_min_safe_dist or d > web_range:
+		return
+
+	_face_toward_cell(target_cell)
+	_play_attack_anim_once()
+	_sfx_at_cell(M, web_shoot_sfx_id, cell)
+
+	# Find enemies within range
+	var targets := _find_web_targets(M, target_cell)
+	if targets.is_empty():
+		_play_idle_anim()
+		return
+
+	# (Optional) Draw web lines to each target (keep your current visuals)
+	var web_lines: Array[Node2D] = []
+	for tgt in targets:
+		if not is_instance_valid(tgt):
+			continue
+		var line := _create_web_line(M, cell, tgt.cell)
+		if line != null:
+			web_lines.append(line)
+
+	# Optional pulse
+	await _animate_web_pulse(web_lines)
+
+	# ✅ Instead of pulling: explode + damage sequentially
+	for tgt in targets:
+		if not is_instance_valid(tgt) or not _alive():
+			continue
+
+		# explosion (prefer MapController helper)
+		if M.has_method("spawn_explosion_at_cell"):
+			M.call("spawn_explosion_at_cell", tgt.cell)
+		elif M.has_method("_spawn_explosion_at_cell"):
+			M.call("_spawn_explosion_at_cell", tgt.cell)
+
+		_sfx_at_cell(M, web_hit_sfx_id, tgt.cell)
+		_apply_damage_safely(tgt, web_damage + attack_damage)
+
+		# flash white on hit (keep)
+		if M.has_method("_flash_unit_white"):
+			M.call("_flash_unit_white", tgt, 0.10)
+		elif M.has_method("flash_unit_white"):
+			M.call("flash_unit_white", tgt, 0.10)
+
+		# small beat between hits so it reads "one after the other"
+		await get_tree().create_timer(0.08).timeout
+
+	# Clean up web lines
+	for line in web_lines:
+		if is_instance_valid(line):
+			_fade_out_web_line(line)
+
+	_play_idle_anim()
+	special_cd[id_key] = web_cooldown
+
+func _find_web_targets(M: MapController, focus_cell: Vector2i) -> Array:
+	var targets := []
+	var radius := web_range
+
+	for ox in range(-radius, radius + 1):
+		for oy in range(-radius, radius + 1):
+			var c := focus_cell + Vector2i(ox, oy)
+			if not _cell_in_bounds(M, c):
+				continue
+
+			var dist = abs(c.x - cell.x) + abs(c.y - cell.y)
+			if dist > web_range or dist < web_min_safe_dist:
+				continue
+
+			var tgt := M.unit_at_cell(c)
+			if tgt == null or not is_instance_valid(tgt):
+				continue
+			if ("team" in tgt) and (tgt.team == team):
+				continue
+
+			targets.append(tgt)
+
+	# Sort by distance from spider and take closest ones
+	targets.sort_custom(func(a, b):
+		var da = abs(a.cell.x - cell.x) + abs(a.cell.y - cell.y)
+		var db = abs(b.cell.x - cell.x) + abs(b.cell.y - cell.y)
+		return da < db
+	)
+
+	# Limit to web_target_count
+	if targets.size() > web_target_count:
+		targets = targets.slice(0, web_target_count)
+
+	return targets
+
+func _create_web_line(M: MapController, from_cell: Vector2i, to_cell: Vector2i) -> Node2D:
+	var line := Line2D.new()
+	line.width = web_line_width
+	line.default_color = web_line_color
+	line.antialiased = true
+	line.begin_cap_mode = Line2D.LINE_CAP_ROUND
+	line.end_cap_mode = Line2D.LINE_CAP_ROUND
+
+	var from_pos := _cell_to_global(M, from_cell)
+	from_pos.y -= iso_feet_offset_y
+
+	var to_pos := _cell_to_global(M, to_cell)
+	to_pos.y -= iso_feet_offset_y
+
+	line.add_point(from_pos)
+	line.add_point(to_pos)
+
+	# Add glow effect with second line
+	var glow := Line2D.new()
+	glow.width = web_line_width * 2.0
+	glow.default_color = web_glow_color
+	glow.antialiased = true
+	glow.begin_cap_mode = Line2D.LINE_CAP_ROUND
+	glow.end_cap_mode = Line2D.LINE_CAP_ROUND
+	glow.add_point(from_pos)
+	glow.add_point(to_pos)
+	glow.z_index = -1
+
+	var container := Node2D.new()
+	container.add_child(glow)
+	container.add_child(line)
+
+	# High z-index so webs appear above units
+	container.z_index = 1000
+
+	M.add_child(container)
+	return container
+
+func _animate_web_pulse(web_lines: Array[Node2D]) -> void:
+	if web_lines.is_empty():
+		return
+
+	var elapsed := 0.0
+	var pulse_time := 0.3
+
+	while elapsed < pulse_time:
+		elapsed += get_process_delta_time()
+		var t := elapsed / pulse_time
+
+		for line_container in web_lines:
+			if not is_instance_valid(line_container):
+				continue
+
+			var glow := line_container.get_child(0) as Line2D
+			if glow != null:
+				var pulse := sin(t * web_pulse_speed * TAU) * 0.5 + 0.5
+				var alpha := web_glow_color.a * (0.3 + pulse * 0.7)
+				glow.default_color = Color(web_glow_color.r, web_glow_color.g, web_glow_color.b, alpha)
+
+		await get_tree().process_frame
+
+func _calculate_pull_center(targets: Array) -> Vector2i:
+	if targets.is_empty():
+		return cell
+
+	var sum := Vector2i.ZERO
+	for tgt in targets:
+		if is_instance_valid(tgt):
+			sum += tgt.cell
+
+	return Vector2i(sum.x / targets.size(), sum.y / targets.size())
+
+func _fade_out_web_line(line_container: Node2D) -> void:
+	if not is_instance_valid(line_container):
+		return
+
+	var tween := create_tween()
+	tween.tween_property(line_container, "modulate:a", 0.0, 0.3)
+	tween.tween_callback(line_container.queue_free)
+
+# -------------------------
+# NOVA helpers (unchanged)
+# -------------------------
 func _apply_cells_damage_wave(M: MapController, cells: Array[Vector2i], dmg: int, center: Vector2i) -> void:
 	if M == null or dmg <= 0:
 		return
@@ -167,7 +380,6 @@ func _apply_cells_damage_wave(M: MapController, cells: Array[Vector2i], dmg: int
 	if not _alive():
 		return
 
-	# Group by ring...
 	var rings: Dictionary = {}
 	var max_ring := 0
 	for c in cells:
@@ -205,7 +417,6 @@ func _apply_damage_at_cell(M: MapController, c: Vector2i, dmg: int) -> void:
 		if ("team" in tgt) and (tgt.team == team):
 			return
 
-		# ✅ flash white on hit
 		if M.has_method("_flash_unit_white"):
 			M.call("_flash_unit_white", tgt, 0.10)
 		elif M.has_method("flash_unit_white"):
@@ -213,7 +424,6 @@ func _apply_damage_at_cell(M: MapController, c: Vector2i, dmg: int) -> void:
 
 		_apply_damage_safely(tgt, dmg)
 
-	# Optional: structures
 	if nova_splash_hits_structures:
 		var s: Object = null
 		if M.has_method("_structure_at_cell"):
@@ -236,17 +446,14 @@ func _apply_nova_splash_damage(M: MapController, center: Vector2i) -> void:
 			if not _cell_in_bounds(M, c):
 				continue
 
-			# Circular mask (comment out for square)
 			if Vector2(ox, oy).length() > float(nova_splash_radius) + 0.01:
 				continue
 
-			# Units
 			var tgt := M.unit_at_cell(c)
 			if tgt != null and is_instance_valid(tgt):
 				if (not nova_splash_hits_allies) and ("team" in tgt) and (tgt.team == team):
 					continue
 
-				# ✅ flash white on splash hit
 				if M.has_method("_flash_unit_white"):
 					M.call("_flash_unit_white", tgt, 0.08)
 				elif M.has_method("flash_unit_white"):
@@ -254,7 +461,6 @@ func _apply_nova_splash_damage(M: MapController, center: Vector2i) -> void:
 
 				_apply_damage_safely(tgt, nova_splash_damage)
 
-			# Structures (optional)
 			if nova_splash_hits_structures:
 				var s: Object = null
 				if M.has_method("_structure_at_cell"):
@@ -264,16 +470,13 @@ func _apply_nova_splash_damage(M: MapController, center: Vector2i) -> void:
 				if s != null and is_instance_valid(s):
 					_apply_damage_safely(s, nova_splash_damage)
 
-# -------------------------
-# Pattern builders
-# -------------------------
 func _get_starburst_cells(M: MapController, center: Vector2i, r: int) -> Array[Vector2i]:
 	var out: Array[Vector2i] = []
 	out.append(center)
 
 	var dirs := [
-		Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1), # cross
-		Vector2i(1, 1), Vector2i(-1, -1), Vector2i(1, -1), Vector2i(-1, 1) # diagonals
+		Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1),
+		Vector2i(1, 1), Vector2i(-1, -1), Vector2i(1, -1), Vector2i(-1, 1)
 	]
 
 	for dir in dirs:
@@ -286,7 +489,6 @@ func _get_starburst_cells(M: MapController, center: Vector2i, r: int) -> Array[V
 	return _dedupe_cells(out)
 
 func _get_ring_cells(M: MapController, center: Vector2i, r: int) -> Array[Vector2i]:
-	# Diamond ring (Manhattan distance == r). Feels good on grid + iso.
 	var out: Array[Vector2i] = []
 	for ox in range(-r, r + 1):
 		var oy = r - abs(ox)
@@ -306,9 +508,6 @@ func _dedupe_cells(arr: Array[Vector2i]) -> Array[Vector2i]:
 		out.append(c)
 	return out
 
-# -------------------------
-# Damage + FX application
-# -------------------------
 func _apply_cells_damage(M: MapController, cells: Array[Vector2i], dmg: int, center: Vector2i) -> void:
 	if M == null:
 		return
@@ -321,13 +520,12 @@ func _apply_cells_damage(M: MapController, cells: Array[Vector2i], dmg: int, cen
 
 		var tgt := M.unit_at_cell(c)
 		if tgt != null and is_instance_valid(tgt):
-			# Enemies only (change if you want friendly fire)
 			if ("team" in tgt) and (tgt.team == team):
 				continue
 			_apply_damage_safely(tgt, dmg)
 
 # -------------------------
-# Helpers (same style as your other units)
+# Helpers
 # -------------------------
 func _cell_to_global(M: MapController, c: Vector2i) -> Vector2:
 	if M != null and M.terrain != null:
@@ -434,7 +632,6 @@ func _spawn_nova_explosion(M: MapController, c: Vector2i) -> void:
 		p.y -= iso_feet_offset_y
 		n.global_position = p
 
-		# Depth sort by (x+y) if your project uses it
 		var z_base := 0
 		var z_per := 1
 		if "z_base" in M: z_base = int(M.z_base)
@@ -450,4 +647,6 @@ func get_hud_extras() -> Dictionary:
 	return {
 		"Nova Range": str(nova_range),
 		"Nova Damage": str(nova_damage + attack_damage),
+		"Web Range": str(web_range),
+		"Web Damage": str(web_damage + attack_damage),
 	}

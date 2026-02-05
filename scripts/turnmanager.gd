@@ -47,6 +47,8 @@ const _SPAWN_WAIT_MAX_TRIES := 90  # ~1.5s at 60fps
 @export var cannon_button_path: NodePath
 @export var quake_button_path: NodePath
 @export var nova_button_path: NodePath
+@export var web_button_path: NodePath
+@export var slam_button_path: NodePath
 
 @onready var suppress_button := get_node_or_null(suppress_button_path)
 @onready var stim_button := get_node_or_null(stim_button_path)
@@ -60,6 +62,8 @@ const _SPAWN_WAIT_MAX_TRIES := 90  # ~1.5s at 60fps
 @onready var cannon_button := get_node_or_null(cannon_button_path)
 @onready var quake_button := get_node_or_null(quake_button_path)
 @onready var nova_button := get_node_or_null(nova_button_path)
+@onready var web_button := get_node_or_null(web_button_path)
+@onready var slam_button := get_node_or_null(slam_button_path)
 
 enum Phase { PLAYER, ENEMY, BUSY }
 var phase: Phase = Phase.PLAYER
@@ -203,7 +207,7 @@ func _choose_cells(cands: Array[Vector2i], count: int) -> Array[Vector2i]:
 	for cell in pool:
 		if picked.size() >= count:
 			break
-		# optional: avoid allies so it’s “fair”, or DO target allies to be mean
+		# optional: avoid allies so it's "fair", or DO target allies to be mean
 		picked.append(cell)
 	return picked
 
@@ -280,6 +284,10 @@ func _ready() -> void:
 		quake_button.pressed.connect(_on_quake_pressed)
 	if nova_button:
 		nova_button.pressed.connect(_on_nova_pressed)
+	if web_button:
+		web_button.pressed.connect(_on_web_pressed)
+	if slam_button:
+		slam_button.pressed.connect(_on_slam_pressed)
 
 	start_player_phase()
 	_update_end_turn_button()
@@ -312,13 +320,13 @@ func _ready() -> void:
 		else:
 			boss_mode_enabled = false
 
-		# ✅ EVENT latch (this is what overworld.gd sets)
+		# EVENT latch (this is what overworld.gd sets)
 		if "event_mode_enabled_next_mission" in rs:
 			titan_event_enabled = bool(rs.event_mode_enabled_next_mission)
 		else:
 			titan_event_enabled = false
 
-		# ✅ if event is enabled, run titan event
+		# if event is enabled, run titan event
 		if titan_event_enabled:
 			_is_titan_event = true
 			_titan_turns_left = titan_turns_to_survive
@@ -329,7 +337,7 @@ func _ready() -> void:
 			else:
 				_titan_rng.randomize()
 
-			# ✅ consume
+			# consume
 			rs.event_mode_enabled_next_mission = false
 			rs.event_id_next_mission = &""
 
@@ -456,7 +464,7 @@ func start_player_phase() -> void:
 		if u.team == Unit.Team.ALLY:
 			_moved[u] = false
 			_attacked[u] = false
-			M.set_unit_exhausted(u, false) # ✅ reset tint each new player phase
+			M.set_unit_exhausted(u, false) # reset tint each new player phase
 
 	_update_end_turn_button()
 
@@ -464,7 +472,7 @@ func start_enemy_phase() -> void:
 	phase = Phase.ENEMY
 	M.reset_turn_flags_for_enemies()
 
-	# ✅ EVENT: Titan Overwatch
+	# EVENT: Titan Overwatch
 	if _is_titan_event:
 		# Event is cinematic; no enemy phase logic.
 		#await _titan_overwatch_enemy_phase()
@@ -491,7 +499,7 @@ func start_enemy_phase() -> void:
 	if _game_over_triggered:
 		return
 
-	# ✅ spawn wave for next round (standard curve)
+	# spawn wave for next round (standard curve)
 	if M != null and M.has_method("spawn_edge_road_zombie"):
 		var to_spawn := _calc_spawn_count_for_round(round_index)
 		var spawned := 0
@@ -512,10 +520,10 @@ func start_enemy_phase() -> void:
 		if _game_over_triggered:
 			return
 
-	# ✅ Advance round counter NOW (enemy phase finished)
+	# Advance round counter NOW (enemy phase finished)
 	round_index += 1
 
-	# ✅ deadline check (tune for 6 parts)
+	# deadline check (tune for 6 parts)
 	if M != null and M.has_meta("beacon_ready"):
 		if round_index > beacon_deadline_round and (not M.beacon_ready):
 			game_over("Beacon not completed by end of Round %d!" % beacon_deadline_round)
@@ -559,10 +567,10 @@ func _on_end_turn_pressed() -> void:
 			_attacked[u] = true
 			M.set_unit_exhausted(u, true)
 
-	# ✅ NEW: support bots act here (before enemies)
+	# NEW: support bots act here (before enemies)
 	await _run_support_bots_phase()
 
-	# ✅ then enemies
+	# then enemies
 	await start_enemy_phase()
 
 
@@ -610,7 +618,7 @@ func can_select(u: Unit) -> bool:
 	# Only allies selectable on player turn
 	if u.team != Unit.Team.ALLY:
 		return false
-	# Don’t let player re-select units that finished both decisions
+	# Don't let player re-select units that finished both decisions
 	if _moved.get(u, false) and _attacked.get(u, false):
 		return false
 	return true
@@ -649,7 +657,7 @@ func notify_player_moved(u: Unit) -> void:
 				break
 		if not any_target:
 			_attacked[u] = true
-			M.set_unit_exhausted(u, true) # ✅ moved + no targets = done
+			M.set_unit_exhausted(u, true) # moved + no targets = done
 
 	_update_end_turn_button()
 	_update_special_buttons()
@@ -658,14 +666,14 @@ func notify_player_moved(u: Unit) -> void:
 func notify_player_attacked(u: Unit) -> void:
 	if u != null and is_instance_valid(u):
 		_attacked[u] = true
-		_moved[u] = true # ✅ attacking ends the whole unit turn
+		_moved[u] = true # attacking ends the whole unit turn
 		M.set_unit_exhausted(u, true)
 		
 	_update_end_turn_button()
 	_update_special_buttons()
 	call_deferred("_refresh_population_and_check")
 
-# If you want “skip attack” as a button later:
+# If you want "skip attack" as a button later:
 func skip_attack_for_selected(u: Unit) -> void:
 	if phase != Phase.PLAYER:
 		return
@@ -700,7 +708,7 @@ func _run_enemy_turns() -> void:
 		if z == null or not is_instance_valid(z) or z.hp <= 0:
 			continue
 
-		# ✅ Enemy acts only if IT can see an ally
+		# Enemy acts only if IT can see an ally
 		if not _enemy_can_see_any_ally(z, allies):
 			continue
 
@@ -728,7 +736,7 @@ func _enemy_in_ally_vision(z: Unit, allies: Array[Unit]) -> bool:
 	return false
 
 func _enemy_take_turn(z: Unit) -> void:
-	# ✅ hard dead gate
+	# hard dead gate
 	if z == null or not is_instance_valid(z) or z.hp <= 0:
 		return
 
@@ -751,20 +759,20 @@ func _enemy_take_turn(z: Unit) -> void:
 		return
 
 
-	# ✅ after awaits / damage events, check again
+	# after awaits / damage events, check again
 	if z == null or not is_instance_valid(z) or z.hp <= 0:
 		return
 
 	var move_cell := _best_move_toward_nearest_ally(z)
 
-	# ✅ check again before moving
+	# check again before moving
 	if z == null or not is_instance_valid(z) or z.hp <= 0:
 		return
 
 	if move_cell != z.cell:
 		await M.ai_move(z, move_cell)
 
-	# ✅ mine could have killed it
+	# mine could have killed it
 	if z == null or not is_instance_valid(z) or z.hp <= 0:
 		return
 
@@ -865,6 +873,57 @@ func _on_mines_pressed() -> void:
 	M.activate_special("mines")
 	_update_special_buttons()
 
+func _on_nova_pressed() -> void:
+	if phase != Phase.PLAYER:
+		return
+	emit_signal("tutorial_event", &"special_button_pressed", {"id": "nova"})
+
+	var u := M.selected
+	if u == null or not is_instance_valid(u):
+		return
+	if _attacked.get(u, false):
+		return
+
+	if not u.has_method("perform_nova"):
+		return
+
+	M.activate_special("nova")
+	_update_special_buttons()
+
+func _on_web_pressed() -> void:
+	if phase != Phase.PLAYER:
+		return
+	emit_signal("tutorial_event", &"special_button_pressed", {"id": "web"})
+
+	var u := M.selected
+	if u == null or not is_instance_valid(u):
+		return
+	if _attacked.get(u, false):
+		return
+
+	if not u.has_method("perform_web"):
+		return
+
+	M.activate_special("web")
+	_update_special_buttons()
+
+func _on_slam_pressed() -> void:
+	if phase != Phase.PLAYER:
+		return
+	emit_signal("tutorial_event", &"special_button_pressed", {"id": "slam"})
+
+	var u := M.selected
+	if u == null or not is_instance_valid(u):
+		return
+	if _attacked.get(u, false):
+		return
+
+	if not u.has_method("perform_slam"):
+		return
+
+	M.activate_special("slam")
+	_update_special_buttons()
+	
 func _update_special_buttons() -> void:
 	# Toggle visuals (pressed highlight)
 	if hellfire_button: hellfire_button.toggle_mode = true
@@ -879,7 +938,9 @@ func _update_special_buttons() -> void:
 	if cannon_button: cannon_button.toggle_mode = true
 	if quake_button: quake_button.toggle_mode = true
 	if nova_button: nova_button.toggle_mode = true
-				
+	if web_button: web_button.toggle_mode = true
+	if slam_button: slam_button.toggle_mode = true
+					
 	# Reset
 	if hellfire_button:
 		hellfire_button.disabled = true
@@ -929,7 +990,15 @@ func _update_special_buttons() -> void:
 		nova_button.disabled = true
 		nova_button.button_pressed = false
 		nova_button.visible = false
-									
+	if web_button:
+		web_button.disabled = true
+		web_button.button_pressed = false
+		web_button.visible = false
+	if slam_button:
+		slam_button.disabled = true
+		slam_button.button_pressed = false
+		slam_button.visible = false
+												
 	# Only during player phase
 	if phase != Phase.PLAYER:
 		return
@@ -957,7 +1026,9 @@ func _update_special_buttons() -> void:
 	var has_cannon := u.has_method("perform_cannon")
 	var has_quake := u.has_method("perform_quake")
 	var has_nova := u.has_method("perform_nova")
-				
+	var has_web := u.has_method("perform_web")
+	var has_slam := u.has_method("perform_slam")
+					
 	# Optional filter list
 	if u.has_method("get_available_specials"):
 		var specials: Array[String] = u.get_available_specials()
@@ -974,9 +1045,11 @@ func _update_special_buttons() -> void:
 		has_volley = has_volley and specials.has("volley") 
 		has_cannon = has_cannon and specials.has("cannon") 
 		has_quake = has_quake and specials.has("quake") 
-		has_nova = has_nova and specials.has("nova") 
-								
-	# ✅ Show ONLY if unit still has an attack action available
+		has_nova = has_nova and specials.has("nova")
+		has_web = has_web and specials.has("web")
+		has_slam = has_slam and specials.has("slam")
+									
+	# Show ONLY if unit still has an attack action available
 	var show_specials := (not spent_attack)
 
 	if hellfire_button: hellfire_button.visible = show_specials and has_hellfire
@@ -991,6 +1064,8 @@ func _update_special_buttons() -> void:
 	if cannon_button: cannon_button.visible = show_specials and has_cannon
 	if quake_button: quake_button.visible = show_specials and has_quake
 	if nova_button: nova_button.visible = show_specials and has_nova
+	if web_button: web_button.visible = show_specials and has_web
+	if slam_button: slam_button.visible = show_specials and has_slam
 
 	# Cooldowns
 	var ok_hellfire := true
@@ -1005,6 +1080,9 @@ func _update_special_buttons() -> void:
 	var ok_cannon := true
 	var ok_quake := true
 	var ok_nova := true
+	var ok_web := true
+	var ok_slam := true
+		
 	if u.has_method("can_use_special"):
 		ok_hellfire = u.can_use_special("hellfire")
 		ok_blade = u.can_use_special("blade")
@@ -1018,6 +1096,8 @@ func _update_special_buttons() -> void:
 		ok_cannon = u.can_use_special("cannon")
 		ok_quake = u.can_use_special("quake")
 		ok_nova = u.can_use_special("nova")
+		ok_web = u.can_use_special("web")
+		ok_slam = u.can_use_special("slam")
 
 	# Enable
 	if hellfire_button: hellfire_button.disabled = spent_attack or (not has_hellfire) or (not ok_hellfire)
@@ -1032,6 +1112,8 @@ func _update_special_buttons() -> void:
 	if cannon_button: cannon_button.disabled = spent_attack or (not has_cannon) or (not ok_cannon)
 	if quake_button: quake_button.disabled = spent_attack or (not has_quake) or (not ok_quake)
 	if nova_button: nova_button.disabled = spent_attack or (not has_nova) or (not ok_nova)
+	if web_button: web_button.disabled = spent_attack or (not has_web) or (not ok_web)
+	if slam_button: slam_button.disabled = spent_attack or (not has_slam) or (not ok_slam)
 
 	# Pressed visuals
 	var active := ""
@@ -1058,6 +1140,10 @@ func _update_special_buttons() -> void:
 		quake_button.button_pressed = (active == "quake")
 	if nova_button and not nova_button.disabled:
 		nova_button.button_pressed = (active == "nova")
+	if web_button and not web_button.disabled:
+		web_button.button_pressed = (active == "web")
+	if slam_button and not slam_button.disabled:
+		slam_button.button_pressed = (active == "slam")
 
 	# --- Apply colors based on pressed state ---
 	_skin_special_button(hellfire_button, hellfire_button.button_pressed if hellfire_button else false)
@@ -1072,7 +1158,9 @@ func _update_special_buttons() -> void:
 	_skin_special_button(cannon_button, cannon_button.button_pressed if cannon_button else false)
 	_skin_special_button(quake_button, quake_button.button_pressed if quake_button else false)
 	_skin_special_button(nova_button, nova_button.button_pressed if nova_button else false)
-					
+	_skin_special_button(web_button, web_button.button_pressed if web_button else false)
+	_skin_special_button(slam_button, slam_button.button_pressed if slam_button else false)
+						
 	# Overwatch + Stim are instant toggles
 	if overwatch_button and not overwatch_button.disabled:
 		if M != null and M.has_method("is_overwatching"):
@@ -1182,7 +1270,7 @@ func _on_stim_pressed() -> void:
 	if not u.has_method("perform_stim"):
 		return
 
-	# ✅ Fire instantly
+	# Fire instantly
 	M.activate_special("stim")
 
 	_update_special_buttons()
@@ -1211,7 +1299,7 @@ func _tick_buffs_enemy_phase_start() -> void:
 		if u == null or not is_instance_valid(u):
 			continue
 
-		# ✅ tick elite special cooldowns
+		# tick elite special cooldowns
 		if u is EliteMech:
 			(u as EliteMech).tick_cooldowns()
 			
@@ -1249,7 +1337,7 @@ func _tick_buffs_enemy_phase_start() -> void:
 				changed = true
 
 
-	# ✅ If any buff state changed, refresh special buttons now
+	# If any buff state changed, refresh special buttons now
 	if changed:
 		_update_special_buttons()
 
@@ -1279,7 +1367,7 @@ func _run_support_bots_phase() -> void:
 		await (u as RecruitBot).auto_support_action(M)
 
 	# leave it BUSY if we're transitioning to enemy anyway,
-	# but restore if caller wasn’t doing a transition
+	# but restore if caller wasn't doing a transition
 	phase = prev
 	_update_end_turn_button()
 	_update_special_buttons()
@@ -1354,24 +1442,6 @@ func _on_quake_pressed() -> void:
 	M.activate_special("quake")
 	_update_special_buttons()
 
-func _on_nova_pressed() -> void:
-	if phase != Phase.PLAYER:
-		return
-	emit_signal("tutorial_event", &"special_button_pressed", {"id": "nova"})
-
-	var u := M.selected
-	if u == null or not is_instance_valid(u):
-		return
-	if _attacked.get(u, false):
-		return
-
-	# R1 uses perform_volley (or whatever you named it)
-	if not u.has_method("perform_nova"):
-		return
-
-	M.activate_special("nova")
-	_update_special_buttons()
-
 func _on_menu_pressed() -> void:
 	print("MENU PRESSED -> changing scene to: ", title_scene_path)
 	print("exists? ", ResourceLoader.exists(title_scene_path))
@@ -1417,7 +1487,7 @@ func _wait_for_units_then_enable_loss_checks() -> void:
 		# We have units in the scene — safe to start evaluating.
 		loss_checks_enabled = true
 
-		# ✅ Start boss ONLY once, only if enabled
+		# Start boss ONLY once, only if enabled
 		if boss_mode_enabled and (boss == null or not is_instance_valid(boss)):
 			start_boss_battle()
 
@@ -1637,7 +1707,7 @@ func _titan_apply_strike(cell: Vector2i) -> void:
 			u.take_damage(titan_strike_damage)
 
 func _titan_overwatch_enemy_phase() -> void:
-	# ✅ PATTERN + DOUBLING strikes per turn: 1,2,4,8,16...
+	# PATTERN + DOUBLING strikes per turn: 1,2,4,8,16...
 	_clear_titan_markers()
 
 	# Gather allies (fail-safe)
@@ -1757,7 +1827,7 @@ func _wait_until_allies_placed(max_frames := 60) -> bool:
 					continue
 				if u.team != Unit.Team.ALLY:
 					continue
-				# ✅ "placed" means registered on the grid
+				# "placed" means registered on the grid
 				if M.units_by_cell.has(u.cell) and M.units_by_cell[u.cell] == u:
 					return true
 		frames += 1
@@ -1793,7 +1863,7 @@ func _map_top_apex_world() -> Vector2:
 	var tm := M.terrain
 	# cell (0,0) is the top corner in your generated maps
 	var p := tm.to_global(tm.map_to_local(Vector2i(0, 0)))
-	# small nudge upward to hit the “point” of the diamond
+	# small nudge upward to hit the "point" of the diamond
 	return p + Vector2(0, -16)
 
 func _titan_visual_center_local() -> Vector2:
@@ -1873,7 +1943,7 @@ func _start_titan_event_autorun() -> void:
 	_update_end_turn_button()
 	_update_special_buttons()
 
-	# ✅ wait for allies to actually exist
+	# wait for allies to actually exist
 	var ok := await _wait_until_allies_exist()
 	if not ok:
 		game_over("No allies remaining.")
@@ -1997,7 +2067,7 @@ func _run_event_cinematic_sequence() -> void:
 	# This is intentionally a lot; steps that fail will just do nothing if _cinematic_step blocks.
 	var steps := 8
 
-	# Move them in a staggered “column” feel: a0 then a1 then a2, repeat
+	# Move them in a staggered "column" feel: a0 then a1 then a2, repeat
 	for i in range(steps):
 		await _cinematic_step(a0, Vector2i(0, -1))
 		await _event_beat(run_step_beat)
@@ -2008,7 +2078,7 @@ func _run_event_cinematic_sequence() -> void:
 		await _cinematic_step(a2, Vector2i(0, -1))
 		await _event_beat(run_step_beat)
 
-		# little breath pauses mid-run so it reads as “distance”
+		# little breath pauses mid-run so it reads as "distance"
 		if i == 2:
 			await _event_beat(0.35)
 		if i == 5:
@@ -2021,42 +2091,33 @@ func _run_event_cinematic_sequence() -> void:
 	# small settle pause at destination
 	await _event_beat(0.60)
 
-	# -------------------
+# -------------------
 	# 2) Dialogue beats
 	# -------------------
-	await M._say(a0, "…do you feel that vibration?")
+	await M._say(a0, "...do you feel that vibration?")
 	await _event_beat(beat_med)
-
-	await M._say(a1, "Yeah. That’s not thunder.")
+	await M._say(a1, "Yeah. Not thunder.")
 	await _event_beat(beat_short)
-
 	await M._say(a2, "Something big is moving out there.")
 	await _event_beat(beat_long)
-
 	# --- Cinematic movement (your original) ---
 	await _cinematic_step(a0, Vector2i(1, 0))
 	await _event_beat(0.25)
 	await _cinematic_step(a1, Vector2i(1, 0))
 	await _event_beat(0.35)
-
 	await M._say(a0, "Keep it tight. Eyes up.")
 	await _event_beat(beat_med)
-
-	await M._say(a1, "That silhouette… a giant mecha?")
+	await M._say(a1, "That silhouette... a giant mecha?")
 	await _event_beat(beat_long)
-
-	await M._say(a2, "We’re not equipped for that.")
+	await M._say(a2, "We are not equipped for that.")
 	await _event_beat(beat_med)
-
-	# Step back like they’re backing off
+	# Step back like they're backing off
 	await _cinematic_step(a0, Vector2i(-1, 0))
 	await _event_beat(0.25)
 	await _cinematic_step(a1, Vector2i(-1, 0))
 	await _event_beat(0.35)
-
-	await M._say(a0, "No fight. We’re leaving— now.")
+	await M._say(a0, "No fight. Get ready to leave now.")
 	await _event_beat(beat_med)
-
 	await M._say(a2, "Bomber, get us out of here!")
 	await _event_beat(beat_long)
 
