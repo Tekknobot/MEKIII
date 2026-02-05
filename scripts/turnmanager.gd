@@ -551,7 +551,8 @@ func _calc_spawn_count_for_round(r: int) -> int:
 func _on_end_turn_pressed() -> void:
 	if phase != Phase.PLAYER:
 		return
-		
+	
+	# --- Clear Overlays ---	
 	M._clear_overlay()
 		
 	# --- Tutorial hook ---
