@@ -70,7 +70,62 @@ var _terrain: TileMap
 
 @onready var car_sfx: ProceduralCarSFX = get_node_or_null("CarSFX") as ProceduralCarSFX
 
+@export var anim_death: StringName = &"death"
+
+var _death_started := false
+
+func play_death_anim() -> void:
+	# NOTE: Unit._die() already set _dying = true before calling this.
+	# So do NOT early-return just because _dying is true.
+
+	if _death_started:
+		return
+	_death_started = true
+
+	# stop any ongoing behavior immediately
+	_driving = false
+	_vibe_amp = 0.0
+	_vibe_hz = 0.0
+	if visual != null:
+		visual.position = Vector2.ZERO
+
+	# stop procedural engine
+	if car_sfx != null:
+		car_sfx.set_engine(false)
+
+	# stop future vibration updates
+	set_process(false)
+	set_physics_process(false)
+
+	# resolve anim (it's under Visual)
+	if _anim == null and anim_path != NodePath():
+		_anim = get_node_or_null(anim_path) as AnimatedSprite2D
+
+	# if we can't animate, just die cleanly
+	if _anim == null or _anim.sprite_frames == null:
+		queue_free()
+		return
+
+	# pick correct death animation name
+	var death_name := anim_death
+	if not _anim.sprite_frames.has_animation(death_name):
+		if _anim.sprite_frames.has_animation("death"):
+			death_name = &"death"
+		else:
+			queue_free()
+			return
+
+	# ensure it finishes
+	_anim.sprite_frames.set_animation_loop(death_name, false)
+	_anim.stop()
+	_anim.play(death_name)
+
+	await _anim.animation_finished
+	queue_free()
+
 func play_idle_anim() -> void:
+	if _dying:
+		return	
 	if _anim == null:
 		return
 	if anim_idle != StringName():
@@ -96,7 +151,23 @@ func _ready() -> void:
 	if debug_animation:
 		print("CarBot terrain resolved: ", _terrain, " anim=", _anim)
 
+func _physics_process(_delta: float) -> void:
+	if hp <= 0 and not _dying:
+		_die()
+		
 func _process(delta: float) -> void:
+	# ✅ safety: if we're dead, stop all visuals and don't keep vibrating
+	if hp <= 0:
+		_driving = false
+		_vibe_amp = 0.0
+		_vibe_hz = 0.0
+		if visual != null:
+			visual.position = Vector2.ZERO
+		# stop engine sound too
+		if car_sfx != null:
+			car_sfx.set_engine(false)
+		return
+
 	_vibe_t += delta
 
 	if visual == null:
@@ -330,7 +401,9 @@ func _approximate_grid_dir_from_visual(visual_dir: Vector2) -> Vector2i:
 func _play_anim_from_grid_direction(grid_dir: Vector2i) -> void:
 	if _anim == null:
 		return
-
+	if _dying:
+		return
+		
 	grid_dir = Vector2i(signi(grid_dir.x), signi(grid_dir.y))
 	if grid_dir == Vector2i.ZERO:
 		# don't change anim if there's no movement step
