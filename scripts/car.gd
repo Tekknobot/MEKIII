@@ -14,7 +14,7 @@ class_name CarBot
 # -------------------------
 @export var drive_move_points := 5                 # how far it auto-drives per action
 @export var drive_step_time := 0.10               # time between tile steps
-@export var crush_damage := 999                   # “run over” (tune if you want non-lethal)
+@export var crush_damage := 999                   # "run over" (tune if you want non-lethal)
 @export var crush_sfx: StringName = &"mech_step"   # set to your engine sound key if you have one
 
 # If true: each step tries to go *through* an enemy cell if reachable
@@ -41,6 +41,11 @@ class_name CarBot
 @export var anim_right_up: StringName = &"right_up"
 @export var anim_right_down: StringName = &"right_down"
 
+# -------------------------
+# Debug / Calibration
+# -------------------------
+@export var debug_animation := false  # Enable to see grid direction -> animation mapping
+
 signal drive_finished
 
 var _driving := false
@@ -57,31 +62,11 @@ var _vibe_hz := 0.0
 
 var _last_step_dir := Vector2i(1, 1)
 
-func set_step_dir(dir: Vector2i) -> void:
-	_last_step_dir = dir
+@export var terrain_path: NodePath
+var _terrain: TileMap
 
-func play_move_anim() -> void:
-	if _anim == null:
-		return
-
-	var d := _last_step_dir
-
-	# Godot grid:
-	# x- = left, x+ = right
-	# y- = up,   y+ = down
-
-	if d.x > 0 and d.y < 0:
-		_anim.play(anim_right_up)
-	elif d.x > 0 and d.y > 0:
-		_anim.play(anim_right_down)
-	elif d.x < 0 and d.y < 0:
-		_anim.play("left_up")
-	elif d.x < 0 and d.y > 0:
-		_anim.play("left_down")
-	else:
-		# fallback (straight move / weird case)
-		if anim_idle != StringName():
-			_anim.play(anim_idle)
+@export var anim_left_up: StringName = &"left_up"
+@export var anim_left_down: StringName = &"left_down"
 
 func play_idle_anim() -> void:
 	if _anim == null:
@@ -90,15 +75,24 @@ func play_idle_anim() -> void:
 		_anim.play(anim_idle)
 
 func _ready() -> void:
-	_base_pos = global_position
-	_update_layer_from_cell()
-	_set_motor_mode_idle()
-		
+	_terrain = get_node_or_null(terrain_path) as TileMap
+	if _terrain == null:
+		_terrain = _resolve_terrain_from_group()
+
+	# ✅ assign anim first
 	if anim_path != NodePath():
 		_anim = get_node_or_null(anim_path) as AnimatedSprite2D
-
 	if _anim == null:
 		push_warning("CarBot: anim_path not set or invalid")
+
+	_base_pos = global_position
+	_update_layer_from_cell()
+
+	# ✅ now idle can actually play
+	_set_motor_mode_idle()
+
+	if debug_animation:
+		print("CarBot terrain resolved: ", _terrain, " anim=", _anim)
 
 func _process(delta: float) -> void:
 	_vibe_t += delta
@@ -178,17 +172,228 @@ func auto_drive_action(M: MapController) -> void:
 func _drive_step(M: MapController, next_cell: Vector2i) -> void:
 	if M == null or not is_instance_valid(M):
 		return
-	if not M.grid.in_bounds(next_cell):
+	if M.grid == null or not M.grid.in_bounds(next_cell):
 		return
 
-	var dir := next_cell - cell
-	_play_drive_anim_for_dir(dir)
+	# GRID dir for anim (turns included)
+	var grid_dir := next_cell - cell
+	_last_step_dir = grid_dir
+	
+	if _terrain == null and M != null and "terrain" in M:
+		_terrain = M.terrain
+	
+	_play_anim_from_grid_direction(grid_dir)
 
-	# crush BEFORE moving
+	# crush BEFORE moving into the cell
 	_crush_enemy_if_present(M, next_cell)
 
+	# ✅ Use MapController mover so units_by_cell + mines + depth all stay correct
+	if M.has_method("_push_unit_to_cell"):
+		await M.call("_push_unit_to_cell", self, next_cell)
+	else:
+		# Fallback: keep logic consistent if that helper ever changes
+		if "terrain" in M and M.terrain != null:
+			set_cell(next_cell, M.terrain)
+		else:
+			cell = next_cell
+			_snap_visual_to_cell(M)
+
+	if self == null or not is_instance_valid(self) or hp <= 0:
+		return
+
+	_apply_drive_vibe_burst(M)
 	await get_tree().create_timer(drive_step_time).timeout
-		
+
+# ------------------------------------------------------------
+# Called by MapController during manual player movement
+# ------------------------------------------------------------
+func play_move_step_anim(from_world: Vector2, to_world: Vector2) -> void:
+	if _terrain == null:
+		return
+	var d := to_world - from_world
+	if d.length() < 0.001:
+		return
+
+	# Convert world delta to an equivalent "grid_dir" by picking the best basis
+	var origin := _terrain.map_to_local(Vector2i.ZERO)
+	var v_rd := (_terrain.map_to_local(Vector2i(1, 0)) - origin)
+	var v_ld := (_terrain.map_to_local(Vector2i(0, 1)) - origin)
+	var v_lu := (_terrain.map_to_local(Vector2i(-1, 0)) - origin)
+	var v_ru := (_terrain.map_to_local(Vector2i(0, -1)) - origin)
+
+	var best := Vector2i(1, 0)
+	var best_dot := -1.0
+	var dn := d.normalized()
+
+	var dot := dn.dot(v_rd.normalized())
+	if dot > best_dot: best_dot = dot; best = Vector2i(1, 0)
+	dot = dn.dot(v_ld.normalized())
+	if dot > best_dot: best_dot = dot; best = Vector2i(0, 1)
+	dot = dn.dot(v_lu.normalized())
+	if dot > best_dot: best_dot = dot; best = Vector2i(-1, 0)
+	dot = dn.dot(v_ru.normalized())
+	if dot > best_dot: best_dot = dot; best = Vector2i(0, -1)
+
+	_play_anim_from_grid_direction(best)
+
+func _approximate_grid_dir_from_world_movement(from_world: Vector2, to_world: Vector2) -> Vector2i:
+	# Convert screen-space movement to grid direction
+	var visual_dir := to_world - from_world
+	
+	if visual_dir.length() < 0.1:
+		return Vector2i.ZERO
+	
+	var normalized := visual_dir.normalized()
+	
+	# Isometric transformation (approximate inverse)
+	# Standard isometric uses a 2:1 ratio
+	# Adjust these coefficients if your isometric angle is different
+	
+	# For standard isometric (30° angle):
+	# Moving right on screen = positive x in visual
+	# Moving down on screen = positive y in visual
+	
+	# Convert to grid coordinates
+	# This reverses the typical isometric projection
+	var grid_x := normalized.x - normalized.y
+	var grid_y := normalized.x + normalized.y
+	
+	# Normalize the result
+	var length := sqrt(grid_x * grid_x + grid_y * grid_y)
+	if length > 0.01:
+		grid_x /= length
+		grid_y /= length
+	
+	# Snap to nearest cardinal/diagonal direction
+	var result := Vector2i.ZERO
+	
+	# Threshold for detecting movement
+	var threshold := 0.3
+	
+	if abs(grid_x) > threshold:
+		result.x = 1 if grid_x > 0 else -1
+	if abs(grid_y) > threshold:
+		result.y = 1 if grid_y > 0 else -1
+	
+	if debug_animation:
+		print("CarBot World Movement: ", visual_dir, " -> Grid Dir: ", result)
+	
+	return result
+
+func _approximate_grid_dir_from_visual(visual_dir: Vector2) -> Vector2i:
+	# Convert screen-space direction back to grid direction
+	# This assumes standard isometric: adjust if your projection differs
+	
+	if visual_dir.length() < 0.1:
+		return Vector2i.ZERO
+	
+	var normalized := visual_dir.normalized()
+	
+	# Isometric transformation (approximate inverse)
+	# Adjust these coefficients based on your actual isometric angle
+	var grid_x := normalized.x + normalized.y * 0.5
+	var grid_y := -normalized.x + normalized.y * 0.5
+	
+	# Snap to nearest cardinal/diagonal direction
+	var abs_x = abs(grid_x)
+	var abs_y = abs(grid_y)
+	
+	var result := Vector2i.ZERO
+	
+	if abs_x > 0.3:
+		result.x = 1 if grid_x > 0 else -1
+	if abs_y > 0.3:
+		result.y = 1 if grid_y > 0 else -1
+	
+	return result
+
+# ------------------------------------------------------------
+# Animation selection based on grid direction
+# ------------------------------------------------------------
+func _play_anim_from_grid_direction(grid_dir: Vector2i) -> void:
+	if _anim == null:
+		return
+
+	grid_dir = Vector2i(signi(grid_dir.x), signi(grid_dir.y))
+	if grid_dir == Vector2i.ZERO:
+		# don't change anim if there's no movement step
+		return
+
+	var anim_name := _get_anim_name_for_grid_dir(grid_dir)
+
+	if debug_animation:
+		print("CarBot Grid Dir: ", grid_dir, " -> Animation: ", anim_name, " current=", _anim.animation)
+
+	# Only switch if it actually changed (important for turns)
+	if _anim.animation != anim_name:
+		_anim.play(anim_name)
+
+func _get_anim_name_for_grid_dir(grid_dir: Vector2i) -> StringName:
+	grid_dir = Vector2i(signi(grid_dir.x), signi(grid_dir.y))
+	if grid_dir == Vector2i.ZERO:
+		return anim_idle
+
+	if _terrain == null:
+		return anim_idle
+
+	var origin := _terrain.map_to_local(Vector2i.ZERO)
+	var d := _terrain.map_to_local(grid_dir) - origin
+	if d.length() < 0.001:
+		return anim_idle
+
+	var dn := d.normalized()
+
+	# Build real screen-space basis vectors from your TileMap
+	var v_rd := (_terrain.map_to_local(Vector2i(1, 0)) - origin).normalized()   # down-right
+	var v_ld := (_terrain.map_to_local(Vector2i(0, 1)) - origin).normalized()   # down-left
+	var v_lu := (_terrain.map_to_local(Vector2i(-1, 0)) - origin).normalized()  # up-left
+	var v_ru := (_terrain.map_to_local(Vector2i(0, -1)) - origin).normalized()  # up-right
+
+	# Pick best alignment via dot product (with tie-break)
+	var best_anim := anim_idle
+	var best_dot := -1.0
+	var second_dot := -1.0
+
+	var dot := dn.dot(v_rd)
+	if dot > best_dot:
+		second_dot = best_dot
+		best_dot = dot
+		best_anim = anim_right_down
+	elif dot > second_dot:
+		second_dot = dot
+
+	dot = dn.dot(v_ld)
+	if dot > best_dot:
+		second_dot = best_dot
+		best_dot = dot
+		best_anim = anim_left_down
+	elif dot > second_dot:
+		second_dot = dot
+
+	dot = dn.dot(v_lu)
+	if dot > best_dot:
+		second_dot = best_dot
+		best_dot = dot
+		best_anim = anim_left_up
+	elif dot > second_dot:
+		second_dot = dot
+
+	dot = dn.dot(v_ru)
+	if dot > best_dot:
+		second_dot = best_dot
+		best_dot = dot
+		best_anim = anim_right_up
+	elif dot > second_dot:
+		second_dot = dot
+
+	# ✅ If ambiguous (close call), keep current animation to avoid flicker/reverse
+	# Tune threshold 0.03–0.10 depending on how “wobbly” it is.
+	var tie_margin := best_dot - second_dot
+	if tie_margin < 0.06 and _anim != null:
+		return _anim.animation
+
+	return best_anim
+
 func warp_to_cell(M: MapController) -> void:
 	# last-resort positioning helper
 	if M != null and M.has_method("_cell_world"):
@@ -200,25 +405,6 @@ func warp_to_cell(M: MapController) -> void:
 	_base_pos = global_position
 	
 	_update_layer_from_cell()
-
-func _play_drive_anim_for_dir(dir: Vector2i) -> void:
-	if _anim == null:
-		return
-
-	# Decide if we're moving left/right
-	var moving_left := dir.x < 0
-	var moving_right := dir.x > 0
-
-	# Choose up/down animation (isometric-friendly: prioritize y)
-	if dir.y < 0:
-		_anim.play(anim_right_up)
-	elif dir.y > 0:
-		_anim.play(anim_right_down)
-	else:
-		# Pure horizontal: keep last vertical anim if you want stability
-		# or pick based on dir.x:
-		_anim.play(anim_right_down)  # feels better for "drive" usually
-
 
 func _set_motor_mode_idle() -> void:
 	_vibe_amp = idle_vibe_amp_px
@@ -233,118 +419,148 @@ func _set_motor_mode_driving() -> void:
 
 
 func _apply_drive_vibe_burst(M: MapController) -> void:
-	# quick punchy rumble on each step (also optional nearby unit rumble)
-	# (visual only; no physics)
 	if vibrate_nearby_units and M != null and is_instance_valid(M):
 		for u in M.get_all_units():
+			if u == self:
+				continue
 			if u == null or not is_instance_valid(u):
 				continue
-			var d = abs(u.cell.x - cell.x) + abs(u.cell.y - cell.y)
-			if d > vibe_radius:
+			var dist = abs(u.cell.x - cell.x) + abs(u.cell.y - cell.y)
+			if dist > vibe_radius:
 				continue
-			# don't rumble dead / enemies if you don't want
-			# if u.team != Unit.Team.ALLY: continue
-
-			# apply a tiny temporary offset if that unit supports it
-			# safest: if they have a method we can call
 			if u.has_method("motor_rumble"):
 				u.call("motor_rumble", nearby_vibe_amp_px, 0.12)
-
 
 # ------------------------------------------------------------
 # Targeting / path selection
 # ------------------------------------------------------------
 func _pick_drive_path(M: MapController) -> Array[Vector2i]:
-	# We’ll choose up to drive_move_points steps from reachable cells.
-	# Strategy:
-	# 1) If any enemies are reachable in N steps, prefer a path that hits them.
-	# 2) Otherwise, move toward closest enemy.
-
-	var reachable: Array[Vector2i] = []
-	if M.has_method("ai_reachable_cells"):
-		reachable = M.ai_reachable_cells(self)
-	if reachable.is_empty():
+	if M == null or not is_instance_valid(M) or M.grid == null:
 		return []
 
-	# remove current cell
-	reachable = reachable.filter(func(c): return c != cell)
-
-	# No enemies? just idle.
 	var enemies := M.get_all_enemies()
 	if enemies.is_empty():
 		return []
 
-	# Build a quick set lookup for enemies-by-cell
+	# structure blocked (same as MapController uses)
+	var structure_blocked: Dictionary = {}
+	if M.game_ref != null and "structure_blocked" in M.game_ref:
+		structure_blocked = M.game_ref.structure_blocked
+
+	# quick enemy lookup by cell
 	var enemy_by_cell: Dictionary = {}
 	for e in enemies:
-		if e == null or not is_instance_valid(e) or e.hp <= 0:
-			continue
-		enemy_by_cell[e.cell] = e
+		if e != null and is_instance_valid(e) and e.hp > 0:
+			enemy_by_cell[e.cell] = e
 
-	# Find best destination among reachable
+	# Build candidate destinations within DRIVE range (not move_range)
+	var r := int(drive_move_points)
 	var best_dest := Vector2i(-1, -1)
+	var best_path: Array[Vector2i] = []
 	var best_score := -999999
 
-	for c in reachable:
-		# score:
-		# + big bonus if landing on enemy
-		# + smaller bonus if close to enemy
-		var score := 0
-		if enemy_by_cell.has(c):
-			score += 1000
-
-		# closeness to nearest enemy
-		var nearest := 999999
-		for e in enemies:
-			if e == null or not is_instance_valid(e) or e.hp <= 0:
+	for dx in range(-r, r + 1):
+		for dy in range(-r, r + 1):
+			if abs(dx) + abs(dy) > r:
 				continue
-			var d = abs(e.cell.x - c.x) + abs(e.cell.y - c.y)
-			if d < nearest:
-				nearest = d
-		score += (200 - nearest) # closer = higher
 
-		# prefer paths through enemies (not just landing) if enabled:
-		# this is a rough proxy—real “through” needs path info; we’ll handle that below
-		if prefer_path_through_enemies:
-			# if c is between us and an enemy in Manhattan sense, slightly bump
+			var dest := cell + Vector2i(dx, dy)
+			if not M.grid.in_bounds(dest):
+				continue
+			if structure_blocked.has(dest):
+				continue
+			if M.has_method("_is_walkable") and not M.call("_is_walkable", dest):
+				continue
+
+			# Occupancy rule for car:
+			# - allies block
+			# - enemies are allowed (we crush)
+			if M.units_by_cell != null and M.units_by_cell.has(dest):
+				var occ = M.units_by_cell[dest]
+				if occ != null and is_instance_valid(occ) and (occ is Unit):
+					var ou := occ as Unit
+					if ou.team == Unit.Team.ALLY:
+						continue
+					# enemy is allowed
+
+			# Build an L-path and validate each step with car rules
+			var p1: Array[Vector2i] = []
+			var p2: Array[Vector2i] = []
+			if M.has_method("_build_L_path"):
+				p1 = M.call("_build_L_path", cell, dest, true)
+				p2 = M.call("_build_L_path", cell, dest, false)
+			else:
+				# fallback: trivial (no move)
+				continue
+
+			var ok1 := _drive_path_ok(M, p1, structure_blocked)
+			var ok2 := _drive_path_ok(M, p2, structure_blocked)
+
+			var path: Array[Vector2i] = []
+			if ok1:
+				path = p1
+			elif ok2:
+				path = p2
+			else:
+				continue
+
+			if path.is_empty():
+				continue
+
+			# Trim to drive_move_points
+			if path.size() > drive_move_points:
+				path.resize(drive_move_points)
+
+			# Score:
+			# - big reward for crushing any enemy along the path
+			# - extra reward for ending on enemy
+			# - otherwise move closer to nearest enemy
+			var hits := 0
+			for step in path:
+				if enemy_by_cell.has(step):
+					hits += 1
+
+			var score := hits * 500
+			if enemy_by_cell.has(dest):
+				score += 400
+
+			var nearest := 999999
 			for e in enemies:
 				if e == null or not is_instance_valid(e) or e.hp <= 0:
 					continue
-				var d0 = abs(e.cell.x - cell.x) + abs(e.cell.y - cell.y)
-				var d1 = abs(e.cell.x - c.x) + abs(e.cell.y - c.y)
-				if d1 < d0:
-					score += 5
-					break
+				var d = abs(e.cell.x - dest.x) + abs(e.cell.y - dest.y)
+				if d < nearest:
+					nearest = d
+			score += (200 - nearest)
 
-		if score > best_score:
-			best_score = score
-			best_dest = c
+			if score > best_score:
+				best_score = score
+				best_dest = dest
+				best_path = path
 
-	if best_dest.x < 0:
-		return []
+	return best_path
 
-	# Now construct a step-by-step path of up to drive_move_points.
-	# If MapController can give a path, use it; else do a greedy step walk.
-	var path: Array[Vector2i] = []
 
-	if M.has_method("ai_find_path"):
-		# If you have something like this, great:
-		# path = M.ai_find_path(self, cell, best_dest)
-		path = M.call("ai_find_path", self, cell, best_dest)
-	elif M.has_method("find_path"):
-		path = M.call("find_path", cell, best_dest)
-	else:
-		# greedy Manhattan path (doesn't avoid obstacles well, but works on open maps)
-		path = _greedy_step_path(M, best_dest, drive_move_points)
+func _drive_path_ok(M: MapController, path: Array[Vector2i], structure_blocked: Dictionary) -> bool:
+	for step in path:
+		if not M.grid.in_bounds(step):
+			return false
+		if structure_blocked.has(step):
+			return false
+		if M.has_method("_is_walkable") and not M.call("_is_walkable", step):
+			return false
 
-	# Trim to drive_move_points and drop the start cell if included
-	if not path.is_empty() and path[0] == cell:
-		path.remove_at(0)
+		# Occupancy rule per step:
+		# - allies block
+		# - enemies allowed (we crush as we enter)
+		if M.units_by_cell != null and M.units_by_cell.has(step):
+			var occ = M.units_by_cell[step]
+			if occ != null and is_instance_valid(occ) and (occ is Unit):
+				var ou := occ as Unit
+				if ou.team == Unit.Team.ALLY:
+					return false
 
-	if path.size() > drive_move_points:
-		path.resize(drive_move_points)
-
-	return path
+	return true
 
 
 func _greedy_step_path(M: MapController, dest: Vector2i, max_steps: int) -> Array[Vector2i]:
@@ -419,3 +635,36 @@ func motor_rumble(amp_px: float, seconds: float) -> void:
 
 	_vibe_amp = saved_amp
 	_vibe_hz = saved_hz
+
+func play_move_step_anim_grid(grid_dir: Vector2i, terrain_tm: TileMap) -> void:
+	if terrain_tm != null:
+		_terrain = terrain_tm
+
+	_last_step_dir = grid_dir
+	_play_anim_from_grid_direction(grid_dir)
+
+func _resolve_terrain_from_group() -> TileMap:
+	var nodes := get_tree().get_nodes_in_group("GameMap")
+	for n in nodes:
+		# Case A: the TileMap node itself is in the group
+		if n is TileMap:
+			return n as TileMap
+
+		# Case B: a parent/root node is in the group; TileMap is a descendant
+		if n is Node:
+			# Try common child name first
+			var terrain_node := (n as Node).find_child("Terrain", true, false)
+			if terrain_node is TileMap:
+				return terrain_node as TileMap
+
+			# Otherwise scan descendants for the first TileMap
+			var stack: Array[Node] = [n as Node]
+			while not stack.is_empty():
+				var cur = stack.pop_back()
+				for ch in cur.get_children():
+					if ch is TileMap:
+						return ch as TileMap
+					if ch is Node:
+						stack.append(ch)
+
+	return null

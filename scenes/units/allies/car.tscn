@@ -122,7 +122,9 @@ animations = [{
 script = ExtResource("1_w1uy7")
 portrait_tex = ExtResource("2_coow6")
 thumbnail = ExtResource("3_jeejy")
+drive_move_points = 8
 anim_idle = &"default"
+debug_animation = true
 anim_path = NodePath("Visual/AnimatedSprite2D")
 display_name = "COBRUH A.I."
 move_range = 8
@@ -141,7 +143,7 @@ shape = SubResource("RectangleShape2D_ke0dx")
 [node name="AnimatedSprite2D" type="AnimatedSprite2D" parent="Visual"]
 position = Vector2(0, -20)
 sprite_frames = SubResource("SpriteFrames_eiewe")
-animation = &"left_up"
+animation = &"left_down"
 autoplay = "default"
 
 [node name="HPLabel" type="Label" parent="."]

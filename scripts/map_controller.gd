@@ -1954,7 +1954,6 @@ func _move_selected_to(target: Vector2i) -> void:
 			_sfx(&"ui_denied", sfx_volume_ui, 1.0)
 			emit_signal("tutorial_event", &"move_denied_already_moved", {"cell": selected.cell})
 			return
-
 		
 	# Hard gates FIRST (PLAYER ONLY)
 	if TM != null and selected != null and is_instance_valid(selected) and selected.team == Unit.Team.ALLY:
@@ -1964,54 +1963,56 @@ func _move_selected_to(target: Vector2i) -> void:
 		if not TM.can_move(selected):
 			emit_signal("tutorial_event", &"move_denied_tm_gate", {"cell": selected.cell})
 			return
-
 	if _is_moving:
 		return
 	if selected == null or not is_instance_valid(selected):
 		return
 	if not _is_valid_move_target(target):
 		return
-
 	var u := selected
 	var uid := u.get_instance_id()
 	var from_cell := u.cell
-
+	
+	# ✅ Check if this is a CarBot (or any unit with custom step animation)
+	var is_carbot := u.has_method("play_move_step_anim")
+	
 	# L path
 	var path := _pick_clear_L_path(from_cell, target)
 	if path.is_empty():
 		return
-
 	_is_moving = true
 	_sfx(&"move_start", sfx_volume_world, 1.0, _cell_world(from_cell))
 	_say(u) # <-- NEW: say something before moving
 	#await get_tree().create_timer(0.38).timeout
 	_clear_overlay()
-
 	# Reserve destination
 	units_by_cell.erase(from_cell)
 	units_by_cell[target] = u
-
-	_play_move_anim(u, true)
-
+	
+	# ✅ Only play default move anim if NOT CarBot
+	if not is_carbot:
+		_play_move_anim(u, true)
+	
 	var step_time := _duration_for_step()
 	for step_cell in path:
 		var from_world := u.global_position
 		var to_world := _cell_world(step_cell)
-
-		# ✅ NEW: tell units the step direction (for CarBot diagonal anim selection)
-		var step_dir: Vector2i = step_cell - u.cell
-		if u.has_method("set_step_dir"):
-			u.call("set_step_dir", step_dir)
-			
-		_face_unit_for_step(u, from_world, to_world)
+		
+		# ✅ Use true GRID direction for per-step anim (turns included)
+		if is_carbot:
+			var grid_dir: Vector2i = step_cell - u.cell
+			if u.has_method("play_move_step_anim_grid"):
+				u.call("play_move_step_anim_grid", grid_dir, terrain)
+			else:
+				u.call("play_move_step_anim", from_world, to_world)
+		else:
+			_face_unit_for_step(u, from_world, to_world)
 
 		_sfx(&"move_step", sfx_volume_world * 0.55, randf_range(0.95, 1.05), to_world)
 		var tw := create_tween()
 		tw.set_trans(Tween.TRANS_LINEAR)
 		tw.set_ease(Tween.EASE_IN_OUT)
-
 		uid = u.get_instance_id()
-
 		tw.tween_method(func(p: Vector2):
 			var uu := instance_from_id(uid) as Unit
 			if uu == null or not is_instance_valid(uu):
@@ -2019,13 +2020,9 @@ func _move_selected_to(target: Vector2i) -> void:
 			uu.global_position = p
 			_set_unit_depth_from_world(uu, p)
 		, from_world, to_world, step_time)
-
-
 		if is_overwatching(u):
 			_update_overwatch_ghost_pos(u)
-
 		await tw.finished
-
 		# ✅ IMPORTANT: update logical cell each step so next step_dir is correct
 		if u != null and is_instance_valid(u):
 			u.cell = step_cell
@@ -2036,26 +2033,19 @@ func _move_selected_to(target: Vector2i) -> void:
 			_refresh_overlays()
 			emit_signal("aim_changed", int(aim_mode), special_id)
 			return
-
 		# Overwatch trigger: enemy entering a new step cell
 		#await _check_overwatch_trigger(u, step_cell)
-
 	u.set_cell(target, terrain)
 	
 	# After move complete + mines resolved:
 	if u != null and is_instance_valid(u) and u.team == Unit.Team.ALLY:
 		_try_recruit_near_structure(u)
-
 	if u.team == Unit.Team.ALLY:
 		_set_unit_moved(u, true)
-
 	_apply_turn_indicator(u)
-
 	# ✅ Overwatch triggers once, when mover finishes movement
 	await _check_overwatch_trigger(u, target)
-
 	await _trigger_mine_if_present_id(uid)
-
 	try_collect_pickup(u)
 	_check_and_trigger_beacon_sweep()
 	
@@ -2066,28 +2056,31 @@ func _move_selected_to(target: Vector2i) -> void:
 		emit_signal("aim_changed", int(aim_mode), special_id)
 		return
 	
-	_play_move_anim(u, false)
+	# ✅ Only play default end anim if NOT CarBot
+	if not is_carbot:
+		_play_move_anim(u, false)
+	else:
+		# CarBot returns to idle
+		if u.has_method("play_idle_anim"):
+			u.call("play_idle_anim")
+	
 	_sfx(&"move_end", sfx_volume_world, 1.0, _cell_world(target))
 	
 	_is_moving = false
-
 	# ✅ Mark move spent (IMPORTANT)
 	if u.team == Unit.Team.ALLY and TM != null and TM.has_method("notify_player_moved"):
 		TM.notify_player_moved(u)
-
 	# --- Tutorial hook ---
 	if u != null and is_instance_valid(u) and u.team == Unit.Team.ALLY:
 		emit_signal("tutorial_event", &"ally_moved", {"from": from_cell, "to": target})
-
 	if u != null and is_instance_valid(u) and u.team == Unit.Team.ALLY:
 		if not _unit_has_attacked(u):
 			aim_mode = AimMode.ATTACK
 		else:
 			aim_mode = AimMode.MOVE
 		_refresh_overlays()
-
 	emit_signal("aim_changed", int(aim_mode), special_id)
-
+	
 func _find_anim_sprite(root: Node) -> AnimatedSprite2D:
 	if root == null:
 		return null
