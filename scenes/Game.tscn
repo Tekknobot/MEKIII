@@ -536,7 +536,7 @@ grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 2
 
-[node name="Hellfire" type="Button" parent="UI"]
+[node name="Hellfire" type="Button" parent="UI" groups=["SpecialButton"]]
 z_index = 4096
 anchors_preset = 7
 anchor_left = 0.5
@@ -553,7 +553,7 @@ theme_override_fonts/font = ExtResource("32_1gdd5")
 theme_override_font_sizes/font_size = 32
 text = "Hellfire"
 
-[node name="Blade" type="Button" parent="UI"]
+[node name="Blade" type="Button" parent="UI" groups=["SpecialButton"]]
 z_index = 4096
 anchors_preset = 7
 anchor_left = 0.5
@@ -570,7 +570,7 @@ theme_override_fonts/font = ExtResource("32_1gdd5")
 theme_override_font_sizes/font_size = 32
 text = "Blade"
 
-[node name="Mines" type="Button" parent="UI"]
+[node name="Mines" type="Button" parent="UI" groups=["SpecialButton"]]
 z_index = 4096
 anchors_preset = 7
 anchor_left = 0.5
@@ -588,7 +588,7 @@ theme_override_font_sizes/font_size = 32
 text = "Mines
 "
 
-[node name="Supress" type="Button" parent="UI"]
+[node name="Supress" type="Button" parent="UI" groups=["SpecialButton"]]
 z_index = 4096
 anchors_preset = 7
 anchor_left = 0.5
@@ -605,7 +605,7 @@ theme_override_fonts/font = ExtResource("32_1gdd5")
 theme_override_font_sizes/font_size = 32
 text = "Supress"
 
-[node name="Stimpack" type="Button" parent="UI"]
+[node name="Stimpack" type="Button" parent="UI" groups=["SpecialButton"]]
 z_index = 4096
 anchors_preset = 7
 anchor_left = 0.5
@@ -623,7 +623,7 @@ theme_override_font_sizes/font_size = 32
 text = "Stimpack
 "
 
-[node name="Sunder" type="Button" parent="UI"]
+[node name="Sunder" type="Button" parent="UI" groups=["SpecialButton"]]
 z_index = 4096
 anchors_preset = 7
 anchor_left = 0.5
@@ -641,7 +641,7 @@ theme_override_font_sizes/font_size = 32
 text = "Sunder
 "
 
-[node name="Volley" type="Button" parent="UI"]
+[node name="Volley" type="Button" parent="UI" groups=["SpecialButton"]]
 z_index = 4096
 anchors_preset = 7
 anchor_left = 0.5
@@ -659,7 +659,7 @@ theme_override_font_sizes/font_size = 32
 text = "Volley
 "
 
-[node name="Pounce" type="Button" parent="UI"]
+[node name="Pounce" type="Button" parent="UI" groups=["SpecialButton"]]
 z_index = 4096
 anchors_preset = 7
 anchor_left = 0.5
@@ -677,7 +677,7 @@ theme_override_font_sizes/font_size = 32
 text = "Pounce
 "
 
-[node name="Cannon" type="Button" parent="UI"]
+[node name="Cannon" type="Button" parent="UI" groups=["SpecialButton"]]
 z_index = 4096
 anchors_preset = 7
 anchor_left = 0.5
@@ -694,7 +694,7 @@ theme_override_fonts/font = ExtResource("32_1gdd5")
 theme_override_font_sizes/font_size = 32
 text = "Cannon"
 
-[node name="Quake" type="Button" parent="UI"]
+[node name="Quake" type="Button" parent="UI" groups=["SpecialButton"]]
 z_index = 4096
 anchors_preset = 7
 anchor_left = 0.5
@@ -711,7 +711,7 @@ theme_override_fonts/font = ExtResource("32_1gdd5")
 theme_override_font_sizes/font_size = 32
 text = "Quake"
 
-[node name="Nova" type="Button" parent="UI"]
+[node name="Nova" type="Button" parent="UI" groups=["SpecialButton"]]
 z_index = 4096
 anchors_preset = 7
 anchor_left = 0.5
@@ -728,7 +728,7 @@ theme_override_fonts/font = ExtResource("32_1gdd5")
 theme_override_font_sizes/font_size = 32
 text = "Nova"
 
-[node name="Watcher" type="Button" parent="UI"]
+[node name="Watcher" type="Button" parent="UI" groups=["SpecialButton"]]
 z_index = 4096
 anchors_preset = 7
 anchor_left = 0.5
@@ -745,7 +745,7 @@ theme_override_fonts/font = ExtResource("32_1gdd5")
 theme_override_font_sizes/font_size = 32
 text = "Watcher"
 
-[node name="Slam" type="Button" parent="UI"]
+[node name="Slam" type="Button" parent="UI" groups=["SpecialButton"]]
 z_index = 4096
 anchors_preset = 7
 anchor_left = 0.5
@@ -762,7 +762,7 @@ theme_override_fonts/font = ExtResource("32_1gdd5")
 theme_override_font_sizes/font_size = 32
 text = "Slam"
 
-[node name="Web" type="Button" parent="UI"]
+[node name="Web" type="Button" parent="UI" groups=["SpecialButton"]]
 z_index = 4096
 anchors_preset = 7
 anchor_left = 0.5

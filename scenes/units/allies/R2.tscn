@@ -152,6 +152,7 @@ portrait_tex = ExtResource("2_k4chp")
 thumbnail = ExtResource("3_731xm")
 base_max_hp = 5
 cannon_cooldown = 0
+cannon_shots = 8
 projectile_scene = ExtResource("4_kulkg")
 projectile_travel_time = 1.28
 explosion_fx_scene = ExtResource("5_gbbhs")

@@ -1463,6 +1463,8 @@ func game_over(msg: String) -> void:
 	_update_end_turn_button()
 	_update_special_buttons()
 
+	_set_hud_visible(false)
+
 	# Show loss panel (reuse your EndGamePanelRuntime)
 	if end_panel != null and is_instance_valid(end_panel):
 		end_panel.show_loss(msg)
@@ -2152,3 +2154,42 @@ func _cinematic_step(u: Unit, delta: Vector2i) -> void:
 	var tw := create_tween()
 	tw.tween_property(u, "global_position", end, 0.18)
 	await tw.finished
+
+func _set_hud_visible(v: bool) -> void:
+	# ✅ Hide ALL special buttons (group-based)
+	for n in get_tree().get_nodes_in_group("SpecialButton"):
+		if n == null or not is_instance_valid(n):
+			continue
+		if n is CanvasItem:
+			(n as CanvasItem).visible = false
+		elif n is Node:
+			# fallback if it's not a CanvasItem for some reason
+			if "visible" in n:
+				n.visible = false
+					
+	# End turn + menu buttons
+	if end_turn_button != null:
+		end_turn_button.visible = v
+	if menu_button != null:
+		menu_button.visible = v
+
+	# Infestation HUD created by TurnManager
+	if infestation_hud != null and is_instance_valid(infestation_hud):
+		infestation_hud.visible = v
+
+	# Main HUD CanvasLayer (your UnitCard HUD)
+	# (Find by class_name HUD)
+	for n in get_tree().get_nodes_in_group(""):
+		pass # no-op; groups not used here
+
+	var root := get_tree().root
+	if root != null:
+		# safest: scan for any node that is a HUD (class_name HUD)
+		var stack: Array[Node] = [root]
+		while not stack.is_empty():
+			var cur: Node = stack.pop_back()
+			if cur is HUD:
+				(cur as CanvasLayer).visible = v
+			for ch in cur.get_children():
+				if ch is Node:
+					stack.append(ch)

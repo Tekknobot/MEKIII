@@ -273,6 +273,8 @@ func _on_you_win() -> void:
 	_hide_toast()
 	enabled = false
 
+	_hide_mission_hud()
+
 	var rs := get_tree().root.get_node_or_null("RunStateNode")
 
 	# Detect EVENT map (works with your RunState.mission_node_type StringName)
@@ -697,3 +699,40 @@ func _get_squad_key_to_thumb() -> Dictionary:
 
 	print("[SQUAD THUMBS] FINAL KEYS = ", out.keys())
 	return out
+
+func _hide_mission_hud() -> void:
+	# ✅ Hide ALL special buttons (group-based)
+	for n in get_tree().get_nodes_in_group("SpecialButton"):
+		if n == null or not is_instance_valid(n):
+			continue
+		if n is CanvasItem:
+			(n as CanvasItem).visible = false
+		elif n is Node:
+			# fallback if it's not a CanvasItem for some reason
+			if "visible" in n:
+				n.visible = false
+
+	# Hide the End Turn + Menu buttons if TurnManager has them
+	if TM != null and is_instance_valid(TM):
+		if "end_turn_button" in TM and TM.end_turn_button != null:
+			TM.end_turn_button.visible = false
+		if "menu_button" in TM and TM.menu_button != null:
+			TM.menu_button.visible = false
+
+		# Hide infestation HUD if it's in TurnManager
+		if "infestation_hud" in TM and TM.infestation_hud != null and is_instance_valid(TM.infestation_hud):
+			TM.infestation_hud.visible = false
+
+	# Hide your main HUD CanvasLayer (class_name HUD)
+	var root := get_tree().root
+	if root == null:
+		return
+
+	var stack: Array[Node] = [root]
+	while not stack.is_empty():
+		var n = stack.pop_back()
+		if n is HUD:
+			(n as CanvasLayer).visible = false
+		for ch in n.get_children():
+			if ch is Node:
+				stack.append(ch)
