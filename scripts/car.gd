@@ -74,6 +74,26 @@ var _terrain: TileMap
 
 var _death_started := false
 
+func _ready() -> void:
+	_terrain = get_node_or_null(terrain_path) as TileMap
+	if _terrain == null:
+		_terrain = _resolve_terrain_from_group()
+
+	# ✅ assign anim first
+	if anim_path != NodePath():
+		_anim = get_node_or_null(anim_path) as AnimatedSprite2D
+	if _anim == null:
+		push_warning("CarBot: anim_path not set or invalid")
+
+	_base_pos = global_position
+	_update_layer_from_cell()
+
+	# ✅ now idle can actually play
+	_set_motor_mode_idle()
+
+	if debug_animation:
+		print("CarBot terrain resolved: ", _terrain, " anim=", _anim)
+		
 func play_death_anim() -> void:
 	# NOTE: Unit._die() already set _dying = true before calling this.
 	# So do NOT early-return just because _dying is true.
@@ -131,26 +151,6 @@ func play_idle_anim() -> void:
 	if anim_idle != StringName():
 		_anim.play(anim_idle)
 
-func _ready() -> void:
-	_terrain = get_node_or_null(terrain_path) as TileMap
-	if _terrain == null:
-		_terrain = _resolve_terrain_from_group()
-
-	# ✅ assign anim first
-	if anim_path != NodePath():
-		_anim = get_node_or_null(anim_path) as AnimatedSprite2D
-	if _anim == null:
-		push_warning("CarBot: anim_path not set or invalid")
-
-	_base_pos = global_position
-	_update_layer_from_cell()
-
-	# ✅ now idle can actually play
-	_set_motor_mode_idle()
-
-	if debug_animation:
-		print("CarBot terrain resolved: ", _terrain, " anim=", _anim)
-
 func _physics_process(_delta: float) -> void:
 	if hp <= 0 and not _dying:
 		_die()
@@ -199,13 +199,19 @@ func on_spawned_from_bomber(M: MapController) -> void:
 
 func _crush_enemy_if_present(M: MapController, at_cell: Vector2i) -> void:
 	var victim := _get_enemy_at_cell(M, at_cell)
-	if victim != null and is_instance_valid(victim) and victim.hp > 0:
+	if victim == null or not is_instance_valid(victim):
+		return
+
+	# NEW: never crush these
+	if _is_avoid_unit(victim):
+		return
+
+	if victim.hp > 0:
 		victim.take_damage(crush_damage)
 		if car_sfx != null:
 			car_sfx.hit(1.0)
 		if M != null and M.has_method("_sfx"):
 			M.call("_sfx", crush_sfx, 1.0, randf_range(0.95, 1.05), M._cell_world(at_cell))
-
 
 # ------------------------------------------------------------
 # Call this the same way you call RecruitBot.auto_support_action(M)
@@ -562,16 +568,23 @@ func _pick_drive_path(M: MapController) -> Array[Vector2i]:
 			if M.has_method("_is_walkable") and not M.call("_is_walkable", dest):
 				continue
 
+			# NEW: don't even consider destinations on Weakpoint / EliteMech
+			if _cell_has_avoid_unit(M, dest):
+				continue
+				
 			# Occupancy rule for car:
-			# - allies block
-			# - enemies are allowed (we crush)
 			if M.units_by_cell != null and M.units_by_cell.has(dest):
 				var occ = M.units_by_cell[dest]
 				if occ != null and is_instance_valid(occ) and (occ is Unit):
 					var ou := occ as Unit
+
+					# NEW: forbid these completely
+					if _is_avoid_unit(ou):
+						continue
+
 					if ou.team == Unit.Team.ALLY:
 						continue
-					# enemy is allowed
+					# enemy is allowed (we crush)
 
 			# Build an L-path and validate each step with car rules
 			var p1: Array[Vector2i] = []
@@ -630,7 +643,6 @@ func _pick_drive_path(M: MapController) -> Array[Vector2i]:
 
 	return best_path
 
-
 func _drive_path_ok(M: MapController, path: Array[Vector2i], structure_blocked: Dictionary) -> bool:
 	for step in path:
 		if not M.grid.in_bounds(step):
@@ -640,6 +652,10 @@ func _drive_path_ok(M: MapController, path: Array[Vector2i], structure_blocked: 
 		if M.has_method("_is_walkable") and not M.call("_is_walkable", step):
 			return false
 
+		# NEW: never drive onto weakpoints / elite mechs
+		if _cell_has_avoid_unit(M, step):
+			return false
+
 		# Occupancy rule per step:
 		# - allies block
 		# - enemies allowed (we crush as we enter)
@@ -647,11 +663,13 @@ func _drive_path_ok(M: MapController, path: Array[Vector2i], structure_blocked: 
 			var occ = M.units_by_cell[step]
 			if occ != null and is_instance_valid(occ) and (occ is Unit):
 				var ou := occ as Unit
+				# NEW: treat avoid units as blockers (even if enemy)
+				if _is_avoid_unit(ou):
+					return false
 				if ou.team == Unit.Team.ALLY:
 					return false
 
 	return true
-
 
 func _greedy_step_path(M: MapController, dest: Vector2i, max_steps: int) -> Array[Vector2i]:
 	var out: Array[Vector2i] = [cell]
@@ -692,22 +710,20 @@ func _greedy_step_path(M: MapController, dest: Vector2i, max_steps: int) -> Arra
 
 	return out
 
-
 func _get_enemy_at_cell(M: MapController, c: Vector2i) -> Unit:
-	# Try to use a fast lookup if MapController has one
 	if M.has_method("get_unit_at_cell"):
 		var u = M.call("get_unit_at_cell", c)
-		if u != null and u is Unit and (u as Unit).team == Unit.Team.ENEMY:
-			return u as Unit
+		if u != null and u is Unit:
+			var uu := u as Unit
+			if uu.team == Unit.Team.ENEMY and not _is_avoid_unit(uu):
+				return uu
 
-	# fallback: scan enemies
 	for e in M.get_all_enemies():
 		if e == null or not is_instance_valid(e):
 			continue
-		if e.cell == c and e.hp > 0:
+		if e.cell == c and e.hp > 0 and not _is_avoid_unit(e):
 			return e
 	return null
-
 
 # ------------------------------------------------------------
 # Optional hook for OTHER units to support vibration
@@ -773,3 +789,35 @@ func car_end_move_sfx() -> void:
 	if car_sfx != null:
 		car_sfx.set_rpm01(0.15)
 		car_sfx.set_engine(false)
+
+func _is_avoid_unit(u: Object) -> bool:
+	if u == null or not is_instance_valid(u):
+		return false
+
+	# Avoid by class (preferred if these are class_name scripts)
+	if u is Weakpoint:
+		return true
+	if u is EliteMech:
+		return true
+
+	# Optional: avoid by group too (uncomment if you use groups)
+	# if (u as Node).is_in_group("Weakpoint"):
+	# 	return true
+	# if (u as Node).is_in_group("EliteMech"):
+	# 	return true
+
+	return false
+
+func _cell_has_avoid_unit(M: MapController, c: Vector2i) -> bool:
+	if M == null or not is_instance_valid(M):
+		return false
+	if M.units_by_cell == null:
+		return false
+	if not M.units_by_cell.has(c):
+		return false
+
+	var occ = M.units_by_cell[c]
+	if occ != null and is_instance_valid(occ) and (occ is Unit):
+		return _is_avoid_unit(occ)
+
+	return false
