@@ -2411,6 +2411,126 @@ func ai_move(u: Unit, target: Vector2i) -> void:
 	else:
 		selected = null
 
+# AI / scripted move that does NOT consume move/attack flags
+# (no _set_unit_moved, no TM.notify_player_moved, no aim_mode changes)
+func ai_move_free(u: Unit, target: Vector2i) -> void:
+	if u == null or not is_instance_valid(u):
+		return
+	if u.hp <= 0:
+		return
+	if _is_moving:
+		return
+	if not is_inside_tree():
+		return
+	if terrain == null or grid == null:
+		return
+	if not grid.in_bounds(target):
+		return
+
+	var from_cell := u.cell
+	if from_cell == target:
+		return
+
+	# Block moving into occupied cells
+	if units_by_cell.has(target):
+		var occ = units_by_cell[target]
+		if occ != null and is_instance_valid(occ) and occ != u:
+			return
+
+	# Build an L path (your existing logic)
+	var path := _pick_clear_L_path(from_cell, target)
+	if path.is_empty():
+		return
+
+	_is_moving = true
+	_clear_overlay()
+
+	# Reserve destination in the board dictionary
+	units_by_cell.erase(from_cell)
+	units_by_cell[target] = u
+
+	# CarBot (or any unit with step anim hooks)
+	var is_carbot := u.has_method("play_move_step_anim")
+
+	if not is_carbot:
+		_play_move_anim(u, true)
+	else:
+		if u.has_method("car_start_move_sfx"):
+			u.call("car_start_move_sfx")
+
+	var step_time := _duration_for_step()
+	var uid := u.get_instance_id()
+
+	for step_cell in path:
+		if u == null or not is_instance_valid(u):
+			_is_moving = false
+			return
+
+		var from_world := u.global_position
+		var to_world := _cell_world(step_cell)
+
+		# Drive anim per-step
+		if is_carbot:
+			var grid_dir: Vector2i = step_cell - u.cell
+			if u.has_method("play_move_step_anim_grid"):
+				u.call("play_move_step_anim_grid", grid_dir, terrain)
+			else:
+				u.call("play_move_step_anim", from_world, to_world)
+		else:
+			_face_unit_for_step(u, from_world, to_world)
+
+		if u.has_method("car_step_sfx"):
+			u.call("car_step_sfx")
+
+		var tw := create_tween()
+		tw.set_trans(Tween.TRANS_LINEAR)
+		tw.set_ease(Tween.EASE_IN_OUT)
+
+		uid = u.get_instance_id()
+		tw.tween_method(func(p: Vector2):
+			var uu := instance_from_id(uid) as Unit
+			if uu == null or not is_instance_valid(uu):
+				return
+			uu.global_position = p
+			_set_unit_depth_from_world(uu, p)
+		, from_world, to_world, step_time)
+
+		if is_overwatching(u):
+			_update_overwatch_ghost_pos(u)
+
+		await tw.finished
+
+		# Keep logical cell in sync so turns animate correctly
+		if u != null and is_instance_valid(u):
+			u.cell = step_cell
+
+	# Snap final / update tile cell
+	if u == null or not is_instance_valid(u):
+		_is_moving = false
+		return
+
+	u.set_cell(target, terrain)
+
+	# IMPORTANT: do game interactions, but do NOT set moved/attacked flags
+	await _check_overwatch_trigger(u, target)
+	await _trigger_mine_if_present_id(uid)
+	try_collect_pickup(u)
+	_check_and_trigger_beacon_sweep()
+
+	if u == null or not is_instance_valid(u):
+		_is_moving = false
+		return
+
+	if not is_carbot:
+		_play_move_anim(u, false)
+	else:
+		if u.has_method("play_idle_anim"):
+			u.call("play_idle_anim")
+		if u.has_method("car_end_move_sfx"):
+			u.call("car_end_move_sfx")
+
+	_is_moving = false
+
 func ai_attack(attacker: Unit, defender: Unit) -> void:
 	if attacker == null or defender == null:
 		return

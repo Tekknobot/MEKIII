@@ -2126,7 +2126,7 @@ func _run_event_cinematic_sequence() -> void:
 	await M._say(a2, "Bomber, get us out of here!")
 	await _event_beat(beat_long)
 
-func _cinematic_step(u: Unit, delta: Vector2i) -> void:
+func _cinematic_step(u: Unit, _delta_unused: Vector2i = Vector2i.ZERO) -> void:
 	if M == null:
 		return
 	if u == null or not is_instance_valid(u):
@@ -2134,26 +2134,67 @@ func _cinematic_step(u: Unit, delta: Vector2i) -> void:
 	if u.hp <= 0:
 		return
 
-	var dst := u.cell + delta
-
-	# bounds check
-	if M.grid != null and M.grid.has_method("in_bounds"):
-		if not bool(M.grid.in_bounds(dst)):
-			return
-
-	# cell occupancy check (avoid clipping)
-	if "units_by_cell" in M:
-		if M.units_by_cell.has(dst):
-			return
-
-	# Prefer your real movement pipeline if it exists
-	if M.has_method("ai_move"):
-		await M.ai_move(u, dst)
+	# -------- get move range (same pattern you use elsewhere) --------
+	var r := 0
+	if u.has_method("get_move_range"):
+		r = int(u.call("get_move_range"))
+	elif "move_range" in u:
+		r = int(u.move_range)
+	if r <= 0:
 		return
 
-	# Fallback: just tween visually (does NOT change cell)
+	# -------- collect candidate destination tiles --------
+	var origin := u.cell
+	var candidates: Array[Vector2i] = []
+
+	# Optional: structure blocking (same pattern as MapController)
+	var structure_blocked: Dictionary = {}
+	if "game_ref" in M and M.game_ref != null and "structure_blocked" in M.game_ref:
+		structure_blocked = M.game_ref.structure_blocked
+
+	for dx in range(-r, r + 1):
+		for dy in range(-r, r + 1):
+			var dist = abs(dx) + abs(dy)
+			if dist == 0 or dist > r:
+				continue
+
+			var dst := origin + Vector2i(dx, dy)
+
+			# bounds
+			if M.grid != null and M.grid.has_method("in_bounds"):
+				if not bool(M.grid.in_bounds(dst)):
+					continue
+
+			# walkable
+			if M.has_method("_is_walkable"):
+				if not bool(M.call("_is_walkable", dst)):
+					continue
+
+			# blocked by structures (if you track this)
+			if structure_blocked.has(dst):
+				continue
+
+			# occupied (avoid clipping)
+			if "units_by_cell" in M and M.units_by_cell.has(dst):
+				continue
+
+			candidates.append(dst)
+
+	if candidates.is_empty():
+		return
+
+	# randomize + pick one
+	candidates.shuffle()
+	var picked := candidates[0]
+
+	# Prefer your real movement pipeline
+	if M.has_method("ai_move_free"):
+		await M.ai_move_free(u, picked)
+		return
+
+	# Fallback: tiny tween nudge (visual only)
 	var start := u.global_position
-	var end := start + Vector2(16, 8) # small iso-ish nudge (safe fallback)
+	var end := start + Vector2(16, 8)
 	var tw := create_tween()
 	tw.tween_property(u, "global_position", end, 0.18)
 	await tw.finished
