@@ -5110,11 +5110,6 @@ func apply_run_upgrades() -> void:
 				&"dog_dmg_plus_1":
 					if u is Mech: u.attack_damage += 1 * n
 
-				# =========================================================
-				# NEW UNITS (your remaining classes)
-				# Add these ids to _roll_3_upgrades() if you want them to roll
-				# =========================================================
-
 				# -------------------------
 				# R1
 				# -------------------------
@@ -5231,6 +5226,18 @@ func apply_run_upgrades() -> void:
 							# fallback if you later rename it
 							u.attack_range += 1 * n
 
+				# -------------------------
+				# COBRUH A.I.
+				# -------------------------
+				&"cobruh_hp_plus_2":
+					if u is CarBot:
+						u.max_hp += 2 * n
+						u.hp = min(u.hp + 2 * n, u.max_hp)
+
+				&"cobruh_dmg_plus_1":
+					if u is CarBot:
+						u.attack_damage += 1 * n
+					
 func reset_for_regen() -> void:
 	# ---------------------------
 	# Stop anything mid-action

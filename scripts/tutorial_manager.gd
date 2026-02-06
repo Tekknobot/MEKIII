@@ -434,6 +434,16 @@ func _roll_3_upgrades() -> Array:
 			{"id": &"destroyer_dmg_plus_1", "title": "ANNIHILATOR CIRCUITS", "desc": "+1 Damage for Destroyer A.I.", "thumb": t},
 		])
 
+	# COBRUH A.I.
+	# NOTE: key is whatever display_name becomes after strip+upper.
+	# If your display_name is "Cobruh A.I." then the key is "COBRUH A.I."
+	if has_unit.call("COBRUH A.I."):
+		var t: Texture2D = thumb.call("COBRUH A.I.")
+		pool.append_array([
+			{"id": &"cobruh_hp_plus_2",  "title": "OBSIDIAN CORE",      "desc": "+2 Max HP for Cobruh A.I.", "thumb": t},
+			{"id": &"cobruh_dmg_plus_1", "title": "VENOM CIRCUITS",     "desc": "+1 Damage for Cobruh A.I.", "thumb": t},
+		])
+
 
 	# -------------------------
 	# 4) Pick 3

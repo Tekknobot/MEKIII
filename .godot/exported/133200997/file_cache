@@ -11,7 +11,7 @@ res://scenes/units/allies/mech.tscn::1a2b2dc29fb5736f337ef561548a2081::177017717
 res://scenes/units/allies/mechtwo.tscn::6017876f9414d1fd940e1ae02d86605d::1770274456::res://.godot/exported/133200997/export-cd7141156e5a7a9a4fcb215fd6859c5e-mechtwo.scn
 res://scenes/units/allies/R1.tscn::2802cbca1e2a164d4d102f728811ba49::1770157038::res://.godot/exported/133200997/export-1ca8d4c3dfda6247c492b4c824005f02-R1.scn
 res://scenes/units/allies/R2.tscn::3b26b1d58b8cb8b25ae9b388f6cdc2ac::1770265362::res://.godot/exported/133200997/export-b494200632244b6ef359268b5926d73d-R2.scn
-res://scenes/units/allies/S2.tscn::5a851934321482f8bd6ce0684a5f2008::1770168363::res://.godot/exported/133200997/export-1502210f6e80413f8d931f7f974f71fb-S2.scn
+res://scenes/units/allies/S2.tscn::5a851934321482f8bd6ce0684a5f2008::1770412386::res://.godot/exported/133200997/export-1502210f6e80413f8d931f7f974f71fb-S2.scn
 res://scenes/units/allies/S3.tscn::ce925b68679eb0c3068e1d8096fab786::1770260013::res://.godot/exported/133200997/export-a9087ff604fe95832a6bf84f0ed45a82-S3.scn
 res://scenes/attack_tile.tscn::7e7f53f99f9721d3c2dfd0391a62450f::1768855739::res://.godot/exported/133200997/export-4ddb40b46644e9eab72c3388e3aee3f6-attack_tile.scn
 res://scenes/beacon.tscn::1ee76304daa0df144f5c0ab2bb4aee4b::1769135418::res://.godot/exported/133200997/export-7a54b7fcc7ab87ceebaec3c5eda0de98-beacon.scn
@@ -29,7 +29,7 @@ res://scenes/lunatic.tscn::a2ac6c5ae8dfcbc2ea6a9ee328a4f161::1769859485::res://.
 res://scenes/medkit_drop.tscn::6a19bc32316ed22b74d1c859508f52fd::1768682333::res://.godot/exported/133200997/export-22d7bb5c8e98966a32607eb94713dd4d-medkit_drop.scn
 res://scenes/move_tile.tscn::e4b1b17ebf704761165db36ad19e519a::1768856809::res://.godot/exported/133200997/export-dab062f6c8270317377563b715e1a0c5-move_tile.scn
 res://scenes/overworld.tscn::08e27d8923b166a78c3ada485feb48d2::1770401644::res://.godot/exported/133200997/export-da8a30b31f4988d0c9e34b55162e0e36-overworld.scn
-res://scenes/overworld_radar.tscn::c8ef69c8face4ccdf9ff122fb5436cdf::1770411354::res://.godot/exported/133200997/export-79bf76aff716981269c26640f65af5de-overworld_radar.scn
+res://scenes/overworld_radar.tscn::c8ef69c8face4ccdf9ff122fb5436cdf::1770411793::res://.godot/exported/133200997/export-79bf76aff716981269c26640f65af5de-overworld_radar.scn
 res://scenes/elite_mech.tscn::a30dd1e03ffc695926f66aabb3f7a1f9::1770161592::res://.godot/exported/133200997/export-7fafda5111f703b1afafd6a2a78a49fe-elite_mech.scn
 res://scenes/titan.tscn::677aaea011c505eed646cbffab006e05::1770407548::res://.godot/exported/133200997/export-c800a78c2b47d5c3851f4544ce8ff83e-titan.scn
 res://scenes/weakpoint.tscn::2a0ea380d76c34d239f852cc46de9a87::1769829253::res://.godot/exported/133200997/export-9d9b52a349ab5b3359f553075f6c2d82-weakpoint.scn
@@ -42,4 +42,4 @@ res://scenes/tutorial_toast.tscn::46f002530979557a41c97d158ab42c5f::1769703848::
 res://scenes/unit_card.tscn::efe8a5af75a6238e5e4821342c27675c::1769585440::res://.godot/exported/133200997/export-ab0a47df1992afe423300a64120afcec-unit_card.scn
 res://scenes/zombie.tscn::59b370be55e18d484935c4dcbdd4b9a9::1769828963::res://.godot/exported/133200997/export-eae6add4c928fd8479be83ea3330e8af-zombie.scn
 res://scenes/blood_particles.tscn::43f367c7e9da57fa1ca5d47b31380e5e::1770176277::res://.godot/exported/133200997/export-9cdc63a70dedde1f91406507bc2660d5-blood_particles.scn
-res://scenes/units/allies/car.tscn::8050a96fb07dc9bed73908f0aeff3a77::1770395814::res://.godot/exported/133200997/export-5804310c677688368c0bbb74b9902513-car.scn
+res://scenes/units/allies/car.tscn::8050a96fb07dc9bed73908f0aeff3a77::1770412174::res://.godot/exported/133200997/export-5804310c677688368c0bbb74b9902513-car.scn
