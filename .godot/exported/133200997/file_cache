@@ -6,9 +6,9 @@ res://scenes/structures/tower.tscn::58da37c7fb0326b4acf14e581b467e7b::1768404300
 res://scenes/units/allies/human.tscn::fd860eb29103f0490083d39419477a3a::1769828430::res://.godot/exported/133200997/export-a95685b457112cce2ffb2376e533d427-human.scn
 res://scenes/units/allies/humantwo.tscn::2c4a03f0047aafd2fdb6374174552b52::1770156158::res://.godot/exported/133200997/export-8aff91ee2bbb4048c41fe78ab4602f61-humantwo.scn
 res://scenes/units/allies/M1.tscn::7ceb997cea106d1d8815b75881cde9ca::1770264738::res://.godot/exported/133200997/export-132d3122195940fab92757ddce1e5c47-M1.scn
-res://scenes/units/allies/M2.tscn::462695d143cf3fb057966e8fff92705a::1770267578::res://.godot/exported/133200997/export-421725147f21734a14dd2c81cdaea80d-M2.scn
+res://scenes/units/allies/M2.tscn::462695d143cf3fb057966e8fff92705a::1770270057::res://.godot/exported/133200997/export-421725147f21734a14dd2c81cdaea80d-M2.scn
 res://scenes/units/allies/mech.tscn::1a2b2dc29fb5736f337ef561548a2081::1770177173::res://.godot/exported/133200997/export-d7ad46ba90d9246baf69aeb30a93f8c5-mech.scn
-res://scenes/units/allies/mechtwo.tscn::6017876f9414d1fd940e1ae02d86605d::1770081681::res://.godot/exported/133200997/export-cd7141156e5a7a9a4fcb215fd6859c5e-mechtwo.scn
+res://scenes/units/allies/mechtwo.tscn::6017876f9414d1fd940e1ae02d86605d::1770274456::res://.godot/exported/133200997/export-cd7141156e5a7a9a4fcb215fd6859c5e-mechtwo.scn
 res://scenes/units/allies/R1.tscn::2802cbca1e2a164d4d102f728811ba49::1770157038::res://.godot/exported/133200997/export-1ca8d4c3dfda6247c492b4c824005f02-R1.scn
 res://scenes/units/allies/R2.tscn::3b26b1d58b8cb8b25ae9b388f6cdc2ac::1770265362::res://.godot/exported/133200997/export-b494200632244b6ef359268b5926d73d-R2.scn
 res://scenes/units/allies/S2.tscn::5a851934321482f8bd6ce0684a5f2008::1770168363::res://.godot/exported/133200997/export-1502210f6e80413f8d931f7f974f71fb-S2.scn
@@ -21,7 +21,7 @@ res://scenes/cursor.tscn::b2a032078e12eab854e2433557dc4afb::1768855270::res://.g
 res://scenes/enemy_move_tile.tscn::7b5c97e80d7b188c1243293f03d00d5e::1769013097::res://.godot/exported/133200997/export-dfe38ac246494c2c1bf12dcee8a2e31f-enemy_move_tile.scn
 res://scenes/explosion.tscn::594c539d18aa9e13c08c25e7c164006f::1768877478::res://.godot/exported/133200997/export-19462905a0f3b4b39165a3350317f22c-explosion.scn
 res://scenes/floppy.tscn::487b2e3687aeb4fe0d18fe854079eba4::1769113977::res://.godot/exported/133200997/export-30cf651d32c90559d467de235678fa77-floppy.scn
-res://scenes/Game.tscn::0a8651b75b6e9f3ad9476c85f503ea2c::1770268460::res://.godot/exported/133200997/export-ff8ceb9b2bd5b48777d3d52e811276ab-Game.scn
+res://scenes/Game.tscn::d5ee8d9406fa55490ce109e681a2ae34::1770396333::res://.godot/exported/133200997/export-ff8ceb9b2bd5b48777d3d52e811276ab-Game.scn
 res://scenes/HUD.tscn::85ab294eb9f7182411d3d6741fe6843f::1770156515::res://.godot/exported/133200997/export-2ea9781d6f9f7562c1d276c7fdd0b0ab-HUD.scn
 res://scenes/landmine.tscn::d27aba146113c508d79a61ee34a14a7b::1768483546::res://.godot/exported/133200997/export-398207af1f2555f9ff54bd28af3b9f17-landmine.scn
 res://scenes/laser_drop.tscn::a6e46f52108c1e6939ef4252f0a5bc92::1768682333::res://.godot/exported/133200997/export-2acb5049d4a8c5a67824282ef25bfbf9-laser_drop.scn
@@ -42,3 +42,4 @@ res://scenes/tutorial_toast.tscn::46f002530979557a41c97d158ab42c5f::1769703848::
 res://scenes/unit_card.tscn::efe8a5af75a6238e5e4821342c27675c::1769585440::res://.godot/exported/133200997/export-ab0a47df1992afe423300a64120afcec-unit_card.scn
 res://scenes/zombie.tscn::59b370be55e18d484935c4dcbdd4b9a9::1769828963::res://.godot/exported/133200997/export-eae6add4c928fd8479be83ea3330e8af-zombie.scn
 res://scenes/blood_particles.tscn::43f367c7e9da57fa1ca5d47b31380e5e::1770176277::res://.godot/exported/133200997/export-9cdc63a70dedde1f91406507bc2660d5-blood_particles.scn
+res://scenes/units/allies/car.tscn::8050a96fb07dc9bed73908f0aeff3a77::1770395814::res://.godot/exported/133200997/export-5804310c677688368c0bbb74b9902513-car.scn

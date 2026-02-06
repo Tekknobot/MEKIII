@@ -2534,6 +2534,13 @@ func _push_unit_to_cell(u: Unit, to_cell: Vector2i) -> void:
 			if v == null or not (v is Object) or not is_instance_valid(v):
 				units_by_cell.erase(to_cell)
 		return
+		
+	# ✅ If we stepped onto a pickup, let it be visible briefly, then collect
+	if pickups_by_cell.has(to_cell):
+		_delayed_collect_pickup(u, to_cell)
+	else:
+		# normal: nothing to collect
+		pass
 
 	var visual := _get_unit_visual_node(u)
 	if visual == null or not is_instance_valid(visual):
@@ -2550,6 +2557,37 @@ func _push_unit_to_cell(u: Unit, to_cell: Vector2i) -> void:
 	tw.tween_property(visual, "position", visual.position - offset, step_time)
 
 	await tw.finished
+
+func _delayed_collect_pickup(u: Unit, c: Vector2i) -> void:
+	# Fire-and-forget coroutine (doesn't block movement tween)
+	_delayed_collect_pickup_async(u, c)
+
+
+func _delayed_collect_pickup_async(u: Unit, c: Vector2i) -> void:
+	# If the pickup node exists, force it visible "on top" for the flash
+	var p = pickups_by_cell.get(c, null)
+	if p != null and is_instance_valid(p) and p is Node2D:
+		var n := p as Node2D
+		n.visible = true
+		# pop above units for the moment (tweak if you want)
+		n.z_as_relative = false
+		n.z_index = 9999
+
+	# Wait a couple frames so the player sees it
+	await get_tree().process_frame
+	await get_tree().process_frame
+	# Optional: also wait a tiny time (tweak 0.05–0.12)
+	await get_tree().create_timer(0.88).timeout
+
+	# Unit might be dead/freed now
+	if u == null or not is_instance_valid(u) or u.hp <= 0:
+		return
+
+	# Pickup might have been collected already
+	if not pickups_by_cell.has(c):
+		return
+
+	try_collect_pickup(u)
 
 func _get_unit_visual_node(u: Unit) -> Node2D:
 	# Prefer a dedicated Visual root if you have one
@@ -4405,11 +4443,15 @@ func try_collect_pickup(u: Variant) -> void:
 
 	var p = pickups_by_cell[c]
 	pickups_by_cell.erase(c)
+
+	# ✅ PLAY PICKUP SFX (cell-world position is best)
+	if has_method("_sfx"):
+		_sfx(&"pickup_floppy", 1.0, randf_range(0.95, 1.05), _cell_world(c))
+
 	if p != null and is_instance_valid(p):
 		p.queue_free()
 
 	emit_signal("pickup_collected", uu, c)
-	# --- Tutorial hook ---
 	emit_signal("tutorial_event", &"pickup_collected", {"cell": c})
 
 func on_unit_died(u: Unit) -> void:
