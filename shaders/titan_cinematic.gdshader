@@ -1,108 +1,88 @@
 shader_type canvas_item;
 
-uniform float intensity : hint_range(0.0, 3.0) = 1.0;
+uniform float glitch_amount : hint_range(0.0, 1.0) = 0.55;
+uniform float glitch_speed  : hint_range(0.0, 10.0) = 4.0;
 
-uniform float scanline_strength : hint_range(0.0, 2.0) = 0.55;
-uniform float scanline_density  : hint_range(50.0, 600.0) = 240.0;
+uniform float slice_count   : hint_range(4.0, 96.0) = 32.0;
+uniform float max_shift_px  : hint_range(0.0, 24.0) = 6.0;
 
-uniform float shimmer_strength : hint_range(0.0, 2.0) = 0.35;
-uniform float shimmer_speed    : hint_range(0.0, 10.0) = 2.0;
+uniform float rgb_split_px  : hint_range(0.0, 6.0) = 1.5;
+uniform float noise_amount  : hint_range(0.0, 1.0) = 0.20;
 
-uniform float glitch_strength  : hint_range(0.0, 2.0) = 0.35;
-uniform float glitch_rate      : hint_range(0.1, 20.0) = 3.5;
+uniform float blockiness_px : hint_range(1.0, 16.0) = 2.0; // 1 = none, 2/3/4 = chunkier
 
-uniform float rgb_split        : hint_range(0.0, 6.0) = 1.25;
+uniform vec4 glow_tint : source_color = vec4(0.55, 0.85, 1.0, 1.0);
 
-uniform float edge_glow        : hint_range(0.0, 4.0) = 1.15;
-uniform vec4  glow_color : source_color = vec4(0.20, 1.00, 0.45, 1.0);
-
-uniform float vignette         : hint_range(0.0, 1.0) = 0.20;
-
-float hash21(vec2 p) {
-	p = fract(p * vec2(123.34, 345.45));
+float hash12(vec2 p) {
+	p = fract(p * vec2(123.34, 456.21));
 	p += dot(p, p + 34.345);
 	return fract(p.x * p.y);
 }
 
-float band_noise(float y, float t) {
-	return hash21(vec2(floor(y * 180.0), floor(t * 10.0)));
+float hash11(float p) {
+	p = fract(p * 0.1031);
+	p *= p + 33.33;
+	p *= p + p;
+	return fract(p);
 }
 
 void fragment() {
-	vec2 uv = UV;
-	vec4 base = texture(TEXTURE, uv);
+	// ✅ Preserve modulation/self_modulate so your code can fade it
+	vec4 mod = COLOR;
 
-	float t = TIME;
+	// Sample base sprite with modulation
+	vec4 base = texture(TEXTURE, UV) * mod;
+	if (base.a <= 0.0) discard;
 
-	// If alpha is basically 0, keep it transparent and avoid heavy effects
-	float alive = step(0.001, base.a); // 0 when transparent, 1 when visible
+	// Screen pixel coords (valid in CanvasItem)
+	vec2 sp = SCREEN_UV / SCREEN_PIXEL_SIZE;
 
-	// ---------------------------
-	// Scanlines
-	// ---------------------------
-	float scan = sin((uv.y * scanline_density + t * 18.0) * 6.28318);
-	float scan_amt = (0.5 + 0.5 * scan) * scanline_strength * intensity;
+	// Pixel-art chunking (optional)
+	if (blockiness_px > 1.0) {
+		sp = floor(sp / blockiness_px) * blockiness_px;
+	}
 
-	// ---------------------------
-	// Shimmer
-	// ---------------------------
-	float shimmer = sin((uv.y * 28.0 + t * shimmer_speed) * 6.28318)
-	              + sin((uv.y * 57.0 - t * (shimmer_speed * 0.7)) * 6.28318);
-	shimmer *= 0.5;
+	float t = TIME * glitch_speed;
 
-	float shx = shimmer * 0.0025 * shimmer_strength * intensity;
+	// Viewport height in pixels (no VIEWPORT_RECT_SIZE needed)
+	float viewport_h_px = 1.0 / SCREEN_PIXEL_SIZE.y;
+	float slice_h_px = max(1.0, viewport_h_px / max(1.0, slice_count));
+	float slice_id = floor(sp.y / slice_h_px);
 
-	// ---------------------------
-	// Glitch strips
-	// ---------------------------
-	float g = band_noise(uv.y, t * glitch_rate);
-	float glitch_on = step(0.78, g) * glitch_strength * intensity;
-	float strip = step(0.65, band_noise(uv.y * 1.8, t * glitch_rate * 0.7));
-	float gx = (hash21(vec2(g, t)) - 0.5) * 0.018 * glitch_on * strip;
+	// Stable randomness per slice over time
+	float r = hash11(slice_id + floor(t * 6.0));
+	float active = step(0.55, r); // some slices glitch at a time
 
-	// Combine UV distortion
-	vec2 duv = uv + vec2((shx + gx) * alive, 0.0); // no wobble on transparent pixels
+	// Horizontal slice shift (in pixels)
+	float shift_dir = (hash11(slice_id * 7.13 + 2.0) * 2.0 - 1.0);
+	float shift_px = active * shift_dir * max_shift_px * glitch_amount;
 
-	// ---------------------------
-	// RGB split
-	// ---------------------------
-	float split = 0.0008 * rgb_split * intensity * alive;
-	vec4 cR = texture(TEXTURE, duv + vec2(split, 0.0));
-	vec4 cG = texture(TEXTURE, duv);
-	vec4 cB = texture(TEXTURE, duv - vec2(split, 0.0));
+	// Apply the shift in TEXTURE UV space
+	vec2 tex_uv = UV + vec2(shift_px, 0.0) * TEXTURE_PIXEL_SIZE;
 
-	vec4 col = vec4(cR.r, cG.g, cB.b, base.a);
+	// RGB split (still sprite-space)
+	float split_px = rgb_split_px * glitch_amount * active;
+	vec2 split = vec2(split_px, 0.0) * TEXTURE_PIXEL_SIZE;
 
-	// ---------------------------
-	// Edge glow (alpha-based)
-	// ---------------------------
-	vec2 px = TEXTURE_PIXEL_SIZE * 1.25;
-	float a  = col.a;
-	float aL = texture(TEXTURE, duv + vec2(-px.x, 0.0)).a;
-	float aR = texture(TEXTURE, duv + vec2( px.x, 0.0)).a;
-	float aU = texture(TEXTURE, duv + vec2(0.0, -px.y)).a;
-	float aD = texture(TEXTURE, duv + vec2(0.0,  px.y)).a;
+	float rr = texture(TEXTURE, tex_uv + split).r;
+	float gg = texture(TEXTURE, tex_uv).g;
+	float bb = texture(TEXTURE, tex_uv - split).b;
 
-	float edge = abs(a - aL) + abs(a - aR) + abs(a - aU) + abs(a - aD);
-	edge = clamp(edge * 2.5, 0.0, 1.0) * alive;
+	float aa = texture(TEXTURE, tex_uv).a * mod.a;
 
-	float pulse = 0.7 + 0.3 * sin(t * 2.2 + uv.y * 8.0);
-	vec3 glow = glow_color.rgb * edge * edge_glow * pulse * intensity;
+	vec3 rgb = vec3(rr, gg, bb) * mod.rgb;
 
-	// ---------------------------
-	// Vignette
-	// ---------------------------
-	vec2 p = uv * 2.0 - 1.0;
-	float vig = 1.0 - vignette * clamp(dot(p, p), 0.0, 1.0);
+	// Noise sparkles (screen-pixel stable)
+	float n = hash12(floor(sp) + floor(t * 20.0));
+	float spark = step(1.0 - (noise_amount * glitch_amount * 0.35), n) * active;
+	rgb = mix(rgb, glow_tint.rgb, spark * 0.6);
 
-	// Final color
-	col.rgb = col.rgb * (1.0 - 0.12 * scan_amt * alive) + glow;
-	col.rgb = mix(col.rgb, pow(max(col.rgb, vec3(0.0)), vec3(0.85)), 0.25 * intensity * alive);
-	col.rgb *= mix(1.0, vig, alive);
+	// Occasional tear line
+	float tear_r = hash11(floor(t * 8.0) + 99.0);
+	float tear_y = floor(tear_r * viewport_h_px);
+	float tear = step(abs(sp.y - tear_y), 1.0) * glitch_amount;
+	rgb += glow_tint.rgb * tear * 0.35;
 
-	// Preserve true transparency
-	col.rgb *= alive;
-	col.a   *= alive;
-
-	COLOR = col;
+	// ✅ Final: keep modulated alpha so your fade code still works
+	COLOR = vec4(rgb, aa);
 }

@@ -1656,13 +1656,11 @@ func _position_titan_off_map() -> void:
 	# Put the Titan so its visual center sits on the map apex
 	titan_mech.global_position = apex - center_local
 
-
 func _clear_titan_markers() -> void:
 	for m in _titan_markers:
 		if m != null and is_instance_valid(m):
 			m.queue_free()
 	_titan_markers.clear()
-
 
 func _titan_cell_to_world(cell: Vector2i) -> Vector2:
 	if M == null or M.terrain == null:
@@ -1990,7 +1988,6 @@ func _start_event_cinematic_autorun() -> void:
 	# Fade out + evac (your existing flow)
 	await _titan_event_success()
 
-
 func _event_cinematic_setup_no_enemies() -> void:
 	if M == null:
 		return
@@ -2041,9 +2038,9 @@ func _run_event_cinematic_sequence() -> void:
 	await get_tree().create_timer(5).timeout
 	
 	# -------- pacing knobs (TUNE THESE) --------
-	var beat_short := 0.45
-	var beat_med   := 0.75
-	var beat_long  := 1.10
+	var beat_short := 0.65
+	var beat_med   := 0.95
+	var beat_long  := 1.30
 	var run_step_beat := 0.08   # pause between each step (movement speed)
 	# -------------------------------------------
 
@@ -2113,7 +2110,7 @@ func _run_event_cinematic_sequence() -> void:
 	await _event_beat(0.25)
 	await _cinematic_step(a1, Vector2i(1, 0))
 	await _event_beat(0.35)
-	await M._say(a0, "Keep it tight. Eyes up.")
+	await M._say(a0, "Keep it tight... and your eyes up.")
 	await _event_beat(beat_med)
 	await M._say(a1, "That silhouette... a giant mecha?")
 	await _event_beat(beat_long)

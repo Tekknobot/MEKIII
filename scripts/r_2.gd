@@ -11,7 +11,7 @@ class_name R2
 @export var portrait_tex: Texture2D = preload("res://sprites/Portraits/dog_port.png")
 @export var thumbnail: Texture2D
 @export var special: String = "CANNON"
-@export var special_desc: String = "Three powerful slow moving projectiles that cause extensive splash damage."
+@export var special_desc: String = "Powerful slow moving projectiles that cause extensive splash damage."
 
 @export var attack_anim_name: StringName = &"attack"
 

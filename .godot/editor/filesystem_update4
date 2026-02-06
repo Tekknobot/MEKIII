@@ -17,3 +17,8 @@ res://scripts/map_controller.gd
 res://scripts/procedural_car_sfx.gd
 res://scripts/turnmanager.gd
 res://scenes/Game.tscn
+res://scenes/squad_deploy_screen.tscn
+res://scenes/overworld.tscn
+res://scripts/r_2.gd
+res://scenes/titan.tscn
+res://scenes/mecha_approach.gd

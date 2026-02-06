@@ -1,9 +1,10 @@
-[gd_scene load_steps=22 format=3 uid="uid://b4wa86cjcwm3x"]
+[gd_scene load_steps=24 format=3 uid="uid://b4wa86cjcwm3x"]
 
 [ext_resource type="Script" uid="uid://bhcl0fcovgbcf" path="res://scripts/boss_controller.gd" id="1_8h2rw"]
 [ext_resource type="PackedScene" uid="uid://byvw2wssy6345" path="res://scenes/weakpoint.tscn" id="2_4mrbg"]
 [ext_resource type="PackedScene" uid="uid://bulgypadw5war" path="res://scenes/explosion.tscn" id="3_k0kty"]
 [ext_resource type="AudioStream" uid="uid://dogvi6q7030pk" path="res://audio/SFX/explosion_8bit.wav" id="4_xsvwn"]
+[ext_resource type="Shader" uid="uid://cho77pun47cn4" path="res://shaders/titan_cinematic.gdshader" id="5_gn6sl"]
 [ext_resource type="Texture2D" uid="uid://c5ch02hdxdrus" path="res://sprites/Mechas/Titan/titan1.png" id="5_jjuen"]
 [ext_resource type="Texture2D" uid="uid://crf1f5sfalwth" path="res://sprites/Mechas/Titan/titan2.png" id="6_gn6sl"]
 [ext_resource type="Texture2D" uid="uid://dm2aw7boag5t" path="res://sprites/Mechas/Titan/titan3.png" id="7_kwvjk"]
@@ -20,6 +21,17 @@
 [ext_resource type="Texture2D" uid="uid://d1bo21wpjq6fs" path="res://sprites/Mechas/Titan/titan14.png" id="18_u5uye"]
 [ext_resource type="Texture2D" uid="uid://dcxmjb2ndjhm1" path="res://sprites/Mechas/Titan/titan15.png" id="19_oy54j"]
 [ext_resource type="Texture2D" uid="uid://hxue8bkr8lum" path="res://sprites/Mechas/Titan/titan16.png" id="20_1ultj"]
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_kwvjk"]
+shader = ExtResource("5_gn6sl")
+shader_parameter/glitch_amount = 0.55
+shader_parameter/glitch_speed = 4.0
+shader_parameter/slice_count = 32.0
+shader_parameter/max_shift_px = 6.0
+shader_parameter/rgb_split_px = 1.5
+shader_parameter/noise_amount = 0.0
+shader_parameter/blockiness_px = 2.0
+shader_parameter/glow_tint = Color(0.55, 0.85, 1, 1)
 
 [sub_resource type="SpriteFrames" id="SpriteFrames_kx2pj"]
 animations = [{
@@ -89,7 +101,8 @@ boss_flash_time = 0.88
 weakpoint_min_separation = 5
 weakpoint_cluster_radius = 5
 
-[node name="AnimatedSprite2D" type="AnimatedSprite2D" parent="."]
+[node name="AnimatedSprite2D" type="AnimatedSprite2D" parent="." groups=["Titan"]]
+material = SubResource("ShaderMaterial_kwvjk")
 sprite_frames = SubResource("SpriteFrames_kx2pj")
 autoplay = "default"
 flip_h = true
