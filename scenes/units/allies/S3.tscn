@@ -162,6 +162,7 @@ nova_splash_hits_structures = true
 web_target_count = 8
 web_cooldown = 0
 display_name = "ARACHNOBOT"
+attack_damage = 3
 death_fx_offset = Vector2(0, -16)
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="."]

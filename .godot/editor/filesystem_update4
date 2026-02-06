@@ -26,3 +26,4 @@ res://scenes/overworld_radar.tscn
 res://scripts/overworld_radar.gd
 res://scripts/tutorial_manager.gd
 res://scenes/units/allies/S2.tscn
+res://scenes/units/allies/S3.tscn

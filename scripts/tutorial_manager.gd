@@ -323,7 +323,7 @@ func _roll_3_upgrades() -> Array:
 	pool.append_array([
 		{"id": &"all_hp_plus_1", "title": "ARMOR PLATING", "desc": "+1 Max HP to all allies."},
 		{"id": &"all_move_plus_1", "title": "FIELD DRILLS", "desc": "+1 Move to all allies."},
-		{"id": &"all_dmg_plus_1", "title": "HOT LOADS", "desc": "+1 Attack Damage to all allies."},
+		{"id": &"all_dmg_plus_1", "title": "HOT LOADS", "desc": "+1 Damage to all allies."},
 	])
 
 	# -------------------------
