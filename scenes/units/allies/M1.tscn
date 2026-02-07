@@ -160,7 +160,7 @@ slam_ring_delay = 0.1
 slam_splash_hits_allies = true
 slam_splash_hits_structures = true
 display_name = "BLADEGUARD"
-attack_damage = 3
+attack_damage = 2
 death_fx_offset = Vector2(0, -16)
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="."]

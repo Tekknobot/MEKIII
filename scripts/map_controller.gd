@@ -1057,6 +1057,15 @@ func _find_nearest_open_walkable(preferred: Vector2i, reserved_ally: Dictionary 
 
 	return Vector2i(-1, -1)
 
+func _mouse_to_cell_no_offset() -> Vector2i:
+	if terrain == null:
+		return Vector2i.ZERO
+
+	var mouse_view := get_viewport().get_mouse_position()
+	var mouse_world := get_viewport().get_canvas_transform().affine_inverse() * mouse_view
+	var local := terrain.to_local(mouse_world)
+	return terrain.local_to_map(local)
+
 # --------------------------
 # Input: select + attack
 # --------------------------
@@ -1163,7 +1172,7 @@ func _unhandled_input(event: InputEvent) -> void:
 
 			# Only fire if clicked a valid special cell
 			if valid_special_cells.has(cell):
-				var sid := String(special_id).to_lower()
+				var sid := String(special_id).to_lower().replace(" ", "_")
 
 				# ✅ MINES: place repeatedly, DO NOT exit SPECIAL, DO NOT mark attacked
 				if sid == "mines" and (u is Mech):
@@ -1182,6 +1191,49 @@ func _unhandled_input(event: InputEvent) -> void:
 
 					# Even if not placed (clicked weirdly), stay in SPECIAL so user can try again
 					return
+
+				# ✅ SLAM: click ANY slam tile → clamp to a valid aim cell so it always triggers
+				if sid == "slam":
+					var origin := u.cell
+					var dx := cell.x - origin.x
+					var dy := cell.y - origin.y
+
+					# pick cardinal axis like M1 does
+					var dir := Vector2i.ZERO
+					if abs(dx) >= abs(dy):
+						dir = Vector2i(sign(dx), 0)
+					else:
+						dir = Vector2i(0, sign(dy))
+					if dir == Vector2i.ZERO:
+						dir = Vector2i(0, 1)
+
+					# read min + max from the unit
+					var min_d := 1
+					if u.has_method("get_special_min_distance"):
+						min_d = int(u.call("get_special_min_distance", "slam"))
+					elif "slam_min_safe_dist" in u:
+						min_d = int(u.slam_min_safe_dist)
+
+					var max_r := 4
+					if u.has_method("get_special_range"):
+						max_r = int(u.call("get_special_range", "slam"))
+					elif "slam_range" in u:
+						max_r = int(u.slam_range)
+
+					var dist = abs(dx) + abs(dy)
+					var use_d = clamp(dist, min_d, max_r)
+					var aim_cell = origin + dir * use_d
+
+					await _perform_special(u, "slam", aim_cell)
+
+					_set_unit_attacked(u, true)
+					_apply_turn_indicator(u)
+					if TM != null and TM.has_method("notify_player_attacked"):
+						TM.notify_player_attacked(u)
+
+					_set_aim_mode(AimMode.MOVE)
+					return
+
 
 				# ✅ All other specials: normal behavior (consume attack + exit)
 				await _perform_special(u, sid, cell)

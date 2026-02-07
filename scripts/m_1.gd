@@ -577,14 +577,6 @@ func _play_idle_anim() -> void:
 
 	sprA.play(anim)
 
-func get_hud_extras() -> Dictionary:
-	return {
-		"Sunder Range": str(sunder_range),
-		"Sunder Damage": str(sunder_damage + attack_damage),
-		"Slam Range": str(slam_range),
-		"Slam Damage": str(slam_damage + attack_damage),
-	}
-
 func _play_slam_ground_hit() -> void:
 	# Capture a stable baseline once (after unit is spawned/positioned)
 	if not _slam_base_captured:
@@ -615,3 +607,9 @@ func _play_slam_ground_hit() -> void:
 	tw2.tween_property(self, "position", _slam_base_local_pos, max(0.01, slam_recover_time))
 	# IMPORTANT: await at least one frame so you SEE the recovery begin
 	await get_tree().process_frame
+
+func get_hud_extras() -> Dictionary:
+	return {
+		"Sunder Damage": str(sunder_damage + attack_damage),
+		"Slam Damage": str(slam_damage + attack_damage),
+	}
