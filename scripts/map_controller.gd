@@ -782,6 +782,12 @@ func spawn_units() -> void:
 			u.set_cell(cell_i, terrain)
 			_set_unit_depth_from_world(u, u.global_position)
 
+	# ---------------------------------------------------
+	# 4) Weakpoints LAST (boss mission only)
+	# ---------------------------------------------------
+	if is_boss_mission:
+		_spawn_weakpoints_last(structure_blocked, reserved_boss, reserved_ally)
+
 	if bomber != null and is_instance_valid(bomber):
 		_sfx(bomber_sfx_out, sfx_volume_world, 1.0, bomber.global_position)
 		await _tween_node_global_pos(
@@ -800,6 +806,82 @@ func spawn_units() -> void:
 		TM.on_units_spawned()
 
 	_ensure_beacon_marker()
+
+func _spawn_weakpoints_last(structure_blocked: Dictionary, reserved_boss: Dictionary, reserved_ally: Dictionary) -> void:
+	# Only if boss controller exists and has a spawn API
+	if game_ref == null:
+		return
+
+	var boss := game_ref.get_node_or_null("BossController")
+	if boss == null:
+		# fallback: maybe it's named differently or on root
+		boss = get_tree().current_scene.get_node_or_null("BossController")
+	if boss == null:
+		return
+
+	# --- Build an "occupied" set ---
+	var occupied: Dictionary = {} # Vector2i -> true
+
+	# 1) any unit cell (allies, zombies, elites, etc.)
+	for c in units_by_cell.keys():
+		occupied[c] = true
+
+	# 2) structures blocked
+	for c in structure_blocked.keys():
+		occupied[c] = true
+
+	# 3) reserved ally drop cells (extra safety)
+	for c in reserved_ally.keys():
+		occupied[c] = true
+
+	# 4) beacon cell (so weakpoints never steal it)
+	if beacon_cell != Vector2i.ZERO:
+		occupied[beacon_cell] = true
+
+	# --- Build candidate cells: boss-reserved band minus occupied ---
+	var candidates: Array[Vector2i] = []
+	for c in reserved_boss.keys():
+		# bounds + walkable check (depends on your rules; keep if you want weakpoints on non-walkable tiles)
+		if grid != null and grid.has_method("in_bounds") and not grid.in_bounds(c):
+			continue
+		if not _is_walkable(c):
+			continue
+		if occupied.has(c):
+			continue
+		candidates.append(c)
+
+	# If the boss band got crowded, fall back to any valid walkable cell not occupied
+	if candidates.is_empty():
+		var w := int(grid.w)
+		var h := int(grid.h)
+		for x in range(w):
+			for y in range(h):
+				var c := Vector2i(x, y)
+				if not _is_walkable(c):
+					continue
+				if structure_blocked.has(c):
+					continue
+				if occupied.has(c):
+					continue
+				candidates.append(c)
+
+	if candidates.is_empty():
+		push_warning("No valid cells available to spawn weakpoints.")
+		return
+
+	# --- Tell BossController what it may use ---
+	# Prefer passing candidates if your BossController supports it.
+	# Option A: BossController has spawn_weakpoints_from_candidates(candidates)
+	if boss.has_method("spawn_weakpoints_from_candidates"):
+		boss.call("spawn_weakpoints_from_candidates", candidates)
+		return
+
+	# Option B: You set a property and call spawn()
+	if "weakpoint_spawn_candidates" in boss:
+		boss.weakpoint_spawn_candidates = candidates
+
+	if boss.has_method("spawn_weakpoints"):
+		boss.call("spawn_weakpoints")
 
 func _spawn_elite_mech_in_zone(zone_cells: Array[Vector2i], structure_blocked: Dictionary, reserved_ally: Dictionary = {}) -> bool:
 	if units_root == null or terrain == null:
