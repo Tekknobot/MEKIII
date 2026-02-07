@@ -151,6 +151,7 @@ portrait_tex = ExtResource("2_ob07r")
 thumbnail = ExtResource("3_qbwis")
 scanner_line_width = 1.0
 scanner_sfx_id = &"sat_laser"
+grid_damage = 3
 grid_cooldown = 0
 grid_line_width = 1.0
 grid_explosion_scene = ExtResource("4_rsyao")
@@ -158,6 +159,7 @@ grid_explosion_z = 0
 grid_sfx_id = &"sat_laser"
 grid_detonate_sfx_id = &"explosion_small"
 overcharge_beam_count = 8
+overcharge_damage = 4
 overcharge_cooldown = 0
 overcharge_line_width = 1.0
 overcharge_charge_sfx_id = &"sat_laser"
@@ -165,6 +167,7 @@ overcharge_fire_sfx_id = &"sat_laser"
 overcharge_hit_sfx_id = &"explosion_small"
 overcharge_explosion_scene = ExtResource("4_rsyao")
 display_name = "SCANNERZ"
+attack_damage = 4
 death_fx_offset = Vector2(0, -16)
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="."]

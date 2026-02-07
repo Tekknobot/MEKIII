@@ -1778,6 +1778,11 @@ func _draw_special_range(u: Unit, special: String) -> void:
 	if game_ref != null and "structure_blocked" in game_ref:
 		structure_blocked = game_ref.structure_blocked
 
+	# Optional: if you want SLAM preview constants to match M1 exactly
+	var slam_side_len := 5
+	var slam_depth := 5
+	var slam_layers_inward := 4
+
 	for dx in range(-r, r + 1):
 		for dy in range(-r, r + 1):
 			var c := origin + Vector2i(dx, dy)
@@ -1793,9 +1798,10 @@ func _draw_special_range(u: Unit, special: String) -> void:
 				# straight line only (no diagonals), not self
 				if not (dx == 0 or dy == 0):
 					continue
-				if abs(dx) + abs(dy) <= 0:
+				var dist_su = abs(dx) + abs(dy)
+				if dist_su <= 0:
 					continue
-				if abs(dx) + abs(dy) > r:
+				if dist_su > r:
 					continue
 			else:
 				# default diamond manhattan range
@@ -1805,71 +1811,59 @@ func _draw_special_range(u: Unit, special: String) -> void:
 			# -------------------------------------------------
 			# MIN SAFE DISTANCE (where applicable)
 			# -------------------------------------------------
+			# Helper: manhattan from origin to c
+			var dist = abs(c.x - origin.x) + abs(c.y - origin.y)
+
 			if id == "laser_grid":
-				var dist_lg = abs(c.x - origin.x) + abs(c.y - origin.y)
 				var min_lg := 1
 				if u.has_method("get_special_min_distance"):
 					min_lg = int(u.call("get_special_min_distance", "laser_grid"))
 				elif "laser_grid_min_safe_dist" in u:
 					min_lg = int(u.laser_grid_min_safe_dist)
-				if dist_lg < min_lg:
+				if dist < min_lg:
 					continue
 
 			if id == "overcharge":
-				var dist_oc = abs(c.x - origin.x) + abs(c.y - origin.y)
 				var min_oc := 1
 				if u.has_method("get_special_min_distance"):
 					min_oc = int(u.call("get_special_min_distance", "overcharge"))
 				elif "overcharge_min_safe_dist" in u:
 					min_oc = int(u.overcharge_min_safe_dist)
-				if dist_oc < min_oc:
+				if dist < min_oc:
 					continue
 
 			if id == "nova":
-				var dist_n = abs(c.x - origin.x) + abs(c.y - origin.y)
 				var min_n := 1
 				if u.has_method("get_special_min_distance"):
 					min_n = int(u.call("get_special_min_distance", "nova"))
 				elif "nova_min_safe_dist" in u:
 					min_n = int(u.nova_min_safe_dist)
-				if dist_n < min_n:
+				if dist < min_n:
 					continue
 
 			if id == "web":
-				var dist_w = abs(c.x - origin.x) + abs(c.y - origin.y)
 				var min_w := 1
 				if u.has_method("get_special_min_distance"):
 					min_w = int(u.call("get_special_min_distance", "web"))
 				elif "web_min_safe_dist" in u:
 					min_w = int(u.web_min_safe_dist)
-				if dist_w < min_w:
+				if dist < min_w:
 					continue
 
 			if id == "quake":
-				var dist_q = abs(c.x - origin.x) + abs(c.y - origin.y)
 				var min_q := 1
 				if u.has_method("get_special_min_distance"):
 					min_q = int(u.call("get_special_min_distance", "quake"))
 				elif "quake_min_safe_dist" in u:
 					min_q = int(u.quake_min_safe_dist)
-				if dist_q < min_q:
+				if dist < min_q:
 					continue
 
 			if id == "slam":
-				var dist_s = abs(c.x - origin.x) + abs(c.y - origin.y)
-				var min_s := 1
-				if u.has_method("get_special_min_distance"):
-					min_s = int(u.call("get_special_min_distance", "slam"))
-				elif "slam_min_safe_dist" in u:
-					min_s = int(u.slam_min_safe_dist)
-				if dist_s < min_s:
-					continue
+				continue
 
 			# -------------------------------------------------
 			# TARGETING MODE
-			# - Most specials: must click an ENEMY unit
-			# - MINES: empty valid tile only
-			# - HELLFIRE: empty valid tile OR enemy unit tile
 			# -------------------------------------------------
 			if id == "mines":
 				# empty-only placement
@@ -1885,23 +1879,23 @@ func _draw_special_range(u: Unit, special: String) -> void:
 			elif id == "hellfire":
 				# allow enemy unit target OR empty placement
 				var tgt := unit_at_cell(c)
-
 				if tgt != null and is_instance_valid(tgt):
-					# must be enemy
 					if ("team" in tgt) and tgt.team == u.team:
 						continue
-					# ok: hellfire can be fired onto zombies/enemies
 				else:
-					# empty tile rules (same as mines)
 					if structure_blocked.has(c):
 						continue
 					if not _is_walkable(c):
 						continue
 					if units_by_cell.has(c):
 						continue
-					# optional if you track mines and/or fire tiles
-					# if mines_by_cell.has(c): continue
-					# if hellfire_by_cell.has(c): continue
+
+			elif id == "slam":
+				# ✅ SLAM selects a direction: allow EMPTY or ENEMY (but not allies)
+				var tgt_sl := unit_at_cell(c)
+				if tgt_sl != null and is_instance_valid(tgt_sl) and ("team" in tgt_sl) and tgt_sl.team == u.team:
+					continue
+				# empty is fine
 
 			else:
 				# enemy-only for all other specials
@@ -1912,7 +1906,6 @@ func _draw_special_range(u: Unit, special: String) -> void:
 					continue
 				if tgt2.team == u.team:
 					continue
-
 
 			# -------------------------------------------------
 			# PER-SPECIAL EXTRA VALIDITY RULES
@@ -1925,7 +1918,7 @@ func _draw_special_range(u: Unit, special: String) -> void:
 					continue
 
 			# -------------------------------------------------
-			# MARK VALID + DRAW OVERLAY TILE
+			# MARK VALID + DRAW OVERLAY TILE (CLICKABLE CELLS)
 			# -------------------------------------------------
 			valid_special_cells[c] = true
 
@@ -1938,6 +1931,68 @@ func _draw_special_range(u: Unit, special: String) -> void:
 			t.global_position = terrain.to_global(terrain.map_to_local(c))
 			t.z_as_relative = false
 			t.z_index = 0 + (c.x + c.y)
+
+	# -------------------------------------------------
+	# EXTRA OVERLAY: SLAM shows affected footprint in ALL 4 directions
+	# -------------------------------------------------
+	# -------------------------------------------------
+	# SLAM: clickable tiles = AFFECTED footprint in ALL 4 directions
+	# -------------------------------------------------
+	if id == "slam":
+		var start_sl := 1
+		if u.has_method("get_special_min_distance"):
+			start_sl = int(u.call("get_special_min_distance", "slam"))
+		elif "slam_min_safe_dist" in u:
+			start_sl = int(u.slam_min_safe_dist)
+
+		var dirs := [Vector2i(1,0), Vector2i(-1,0), Vector2i(0,1), Vector2i(0,-1)]
+		var affected: Dictionary = {}
+
+		for ddir in dirs:
+			var set_for_dir := _slam_affected_cells_for_dir(origin, ddir, start_sl, slam_side_len, slam_depth, slam_layers_inward)
+			for k in set_for_dir.keys():
+				if grid != null and grid.has_method("in_bounds") and not grid.in_bounds(k):
+					continue
+				affected[k] = true
+
+		# Now: mark these as valid + draw overlay tiles (THIS is what will be clickable)
+		for k in affected.keys():
+			valid_special_cells[k] = true
+
+			var t2 := attack_tile_scene.instantiate() as Node2D
+			_ensure_overlay_subroots()
+			if overlay_tiles_root == null:
+				return
+			overlay_tiles_root.add_child(t2)
+			t2.global_position = terrain.to_global(terrain.map_to_local(k))
+			t2.z_as_relative = false
+			t2.z_index = 0 + (k.x + k.y)
+
+func _slam_affected_cells_for_dir(origin: Vector2i, dir: Vector2i, start: int, side_len: int, depth: int, layers_inward: int) -> Dictionary:
+	var perp := Vector2i(-dir.y, dir.x)
+	var base := origin + dir * start
+
+	var out: Dictionary = {}
+
+	for layer in range(layers_inward):
+		var inset := layer
+		var cur_w := side_len - inset * 2
+		var cur_d := depth    - inset * 2
+		if cur_w <= 0 or cur_d <= 0:
+			break
+
+		var half_w := int((cur_w - 1) / 2)
+		var layer_base := base + dir * inset
+
+		for v in range(cur_d):
+			for u in range(-half_w, half_w + 1):
+				var on_perimeter := (v == 0 or v == cur_d - 1 or u == -half_w or u == half_w)
+				if not on_perimeter:
+					continue
+				var c := layer_base + dir * v + perp * u
+				out[c] = true
+
+	return out
 
 func _is_valid_move_target(c: Vector2i) -> bool:
 	return selected != null and is_instance_valid(selected) and valid_move_cells.has(c)

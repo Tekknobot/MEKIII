@@ -412,7 +412,7 @@ quake_button_path = NodePath("../UI/Quake")
 nova_button_path = NodePath("../UI/Nova")
 web_button_path = NodePath("../UI/Web")
 slam_button_path = NodePath("../UI/Slam")
-laser_grid_button_path = NodePath("../UI/Laser")
+laser_grid_button_path = NodePath("../UI/Grid")
 overcharge_button_path = NodePath("../UI/Overcharge")
 beacon_deadline_round = 99
 boss_controller_scene = ExtResource("28_6jll0")
@@ -767,7 +767,7 @@ theme_override_fonts/font = ExtResource("32_1gdd5")
 theme_override_font_sizes/font_size = 32
 text = "Watcher"
 
-[node name="Laser" type="Button" parent="UI" groups=["SpecialButton"]]
+[node name="Grid" type="Button" parent="UI" groups=["SpecialButton"]]
 z_index = 4096
 anchors_preset = 7
 anchor_left = 0.5
@@ -782,7 +782,7 @@ grow_horizontal = 2
 grow_vertical = 0
 theme_override_fonts/font = ExtResource("32_1gdd5")
 theme_override_font_sizes/font_size = 32
-text = "Laser"
+text = "Grid"
 
 [node name="Slam" type="Button" parent="UI" groups=["SpecialButton"]]
 z_index = 4096
