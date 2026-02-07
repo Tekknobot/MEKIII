@@ -169,3 +169,4 @@ theme_override_fonts/font = ExtResource("5_r4wy4")
 [node name="Pixel_3D" type="Node2D" parent="."]
 script = ExtResource("10_ojx2h")
 mask_radius = 250.0
+visitor_min_time = 7.0
