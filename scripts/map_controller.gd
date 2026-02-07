@@ -632,6 +632,22 @@ func spawn_units() -> void:
 				reserved_boss[Vector2i(x, y)] = true
 
 	var valid_cells: Array[Vector2i] = []
+
+	var start_n = min(ally_count, ally_scenes.size())
+
+	# Prefer near beacon if you want; otherwise use a top-left-ish point or center
+	var prefer := Vector2i(int(grid.w / 2), int(grid.h / 2))
+	# If you have a beacon cell variable, use that instead:
+	# prefer = beacon_cell
+
+	var comp_cells := _pick_component_for_allies(valid_cells, start_n, prefer)
+	if comp_cells.is_empty() or comp_cells.size() < start_n:
+		# Fallback: just use all valid_cells (but you’ll still risk islands)
+		# Better: bail or log
+		push_warning("No connected component large enough for ally spawns.")
+	else:
+		valid_cells = comp_cells
+	
 	var w := int(grid.w)
 	var h := int(grid.h)
 
@@ -663,7 +679,6 @@ func spawn_units() -> void:
 
 	var near := valid_cells.duplicate()
 	var chosen_cells: Array[Vector2i] = []
-	var start_n = min(ally_count, ally_scenes.size(), near.size())
 
 	for i in range(start_n):
 		var chosen := Vector2i(-1, -1)
@@ -806,6 +821,83 @@ func spawn_units() -> void:
 		TM.on_units_spawned()
 
 	_ensure_beacon_marker()
+
+func _neighbors4(c: Vector2i) -> Array[Vector2i]:
+	return [c + Vector2i(1,0), c + Vector2i(-1,0), c + Vector2i(0,1), c + Vector2i(0,-1)]
+
+func _build_walkable_set(valid_cells: Array[Vector2i]) -> Dictionary:
+	var s: Dictionary = {}
+	for c in valid_cells:
+		s[c] = true
+	return s
+
+func _flood_component(start: Vector2i, walkable: Dictionary) -> Array[Vector2i]:
+	var out: Array[Vector2i] = []
+	if not walkable.has(start):
+		return out
+
+	var q: Array[Vector2i] = [start]
+	var seen: Dictionary = { start: true }
+
+	while not q.is_empty():
+		var cur = q.pop_front()
+		out.append(cur)
+
+		for nb in _neighbors4(cur):
+			if not walkable.has(nb):
+				continue
+			if seen.has(nb):
+				continue
+			seen[nb] = true
+			q.append(nb)
+
+	return out
+
+func _pick_component_for_allies(valid_cells: Array[Vector2i], need: int, prefer_near: Vector2i) -> Array[Vector2i]:
+	# Returns ONLY the cells in the chosen component (guaranteed size >= need if possible).
+	if valid_cells.is_empty():
+		return []
+
+	var walkable := _build_walkable_set(valid_cells)
+
+	# Find all components
+	var visited: Dictionary = {}
+	var comps: Array = [] # each item: {"cells":Array[Vector2i], "size":int, "center_dist":int}
+
+	for c in valid_cells:
+		if visited.has(c):
+			continue
+		var comp := _flood_component(c, walkable)
+		for cc in comp:
+			visited[cc] = true
+
+		var size := comp.size()
+		var best_dist := 1_000_000
+		# distance of this component to prefer_near (use closest cell)
+		for cc in comp:
+			var d = abs(cc.x - prefer_near.x) + abs(cc.y - prefer_near.y)
+			if d < best_dist:
+				best_dist = d
+
+		comps.append({"cells": comp, "size": size, "dist": best_dist})
+
+	# Prefer:
+	# 1) components that can fit all allies
+	# 2) larger components
+	# 3) closer to prefer_near (optional nice feel)
+	comps.sort_custom(func(a, b) -> bool:
+		var asz := int(a["size"])
+		var bsz := int(b["size"])
+		var aok := (asz >= need)
+		var bok := (bsz >= need)
+		if aok != bok:
+			return aok # true sorts first
+		if asz != bsz:
+			return asz > bsz
+		return int(a["dist"]) < int(b["dist"])
+	)
+
+	return comps[0]["cells"] if comps.size() > 0 else []
 
 func _spawn_weakpoints_last(structure_blocked: Dictionary, reserved_boss: Dictionary, reserved_ally: Dictionary) -> void:
 	# Only if boss controller exists and has a spawn API
