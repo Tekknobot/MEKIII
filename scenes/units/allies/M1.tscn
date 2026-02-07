@@ -1,4 +1,4 @@
-[gd_scene load_steps=36 format=3 uid="uid://bspxym863egnq"]
+[gd_scene load_steps=37 format=3 uid="uid://bspxym863egnq"]
 
 [ext_resource type="Script" uid="uid://bgkej18dbjpc0" path="res://scripts/m_1.gd" id="1_ind6l"]
 [ext_resource type="Texture2D" uid="uid://dpcs3qp8kvyhg" path="res://sprites/Meks/M1/m1atk_1.png" id="2_dbadk"]
@@ -6,6 +6,7 @@
 [ext_resource type="Texture2D" uid="uid://c3k5axfya2j1u" path="res://sprites/Portraits/pilots/mek_portraits/m1.png" id="3_iscaa"]
 [ext_resource type="Texture2D" uid="uid://o02m6vb346nv" path="res://sprites/Meks/M1/m1atk_2.png" id="3_m1fto"]
 [ext_resource type="Texture2D" uid="uid://g6ajll1v8i1c" path="res://sprites/Meks/M1/m1atk_3.png" id="4_753jw"]
+[ext_resource type="PackedScene" uid="uid://bulgypadw5war" path="res://scenes/explosion.tscn" id="4_w0c3r"]
 [ext_resource type="Texture2D" uid="uid://utnmb2ip3tym" path="res://sprites/Meks/M1/m1atk_4.png" id="5_6l3df"]
 [ext_resource type="Texture2D" uid="uid://bsjtdxk1jmq46" path="res://sprites/Meks/M1/m1atk_5.png" id="6_cd7qb"]
 [ext_resource type="Texture2D" uid="uid://bkylv8dfqnkcg" path="res://sprites/Explosion/explosion1.png" id="6_n8goa"]
@@ -157,6 +158,7 @@ slam_radius = 3
 slam_cooldown = 0
 slam_min_safe_dist = 3
 slam_ring_delay = 0.1
+slam_explosion_scene = ExtResource("4_w0c3r")
 slam_splash_hits_allies = true
 slam_splash_hits_structures = true
 display_name = "BLADEGUARD"
