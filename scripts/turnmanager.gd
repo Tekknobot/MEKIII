@@ -49,6 +49,8 @@ const _SPAWN_WAIT_MAX_TRIES := 90  # ~1.5s at 60fps
 @export var nova_button_path: NodePath
 @export var web_button_path: NodePath
 @export var slam_button_path: NodePath
+@export var laser_grid_button_path: NodePath
+@export var overcharge_button_path: NodePath
 
 @onready var suppress_button := get_node_or_null(suppress_button_path)
 @onready var stim_button := get_node_or_null(stim_button_path)
@@ -64,6 +66,8 @@ const _SPAWN_WAIT_MAX_TRIES := 90  # ~1.5s at 60fps
 @onready var nova_button := get_node_or_null(nova_button_path)
 @onready var web_button := get_node_or_null(web_button_path)
 @onready var slam_button := get_node_or_null(slam_button_path)
+@onready var laser_grid_button := get_node_or_null(laser_grid_button_path)
+@onready var overcharge_button := get_node_or_null(overcharge_button_path)
 
 enum Phase { PLAYER, ENEMY, BUSY }
 var phase: Phase = Phase.PLAYER
@@ -288,7 +292,11 @@ func _ready() -> void:
 		web_button.pressed.connect(_on_web_pressed)
 	if slam_button:
 		slam_button.pressed.connect(_on_slam_pressed)
-
+	if laser_grid_button:                                            
+		laser_grid_button.pressed.connect(_on_laser_grid_pressed)    
+	if overcharge_button:                                            
+		overcharge_button.pressed.connect(_on_overcharge_pressed) 
+		
 	start_player_phase()
 	_update_end_turn_button()
 
@@ -944,6 +952,8 @@ func _update_special_buttons() -> void:
 	if nova_button: nova_button.toggle_mode = true
 	if web_button: web_button.toggle_mode = true
 	if slam_button: slam_button.toggle_mode = true
+	if laser_grid_button: laser_grid_button.toggle_mode = true     
+	if overcharge_button: overcharge_button.toggle_mode = true  	
 					
 	# Reset
 	if hellfire_button:
@@ -1002,6 +1012,14 @@ func _update_special_buttons() -> void:
 		slam_button.disabled = true
 		slam_button.button_pressed = false
 		slam_button.visible = false
+	if laser_grid_button:                      
+		laser_grid_button.disabled = true       
+		laser_grid_button.button_pressed = false 
+		laser_grid_button.visible = false        
+	if overcharge_button:                      
+		overcharge_button.disabled = true       
+		overcharge_button.button_pressed = false 
+		overcharge_button.visible = false        
 												
 	# Only during player phase
 	if phase != Phase.PLAYER:
@@ -1031,13 +1049,17 @@ func _update_special_buttons() -> void:
 	var has_quake := u.has_method("perform_quake")
 	var has_nova := u.has_method("perform_nova")
 	var has_web := u.has_method("perform_web")
-	var has_slam := u.has_method("perform_slam")
+	var has_slam := u.has_method("perform_slam") 
+	var has_laser_grid := u.has_method("perform_laser_grid")         
+	var has_overcharge := u.has_method("perform_overcharge") 
 					
 	# Optional filter list
 	if u.has_method("get_available_specials"):
 		var specials: Array[String] = u.get_available_specials()
+		
 		for i in range(specials.size()):
-			specials[i] = String(specials[i]).to_lower()
+			specials[i] = String(specials[i]).to_lower().replace(" ", "_")
+			
 		has_hellfire = has_hellfire and specials.has("hellfire")
 		has_blade = has_blade and specials.has("blade")
 		has_mines = has_mines and specials.has("mines")
@@ -1052,6 +1074,8 @@ func _update_special_buttons() -> void:
 		has_nova = has_nova and specials.has("nova")
 		has_web = has_web and specials.has("web")
 		has_slam = has_slam and specials.has("slam")
+		has_laser_grid = has_laser_grid and specials.has("laser_grid")          
+		has_overcharge = has_overcharge and specials.has("overcharge") 		
 									
 	# Show ONLY if unit still has an attack action available
 	var show_specials := (not spent_attack)
@@ -1070,6 +1094,8 @@ func _update_special_buttons() -> void:
 	if nova_button: nova_button.visible = show_specials and has_nova
 	if web_button: web_button.visible = show_specials and has_web
 	if slam_button: slam_button.visible = show_specials and has_slam
+	if laser_grid_button: laser_grid_button.visible = show_specials and has_laser_grid     
+	if overcharge_button: overcharge_button.visible = show_specials and has_overcharge     
 
 	# Cooldowns
 	var ok_hellfire := true
@@ -1086,6 +1112,8 @@ func _update_special_buttons() -> void:
 	var ok_nova := true
 	var ok_web := true
 	var ok_slam := true
+	var ok_laser_grid := true          
+	var ok_overcharge := true  
 		
 	if u.has_method("can_use_special"):
 		ok_hellfire = u.can_use_special("hellfire")
@@ -1102,7 +1130,9 @@ func _update_special_buttons() -> void:
 		ok_nova = u.can_use_special("nova")
 		ok_web = u.can_use_special("web")
 		ok_slam = u.can_use_special("slam")
-
+		ok_laser_grid = u.can_use_special("laser_grid")          
+		ok_overcharge = u.can_use_special("overcharge")
+		
 	# Enable
 	if hellfire_button: hellfire_button.disabled = spent_attack or (not has_hellfire) or (not ok_hellfire)
 	if blade_button: blade_button.disabled = spent_attack or (not has_blade) or (not ok_blade)
@@ -1118,11 +1148,13 @@ func _update_special_buttons() -> void:
 	if nova_button: nova_button.disabled = spent_attack or (not has_nova) or (not ok_nova)
 	if web_button: web_button.disabled = spent_attack or (not has_web) or (not ok_web)
 	if slam_button: slam_button.disabled = spent_attack or (not has_slam) or (not ok_slam)
+	if laser_grid_button: laser_grid_button.disabled = spent_attack or (not has_laser_grid) or (not ok_laser_grid)     
+	if overcharge_button: overcharge_button.disabled = spent_attack or (not has_overcharge) or (not ok_overcharge)
 
-	# Pressed visuals
+	# Note: need to handle underscores in special_id comparison
 	var active := ""
 	if M.aim_mode == MapController.AimMode.SPECIAL:
-		active = String(M.special_id).to_lower()
+		active = String(M.special_id).to_lower().replace(" ", "_")     # MODIFY THIS LINE
 
 	if hellfire_button and not hellfire_button.disabled:
 		hellfire_button.button_pressed = (active == "hellfire")
@@ -1148,7 +1180,11 @@ func _update_special_buttons() -> void:
 		web_button.button_pressed = (active == "web")
 	if slam_button and not slam_button.disabled:
 		slam_button.button_pressed = (active == "slam")
-
+	if laser_grid_button and not laser_grid_button.disabled:                      
+		laser_grid_button.button_pressed = (active == "laser_grid")                
+	if overcharge_button and not overcharge_button.disabled:                      
+		overcharge_button.button_pressed = (active == "overcharge") 
+		
 	# --- Apply colors based on pressed state ---
 	_skin_special_button(hellfire_button, hellfire_button.button_pressed if hellfire_button else false)
 	_skin_special_button(blade_button, blade_button.button_pressed if blade_button else false)
@@ -1164,6 +1200,8 @@ func _update_special_buttons() -> void:
 	_skin_special_button(nova_button, nova_button.button_pressed if nova_button else false)
 	_skin_special_button(web_button, web_button.button_pressed if web_button else false)
 	_skin_special_button(slam_button, slam_button.button_pressed if slam_button else false)
+	_skin_special_button(laser_grid_button, laser_grid_button.button_pressed if laser_grid_button else false)          
+	_skin_special_button(overcharge_button, overcharge_button.button_pressed if overcharge_button else false)   
 						
 	# Overwatch + Stim are instant toggles
 	if overwatch_button and not overwatch_button.disabled:
@@ -1446,6 +1484,40 @@ func _on_quake_pressed() -> void:
 		return
 
 	M.activate_special("quake")
+	_update_special_buttons()
+
+func _on_laser_grid_pressed() -> void:
+	if phase != Phase.PLAYER:
+		return
+	emit_signal("tutorial_event", &"special_button_pressed", {"id": "laser_grid"})
+
+	var u := M.selected
+	if u == null or not is_instance_valid(u):
+		return
+	if _attacked.get(u, false):
+		return
+
+	if not u.has_method("perform_laser_grid"):
+		return
+
+	M.activate_special("laser_grid")
+	_update_special_buttons()
+
+func _on_overcharge_pressed() -> void:
+	if phase != Phase.PLAYER:
+		return
+	emit_signal("tutorial_event", &"special_button_pressed", {"id": "overcharge"})
+
+	var u := M.selected
+	if u == null or not is_instance_valid(u):
+		return
+	if _attacked.get(u, false):
+		return
+
+	if not u.has_method("perform_overcharge"):
+		return
+
+	M.activate_special("overcharge")
 	_update_special_buttons()
 
 func _on_menu_pressed() -> void:

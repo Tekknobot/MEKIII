@@ -188,13 +188,13 @@ shape = SubResource("RectangleShape2D_7tcnj")
 
 [node name="AnimatedSprite2D" type="AnimatedSprite2D" parent="."]
 sprite_frames = SubResource("SpriteFrames_7uhu2")
-animation = &"move"
+animation = &"idle"
 autoplay = "idle"
 
 [node name="HPLabel" type="Label" parent="."]
-offset_top = -48.0
+offset_top = -50.0
 offset_right = 40.0
-offset_bottom = -35.0
+offset_bottom = -37.0
 theme_override_fonts/font = ExtResource("34_upgkq")
 text = "3"
 script = ExtResource("35_088be")

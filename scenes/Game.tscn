@@ -412,6 +412,8 @@ quake_button_path = NodePath("../UI/Quake")
 nova_button_path = NodePath("../UI/Nova")
 web_button_path = NodePath("../UI/Web")
 slam_button_path = NodePath("../UI/Slam")
+laser_grid_button_path = NodePath("../UI/Laser")
+overcharge_button_path = NodePath("../UI/Overcharge")
 beacon_deadline_round = 99
 boss_controller_scene = ExtResource("28_6jll0")
 titan_event_enabled = false
@@ -572,6 +574,23 @@ grow_vertical = 0
 theme_override_fonts/font = ExtResource("32_1gdd5")
 theme_override_font_sizes/font_size = 32
 text = "Blade"
+
+[node name="Overcharge" type="Button" parent="UI" groups=["SpecialButton"]]
+z_index = 4096
+anchors_preset = 7
+anchor_left = 0.5
+anchor_top = 1.0
+anchor_right = 0.5
+anchor_bottom = 1.0
+offset_left = -246.0
+offset_top = -48.0
+offset_right = -126.0
+offset_bottom = -14.0
+grow_horizontal = 2
+grow_vertical = 0
+theme_override_fonts/font = ExtResource("32_1gdd5")
+theme_override_font_sizes/font_size = 32
+text = "Overcharge"
 
 [node name="Mines" type="Button" parent="UI" groups=["SpecialButton"]]
 z_index = 4096
@@ -747,6 +766,23 @@ grow_vertical = 0
 theme_override_fonts/font = ExtResource("32_1gdd5")
 theme_override_font_sizes/font_size = 32
 text = "Watcher"
+
+[node name="Laser" type="Button" parent="UI" groups=["SpecialButton"]]
+z_index = 4096
+anchors_preset = 7
+anchor_left = 0.5
+anchor_top = 1.0
+anchor_right = 0.5
+anchor_bottom = 1.0
+offset_left = -246.0
+offset_top = -90.0
+offset_right = -126.0
+offset_bottom = -56.0
+grow_horizontal = 2
+grow_vertical = 0
+theme_override_fonts/font = ExtResource("32_1gdd5")
+theme_override_font_sizes/font_size = 32
+text = "Laser"
 
 [node name="Slam" type="Button" parent="UI" groups=["SpecialButton"]]
 z_index = 4096

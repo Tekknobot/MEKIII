@@ -1270,6 +1270,12 @@ func _perform_special(u: Unit, id: String, target_cell: Vector2i) -> void:
 	elif id == "slam" and u.has_method("perform_slam"):
 		await u.call("perform_slam", self, target_cell)
 
+	elif id == "laser_grid" and u.has_method("perform_laser_grid"):
+		await u.call("perform_laser_grid", self, target_cell)
+
+	elif id == "overcharge" and u.has_method("perform_overcharge"):
+		await u.call("perform_overcharge", self, target_cell)		
+		
 							
 	_is_moving = false
 
@@ -1758,7 +1764,7 @@ func _draw_special_range(u: Unit, special: String) -> void:
 	if u == null or not is_instance_valid(u):
 		return
 
-	var id := special.to_lower()
+	var id := special.to_lower().replace(" ", "_")
 
 	var r := 0
 	if u.has_method("get_special_range"):
@@ -1776,22 +1782,59 @@ func _draw_special_range(u: Unit, special: String) -> void:
 		for dy in range(-r, r + 1):
 			var c := origin + Vector2i(dx, dy)
 
+			# bounds
 			if grid != null and grid.has_method("in_bounds") and not grid.in_bounds(c):
 				continue
 
-			# Range shape rules -----------------------------
+			# -------------------------------------------------
+			# RANGE SHAPE RULES
+			# -------------------------------------------------
+			if id == "sunder":
+				# straight line only (no diagonals), not self
+				if not (dx == 0 or dy == 0):
+					continue
+				if abs(dx) + abs(dy) <= 0:
+					continue
+				if abs(dx) + abs(dy) > r:
+					continue
+			else:
+				# default diamond manhattan range
+				if abs(dx) + abs(dy) > r:
+					continue
+
+			# -------------------------------------------------
+			# MIN SAFE DISTANCE (where applicable)
+			# -------------------------------------------------
+			if id == "laser_grid":
+				var dist_lg = abs(c.x - origin.x) + abs(c.y - origin.y)
+				var min_lg := 1
+				if u.has_method("get_special_min_distance"):
+					min_lg = int(u.call("get_special_min_distance", "laser_grid"))
+				elif "laser_grid_min_safe_dist" in u:
+					min_lg = int(u.laser_grid_min_safe_dist)
+				if dist_lg < min_lg:
+					continue
+
+			if id == "overcharge":
+				var dist_oc = abs(c.x - origin.x) + abs(c.y - origin.y)
+				var min_oc := 1
+				if u.has_method("get_special_min_distance"):
+					min_oc = int(u.call("get_special_min_distance", "overcharge"))
+				elif "overcharge_min_safe_dist" in u:
+					min_oc = int(u.overcharge_min_safe_dist)
+				if dist_oc < min_oc:
+					continue
 
 			if id == "nova":
 				var dist_n = abs(c.x - origin.x) + abs(c.y - origin.y)
-				var min_d := 1
+				var min_n := 1
 				if u.has_method("get_special_min_distance"):
-					min_d = int(u.call("get_special_min_distance", "nova"))
+					min_n = int(u.call("get_special_min_distance", "nova"))
 				elif "nova_min_safe_dist" in u:
-					min_d = int(u.nova_min_safe_dist)
-				if dist_n < min_d:
+					min_n = int(u.nova_min_safe_dist)
+				if dist_n < min_n:
 					continue
 
-			# ✅ WEB: enforce min distance too (same pattern)
 			if id == "web":
 				var dist_w = abs(c.x - origin.x) + abs(c.y - origin.y)
 				var min_w := 1
@@ -1801,28 +1844,6 @@ func _draw_special_range(u: Unit, special: String) -> void:
 					min_w = int(u.web_min_safe_dist)
 				if dist_w < min_w:
 					continue
-
-			# ✅ SUNDER: straight line only (no diagonals)
-			if id == "sunder":
-				if not (dx == 0 or dy == 0):
-					continue
-				if abs(dx) + abs(dy) <= 0:
-					continue
-				if abs(dx) + abs(dy) > r:
-					continue
-			else:
-				# your existing diamond rule
-				if abs(dx) + abs(dy) > r:
-					continue
-
-			# You currently require walkable for all specials
-			if not _is_walkable(c):
-				continue
-
-			if id == "sunder" and structure_blocked.has(c):
-				continue
-
-			# Per-special validity --------------------------
 
 			if id == "quake":
 				var dist_q = abs(c.x - origin.x) + abs(c.y - origin.y)
@@ -1834,7 +1855,6 @@ func _draw_special_range(u: Unit, special: String) -> void:
 				if dist_q < min_q:
 					continue
 
-			# ✅ SLAM: same targeting rules as QUAKE (min safe distance)
 			if id == "slam":
 				var dist_s = abs(c.x - origin.x) + abs(c.y - origin.y)
 				var min_s := 1
@@ -1845,48 +1865,68 @@ func _draw_special_range(u: Unit, special: String) -> void:
 				if dist_s < min_s:
 					continue
 
-			if id == "blade":
-				var tgt := unit_at_cell(c)
-				if tgt == null or tgt.team == u.team:
-					continue
-
+			# -------------------------------------------------
+			# TARGETING MODE
+			# - Most specials: must click an ENEMY unit
+			# - MINES: empty valid tile only
+			# - HELLFIRE: empty valid tile OR enemy unit tile
+			# -------------------------------------------------
 			if id == "mines":
+				# empty-only placement
 				if structure_blocked.has(c):
+					continue
+				if not _is_walkable(c):
 					continue
 				if units_by_cell.has(c):
 					continue
 				if mines_by_cell.has(c):
 					continue
 
-			if id == "suppress":
+			elif id == "hellfire":
+				# allow enemy unit target OR empty placement
+				var tgt := unit_at_cell(c)
+
+				if tgt != null and is_instance_valid(tgt):
+					# must be enemy
+					if ("team" in tgt) and tgt.team == u.team:
+						continue
+					# ok: hellfire can be fired onto zombies/enemies
+				else:
+					# empty tile rules (same as mines)
+					if structure_blocked.has(c):
+						continue
+					if not _is_walkable(c):
+						continue
+					if units_by_cell.has(c):
+						continue
+					# optional if you track mines and/or fire tiles
+					# if mines_by_cell.has(c): continue
+					# if hellfire_by_cell.has(c): continue
+
+			else:
+				# enemy-only for all other specials
 				var tgt2 := unit_at_cell(c)
-				if tgt2 == null or tgt2.team == u.team:
+				if tgt2 == null or not is_instance_valid(tgt2):
+					continue
+				if not ("team" in tgt2):
+					continue
+				if tgt2.team == u.team:
 					continue
 
-			if id == "pounce":
-				var tgtp := unit_at_cell(c)
-				if tgtp == null or tgtp.team == u.team:
-					continue
 
-			if id == "volley":
-				var tgtv := unit_at_cell(c)
-				if tgtv == null or tgtv.team == u.team:
-					continue
+			# -------------------------------------------------
+			# PER-SPECIAL EXTRA VALIDITY RULES
+			# -------------------------------------------------
+			if id == "sunder" and structure_blocked.has(c):
+				continue
 
 			if id == "cannon":
-				var tgtc := unit_at_cell(c)
-				if tgtc == null or tgtc.team == u.team:
-					continue
 				if not _has_clear_attack_path(origin, c):
 					continue
 
-			# ✅ WEB: must click an enemy (same as volley/pounce)
-			if id == "web":
-				var tgtw := unit_at_cell(c)
-				if tgtw == null or tgtw.team == u.team:
-					continue
-
-			# -----------------------------------------------
+			# -------------------------------------------------
+			# MARK VALID + DRAW OVERLAY TILE
+			# -------------------------------------------------
 			valid_special_cells[c] = true
 
 			var t := attack_tile_scene.instantiate() as Node2D
@@ -3037,7 +3077,11 @@ func _unit_can_use_special(u: Unit, id: String) -> bool:
 			return u.has_method("perform_web")
 		"slam":
 			return u.has_method("perform_slam")
-														
+		"laser_grid":
+			return u.has_method("perform_laser_grid")
+		"overcharge":
+			return u.has_method("perform_overcharge")
+
 	return false
 
 func select_unit(u: Unit) -> void:
@@ -5237,6 +5281,33 @@ func apply_run_upgrades() -> void:
 				&"cobruh_dmg_plus_1":
 					if u is CarBot:
 						u.attack_damage += 1 * n
+
+				# -------------------------
+				# SCANNERZ (S1)
+				# -------------------------
+				&"scannerz_hp_plus_1":
+					if u is S1:
+						u.max_hp += 1 * n
+						u.hp = min(u.hp + 1 * n, u.max_hp)
+
+				&"scannerz_move_plus_1":
+					if u is S1:
+						u.move_range += 1 * n
+
+				&"scannerz_dmg_plus_1":
+					if u is S1:
+						u.attack_damage += 1 * n
+
+				&"scannerz_laser_grid_range_plus_1":
+					if u is S1:
+						# your S1 uses grid_range
+						u.grid_range += 1 * n
+
+				&"scannerz_overcharge_range_plus_1":
+					if u is S1:
+						# your S1 uses overcharge_range
+						u.overcharge_range += 1 * n
+
 					
 func reset_for_regen() -> void:
 	# ---------------------------

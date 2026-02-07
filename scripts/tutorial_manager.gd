@@ -424,6 +424,19 @@ func _roll_3_upgrades() -> Array:
 			{"id": &"arachno_dmg_plus_1",   "title": "NOVA CAPACITORS",  "desc": "+1 Damage for Arachnobot.",      "thumb": t},
 		])
 
+	if has_unit.call("SCANNERZ"):
+		var t: Texture2D = thumb.call("SCANNERZ")
+		pool.append_array([
+			# --- stats ---
+			{"id": &"scannerz_hp_plus_1",    "title": "HARDENED ARRAY",   "desc": "+1 Max HP for Scannerz.", "thumb": t},
+			{"id": &"scannerz_move_plus_1",  "title": "FAST SWEEP",       "desc": "+1 Move for Scannerz.",   "thumb": t},
+			{"id": &"scannerz_dmg_plus_1",   "title": "SIGNAL AMPLIFIER", "desc": "+1 Damage for Scannerz.", "thumb": t},
+
+			# --- specials (S1) ---
+			{"id": &"scannerz_laser_grid_range_plus_1", "title": "WIDER GRID",    "desc": "+1 Range for Laser Grid.", "thumb": t},
+			{"id": &"scannerz_overcharge_range_plus_1", "title": "DEEPER CHARGE", "desc": "+1 Range for Overcharge.", "thumb": t},
+		])
+		
 	# DESTROYER A.I.
 	# NOTE: your key will be whatever display_name becomes after strip+upper.
 	# If your display_name is "Destroyer A.I." then the key is "DESTROYER A.I."
