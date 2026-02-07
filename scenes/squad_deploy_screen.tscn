@@ -14,7 +14,7 @@
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_5vrpl"]
 shader = ExtResource("7_3tvho")
 shader_parameter/intensity = 2.0
-shader_parameter/noise_amount = 1.0
+shader_parameter/noise_amount = 0.08
 shader_parameter/scanline_amount = 0.12
 shader_parameter/glow_amount = 2.0
 shader_parameter/glow_speed = 4.0
