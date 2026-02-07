@@ -32,3 +32,6 @@ res://scripts/s_1.gd
 res://scenes/units/allies/M1.tscn
 res://scripts/m_1.gd
 res://scenes/zombie.tscn
+res://scripts/pixel_3d.gd
+res://scripts/squad_deploy_screen.gd
+res://scripts/overworld.gd

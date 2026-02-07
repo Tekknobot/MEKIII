@@ -1,4 +1,4 @@
-[gd_scene load_steps=12 format=3 uid="uid://yuv3ki773sul"]
+[gd_scene load_steps=13 format=3 uid="uid://yuv3ki773sul"]
 
 [ext_resource type="Script" uid="uid://bpqdlu5ei0n4s" path="res://scripts/squad_deploy_screen.gd" id="1_ojx2h"]
 [ext_resource type="PackedScene" uid="uid://bmtwqbsx674eo" path="res://scenes/Game.tscn" id="2_jek1g"]
@@ -9,6 +9,7 @@
 [ext_resource type="Texture2D" uid="uid://dviis5c1md2jn" path="res://sprites/Backgrounds/Cockpit.png" id="7_623tr"]
 [ext_resource type="Script" uid="uid://ctsryacxldjgt" path="res://scripts/center_with_camera.gd" id="9_ojx2h"]
 [ext_resource type="FontFile" uid="uid://buw362wjb8o8d" path="res://fonts/magofonts/mago2.ttf" id="10_iuh7l"]
+[ext_resource type="Script" uid="uid://bt844t61erxfy" path="res://scripts/pixel_3d.gd" id="10_ojx2h"]
 
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_5vrpl"]
 shader = ExtResource("7_3tvho")
@@ -24,16 +25,32 @@ shader_parameter/pixelate = 4.000000142499999
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_cod3f"]
 bg_color = Color(0.6, 0.6, 0.6, 0)
 
-[node name="SquadDeploy" type="Control"]
+[node name="SquadDeploy" type="Control" node_paths=PackedStringArray("background_starfield", "UI", "InfoPanel", "BackgroundColorRect")]
 layout_mode = 3
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
+mouse_filter = 2
 script = ExtResource("1_ojx2h")
 game_scene = ExtResource("2_jek1g")
 overworld_scene = ExtResource("3_6856t")
+background_starfield = NodePath("Pixel_3D")
+UI = NodePath("UI")
+InfoPanel = NodePath("InfoPanel")
+BackgroundColorRect = NodePath("FadeLayer/ColorRect")
+
+[node name="FadeLayer" type="CanvasLayer" parent="."]
+
+[node name="ColorRect" type="ColorRect" parent="FadeLayer"]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+color = Color(0, 0, 0, 1)
 
 [node name="BG" type="TextureRect" parent="."]
 modulate = Color(0.41215247, 0.41215247, 0.41215247, 1)
@@ -148,3 +165,7 @@ stretch_mode = 2
 [node name="InfoStats" type="Label" parent="InfoPanel/VBox"]
 layout_mode = 2
 theme_override_fonts/font = ExtResource("5_r4wy4")
+
+[node name="Pixel_3D" type="Node2D" parent="."]
+script = ExtResource("10_ojx2h")
+mask_radius = 250.0

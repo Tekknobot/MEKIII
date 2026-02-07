@@ -21,8 +21,12 @@ var _pending_supply_node_id: int = -1
 
 @onready var cam := get_node_or_null(camera_path) as OverworldCamera
 
+@export var fade_rect: ColorRect
+@export var fade_duration: float = 1.0
 
 func _ready() -> void:
+	_fade_from_black_on_ready()
+	
 	if radar != null:
 		radar.mission_requested.connect(_on_mission_requested)
 
@@ -66,6 +70,9 @@ func _on_mission_requested(node_id: int, node_type: int, difficulty: float) -> v
 		var target_pos = radar.get_node_world_pos(node_id)
 		cam.play_launch_cinematic(target_pos)
 		
+		# ✅ cover screen while the cinematic finishes / scene switches
+		await _fade_to_black()
+				
 		await get_tree().create_timer(2).timeout
 		get_tree().change_scene_to_packed(game_scene)
 	else:
@@ -168,3 +175,34 @@ func _type_to_key(t: int) -> StringName:
 		OverworldRadar.NodeType.ELITE:  return &"elite"
 		OverworldRadar.NodeType.BOSS:   return &"boss"
 	return &"combat"
+
+func _set_fade_alpha(a: float) -> void:
+	if fade_rect == null or not is_instance_valid(fade_rect):
+		return
+	var m := fade_rect.modulate
+	m.a = a
+	fade_rect.modulate = m
+
+func _fade_from_black_on_ready() -> void:
+	# starts black (1), fades to clear (0)
+	_set_fade_alpha(1.0)
+	call_deferred("_do_fade_from_black")
+
+func _do_fade_from_black() -> void:
+	if fade_rect == null or not is_instance_valid(fade_rect):
+		return
+	var tw := create_tween()
+	tw.tween_property(fade_rect, "modulate:a", 0.0, fade_duration)
+
+func _fade_to_black() -> void:
+	if fade_rect == null or not is_instance_valid(fade_rect):
+		# fallback if not assigned
+		await get_tree().create_timer(0.25).timeout
+		return
+
+	# ensure it’s not already black
+	_set_fade_alpha(clamp(fade_rect.modulate.a, 0.0, 1.0))
+
+	var tw := create_tween()
+	tw.tween_property(fade_rect, "modulate:a", 1.0, fade_duration)
+	await tw.finished

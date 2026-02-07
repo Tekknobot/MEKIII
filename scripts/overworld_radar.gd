@@ -11,6 +11,10 @@ var current_node_id: int = -1
 var hovered_node_id: int = -1
 @export var restrict_to_neighbors := true
 
+# ✅ Fade-in settings
+@export var fade_in_enabled := true
+@export var fade_in_duration := 1
+
 # -------------------------
 # SETTINGS
 # -------------------------
@@ -116,6 +120,10 @@ var _hud_row: HBoxContainer = null
 # LIFECYCLE
 # -------------------------
 func _ready() -> void:
+	# ✅ Start invisible if fade-in enabled
+	if fade_in_enabled:
+		modulate = Color(1, 1, 1, 0)
+	
 	set_process_input(true)
 	set_process_unhandled_input(true)
 		
@@ -159,7 +167,30 @@ func _ready() -> void:
 
 	if squad_hud_enabled:
 		_build_squad_hud()
-		_refresh_squad_hud()
+		await _refresh_squad_hud()  # ✅ Add await here
+	
+	# ✅ Fade in after everything is set up
+	if fade_in_enabled:
+		await _fade_in()
+
+func _fade_in() -> void:
+	var tween := create_tween()
+	tween.set_parallel(true)  # Fade all elements together
+	
+	# Fade in the radar (this node)
+	tween.tween_property(self, "modulate:a", 1.0, fade_in_duration)
+	
+	# Fade in the squad HUD panel
+	if _hud_panel != null and is_instance_valid(_hud_panel):
+		tween.tween_property(_hud_panel, "modulate:a", 1.0, fade_in_duration)
+	
+	# ✅ Fade in each squad chip
+	if _hud_row != null and is_instance_valid(_hud_row):
+		for chip in _hud_row.get_children():
+			if is_instance_valid(chip):
+				tween.tween_property(chip, "modulate:a", 1.0, fade_in_duration)
+	
+	await tween.finished
 
 func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventKey and event.pressed and not event.echo:
@@ -244,7 +275,6 @@ func _input(event: InputEvent) -> void:
 
 				emit_signal("mission_requested", current_node_id, nodes[current_node_id].ntype, nodes[current_node_id].difficulty)
 				return
-
 
 func _cheat_clear_path_to_nearest_elite() -> void:
 	if current_node_id < 0 or current_node_id >= nodes.size():
@@ -1313,8 +1343,12 @@ func _refresh_squad_hud() -> void:
 		var path := str(p)
 		if path == "":
 			continue
-		_hud_row.add_child(await _make_squad_chip(path))
-
+		var chip = await _make_squad_chip(path)
+		# ✅ Set each chip invisible if fade-in is enabled
+		if fade_in_enabled:
+			chip.modulate = Color(1, 1, 1, 0)
+		_hud_row.add_child(chip)
+		
 func _make_squad_chip(scene_path: String) -> Control:
 	var chip := VBoxContainer.new()
 	chip.mouse_filter = Control.MOUSE_FILTER_IGNORE

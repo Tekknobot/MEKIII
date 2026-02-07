@@ -1,4 +1,4 @@
-[gd_scene load_steps=12 format=3 uid="uid://dp7v6b7f0bh4u"]
+[gd_scene load_steps=13 format=3 uid="uid://dp7v6b7f0bh4u"]
 
 [ext_resource type="Script" uid="uid://dl0f3yc10sent" path="res://scripts/overworld.gd" id="1_16ktt"]
 [ext_resource type="PackedScene" uid="uid://bmtwqbsx674eo" path="res://scenes/Game.tscn" id="2_356oe"]
@@ -10,6 +10,7 @@
 [ext_resource type="Shader" uid="uid://cyl5d5rrn8tmm" path="res://shaders/radar.gdshader" id="7_e184d"]
 [ext_resource type="Texture2D" uid="uid://dviis5c1md2jn" path="res://sprites/Backgrounds/Cockpit.png" id="7_qjxaj"]
 [ext_resource type="Script" uid="uid://ctsryacxldjgt" path="res://scripts/center_with_camera.gd" id="10_nesqq"]
+[ext_resource type="Script" uid="uid://bt844t61erxfy" path="res://scripts/pixel_3d.gd" id="11_lsky2"]
 
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_nesqq"]
 shader = ExtResource("7_e184d")
@@ -22,7 +23,7 @@ shader_parameter/vignette_amount = 1.0
 shader_parameter/scanline_density = 480.0
 shader_parameter/pixelate = 4.000000142499999
 
-[node name="Overworld" type="Node2D"]
+[node name="Overworld" type="Node2D" node_paths=PackedStringArray("fade_rect")]
 script = ExtResource("1_16ktt")
 game_scene = ExtResource("2_356oe")
 upgrade_title_font = ExtResource("3_fkyvp")
@@ -30,8 +31,21 @@ upgrade_body_font = ExtResource("4_qjxaj")
 upgrade_button_font = ExtResource("5_e184d")
 radar_path = NodePath("OverworldRadar")
 camera_path = NodePath("OverworldCamera")
+fade_rect = NodePath("FadeLayer/ColorRect")
+
+[node name="FadeLayer" type="CanvasLayer" parent="."]
+
+[node name="ColorRect" type="ColorRect" parent="FadeLayer"]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+color = Color(0, 0, 0, 1)
 
 [node name="OverworldRadar" parent="." instance=ExtResource("2_u2ss0")]
+fade_in_duration = 1
 extra_links_chance = 0.0
 elite_node_count = 3
 
@@ -60,3 +74,7 @@ texture = ExtResource("7_qjxaj")
 expand_mode = 1
 script = ExtResource("10_nesqq")
 screen_offset = Vector2(0, 64)
+
+[node name="Pixel_3D" type="Node2D" parent="."]
+script = ExtResource("11_lsky2")
+mask_radius = 250.0

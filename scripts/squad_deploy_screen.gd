@@ -24,6 +24,13 @@ extends Control
 
 @export var overworld_scene: PackedScene
 
+# ✅ Fade settings
+@export var background_starfield: Node2D  # Assign in the inspector
+@export var fade_duration: float = 1.0
+@export var UI: Control  # Main UI panel to fade
+@export var InfoPanel: Control  # Info panel to fade
+@export var BackgroundColorRect: ColorRect  # CanvasLayer child ColorRect to fade
+
 # roster entries: {path,name,portrait,hp,move,range,damage}
 var _roster: Array[Dictionary] = []
 var _selected: Array[String] = []  # ordered scene paths
@@ -35,6 +42,12 @@ var _roster_cards: Dictionary = {} # path:String -> UnitCard
 func _ready() -> void:
 	start_button.pressed.connect(_on_start)
 	back_button.pressed.connect(_on_back)
+
+	# ✅ Start with everything visible (alpha = 1)
+	_set_fade_targets_alpha(1.0)
+
+	# ✅ Fade BackgroundColorRect out on ready (and anything else you want)
+	_fade_on_ready()
 
 	_probe_root = Node.new()
 	_probe_root.name = "_ProbeRoot"
@@ -50,6 +63,49 @@ func _ready() -> void:
 	_refresh_all()
 
 	info_panel.visible = false
+
+
+func _fade_on_ready() -> void:
+	# optional: one frame delay so Control layout/modulate is initialized
+	await get_tree().process_frame
+
+	var tween := create_tween()
+	tween.set_parallel(true)
+
+	# ✅ Fade BackgroundColorRect
+	if BackgroundColorRect != null and is_instance_valid(BackgroundColorRect):
+		tween.tween_property(BackgroundColorRect, "modulate:a", 0.0, fade_duration)
+
+	# (Optional) also fade starfield/UI/info on ready if you want:
+	# if background_starfield != null and is_instance_valid(background_starfield):
+	# 	tween.tween_property(background_starfield, "modulate:a", 0.0, fade_duration)
+	# if UI != null and is_instance_valid(UI):
+	# 	tween.tween_property(UI, "modulate:a", 0.0, fade_duration)
+	# if InfoPanel != null and is_instance_valid(InfoPanel):
+	# 	tween.tween_property(InfoPanel, "modulate:a", 0.0, fade_duration)
+
+
+func _set_fade_targets_alpha(a: float) -> void:
+	# keep this simple + safe
+	if BackgroundColorRect != null and is_instance_valid(BackgroundColorRect):
+		var m := BackgroundColorRect.modulate
+		m.a = a
+		BackgroundColorRect.modulate = m
+
+	if background_starfield != null and is_instance_valid(background_starfield):
+		var m2 := background_starfield.modulate
+		m2.a = a
+		background_starfield.modulate = m2
+
+	if UI != null and is_instance_valid(UI):
+		var m3 := UI.modulate
+		m3.a = a
+		UI.modulate = m3
+
+	if InfoPanel != null and is_instance_valid(InfoPanel):
+		var m4 := InfoPanel.modulate
+		m4.a = a
+		InfoPanel.modulate = m4
 
 # -----------------------
 # RunState getter (autoload)
@@ -67,7 +123,7 @@ func _rs() -> Node:
 # -----------------------
 func _refresh_all() -> void:
 	_rebuild_roster_ui()   # now updates selection without deleting
-	_rebuild_squad_ui()    # this one can still rebuild, that’s fine
+	_rebuild_squad_ui()    # this one can still rebuild, that's fine
 	start_button.disabled = (_selected.size() != squad_size)
 
 func _rebuild_roster_ui() -> void:
@@ -259,7 +315,7 @@ func _scan_tscn_recursive(folder: String) -> Array[String]:
 # Unit extraction (root OR nested)
 # -----------------------
 func _find_unit_in_tree(n: Node) -> Node:
-	# Don’t rely on class_name being visible everywhere; use method sniffing too.
+	# Don't rely on class_name being visible everywhere; use method sniffing too.
 	if n != null:
 		# Best case: it *is* your Unit class
 		if n.get_class() == "Node2D" and n.has_method("get_display_name") and n.has_method("get_portrait_texture"):
@@ -397,11 +453,37 @@ func _unit_get_int(u: Node, primary_key: String, fallback_keys: Array[String], d
 	return default_val
 
 # -----------------------
+# Fade out all elements
+# -----------------------
+func _fade_out_all() -> void:
+	var tween := create_tween()
+	tween.set_parallel(true)
+
+	if background_starfield != null and is_instance_valid(background_starfield):
+		tween.tween_property(background_starfield, "modulate:a", 0.0, fade_duration)
+
+	if UI != null and is_instance_valid(UI):
+		tween.tween_property(UI, "modulate:a", 0.0, fade_duration)
+
+	if InfoPanel != null and is_instance_valid(InfoPanel):
+		tween.tween_property(InfoPanel, "modulate:a", 0.0, fade_duration)
+
+	# ✅ include it here too
+	if BackgroundColorRect != null and is_instance_valid(BackgroundColorRect):
+		tween.tween_property(BackgroundColorRect, "modulate:a", 1.0, fade_duration)
+
+	await tween.finished
+
+
+# -----------------------
 # Start / Back
 # -----------------------
 func _on_start() -> void:
 	if _selected.size() != squad_size:
 		return
+
+	# ✅ Fade out everything first
+	await _fade_out_all()
 
 	var rs := _rs()
 
