@@ -213,46 +213,64 @@ func perform_slam(M: MapController, target_cell: Vector2i) -> void:
 # -------------------------------------------------------
 func _play_slam_ripple_from_unit_half(M: MapController, target_cell: Vector2i) -> void:
 	var center := cell
-	var start_ring := slam_min_safe_dist
-	var ring_count := 4   # 🔴 EXACTLY 4 rings
-	var max_ring := start_ring + ring_count - 1
+	var start := slam_min_safe_dist
 
 	# Direction from unit -> click (choose cardinal axis)
 	var dir := Vector2i.ZERO
 	var dx := target_cell.x - center.x
 	var dy := target_cell.y - center.y
-
 	if abs(dx) >= abs(dy):
 		dir = Vector2i(sign(dx), 0)
 	else:
 		dir = Vector2i(0, sign(dy))
-
-	# Fallback if click is same cell
 	if dir == Vector2i.ZERO:
 		dir = Vector2i(0, 1)
 
-	for ring in range(start_ring, max_ring + 1):
-		var ring_cells: Array[Vector2i] = []
+	# Perpendicular axis (left/right from the direction)
+	var perp := Vector2i(-dir.y, dir.x)
 
-		for ox in range(-ring, ring + 1):
-			var oy = ring - abs(ox)
+	# BOX SETTINGS
+	var side_len := 5
+	var depth := 5
+	var layers_inward := 4  # ✅ 4 layers inward (thickness)
 
-			var c1 := center + Vector2i(ox, oy)
-			var c2 := center + Vector2i(ox, -oy)
+	# Anchor: front face starts at min safe distance
+	var base := center + dir * start
 
-			# helper to keep only forward half
-			if _cell_in_bounds(M, c1):
-				var v1 := c1 - center
-				if (v1.x * dir.x + v1.y * dir.y) > 0:
-					ring_cells.append(c1)
+	for layer in range(layers_inward):
+		# inset grows each layer
+		var inset := layer
 
-			if oy != 0 and _cell_in_bounds(M, c2):
-				var v2 := c2 - center
-				if (v2.x * dir.x + v2.y * dir.y) > 0:
-					ring_cells.append(c2)
+		# remaining dims after inset
+		var cur_w := side_len - inset * 2
+		var cur_d := depth - inset * 2
+		if cur_w <= 0 or cur_d <= 0:
+			break
 
-		for c in ring_cells:
-			_slam_bump_cell(M, c, ring)
+		var half_w := (cur_w - 1) / 2
+
+		# shift base inward along dir and inward along perp bounds
+		# (dir shift moves the rectangle "deeper" as we inset)
+		var layer_base := base + dir * inset
+
+		var cell_set: Dictionary = {}
+
+		# Build rectangle perimeter of size cur_w x cur_d
+		# v=0..cur_d-1, u=-half_w..half_w
+		for v in range(cur_d):
+			for u in range(-half_w, half_w + 1):
+				var on_perimeter := (v == 0 or v == cur_d - 1 or u == -half_w or u == half_w)
+				if not on_perimeter:
+					continue
+
+				var c := layer_base + dir * v + perp * u
+				if not _cell_in_bounds(M, c):
+					continue
+				cell_set[c] = true
+
+		# bump all cells in this inward layer
+		for c in cell_set.keys():
+			_slam_bump_cell(M, c, layer)
 
 		if slam_ring_delay > 0.0:
 			await get_tree().create_timer(slam_ring_delay).timeout

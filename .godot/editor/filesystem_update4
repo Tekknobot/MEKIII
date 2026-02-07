@@ -29,3 +29,5 @@ res://scenes/units/allies/S2.tscn
 res://scenes/units/allies/S3.tscn
 res://scenes/units/allies/S1.tscn
 res://scripts/s_1.gd
+res://scenes/units/allies/M1.tscn
+res://scripts/m_1.gd
