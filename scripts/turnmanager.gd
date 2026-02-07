@@ -409,13 +409,16 @@ func _refresh_population_and_check() -> void:
 
 	# Loss #1: too many zombies (allowed as soon as checks are enabled)
 	if zombies > zombie_limit:
+		_loss_mode = LossMode.RESTART_MISSION
 		game_over("SYSTEM OVERRUN\n\nInfestation exceeded containment limits.\nZombies: %d / %d" % [zombies, zombie_limit])
 		return
 
 	# Loss #2: no allies (ONLY if we have had allies at least once)
 	if _had_any_allies and allies <= 0:
+		_loss_mode = LossMode.TO_MENU
 		game_over("LAST LIGHT EXTINGUISHED\n\nNo allied units remain operational.")
 		return
+
 
 func _on_loss_restart_pressed() -> void:
 	if not _game_over_triggered:
@@ -600,7 +603,8 @@ func _update_end_turn_button() -> void:
 
 func on_units_spawned() -> void:
 	_update_special_buttons()
-
+	snapshot_mission_start_squad()
+	
 	if _is_titan_event and not _titan_autorun_started:
 		_titan_autorun_started = true
 		phase = Phase.BUSY
@@ -1531,6 +1535,30 @@ func _on_menu_pressed() -> void:
 	get_tree().paused = false
 	get_tree().change_scene_to_file(title_scene_path)
 
+
+enum LossMode { TO_MENU, RESTART_MISSION }
+var _loss_mode: LossMode = LossMode.TO_MENU
+var _mission_start_squad_paths: Array[String] = []
+
+func snapshot_mission_start_squad() -> void:
+	_mission_start_squad_paths.clear()
+
+	var tree := get_tree()
+	if tree == null:
+		tree = Engine.get_main_loop() as SceneTree
+	if tree == null:
+		return
+
+	var rs := tree.root.get_node_or_null("RunState")
+	if rs == null:
+		rs = tree.root.get_node_or_null("RunStateNode")
+	if rs == null:
+		return
+
+	if "squad_scene_paths" in rs:
+		for p in rs.squad_scene_paths:
+			_mission_start_squad_paths.append(str(p))
+
 func game_over(msg: String) -> void:
 	if _game_over_triggered:
 		return
@@ -1540,21 +1568,85 @@ func game_over(msg: String) -> void:
 	phase = Phase.BUSY
 	_update_end_turn_button()
 	_update_special_buttons()
-
 	_set_hud_visible(false)
 
-	# Show loss panel (reuse your EndGamePanelRuntime)
 	if end_panel != null and is_instance_valid(end_panel):
 		end_panel.show_loss(msg)
 
-		# Turn "Continue" into a restart button
 		if end_panel.continue_button != null:
-			end_panel.continue_button.text = "RESTART RUN"
+			if _loss_mode == LossMode.RESTART_MISSION:
+				end_panel.continue_button.text = "RETRY"
+			else:
+				end_panel.continue_button.text = "MAIN MENU"
 			end_panel.continue_button.disabled = false
 
-		# Hack: allow Continue to fire (panel requires _picked)
-		# (Underscore isn't private in GDScript)
 		end_panel._picked = true
+
+		# Disconnect old (prevents stacking)
+		if end_panel.continue_pressed.is_connected(_on_game_over_main_menu):
+			end_panel.continue_pressed.disconnect(_on_game_over_main_menu)
+		if end_panel.continue_pressed.is_connected(_on_game_over_retry):
+			end_panel.continue_pressed.disconnect(_on_game_over_retry)
+
+		# Connect correct
+		if _loss_mode == LossMode.RESTART_MISSION:
+			end_panel.continue_pressed.connect(_on_game_over_retry)
+		else:
+			end_panel.continue_pressed.connect(_on_game_over_main_menu)
+
+func _on_game_over_retry() -> void:
+	var tree := get_tree()
+	if tree == null:
+		tree = Engine.get_main_loop() as SceneTree
+	if tree == null:
+		push_error("No SceneTree available.")
+		return
+
+	# Restore squad to what it was at mission start
+	var rs := tree.root.get_node_or_null("RunState")
+	if rs == null:
+		rs = tree.root.get_node_or_null("RunStateNode")
+
+	if rs != null and "squad_scene_paths" in rs:
+		rs.squad_scene_paths.clear()
+		rs.squad_scene_paths.append_array(_mission_start_squad_paths)
+
+		# Optional: undo any deaths that occurred during the failed mission
+		# (only if you want infestation loss to NOT cause permadeath)
+		if "dead_scene_paths" in rs:
+			for p in _mission_start_squad_paths:
+				rs.dead_scene_paths.erase(p)
+
+		if rs.has_method("save_to_disk"):
+			rs.call("save_to_disk")
+
+	# Reload the current mission scene
+	tree.reload_current_scene()
+
+func _on_game_over_main_menu() -> void:
+	# Always get a valid SceneTree first (your node might not be in-tree)
+	var tree := get_tree()
+	if tree == null:
+		tree = Engine.get_main_loop() as SceneTree
+	if tree == null:
+		push_error("No SceneTree available.")
+		return
+
+	# 1) Reset runstate so a new run starts fresh (all units usable again)
+	var rs := tree.root.get_node_or_null("RunState")
+	if rs == null:
+		rs = tree.root.get_node_or_null("RunStateNode")
+
+	if rs != null:
+		if rs.has_method("reset_run"):
+			rs.call("reset_run")
+		if rs.has_method("save_to_disk"):
+			rs.call("save_to_disk")
+	else:
+		push_warning("GameOver: RunState not found; run may not fully reset.")
+
+	# 2) Go to title screen
+	tree.change_scene_to_file("res://scenes/title_screen.tscn")
 
 func _wait_for_units_then_enable_loss_checks() -> void:
 	if _game_over_triggered:

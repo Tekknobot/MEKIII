@@ -308,12 +308,20 @@ func show_event_success(title_text: String, body_text: String, button_text: Stri
 
 	show_panel()
 
-func show_loss(msg: String) -> void:
+func show_loss(msg: String, button_text: String = "MAIN MENU") -> void:
 	_shown_upgrades = []
+	_picked = true
+	_picked_upgrade = &""
+
+	if continue_button != null:
+		continue_button.disabled = false
+		continue_button.text = button_text
+
 	if title_label != null:
 		title_label.text = "MISSION FAILED"
 	if body_label != null:
 		body_label.text = msg
+
 	_apply_upgrade_ui()
 	show_panel()
 

@@ -36,3 +36,5 @@ res://scripts/pixel_3d.gd
 res://scripts/squad_deploy_screen.gd
 res://scripts/overworld.gd
 res://scenes/title_screen.tscn
+res://scripts/RunState.gd
+res://scripts/end_game_panel_runtime.gd

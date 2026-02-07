@@ -54,6 +54,10 @@ var last_supply_units_evaced: int = 0
 var last_supply_reward_tier: int = 0  # 0 none, 1 rough, 2 clean, 3 perfect
 var last_supply_failed_reason: String = "" # "missed_crate" / "no_evac" / "wiped" / etc
 
+var dead_scene_paths: Array[String] = []
+
+var run_over := false
+
 func has_save() -> bool:
 	return FileAccess.file_exists(SAVE_PATH)
 	
@@ -105,21 +109,6 @@ func get_squad_packed_scenes() -> Array[PackedScene]:
 func set_roster(paths: Array[String]) -> void:
 	# store all possible ally scenes
 	roster_scene_paths = paths.duplicate()
-
-func rebuild_recruit_pool() -> void:
-	# pool = roster - squad - already recruited
-	recruit_pool_paths.clear()
-
-	var taken: Dictionary = {} # path -> true
-	for p in squad_scene_paths:
-		taken[str(p)] = true
-	for p in recruited_scene_paths:
-		taken[str(p)] = true
-
-	for p in roster_scene_paths:
-		var sp := str(p)
-		if not taken.has(sp):
-			recruit_pool_paths.append(sp)
 
 func get_remaining_recruit_count() -> int:
 	return recruit_pool_paths.size()
@@ -315,7 +304,8 @@ func to_save_dict() -> Dictionary:
 		"roster_scene_paths": roster_scene_paths.duplicate(),
 		"recruit_pool_paths": recruit_pool_paths.duplicate(),
 		"recruited_scene_paths": recruited_scene_paths.duplicate(),
-		
+		"dead_scene_paths": dead_scene_paths.duplicate(),
+
 		"event_mode_enabled_next_mission": event_mode_enabled_next_mission,
 		"event_id_next_mission": String(event_id_next_mission),
 		
@@ -361,6 +351,9 @@ func load_from_save_dict(d: Dictionary) -> void:
 
 	recruited_scene_paths.clear()
 	recruited_scene_paths.append_array(d.get("recruited_scene_paths", []))
+
+	dead_scene_paths.clear()
+	dead_scene_paths.append_array(d.get("dead_scene_paths", []))
 	
 	last_supply_success = bool(d.get("last_supply_success", false))
 	last_supply_crates_total = int(d.get("last_supply_crates_total", 0))
@@ -369,8 +362,6 @@ func load_from_save_dict(d: Dictionary) -> void:
 	last_supply_reward_tier = int(d.get("last_supply_reward_tier", 0))
 	last_supply_failed_reason = str(d.get("last_supply_failed_reason", ""))
 	
-
-
 func save_to_disk() -> void:
 	var f := FileAccess.open(SAVE_PATH, FileAccess.WRITE)
 	if f == null:
@@ -443,6 +434,8 @@ func reset_run() -> void:
 	recruit_pool_paths.clear()
 	recruited_scene_paths.clear()
 	
+	dead_scene_paths.clear()
+
 	seed_roster_if_empty()
 	save_to_disk()
 	
@@ -466,3 +459,57 @@ func seed_roster_if_empty() -> void:
 
 	print("[RUNSTATE] Seeded roster_scene_paths=", roster_scene_paths.size(),
 		" recruit_pool_paths=", recruit_pool_paths.size())
+
+func is_dead(path: String) -> bool:
+	return dead_scene_paths.has(path)
+
+func mark_dead(path: String) -> void:
+	path = str(path)
+	if path == "":
+		return
+	if dead_scene_paths.has(path):
+		return
+
+	dead_scene_paths.append(path)
+
+	# Remove everywhere so it can’t come back this run
+	squad_scene_paths.erase(path)
+	roster_scene_paths.erase(path)
+	recruit_pool_paths.erase(path)
+	recruited_scene_paths.erase(path)
+
+func recruit_joined_team(path: String) -> void:
+	# Called when a recruit is spawned on a map
+	path = str(path)
+	if path == "" or is_dead(path):
+		return
+
+	# Ensure it’s known to the run
+	if not roster_scene_paths.has(path):
+		roster_scene_paths.append(path)
+
+	# Fill vacancies only (your “squad rebuilding”)
+	if squad_scene_paths.size() < 3 and not squad_scene_paths.has(path): #squad size 3
+		squad_scene_paths.append(path)
+
+	# Make sure it’s not still considered recruitable
+	recruit_pool_paths.erase(path)
+	if not recruited_scene_paths.has(path):
+		recruited_scene_paths.append(path)
+
+func rebuild_recruit_pool() -> void:
+	# (your existing logic, but also exclude dead)
+	recruit_pool_paths.clear()
+
+	var taken: Dictionary = {}
+	for p in squad_scene_paths:
+		taken[str(p)] = true
+	for p in recruited_scene_paths:
+		taken[str(p)] = true
+	for p in dead_scene_paths:
+		taken[str(p)] = true
+
+	for p in roster_scene_paths:
+		var sp := str(p)
+		if not taken.has(sp):
+			recruit_pool_paths.append(sp)

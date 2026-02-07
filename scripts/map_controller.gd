@@ -190,6 +190,11 @@ var overlay_ghosts_root: Node2D = null
 var recruit_round_stamp: int = 0
 var _recruits_spawned_at: Dictionary = {}   # Vector2i -> true
 
+@export var recruit_buildings_needed := 0
+
+var _secured_unique_ids: Dictionary = {}   # instance_id -> true
+var _secured_count := 0
+
 # --- Recruit from remaining ally_scenes (unique) ---
 var _recruit_pool: Array[PackedScene] = []    # leftover ally scenes not used yet (mutable)
 var _used_ally_scenes: Array[PackedScene] = [] # starting + recruited (tracks uniqueness)
@@ -598,6 +603,9 @@ func spawn_units() -> void:
 	_recruits_spawned_at.clear()
 	_recruit_pool.clear()
 
+	_secured_unique_ids.clear()
+	_secured_count = 0
+
 	recruit_round_stamp += 1
 	_randomize_beacon_cell()
 
@@ -744,6 +752,9 @@ func spawn_units() -> void:
 			continue
 
 		var u := scene.instantiate() as Unit
+		if scene != null and scene.resource_path != "":
+			u.set_meta("scene_path", scene.resource_path)
+		
 		if u == null:
 			continue
 
@@ -819,6 +830,9 @@ func _spawn_elite_mech_in_zone(zone_cells: Array[Vector2i], structure_blocked: D
 	var cell: Vector2i = valid.pick_random()
 
 	var u := scene.instantiate() as Unit
+	if scene != null and scene.resource_path != "":
+		u.set_meta("scene_path", scene.resource_path)
+	
 	if u == null:
 		return false
 
@@ -4356,9 +4370,13 @@ func _try_recruit_near_structure(mover: Unit) -> void:
 		return
 	if mover.team != Unit.Team.ALLY:
 		return
-	if ally_scenes.is_empty():
-		return
 	if terrain == null or units_root == null or grid == null:
+		return
+
+	# Only block if BOTH sources are empty
+	var rs := _rs()
+	var has_rs_pool := (rs != null and rs.has_method("take_random_recruit_scene"))
+	if not has_rs_pool and ally_scenes.is_empty():
 		return
 
 	var s_cell := _find_adjacent_structure_cell(mover.cell)
@@ -4376,20 +4394,32 @@ func _try_recruit_near_structure(mover: Unit) -> void:
 	if root == null or not is_instance_valid(root):
 		return
 
-	# Once-per-round stamp on the UNIQUE root
-	if recruit_once_per_structure_per_round:
-		var stamp: int = int(root.get_meta("recruit_stamp", -999))
-		if stamp == recruit_round_stamp:
-			return
-		root.set_meta("recruit_stamp", recruit_round_stamp)
+	# ----------------------------
+	# ✅ NEW: Secure-per-mission gate
+	# ----------------------------
+	var rid := int(root.get_instance_id())
+	if _secured_unique_ids.has(rid):
+		return
 
-	# ✨ Pulse the unique building before the recruit spawns
+	_secured_unique_ids[rid] = true
+	_secured_count += 1
+
+	# ✨ Pulse the unique building to confirm capture
 	await _on_unique_recruit_pulse(root)
+
+	# Not enough yet → stop (no recruit)
+	if _secured_count < recruit_buildings_needed:
+		push_warning("RECRUIT: secured " + str(_secured_count) + "/" + str(recruit_buildings_needed) + " (pulse only)")
+		return
+
+	# We hit 3/3 → consume and spawn 1 recruit
+	_secured_count -= recruit_buildings_needed
 
 	var spawn_cell := _find_open_adjacent_to_structure(s_cell)
 	if spawn_cell.x < 0:
 		return
 
+	_say(mover, "RECRUIT INBOUND")
 	_spawn_recruited_ally_fadein(spawn_cell)
 	
 func _find_adjacent_structure_cell(cell: Vector2i) -> Vector2i:
@@ -4486,7 +4516,15 @@ func _spawn_recruited_ally_fadein(spawn_cell: Vector2i) -> void:
 		push_warning("Recruit: got null recruit scene.")
 		return
 
+	# ✅ NEW: Recruit becomes part of the run roster/squad
+	var rs2 := _rs()
+	if rs2 != null and rs2.has_method("recruit_joined_team") and scene != null:
+		rs2.call("recruit_joined_team", scene.resource_path)
+
 	var u := scene.instantiate() as Unit
+	if scene != null and scene.resource_path != "":
+		u.set_meta("scene_path", scene.resource_path)
+	
 	if u == null:
 		push_warning("Recruit: ally scene root must extend Unit.")
 		return
@@ -4565,7 +4603,6 @@ func get_all_enemies() -> Array[Unit]:
 		if u != null and is_instance_valid(u) and u.team == Unit.Team.ENEMY:
 			out.append(u)
 	return out
-
 
 func fire_support_missile_curve_async(
 	from_cell: Vector2i,
@@ -4728,32 +4765,49 @@ func try_collect_pickup(u: Variant) -> void:
 func on_unit_died(u: Unit) -> void:
 	if u == null:
 		return
-	# only zombies
-	if u.team != Unit.Team.ENEMY:
-		return
 
 	_cleanup_dead_at(u.cell)
 
-	# --- Tutorial hook ---
-	emit_signal("tutorial_event", &"enemy_died", {"cell": u.cell})
+	# -------------------------
+	# ENEMY death (your existing behavior)
+	# -------------------------
+	if u.team == Unit.Team.ENEMY:
+		emit_signal("tutorial_event", &"enemy_died", {"cell": u.cell})
 
-	# only drop until beacon is complete
-	if _team_floppy_total_allies() >= beacon_parts_needed:
-		_floppy_pity_accum = 0.0
-		_floppy_misses = 0
+		if _team_floppy_total_allies() >= beacon_parts_needed:
+			_floppy_pity_accum = 0.0
+			_floppy_misses = 0
+			return
+
+		if _roll_floppy_drop():
+			spawn_pickup_at(u.cell, floppy_pickup_scene)
+
+		var part_id = u.get_meta("boss_part_id", null)
+		if part_id != null:
+			var dmg := int(u.get_meta("boss_damage_on_destroy", 3))
+			var tm := get_tree().root.get_node_or_null("TurnManager")
+			if tm != null and tm.boss != null and is_instance_valid(tm.boss):
+				tm.boss.on_weakpoint_destroyed(part_id, dmg)
+
 		return
 
-	# ✅ better drop logic (pity + pressure scaling)
-	if _roll_floppy_drop():
-		spawn_pickup_at(u.cell, floppy_pickup_scene)
+	# -------------------------
+	# ALLY death (NEW: permadeath)
+	# -------------------------
+	if u.team == Unit.Team.ALLY:
+		emit_signal("tutorial_event", &"ally_died", {"cell": u.cell})
 
-	var part_id = u.get_meta("boss_part_id", null)
-	if part_id != null:
-		var dmg := int(u.get_meta("boss_damage_on_destroy", 3))
-		# Find boss via tree (or store a reference somewhere)
-		var tm := get_tree().root.get_node_or_null("TurnManager") # adjust to your path
-		if tm != null and tm.boss != null and is_instance_valid(tm.boss):
-			tm.boss.on_weakpoint_destroyed(part_id, dmg)
+		var rs := _rs()
+		if rs != null and rs.has_method("mark_dead"):
+			var p := ""
+			if u.has_meta("scene_path"):
+				p = str(u.get_meta("scene_path"))
+
+			if p == "":
+				push_warning("Permadeath: ally died but has no scene_path meta. Make sure all ally spawns set_meta('scene_path', scene.resource_path).")
+			else:
+				rs.call("mark_dead", p)			
+		return
 
 func _on_pickup_collected(u: Unit, cell: Vector2i) -> void:
 	# give the unit a floppy
