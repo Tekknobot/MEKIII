@@ -43,3 +43,5 @@ res://scenes/units/allies/M2.tscn
 res://scenes/units/allies/R3.tscn
 res://scripts/r_3.gd
 res://scenes/units/allies/humantwo.tscn
+res://scripts/zombie.gd
+res://scripts/unit.gd

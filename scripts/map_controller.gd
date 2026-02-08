@@ -5008,8 +5008,6 @@ func on_unit_died(u: Unit) -> void:
 	if u == null:
 		return
 
-	_cleanup_dead_at(u.cell)
-
 	# -------------------------
 	# ENEMY death (your existing behavior)
 	# -------------------------
@@ -5077,6 +5075,8 @@ func on_unit_died(u: Unit) -> void:
 			else:
 				rs.call("mark_dead", p)			
 		return
+		
+	_cleanup_dead_at(u.cell)	
 
 func get_kills_until_next_floppy() -> int:
 	return floppy_kills_left

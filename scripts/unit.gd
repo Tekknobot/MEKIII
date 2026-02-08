@@ -118,47 +118,31 @@ func _die() -> void:
 
 	_play_sfx(sfx_death)
 	emit_signal("died", self)
-	
 	_spawn_blood_fx()
-	
-	# Prefer unit-specific death behavior if you add it later.
-	# IMPORTANT: your custom play_death_anim should NOT queue_free immediately,
-	# it should play, then queue_free at the end (or emit a signal).
-	if has_method("play_death_anim"):
-		call("play_death_anim")
-		return
 
+	# ✅ default death anim (Visual first)
 	var a := get_node_or_null("AnimatedSprite2D") as AnimatedSprite2D
-	if a != null and a.sprite_frames != null and a.sprite_frames.has_animation("death"):
-		# ✅ make sure it won't loop (looping death never "finishes")
-		a.sprite_frames.set_animation_loop("death", false)
+	if a == null:
+		a = get_node_or_null("AnimatedSprite2D") as AnimatedSprite2D
 
-		# (optional) stop whatever was playing
+	if a != null and a.sprite_frames != null and a.sprite_frames.has_animation("death"):
+		a.sprite_frames.set_animation_loop("death", false)
 		a.stop()
 
-		# -------------------------------------------------
-		# ✅ Offset death anim for non-Human / non-HumanTwo
-		# -------------------------------------------------
 		var needs_offset := not (self is Human) and not (self is HumanTwo)
-
-		# If you want a per-unit tweak too, add this exported var:
-		# @export var death_fx_offset := Vector2.ZERO
 		var prev_pos := a.position
 		if needs_offset:
 			a.position = prev_pos + death_fx_offset
 
-		# ✅ play + await finish
 		a.play("death")
 		await a.animation_finished
 
-		# restore (so the unit doesn't stay shifted if something inspects it before free)
 		if needs_offset:
 			a.position = prev_pos
 
 		queue_free()
 		return
 
-	# Last resort: fade + shrink
 	await _play_death_anim_fallback()
 	queue_free()
 

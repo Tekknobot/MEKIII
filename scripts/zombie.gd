@@ -11,6 +11,8 @@ var _suppress_base_pos: Vector2
 var _suppress_base_modulate: Color
 var _suppress_active := false
 
+signal death_anim_finished
+
 func _ready() -> void:
 	set_meta("portrait_tex", preload("res://sprites/Portraits/zombie_port.png"))
 	set_meta("display_name", "Zombie")
@@ -143,3 +145,27 @@ func _on_cell_changed() -> void:
 	# if currently suppressed, restart tween so it jitters around the NEW cell
 	if _suppress_active:
 		_start_suppress_twitch()
+
+func play_death_anim() -> void:
+	# Unit._die() already set _dying = true before calling this,
+	# so do NOT early-return on _dying.
+
+	# hard-disable suppression + stop tween fighting the anim
+	if has_meta("suppress_turns"):
+		set_meta("suppress_turns", 0)
+	_suppress_active = false
+	_stop_suppress_twitch()
+
+	# Find AnimatedSprite2D (Visual first)
+	var anim := get_node_or_null("AnimatedSprite2D") as AnimatedSprite2D
+	if anim == null:
+		anim = get_node_or_null("AnimatedSprite2D") as AnimatedSprite2D
+
+	# Play death if present, otherwise just finish immediately
+	if anim != null and anim.sprite_frames != null and anim.sprite_frames.has_animation("death"):
+		anim.sprite_frames.set_animation_loop("death", false)
+		anim.stop()
+		anim.play("death")
+		await anim.animation_finished
+
+	emit_signal("death_anim_finished")
