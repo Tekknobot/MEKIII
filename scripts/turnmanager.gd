@@ -373,6 +373,10 @@ func _on_map_tutorial_event(id: StringName, _payload: Dictionary) -> void:
 	if id == &"enemy_died":
 		call_deferred("_refresh_population_and_check")
 
+	if id == &"pickup_collected":
+		_refresh_population_and_check()
+		return		
+
 func _refresh_population_and_check() -> void:
 	if _game_over_triggered:
 		return
@@ -407,6 +411,12 @@ func _refresh_population_and_check() -> void:
 	if infestation_hud != null and is_instance_valid(infestation_hud):
 		infestation_hud.set_counts(zombies, zombie_limit)
 
+		if M != null and "beacon_parts_collected" in M and "beacon_parts_needed" in M:
+			infestation_hud.set_floppy_count(int(M.beacon_parts_collected), int(M.beacon_parts_needed))
+		
+		if M != null and M.has_method("get_kills_until_next_floppy"):
+			infestation_hud.set_floppy_progress(int(M.call("get_kills_until_next_floppy")))
+			
 	# Loss #1: too many zombies (allowed as soon as checks are enabled)
 	if zombies > zombie_limit:
 		_loss_mode = LossMode.RESTART_MISSION

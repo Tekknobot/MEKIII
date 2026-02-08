@@ -38,3 +38,5 @@ res://scripts/overworld.gd
 res://scenes/title_screen.tscn
 res://scripts/RunState.gd
 res://scripts/end_game_panel_runtime.gd
+res://scripts/infestation_hud.gd
+res://scenes/units/allies/M2.tscn

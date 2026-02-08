@@ -281,6 +281,18 @@ const UNIQUE_GROUP := "UniqueBuilding"
 @export var floppy_pity_cap := 0.90             # don't exceed this before pressure bonus
 @export var infestation_limit_for_drops := 32   # match your zombie lose limit
 
+# -------------------------------------------------
+# FLOPPY DROP (kill-gated)
+# -------------------------------------------------
+var floppy_kills_left: int = -1
+var floppy_drop_index: int = 0
+var zombies_killed_this_map: int = 0
+
+@export var floppy_curve_combat: Array[int] = [4, 6, 8]
+@export var floppy_curve_elite:  Array[int] = [6, 8, 10]
+@export var floppy_curve_event:  Array[int] = [5, 7, 9]
+@export var floppy_curve_boss:   Array[int] = [999] # handled differently if you want phases
+
 var _floppy_pity_accum := 0.0
 var _floppy_misses := 0
 
@@ -4421,6 +4433,20 @@ func _ringout_push_and_die(attacker: Unit, defender: Unit) -> void:
 
 	var d := obj as Unit
 	d.hp = 0
+	
+	# ✅ REGISTER KILL (ringout bypasses take_damage/on_unit_died)
+	# Do this BEFORE playing death/removing.
+	if d.team == Unit.Team.ENEMY:
+		# 1) If you have an existing death handler, call it:
+		if has_method("on_unit_died"):
+			on_unit_died(d)
+		elif has_method("_on_unit_died"):
+			on_unit_died(d)
+
+		# 2) If TurnManager listens to tutorial_event to refresh infestation HUD:
+		if has_signal("tutorial_event"):
+			emit_signal("tutorial_event", &"enemy_died", {"cell": def_cell, "killer": attacker.get_instance_id()})
+	
 	await _play_death_and_wait(d)
 
 	# ✅ Remove by CELL (does not pass freed Unit into typed function)
@@ -4923,6 +4949,10 @@ func try_collect_pickup(u: Variant) -> void:
 	if not pickups_by_cell.has(c):
 		return
 
+	# Only allies can collect mission pickups
+	if uu.team != Unit.Team.ALLY:
+		return
+
 	var p = pickups_by_cell[c]
 	pickups_by_cell.erase(c)
 
@@ -4930,11 +4960,18 @@ func try_collect_pickup(u: Variant) -> void:
 	if has_method("_sfx"):
 		_sfx(&"pickup_floppy", 1.0, randf_range(0.95, 1.05), _cell_world(c))
 
+	# ✅ Only increment for allies
+	beacon_parts_collected += 1
+
 	if p != null and is_instance_valid(p):
 		p.queue_free()
 
 	emit_signal("pickup_collected", uu, c)
-	emit_signal("tutorial_event", &"pickup_collected", {"cell": c})
+	emit_signal("tutorial_event", &"pickup_collected", {
+		"cell": c,
+		"beacon_parts_collected": beacon_parts_collected,
+		"beacon_parts_needed": beacon_parts_needed
+	})
 
 func on_unit_died(u: Unit) -> void:
 	if u == null:
@@ -4953,8 +4990,35 @@ func on_unit_died(u: Unit) -> void:
 			_floppy_misses = 0
 			return
 
-		if _roll_floppy_drop():
-			spawn_pickup_at(u.cell, floppy_pickup_scene)
+		zombies_killed_this_map += 1
+
+		# Stop dropping if we already have enough parts
+		if _team_floppy_total_allies() < beacon_parts_needed:
+			if floppy_kills_left > 0:
+				floppy_kills_left -= 1
+
+			if floppy_kills_left == 0:
+				spawn_pickup_at(u.cell, floppy_pickup_scene)
+
+				# advance to next threshold
+				floppy_drop_index += 1
+
+				# choose next from curve (repeat last value if you want)
+				var rs := _rs()
+				var node_type = (&"combat" if rs == null else rs.mission_node_type)
+				var diff := (0.0 if rs == null else float(rs.mission_difficulty))
+				var mult = lerp(0.90, 1.20, clamp(diff, 0.0, 1.0))
+
+				var curve := floppy_curve_combat
+				if node_type == &"elite":
+					curve = floppy_curve_elite
+				elif node_type == &"event":
+					curve = floppy_curve_event
+				elif node_type == &"boss":
+					curve = floppy_curve_boss
+
+				var idx = min(floppy_drop_index, curve.size() - 1)
+				floppy_kills_left = int(round(float(curve[idx]) * mult))
 
 		var part_id = u.get_meta("boss_part_id", null)
 		if part_id != null:
@@ -4982,6 +5046,9 @@ func on_unit_died(u: Unit) -> void:
 			else:
 				rs.call("mark_dead", p)			
 		return
+
+func get_kills_until_next_floppy() -> int:
+	return floppy_kills_left
 
 func _on_pickup_collected(u: Unit, cell: Vector2i) -> void:
 	# give the unit a floppy
@@ -5146,8 +5213,7 @@ func _check_and_trigger_beacon_sweep() -> void:
 
 	# 1) ARM the beacon if enough parts collected (banked + carried)
 	if not beacon_ready:
-		var team_total := _team_floppy_total_allies()
-		var total := beacon_parts_collected + team_total
+		var total := beacon_parts_collected
 		if total >= beacon_parts_needed:
 			beacon_ready = true
 			_sfx(&"beacon_ready", 1.0, 1.0, _cell_world(beacon_cell))
@@ -5377,6 +5443,7 @@ func reset_beacon_state() -> void:
 
 	# visuals
 	_update_beacon_marker()  # will stop pulsing because beacon_ready=false
+	_init_floppy_kill_curve()
 
 func _pick_random_walkable_beacon_cell() -> Vector2i:
 	if grid == null:
@@ -5829,3 +5896,34 @@ func _apply_runstate_upgrades_to_unit(u: Unit) -> void:
 
 	if rs.run_upgrade_counts.get(&"all_dmg_plus_1", 0) > 0:
 		u.attack_damage += int(rs.run_upgrade_counts[&"all_dmg_plus_1"])
+
+func _init_floppy_kill_curve() -> void:
+	zombies_killed_this_map = 0
+	floppy_drop_index = 0
+
+	var rs := _rs()
+	var node_type := &"combat"
+	var diff := 0.0
+	if rs != null:
+		if "mission_node_type" in rs:
+			node_type = rs.mission_node_type
+		if "mission_difficulty" in rs:
+			diff = float(rs.mission_difficulty) # 0..1
+
+	var curve: Array[int] = floppy_curve_combat
+	if node_type == &"elite":
+		curve = floppy_curve_elite
+	elif node_type == &"event":
+		curve = floppy_curve_event
+	elif node_type == &"boss":
+		curve = floppy_curve_boss
+
+	# Difficulty nudge (light touch!)
+	# 0..1 => 0.9x .. 1.2x
+	var mult = lerp(0.90, 1.20, clamp(diff, 0.0, 1.0))
+
+	# First target
+	if curve.is_empty():
+		floppy_kills_left = -1
+	else:
+		floppy_kills_left = int(round(float(curve[0]) * mult))

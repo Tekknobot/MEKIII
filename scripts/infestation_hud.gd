@@ -17,8 +17,8 @@ class_name InfestationHUD
 @export var button_font: Font # not used yet, but exposed for consistency
 
 @export var title_font_size: int = 16
-@export var body_font_size: int = 14
-@export var button_font_size: int = 14 # not used yet
+@export var body_font_size: int = 16
+@export var button_font_size: int = 16 # not used yet
 
 # -------------------------
 # INTERNAL NODES
@@ -28,6 +28,8 @@ var _portrait: TextureRect
 var _title: Label
 var _bar: ProgressBar
 var _count: Label
+var _floppy: Label
+var _floppy_count: Label
 
 func _ready() -> void:
 	_build_ui()
@@ -115,17 +117,6 @@ func _build_ui() -> void:
 	col.add_theme_constant_override("separation", 4)
 	row.add_child(col)
 
-	_title = Label.new()
-	_title.text = "INFESTATION"
-	_title.add_theme_color_override("font_color", Color("3cff3c"))
-
-	# Apply TITLE font if provided
-	if title_font != null:
-		_title.add_theme_font_override("font", title_font)
-	_title.add_theme_font_size_override("font_size", title_font_size)
-
-	col.add_child(_title)
-
 	_bar = ProgressBar.new()
 	_bar.custom_minimum_size = Vector2(220, 14)
 	_bar.min_value = 0
@@ -145,6 +136,21 @@ func _build_ui() -> void:
 
 	col.add_child(_count)
 
+	_floppy_count = Label.new()
+	_floppy_count.text = "FLOPPIES: 0 / 0"
+	if body_font != null:
+		_floppy_count.add_theme_font_override("font", body_font)
+	_floppy_count.add_theme_font_size_override("font_size", body_font_size)
+	col.add_child(_floppy_count)
+
+	_floppy = Label.new()
+	_floppy.text = "NEXT FLOPPY: --"
+	_floppy.add_theme_color_override("font_color", Color("cfefff"))
+	if body_font != null:
+		_floppy.add_theme_font_override("font", body_font)
+	_floppy.add_theme_font_size_override("font_size", body_font_size)
+	col.add_child(_floppy)
+
 	# Bar background
 	var bg := StyleBoxFlat.new()
 	bg.bg_color = Color(0, 0, 0, 0.35)
@@ -153,6 +159,19 @@ func _build_ui() -> void:
 	bg.corner_radius_bottom_left = 4
 	bg.corner_radius_bottom_right = 4
 	_bar.add_theme_stylebox_override("background", bg)
+
+func set_floppy_count(got: int, need: int) -> void:
+	if _floppy_count == null:
+		return
+	_floppy_count.text = "FLOPPIES: %d / %d" % [got, need]
+
+func set_floppy_progress(kills_left: int) -> void:
+	if _floppy == null:
+		return
+	if kills_left < 0:
+		_floppy.text = "NEXT FLOPPY: --"
+	else:
+		_floppy.text = "NEXT FLOPPY IN: %d KILLS" % kills_left
 
 func set_counts(zombies: int, limit: int) -> void:
 	zombie_limit = max(1, limit)
