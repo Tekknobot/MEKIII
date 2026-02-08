@@ -74,6 +74,7 @@ class_name R3
 @export var iso_feet_offset_y := 16.0
 
 signal barrage_complete
+var _pending_impacts: int = 0
 
 func _ready() -> void:
 	set_meta("portrait_tex", portrait_tex)
@@ -171,7 +172,6 @@ func perform_barrage(M: MapController, target_cell: Vector2i) -> void:
 		return
 
 	_face_toward_cell(target_cell)
-	_play_attack_anim_once()
 
 	# Find all valid targets
 	var targets := _find_barrage_targets(M)
@@ -182,16 +182,17 @@ func perform_barrage(M: MapController, target_cell: Vector2i) -> void:
 	var shots = min(barrage_max_missiles, targets.size())
 	var pending_impacts := 0
 
-	# Launch missiles in sequence
 	for i in range(shots):
 		if not _alive():
 			break
 
 		var impact_cell: Vector2i = targets[i].cell
 
+		# ✅ play attack on EVERY missile
+		_play_attack_anim_once() # make sure this restarts/plays one-shot
+
 		_sfx_at_cell(M, barrage_launch_sfx_id, cell)
 
-		# Fire missile
 		var tw := M.fire_support_missile_curve_async(
 			cell,
 			impact_cell,
@@ -202,12 +203,9 @@ func perform_barrage(M: MapController, target_cell: Vector2i) -> void:
 
 		if tw != null and is_instance_valid(tw):
 			pending_impacts += 1
-			tw.finished.connect(func():
-				_on_barrage_impact(M, impact_cell)
-				pending_impacts -= 1
-				if pending_impacts <= 0:
-					emit_signal("barrage_complete")
-			)
+
+			# Safer than an inline lambda in some Godot setups: bind args.
+			tw.finished.connect(Callable(self, "_on_barrage_missile_finished").bind(M, impact_cell))
 
 		# Stagger launches
 		if i < shots - 1 and barrage_stagger_time > 0.0:
@@ -217,8 +215,18 @@ func perform_barrage(M: MapController, target_cell: Vector2i) -> void:
 	if pending_impacts > 0:
 		await barrage_complete
 
+	# ✅ back to idle only when DONE
 	_play_idle_anim()
 	special_cd[id_key] = barrage_cooldown
+
+
+func _on_barrage_missile_finished(M: MapController, impact_cell: Vector2i) -> void:
+	_on_barrage_impact(M, impact_cell)
+	# decrement + emit completion
+	# (store pending_impacts as a member if you prefer; easiest is make it a member var)
+	_pending_impacts -= 1
+	if _pending_impacts <= 0:
+		emit_signal("barrage_complete")
 
 func _on_barrage_impact(M: MapController, impact_cell: Vector2i) -> void:
 	if M == null or not is_instance_valid(M):
@@ -504,15 +512,82 @@ func _apply_damage_safely(tgt: Object, dmg: int) -> void:
 				tgt.queue_free()
 
 func _face_toward_cell(target_cell: Vector2i) -> void:
-	var spr2 := get_node_or_null("Sprite2D") as Sprite2D
-	if spr2 == null:
-		spr2 = get_node_or_null("Visual/Sprite2D") as Sprite2D
-	if spr2 == null:
+	# --- find AnimatedSprite2D ---
+	var anim: AnimatedSprite2D = null
+	var n := get_node_or_null("Animate")
+	if n is AnimatedSprite2D:
+		anim = n
+	else:
+		n = get_node_or_null("AnimatedSprite2D")
+		if n is AnimatedSprite2D:
+			anim = n
+
+	if anim == null:
+		print("FACE: no AnimatedSprite2D found on unit:", name)
 		return
-	if target_cell.x < cell.x:
-		spr2.flip_h = true
-	elif target_cell.x > cell.x:
-		spr2.flip_h = false
+
+	# --- find MapController ---
+	var M: MapController = null
+
+	# 1) group (preferred)
+	var maps := get_tree().get_nodes_in_group("MapController")
+	if maps.size() > 0 and maps[0] is MapController:
+		M = maps[0] as MapController
+	else:
+		print("FACE: MapController group empty (size=%d)" % maps.size())
+
+	# 2) current scene direct child
+	if M == null:
+		var root := get_tree().current_scene
+		if root != null:
+			var direct := root.get_node_or_null("MapController")
+			if direct is MapController:
+				M = direct as MapController
+			else:
+				print("FACE: no MapController node at root/MapController")
+
+	# 3) Game exposes it (your Game has @onready var map_controller)
+	if M == null:
+		var root2 := get_tree().current_scene
+		if root2 != null and ("map_controller" in root2):
+			M = root2.map_controller as MapController
+			print("FACE: using Game.map_controller fallback")
+
+	if M == null:
+		print("FACE: FAILED to get MapController")
+		return
+
+	# --- get terrain ---
+	var terrain: TileMap = null
+
+	# preferred: M.terrain (if you added it)
+	if "terrain" in M and M.terrain != null:
+		terrain = M.terrain as TileMap
+	else:
+		print("FACE: M.terrain missing/null, trying Game.Terrain")
+
+	# fallback: Game has @onready var terrain: TileMap = $Terrain
+	if terrain == null:
+		var root3 := get_tree().current_scene
+		if root3 != null and ("terrain" in root3) and root3.terrain != null:
+			terrain = root3.terrain as TileMap
+
+	if terrain == null:
+		print("FACE: FAILED to get Terrain TileMap")
+		return
+
+	# --- iso-safe facing using map_to_local ---
+	var my_pos := terrain.map_to_local(cell)
+	var target_pos := terrain.map_to_local(target_cell)
+
+	# default art faces LEFT -> right = flip ON
+	if target_pos.x > my_pos.x:
+		anim.flip_h = true
+	elif target_pos.x < my_pos.x:
+		anim.flip_h = false
+
+	# debug (comment out once confirmed)
+	#print("FACE OK: unit=", name, " flip=", anim.flip_h, " my=", my_pos, " tgt=", target_pos)
 
 func _play_attack_anim_once() -> void:
 	var sprA := get_node_or_null("AnimatedSprite2D") as AnimatedSprite2D

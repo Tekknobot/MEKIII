@@ -427,7 +427,7 @@ titan_explosion_scene = ExtResource("32_426vi")
 z_index = 2
 z_as_relative = false
 
-[node name="MapController" type="Node2D" parent="." node_paths=PackedStringArray("camera")]
+[node name="MapController" type="Node2D" parent="." node_paths=PackedStringArray("camera") groups=["MapController"]]
 script = ExtResource("24_ocgqw")
 camera = NodePath("../Camera2D")
 terrain_path = NodePath("../Terrain")
