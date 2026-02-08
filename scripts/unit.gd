@@ -120,30 +120,33 @@ func _die() -> void:
 	emit_signal("died", self)
 	_spawn_blood_fx()
 
-	# ✅ default death anim (Visual first)
-	var a := get_node_or_null("AnimatedSprite2D") as AnimatedSprite2D
-	if a == null:
-		a = get_node_or_null("AnimatedSprite2D") as AnimatedSprite2D
-
+	var a := _get_anim_sprite()
 	if a != null and a.sprite_frames != null and a.sprite_frames.has_animation("death"):
 		a.sprite_frames.set_animation_loop("death", false)
 		a.stop()
 
-		var needs_offset := not (self is Human) and not (self is HumanTwo)
+		# ✅ death offset: -16px Y for everyone EXCEPT Zombie/Human/HumanTwo
+		var apply_offset := not (self is Zombie) and not (self is Human) and not (self is HumanTwo)
 		var prev_pos := a.position
-		if needs_offset:
-			a.position = prev_pos + death_fx_offset
+		if apply_offset:
+			a.position = prev_pos + Vector2(0, -16)
 
 		a.play("death")
 		await a.animation_finished
 
-		if needs_offset:
+		# restore so we don't leave the node shifted for cleanup/free order
+		if apply_offset:
 			a.position = prev_pos
 
 		queue_free()
 		return
 
 	await _play_death_anim_fallback()
+
+	var M := get_tree().get_first_node_in_group("MapController")
+	if M != null and M.has_method("_cleanup_dead_at"):
+		M.call("_cleanup_dead_at", cell)
+		
 	queue_free()
 
 func _play_death_anim_fallback() -> void:
@@ -307,3 +310,26 @@ func _spawn_blood_fx() -> void:
 
 	# Slightly above the unit
 	fx.z_index = z_index + 1
+
+func _get_anim_sprite() -> AnimatedSprite2D:
+	# Common names you’ve used
+	for p in ["AnimatedSprite2D", "Animate", "Aniamte"]:
+		var n := get_node_or_null(p)
+		if n is AnimatedSprite2D:
+			return n as AnimatedSprite2D
+
+	# Otherwise find the first AnimatedSprite2D anywhere under this unit
+	var found := find_child("", true, false)
+	# (find_child can’t filter by type directly; we scan)
+	var stack: Array[Node] = [self]
+	while not stack.is_empty():
+		var cur = stack.pop_back()
+		for ch in cur.get_children():
+			if ch is AnimatedSprite2D:
+				return ch as AnimatedSprite2D
+			if ch is Node:
+				stack.append(ch)
+	return null
+
+func _get_map_controller() -> Node:
+	return get_tree().get_first_node_in_group("MapController")

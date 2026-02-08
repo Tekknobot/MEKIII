@@ -1815,8 +1815,6 @@ func _cleanup_dead_at(cell: Vector2i) -> void:
 
 	if u.hp <= 0:
 		units_by_cell.erase(cell)
-		if is_instance_valid(u):
-			u.queue_free() # ✅ this is what you were missing
 
 func _do_attack(attacker: Unit, defender: Unit) -> void:
 	if attacker == null or defender == null:
@@ -5074,9 +5072,7 @@ func on_unit_died(u: Unit) -> void:
 				push_warning("Permadeath: ally died but has no scene_path meta. Make sure all ally spawns set_meta('scene_path', scene.resource_path).")
 			else:
 				rs.call("mark_dead", p)			
-		return
-		
-	_cleanup_dead_at(u.cell)	
+		return	
 
 func get_kills_until_next_floppy() -> int:
 	return floppy_kills_left
