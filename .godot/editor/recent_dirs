@@ -1,5 +1,6 @@
-D:/Godot/_Builds/Web/ZombieMECHA_Web
 res://scripts
+res://sprites/Meks/R3
+D:/Godot/_Builds/Web/ZombieMECHA_Web
 res://sprites/Meks/S1
 res://sprites/Vehicles/Corvette/mirror/set
 res://sprites/Vehicles/Corvette
@@ -19,4 +20,3 @@ res://sprites/Zombies/zomb/crusher/idle
 res://sprites/Zombies/idle
 res://scenes
 res://sprites/Mechas/lunatic
-res://sprites/Meks/S3

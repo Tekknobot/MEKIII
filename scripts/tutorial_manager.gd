@@ -437,6 +437,20 @@ func _roll_3_upgrades() -> Array:
 			{"id": &"scannerz_overcharge_range_plus_1", "title": "DEEPER CHARGE", "desc": "+1 Range for Overcharge.", "thumb": t},
 		])
 		
+	# DECIMATOR
+	if has_unit.call("DECIMATOR"):
+		var t: Texture2D = thumb.call("DECIMATOR")
+		pool.append_array([
+			# --- core stats ---
+			{"id": &"decimator_hp_plus_2",     "title": "REINFORCED HULL",  "desc": "+2 Max HP for Decimator.",   "thumb": t},
+			{"id": &"decimator_move_plus_1",   "title": "SERVO OVERDRIVE",  "desc": "+1 Move for Decimator.",     "thumb": t},
+			{"id": &"decimator_dmg_plus_1",    "title": "HIGH-CALIBER CORE","desc": "+1 Damage for Decimator.",   "thumb": t},
+
+			# --- specials ---
+			{"id": &"decimator_barrage_range_plus_1", "title": "WIDER SALVO",   "desc": "+1 Range for Barrage.",  "thumb": t},
+			{"id": &"decimator_railgun_range_plus_1", "title": "LONG BARREL",   "desc": "+1 Range for Railgun.",  "thumb": t},
+		])
+		
 	# DESTROYER A.I.
 	# NOTE: your key will be whatever display_name becomes after strip+upper.
 	# If your display_name is "Destroyer A.I." then the key is "DESTROYER A.I."

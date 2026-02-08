@@ -51,6 +51,8 @@ const _SPAWN_WAIT_MAX_TRIES := 90  # ~1.5s at 60fps
 @export var slam_button_path: NodePath
 @export var laser_grid_button_path: NodePath
 @export var overcharge_button_path: NodePath
+@export var barrage_button_path: NodePath
+@export var railgun_button_path: NodePath
 
 @onready var suppress_button := get_node_or_null(suppress_button_path)
 @onready var stim_button := get_node_or_null(stim_button_path)
@@ -68,6 +70,8 @@ const _SPAWN_WAIT_MAX_TRIES := 90  # ~1.5s at 60fps
 @onready var slam_button := get_node_or_null(slam_button_path)
 @onready var laser_grid_button := get_node_or_null(laser_grid_button_path)
 @onready var overcharge_button := get_node_or_null(overcharge_button_path)
+@onready var barrage_button := get_node_or_null(barrage_button_path)
+@onready var railgun_button := get_node_or_null(railgun_button_path)
 
 enum Phase { PLAYER, ENEMY, BUSY }
 var phase: Phase = Phase.PLAYER
@@ -296,6 +300,10 @@ func _ready() -> void:
 		laser_grid_button.pressed.connect(_on_laser_grid_pressed)    
 	if overcharge_button:                                            
 		overcharge_button.pressed.connect(_on_overcharge_pressed) 
+	if barrage_button:
+		barrage_button.pressed.connect(_on_barrage_pressed)
+	if railgun_button:
+		railgun_button.pressed.connect(_on_railgun_pressed)
 		
 	start_player_phase()
 	_update_end_turn_button()
@@ -949,6 +957,38 @@ func _on_slam_pressed() -> void:
 
 	M.activate_special("slam")
 	_update_special_buttons()
+
+func _on_barrage_pressed() -> void:
+	if phase != Phase.PLAYER:
+		return
+	emit_signal("tutorial_event", &"special_button_pressed", {"id": "barrage"})
+
+	var u := M.selected
+	if u == null or not is_instance_valid(u):
+		return
+	if _attacked.get(u, false):
+		return
+	if not u.has_method("perform_barrage"):
+		return
+
+	M.activate_special("barrage")
+	_update_special_buttons()
+
+func _on_railgun_pressed() -> void:
+	if phase != Phase.PLAYER:
+		return
+	emit_signal("tutorial_event", &"special_button_pressed", {"id": "railgun"})
+
+	var u := M.selected
+	if u == null or not is_instance_valid(u):
+		return
+	if _attacked.get(u, false):
+		return
+	if not u.has_method("perform_railgun"):
+		return
+
+	M.activate_special("railgun")
+	_update_special_buttons()
 	
 func _update_special_buttons() -> void:
 	# Toggle visuals (pressed highlight)
@@ -968,6 +1008,8 @@ func _update_special_buttons() -> void:
 	if slam_button: slam_button.toggle_mode = true
 	if laser_grid_button: laser_grid_button.toggle_mode = true     
 	if overcharge_button: overcharge_button.toggle_mode = true  	
+	if barrage_button: barrage_button.toggle_mode = true
+	if railgun_button: railgun_button.toggle_mode = true
 					
 	# Reset
 	if hellfire_button:
@@ -1034,6 +1076,14 @@ func _update_special_buttons() -> void:
 		overcharge_button.disabled = true       
 		overcharge_button.button_pressed = false 
 		overcharge_button.visible = false        
+	if barrage_button:
+		barrage_button.disabled = true
+		barrage_button.button_pressed = false
+		barrage_button.visible = false
+	if railgun_button:
+		railgun_button.disabled = true
+		railgun_button.button_pressed = false
+		railgun_button.visible = false
 												
 	# Only during player phase
 	if phase != Phase.PLAYER:
@@ -1066,6 +1116,8 @@ func _update_special_buttons() -> void:
 	var has_slam := u.has_method("perform_slam") 
 	var has_laser_grid := u.has_method("perform_laser_grid")         
 	var has_overcharge := u.has_method("perform_overcharge") 
+	var has_barrage := u.has_method("perform_barrage")
+	var has_railgun := u.has_method("perform_railgun")
 					
 	# Optional filter list
 	if u.has_method("get_available_specials"):
@@ -1090,6 +1142,8 @@ func _update_special_buttons() -> void:
 		has_slam = has_slam and specials.has("slam")
 		has_laser_grid = has_laser_grid and specials.has("laser_grid")          
 		has_overcharge = has_overcharge and specials.has("overcharge") 		
+		has_barrage = has_barrage and specials.has("barrage")
+		has_railgun = has_railgun and specials.has("railgun")
 									
 	# Show ONLY if unit still has an attack action available
 	var show_specials := (not spent_attack)
@@ -1110,6 +1164,8 @@ func _update_special_buttons() -> void:
 	if slam_button: slam_button.visible = show_specials and has_slam
 	if laser_grid_button: laser_grid_button.visible = show_specials and has_laser_grid     
 	if overcharge_button: overcharge_button.visible = show_specials and has_overcharge     
+	if barrage_button: barrage_button.visible = show_specials and has_barrage
+	if railgun_button: railgun_button.visible = show_specials and has_railgun
 
 	# Cooldowns
 	var ok_hellfire := true
@@ -1128,6 +1184,8 @@ func _update_special_buttons() -> void:
 	var ok_slam := true
 	var ok_laser_grid := true          
 	var ok_overcharge := true  
+	var ok_barrage := true
+	var ok_railgun := true
 		
 	if u.has_method("can_use_special"):
 		ok_hellfire = u.can_use_special("hellfire")
@@ -1146,6 +1204,8 @@ func _update_special_buttons() -> void:
 		ok_slam = u.can_use_special("slam")
 		ok_laser_grid = u.can_use_special("laser_grid")          
 		ok_overcharge = u.can_use_special("overcharge")
+		ok_barrage = u.can_use_special("barrage")
+		ok_railgun = u.can_use_special("railgun")
 		
 	# Enable
 	if hellfire_button: hellfire_button.disabled = spent_attack or (not has_hellfire) or (not ok_hellfire)
@@ -1164,6 +1224,8 @@ func _update_special_buttons() -> void:
 	if slam_button: slam_button.disabled = spent_attack or (not has_slam) or (not ok_slam)
 	if laser_grid_button: laser_grid_button.disabled = spent_attack or (not has_laser_grid) or (not ok_laser_grid)     
 	if overcharge_button: overcharge_button.disabled = spent_attack or (not has_overcharge) or (not ok_overcharge)
+	if barrage_button: barrage_button.disabled = spent_attack or (not has_barrage) or (not ok_barrage)
+	if railgun_button: railgun_button.disabled = spent_attack or (not has_railgun) or (not ok_railgun)
 
 	# Note: need to handle underscores in special_id comparison
 	var active := ""
@@ -1198,6 +1260,10 @@ func _update_special_buttons() -> void:
 		laser_grid_button.button_pressed = (active == "laser_grid")                
 	if overcharge_button and not overcharge_button.disabled:                      
 		overcharge_button.button_pressed = (active == "overcharge") 
+	if barrage_button and not barrage_button.disabled:
+		barrage_button.button_pressed = (active == "barrage")
+	if railgun_button and not railgun_button.disabled:
+		railgun_button.button_pressed = (active == "railgun")
 		
 	# --- Apply colors based on pressed state ---
 	_skin_special_button(hellfire_button, hellfire_button.button_pressed if hellfire_button else false)
@@ -1216,6 +1282,8 @@ func _update_special_buttons() -> void:
 	_skin_special_button(slam_button, slam_button.button_pressed if slam_button else false)
 	_skin_special_button(laser_grid_button, laser_grid_button.button_pressed if laser_grid_button else false)          
 	_skin_special_button(overcharge_button, overcharge_button.button_pressed if overcharge_button else false)   
+	_skin_special_button(barrage_button, barrage_button.button_pressed if barrage_button else false)
+	_skin_special_button(railgun_button, railgun_button.button_pressed if railgun_button else false)
 						
 	# Overwatch + Stim are instant toggles
 	if overwatch_button and not overwatch_button.disabled:

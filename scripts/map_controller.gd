@@ -1528,6 +1528,11 @@ func _perform_special(u: Unit, id: String, target_cell: Vector2i) -> void:
 	elif id == "overcharge" and u.has_method("perform_overcharge"):
 		await u.call("perform_overcharge", self, target_cell)		
 		
+	elif id == "barrage" and u.has_method("perform_barrage"):
+		await u.call("perform_barrage", self, target_cell)
+
+	elif id == "railgun" and u.has_method("perform_railgun"):
+		await u.call("perform_railgun", self, target_cell)
 							
 	_is_moving = false
 
@@ -2069,6 +2074,24 @@ func _draw_special_range(u: Unit, special: String) -> void:
 			# -------------------------------------------------
 			# Helper: manhattan from origin to c
 			var dist = abs(c.x - origin.x) + abs(c.y - origin.y)
+
+			if id == "barrage":
+				var min_b := 1
+				if u.has_method("get_special_min_distance"):
+					min_b = int(u.call("get_special_min_distance", "barrage"))
+				elif "barrage_min_safe_dist" in u:
+					min_b = int(u.barrage_min_safe_dist)
+				if dist < min_b:
+					continue
+
+			if id == "railgun":
+				var min_rg := 1
+				if u.has_method("get_special_min_distance"):
+					min_rg = int(u.call("get_special_min_distance", "railgun"))
+				elif "railgun_min_safe_dist" in u:
+					min_rg = int(u.railgun_min_safe_dist)
+				if dist < min_rg:
+					continue
 
 			if id == "laser_grid":
 				var min_lg := 1
@@ -3392,6 +3415,10 @@ func _unit_can_use_special(u: Unit, id: String) -> bool:
 			return u.has_method("perform_laser_grid")
 		"overcharge":
 			return u.has_method("perform_overcharge")
+		"barrage":
+			return u.has_method("perform_barrage")
+		"railgun":
+			return u.has_method("perform_railgun")
 
 	return false
 

@@ -40,3 +40,5 @@ res://scripts/RunState.gd
 res://scripts/end_game_panel_runtime.gd
 res://scripts/infestation_hud.gd
 res://scenes/units/allies/M2.tscn
+res://scenes/units/allies/R3.tscn
+res://scripts/r_3.gd

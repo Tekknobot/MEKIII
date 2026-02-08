@@ -6,7 +6,7 @@
 [ext_resource type="PackedScene" uid="uid://g6gfrpvyugsa" path="res://scenes/cursor.tscn" id="7_bneo8"]
 [ext_resource type="Texture2D" uid="uid://d3dw1g0jasso3" path="res://sprites/Tiles_UI/mek3/1x1_move.png" id="7_g4kob"]
 [ext_resource type="Texture2D" uid="uid://dqnyvmrsprmvf" path="res://sprites/Terrain/grass_snow.png" id="8_7ua8r"]
-[ext_resource type="Script" uid="uid://82k2eidbwyo3" path="res://scenes/camera.gd" id="8_400sg"]
+[ext_resource type="Script" uid="uid://82k2eidbwyo3" path="res://scripts/camera.gd" id="8_400sg"]
 [ext_resource type="Texture2D" uid="uid://bo43jxw78vpg7" path="res://sprites/Tiles_UI/mek3/2x2_move.png" id="8_qy1jj"]
 [ext_resource type="Texture2D" uid="uid://usc687xtdcac" path="res://sprites/Terrain/grass_default.png" id="9_r7sob"]
 [ext_resource type="Texture2D" uid="uid://bsdcosxsddrot" path="res://sprites/Terrain/ice.png" id="10_y5y3l"]
@@ -414,6 +414,8 @@ web_button_path = NodePath("../UI/Web")
 slam_button_path = NodePath("../UI/Slam")
 laser_grid_button_path = NodePath("../UI/Grid")
 overcharge_button_path = NodePath("../UI/Overcharge")
+barrage_button_path = NodePath("../UI/Barrage")
+railgun_button_path = NodePath("../UI/Railgun")
 beacon_deadline_round = 99
 boss_controller_scene = ExtResource("28_6jll0")
 titan_event_enabled = false
@@ -750,6 +752,23 @@ theme_override_fonts/font = ExtResource("32_1gdd5")
 theme_override_font_sizes/font_size = 32
 text = "Nova"
 
+[node name="Railgun" type="Button" parent="UI" groups=["SpecialButton"]]
+z_index = 4096
+anchors_preset = 7
+anchor_left = 0.5
+anchor_top = 1.0
+anchor_right = 0.5
+anchor_bottom = 1.0
+offset_left = -246.0
+offset_top = -48.0
+offset_right = -126.0
+offset_bottom = -14.0
+grow_horizontal = 2
+grow_vertical = 0
+theme_override_fonts/font = ExtResource("32_1gdd5")
+theme_override_font_sizes/font_size = 32
+text = "Railgun"
+
 [node name="Watcher" type="Button" parent="UI" groups=["SpecialButton"]]
 z_index = 4096
 anchors_preset = 7
@@ -766,6 +785,23 @@ grow_vertical = 0
 theme_override_fonts/font = ExtResource("32_1gdd5")
 theme_override_font_sizes/font_size = 32
 text = "Watcher"
+
+[node name="Barrage" type="Button" parent="UI" groups=["SpecialButton"]]
+z_index = 4096
+anchors_preset = 7
+anchor_left = 0.5
+anchor_top = 1.0
+anchor_right = 0.5
+anchor_bottom = 1.0
+offset_left = -246.0
+offset_top = -90.0
+offset_right = -126.0
+offset_bottom = -56.0
+grow_horizontal = 2
+grow_vertical = 0
+theme_override_fonts/font = ExtResource("32_1gdd5")
+theme_override_font_sizes/font_size = 32
+text = "Barrage"
 
 [node name="Grid" type="Button" parent="UI" groups=["SpecialButton"]]
 z_index = 4096
