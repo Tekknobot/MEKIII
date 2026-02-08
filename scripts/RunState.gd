@@ -220,6 +220,43 @@ func apply_upgrades_to_unit(u: Node) -> void:
 			hp += get_upgrade_count(&"destroyer_hp_plus_2")
 			dmg += get_upgrade_count(&"destroyer_dmg_plus_1")
 
+		# 10) Arachnobot
+		"ARACHNOBOT":
+			hp += get_upgrade_count(&"arachno_hp_plus_1")
+			mv += get_upgrade_count(&"arachno_move_plus_1")
+			dmg += get_upgrade_count(&"arachno_dmg_plus_1")
+
+		# 11) Scannerz
+		"SCANNERZ":
+			hp += get_upgrade_count(&"scannerz_hp_plus_1")
+			mv += get_upgrade_count(&"scannerz_move_plus_1")
+			dmg += get_upgrade_count(&"scannerz_dmg_plus_1")
+			# NOTE: these are special-specific range upgrades.
+			# They DO NOT affect attack_range unless you explicitly wire them into the unit's special range logic.
+			# Example: u.set_meta("laser_grid_range_bonus", count) etc.
+
+		# 12) Edward
+		"EDWARD":
+			hp += get_upgrade_count(&"edward_hp_plus_1")
+			mv += get_upgrade_count(&"edward_move_plus_1")
+			dmg += get_upgrade_count(&"edward_dmg_plus_1")
+			# NOTE: your edward special range upgrades are still placeholders (<special1>/<special2>)
+			# so nothing else can be applied until you pick the real ids.
+
+		# 13) Decimator
+		"DECIMATOR":
+			hp += 2 * get_upgrade_count(&"decimator_hp_plus_2")
+			mv += get_upgrade_count(&"decimator_move_plus_1")
+			dmg += get_upgrade_count(&"decimator_dmg_plus_1")
+			# NOTE: barrage/railgun range upgrades also need unit wiring (special range logic),
+			# they are not generic attack_range.
+			# e.g. u.set_meta("barrage_range_bonus", count), u.set_meta("railgun_range_bonus", count)
+
+		# 14) Cobruh A.I.
+		"COBRUH A.I.":
+			hp += 2 * get_upgrade_count(&"cobruh_hp_plus_2")
+			dmg += get_upgrade_count(&"cobruh_dmg_plus_1")
+
 	# --- write back ---
 	if "max_hp" in u:
 		u.max_hp = hp

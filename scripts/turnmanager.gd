@@ -53,6 +53,9 @@ const _SPAWN_WAIT_MAX_TRIES := 90  # ~1.5s at 60fps
 @export var overcharge_button_path: NodePath
 @export var barrage_button_path: NodePath
 @export var railgun_button_path: NodePath
+@export var malfunction_button_path: NodePath
+@export var storm_button_path: NodePath
+
 
 @onready var suppress_button := get_node_or_null(suppress_button_path)
 @onready var stim_button := get_node_or_null(stim_button_path)
@@ -72,6 +75,8 @@ const _SPAWN_WAIT_MAX_TRIES := 90  # ~1.5s at 60fps
 @onready var overcharge_button := get_node_or_null(overcharge_button_path)
 @onready var barrage_button := get_node_or_null(barrage_button_path)
 @onready var railgun_button := get_node_or_null(railgun_button_path)
+@onready var malfunction_button := get_node_or_null(malfunction_button_path) 
+@onready var storm_button := get_node_or_null(storm_button_path) 
 
 enum Phase { PLAYER, ENEMY, BUSY }
 var phase: Phase = Phase.PLAYER
@@ -304,7 +309,11 @@ func _ready() -> void:
 		barrage_button.pressed.connect(_on_barrage_pressed)
 	if railgun_button:
 		railgun_button.pressed.connect(_on_railgun_pressed)
-		
+	if malfunction_button:
+		malfunction_button.pressed.connect(_on_malfunction_pressed)
+	if storm_button:
+		storm_button.pressed.connect(_on_storm_pressed)
+				
 	start_player_phase()
 	_update_end_turn_button()
 
@@ -989,7 +998,39 @@ func _on_railgun_pressed() -> void:
 
 	M.activate_special("railgun")
 	_update_special_buttons()
-	
+
+func _on_malfunction_pressed() -> void:
+	if phase != Phase.PLAYER:
+		return
+	emit_signal("tutorial_event", &"special_button_pressed", {"id": "malfunction"})
+
+	var u := M.selected
+	if u == null or not is_instance_valid(u):
+		return
+	if _attacked.get(u, false):
+		return
+	if not u.has_method("perform_malfunction"):
+		return
+
+	M.activate_special("malfunction")
+	_update_special_buttons()
+
+func _on_storm_pressed() -> void:
+	if phase != Phase.PLAYER:
+		return
+	emit_signal("tutorial_event", &"special_button_pressed", {"id": "storm"})
+
+	var u := M.selected
+	if u == null or not is_instance_valid(u):
+		return
+	if _attacked.get(u, false):
+		return
+	if not u.has_method("perform_storm"):
+		return
+
+	M.activate_special("storm")
+	_update_special_buttons()
+
 func _update_special_buttons() -> void:
 	# Toggle visuals (pressed highlight)
 	if hellfire_button: hellfire_button.toggle_mode = true
@@ -1010,7 +1051,9 @@ func _update_special_buttons() -> void:
 	if overcharge_button: overcharge_button.toggle_mode = true  	
 	if barrage_button: barrage_button.toggle_mode = true
 	if railgun_button: railgun_button.toggle_mode = true
-					
+	if malfunction_button: malfunction_button.toggle_mode = true
+	if storm_button: storm_button.toggle_mode = true
+						
 	# Reset
 	if hellfire_button:
 		hellfire_button.disabled = true
@@ -1075,7 +1118,7 @@ func _update_special_buttons() -> void:
 	if overcharge_button:                      
 		overcharge_button.disabled = true       
 		overcharge_button.button_pressed = false 
-		overcharge_button.visible = false        
+		overcharge_button.visible = false   
 	if barrage_button:
 		barrage_button.disabled = true
 		barrage_button.button_pressed = false
@@ -1083,8 +1126,16 @@ func _update_special_buttons() -> void:
 	if railgun_button:
 		railgun_button.disabled = true
 		railgun_button.button_pressed = false
-		railgun_button.visible = false
-												
+		railgun_button.visible = false			     
+	if malfunction_button:
+		malfunction_button.disabled = true
+		malfunction_button.button_pressed = false
+		malfunction_button.visible = false
+	if storm_button:
+		storm_button.disabled = true
+		storm_button.button_pressed = false
+		storm_button.visible = false		
+									
 	# Only during player phase
 	if phase != Phase.PLAYER:
 		return
@@ -1118,6 +1169,8 @@ func _update_special_buttons() -> void:
 	var has_overcharge := u.has_method("perform_overcharge") 
 	var has_barrage := u.has_method("perform_barrage")
 	var has_railgun := u.has_method("perform_railgun")
+	var has_malfunction := u.has_method("perform_malfunction")
+	var has_storm := u.has_method("perform_storm")
 					
 	# Optional filter list
 	if u.has_method("get_available_specials"):
@@ -1144,6 +1197,8 @@ func _update_special_buttons() -> void:
 		has_overcharge = has_overcharge and specials.has("overcharge") 		
 		has_barrage = has_barrage and specials.has("barrage")
 		has_railgun = has_railgun and specials.has("railgun")
+		has_malfunction = has_malfunction and specials.has("malfunction")
+		has_storm = has_storm and specials.has("storm")
 									
 	# Show ONLY if unit still has an attack action available
 	var show_specials := (not spent_attack)
@@ -1166,7 +1221,9 @@ func _update_special_buttons() -> void:
 	if overcharge_button: overcharge_button.visible = show_specials and has_overcharge     
 	if barrage_button: barrage_button.visible = show_specials and has_barrage
 	if railgun_button: railgun_button.visible = show_specials and has_railgun
-
+	if malfunction_button: malfunction_button.visible = show_specials and has_malfunction
+	if storm_button: storm_button.visible = show_specials and has_storm
+	
 	# Cooldowns
 	var ok_hellfire := true
 	var ok_blade := true
@@ -1186,6 +1243,8 @@ func _update_special_buttons() -> void:
 	var ok_overcharge := true  
 	var ok_barrage := true
 	var ok_railgun := true
+	var ok_malfunction := true
+	var ok_storm := true
 		
 	if u.has_method("can_use_special"):
 		ok_hellfire = u.can_use_special("hellfire")
@@ -1206,7 +1265,9 @@ func _update_special_buttons() -> void:
 		ok_overcharge = u.can_use_special("overcharge")
 		ok_barrage = u.can_use_special("barrage")
 		ok_railgun = u.can_use_special("railgun")
-		
+		ok_malfunction = u.can_use_special("malfunction")
+		ok_storm = u.can_use_special("storm")
+
 	# Enable
 	if hellfire_button: hellfire_button.disabled = spent_attack or (not has_hellfire) or (not ok_hellfire)
 	if blade_button: blade_button.disabled = spent_attack or (not has_blade) or (not ok_blade)
@@ -1226,6 +1287,8 @@ func _update_special_buttons() -> void:
 	if overcharge_button: overcharge_button.disabled = spent_attack or (not has_overcharge) or (not ok_overcharge)
 	if barrage_button: barrage_button.disabled = spent_attack or (not has_barrage) or (not ok_barrage)
 	if railgun_button: railgun_button.disabled = spent_attack or (not has_railgun) or (not ok_railgun)
+	if malfunction_button: malfunction_button.disabled = spent_attack or (not has_malfunction) or (not ok_malfunction)
+	if storm_button: storm_button.disabled = spent_attack or (not has_storm) or (not ok_storm)
 
 	# Note: need to handle underscores in special_id comparison
 	var active := ""
@@ -1264,7 +1327,11 @@ func _update_special_buttons() -> void:
 		barrage_button.button_pressed = (active == "barrage")
 	if railgun_button and not railgun_button.disabled:
 		railgun_button.button_pressed = (active == "railgun")
-		
+	if malfunction_button and not malfunction_button.disabled:
+		malfunction_button.button_pressed = (active == "malfunction")
+	if storm_button and not storm_button.disabled:
+		storm_button.button_pressed = (active == "storm")
+
 	# --- Apply colors based on pressed state ---
 	_skin_special_button(hellfire_button, hellfire_button.button_pressed if hellfire_button else false)
 	_skin_special_button(blade_button, blade_button.button_pressed if blade_button else false)
@@ -1284,6 +1351,8 @@ func _update_special_buttons() -> void:
 	_skin_special_button(overcharge_button, overcharge_button.button_pressed if overcharge_button else false)   
 	_skin_special_button(barrage_button, barrage_button.button_pressed if barrage_button else false)
 	_skin_special_button(railgun_button, railgun_button.button_pressed if railgun_button else false)
+	_skin_special_button(malfunction_button, malfunction_button.button_pressed if malfunction_button else false)
+	_skin_special_button(storm_button,storm_button.button_pressed if storm_button else false)	
 						
 	# Overwatch + Stim are instant toggles
 	if overwatch_button and not overwatch_button.disabled:

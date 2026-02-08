@@ -1,8 +1,12 @@
-[gd_scene load_steps=35 format=3 uid="uid://whpx3kvdbjd8"]
+[gd_scene load_steps=39 format=3 uid="uid://whpx3kvdbjd8"]
 
 [ext_resource type="Texture2D" uid="uid://cq5xwfcb4vqld" path="res://sprites/Meks/R4/r4atk_1.png" id="1_miedn"]
+[ext_resource type="Script" uid="uid://c7qdrw1unpsl1" path="res://scripts/r_4.gd" id="1_y5g8v"]
+[ext_resource type="Texture2D" uid="uid://b5bdfdh1qt7kq" path="res://sprites/Portraits/pilots/l0_por02.png" id="2_vlbvb"]
 [ext_resource type="Texture2D" uid="uid://b8otqiy1n0rkr" path="res://sprites/Meks/R4/r4atk_2.png" id="2_y5g8v"]
+[ext_resource type="Texture2D" uid="uid://bygvhthawhht8" path="res://sprites/Portraits/pilots/mek_portraits/r4.png" id="3_et23e"]
 [ext_resource type="Texture2D" uid="uid://43i5e6ml6lgv" path="res://sprites/Meks/R4/r4atk_3.png" id="3_xvhf8"]
+[ext_resource type="PackedScene" uid="uid://bapcpjpr3xx60" path="res://scenes/bullet.tscn" id="4_jxghm"]
 [ext_resource type="Texture2D" uid="uid://dgtynv30chfyr" path="res://sprites/Meks/R4/r4atk_4.png" id="4_nypcw"]
 [ext_resource type="Texture2D" uid="uid://dlqfghgv4p7kt" path="res://sprites/Meks/R4/r4atk_5.png" id="5_vlbvb"]
 [ext_resource type="Texture2D" uid="uid://ckvc4fpf4g21q" path="res://sprites/Meks/R4/r4atk_6.png" id="6_et23e"]
@@ -150,6 +154,19 @@ animations = [{
 }]
 
 [node name="Unit" type="CharacterBody2D"]
+script = ExtResource("1_y5g8v")
+portrait_tex = ExtResource("2_vlbvb")
+thumbnail = ExtResource("3_et23e")
+base_max_hp = 6
+malfunction_cooldown = 0
+malfunction_self_damage = 0
+storm_max_targets = 8
+storm_cooldown = 0
+storm_projectile_speed = 100.0
+storm_fire_sfx_id = &"volley_fire"
+projectile_scene = ExtResource("4_jxghm")
+display_name = "EDWARD"
+death_fx_offset = Vector2(0, -16)
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="."]
 position = Vector2(0, -9)

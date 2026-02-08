@@ -436,6 +436,21 @@ func _roll_3_upgrades() -> Array:
 			{"id": &"scannerz_laser_grid_range_plus_1", "title": "WIDER GRID",    "desc": "+1 Range for Laser Grid.", "thumb": t},
 			{"id": &"scannerz_overcharge_range_plus_1", "title": "DEEPER CHARGE", "desc": "+1 Range for Overcharge.", "thumb": t},
 		])
+
+	if has_unit.call("EDWARD"):
+		var t: Texture2D = thumb.call("EDWARD")
+		pool.append_array([
+			# --- stats ---
+			{"id": &"edward_hp_plus_1",    "title": "REINFORCED FRAME", "desc": "+1 Max HP for Edward.", "thumb": t},
+			{"id": &"edward_move_plus_1",  "title": "QUICK STEP",       "desc": "+1 Move for Edward.",   "thumb": t},
+			{"id": &"edward_dmg_plus_1",   "title": "FOCUSED STRIKES",  "desc": "+1 Damage for Edward.", "thumb": t},
+
+			# --- specials (S1) ---
+			{"id": &"edward_<special1>_range_plus_1", "title": "<SPECIAL 1 TITLE>", "desc": "+1 Range for <Special 1>.", "thumb": t},
+
+			# --- specials (S2) ---
+			{"id": &"edward_<special2>_range_plus_1", "title": "<SPECIAL 2 TITLE>", "desc": "+1 Range for <Special 2>.", "thumb": t},
+		])
 		
 	# DECIMATOR
 	if has_unit.call("DECIMATOR"):

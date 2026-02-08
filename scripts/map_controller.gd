@@ -1533,7 +1533,13 @@ func _perform_special(u: Unit, id: String, target_cell: Vector2i) -> void:
 
 	elif id == "railgun" and u.has_method("perform_railgun"):
 		await u.call("perform_railgun", self, target_cell)
-							
+
+	elif id == "malfunction" and u.has_method("perform_malfunction"):
+		await u.call("perform_malfunction", self, target_cell)
+
+	elif id == "storm" and u.has_method("perform_storm"):
+		await u.call("perform_storm", self, target_cell)
+									
 	_is_moving = false
 
 func _mouse_to_cell() -> Vector2i:
@@ -2072,6 +2078,24 @@ func _draw_special_range(u: Unit, special: String) -> void:
 			# -------------------------------------------------
 			# Helper: manhattan from origin to c
 			var dist = abs(c.x - origin.x) + abs(c.y - origin.y)
+
+			if id == "malfunction":
+				var min_mf := 1
+				if u.has_method("get_special_min_distance"):
+					min_mf = int(u.call("get_special_min_distance", "malfunction"))
+				elif "malfunction_min_safe_dist" in u:
+					min_mf = int(u.malfunction_min_safe_dist)
+				if dist < min_mf:
+					continue
+
+			if id == "storm":
+				var min_st := 1
+				if u.has_method("get_special_min_distance"):
+					min_st = int(u.call("get_special_min_distance", "storm"))
+				elif "storm_min_safe_dist" in u:
+					min_st = int(u.storm_min_safe_dist)
+				if dist < min_st:
+					continue
 
 			if id == "barrage":
 				var min_b := 1
@@ -3417,7 +3441,11 @@ func _unit_can_use_special(u: Unit, id: String) -> bool:
 			return u.has_method("perform_barrage")
 		"railgun":
 			return u.has_method("perform_railgun")
-
+		"malfunction":
+			return u.has_method("perform_malfunction")
+		"storm":
+			return u.has_method("perform_storm")
+				
 	return false
 
 func select_unit(u: Unit) -> void:

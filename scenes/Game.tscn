@@ -416,6 +416,8 @@ laser_grid_button_path = NodePath("../UI/Grid")
 overcharge_button_path = NodePath("../UI/Overcharge")
 barrage_button_path = NodePath("../UI/Barrage")
 railgun_button_path = NodePath("../UI/Railgun")
+malfunction_button_path = NodePath("../UI/Malfunction")
+storm_button_path = NodePath("../UI/Storm")
 beacon_deadline_round = 99
 boss_controller_scene = ExtResource("28_6jll0")
 titan_event_enabled = false
@@ -752,6 +754,23 @@ theme_override_fonts/font = ExtResource("32_1gdd5")
 theme_override_font_sizes/font_size = 32
 text = "Nova"
 
+[node name="Malfunction" type="Button" parent="UI" groups=["SpecialButton"]]
+z_index = 4096
+anchors_preset = 7
+anchor_left = 0.5
+anchor_top = 1.0
+anchor_right = 0.5
+anchor_bottom = 1.0
+offset_left = -246.0
+offset_top = -48.0
+offset_right = -126.0
+offset_bottom = -14.0
+grow_horizontal = 2
+grow_vertical = 0
+theme_override_fonts/font = ExtResource("32_1gdd5")
+theme_override_font_sizes/font_size = 32
+text = "Malfunction"
+
 [node name="Railgun" type="Button" parent="UI" groups=["SpecialButton"]]
 z_index = 4096
 anchors_preset = 7
@@ -802,6 +821,23 @@ grow_vertical = 0
 theme_override_fonts/font = ExtResource("32_1gdd5")
 theme_override_font_sizes/font_size = 32
 text = "Barrage"
+
+[node name="Storm" type="Button" parent="UI" groups=["SpecialButton"]]
+z_index = 4096
+anchors_preset = 7
+anchor_left = 0.5
+anchor_top = 1.0
+anchor_right = 0.5
+anchor_bottom = 1.0
+offset_left = -246.0
+offset_top = -90.0
+offset_right = -126.0
+offset_bottom = -56.0
+grow_horizontal = 2
+grow_vertical = 0
+theme_override_fonts/font = ExtResource("32_1gdd5")
+theme_override_font_sizes/font_size = 32
+text = "Storm"
 
 [node name="Grid" type="Button" parent="UI" groups=["SpecialButton"]]
 z_index = 4096
