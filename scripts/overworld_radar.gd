@@ -23,7 +23,7 @@ var hovered_node_id: int = -1
 var origin: Vector2
 
 @export var remove_ratio: float = 0.33         # % nodes removed (voids)
-@export var extra_links_chance: float = 0.10   # add a few diagonals sometimes
+@export var extra_links_chance: float = 0.0   # add a few diagonals sometimes
 @export var seed_value: int = 0                # 0 = random
 
 # Radar look
@@ -116,6 +116,18 @@ var _hud_row: HBoxContainer = null
 
 @export var cheat_event_key_enabled := true
 
+const LINEAR_ROUTE := [
+	NodeType.START,
+	NodeType.COMBAT,
+	NodeType.EVENT,
+	NodeType.COMBAT,
+	NodeType.SUPPLY,
+	NodeType.COMBAT,
+	NodeType.ELITE,
+	NodeType.COMBAT,
+	NodeType.BOSS,
+]
+
 # -------------------------
 # LIFECYCLE
 # -------------------------
@@ -129,7 +141,7 @@ func _ready() -> void:
 		
 	var rs: Node = _rs()
 
-	# --- seed ---
+	# --- seed ---Current node highlight
 	if rs != null:
 		if int(rs.overworld_seed) == 0:
 			rs.overworld_seed = int(Time.get_unix_time_from_system()) ^ randi()
@@ -594,181 +606,22 @@ func _generate_world() -> void:
 	# Boss = farthest reachable from start
 	boss_id = _farthest_from(start_id)
 
-	# Difficulty gradient = normalized BFS distance from start
+	# ✅ Keep only ONE constellation: the start->boss route
+	var path := _path_start_to_boss()
+	if not path.is_empty():
+		# If you want EXACTLY your sequence length, trim:
+		if path.size() > LINEAR_ROUTE.size():
+			path = path.slice(0, LINEAR_ROUTE.size())
+			boss_id = int(path[path.size() - 1])
+		_keep_only_path_constellation(path)
+
+	# Recompute difficulty on the constellation
 	_assign_difficulty_from(start_id)
 
-	# Assign node types
-	_assign_types()
-	_assign_extra_boss_nodes()
-	_assign_extra_elite_nodes()
-	_line_up_events()
-	
-	_enforce_upgrade_before_battles()
-	_ensure_prebattle_upgrade_neighbors()
-	
-	_break_adjacent_doubles_any_direction()
-	
+	# Apply your linear route types on that path
+	_assign_linear_route_types()
+
 	current_node_id = start_id
-
-func _break_adjacent_doubles_any_direction() -> void:
-	# Break any adjacent pair of the same *special* type (8 directions).
-	# We convert one of the two to COMBAT.
-	#
-	# Notes:
-	# - We do NOT break COMBAT adjacency (combat can cluster).
-	# - We do NOT touch START or any BOSS nodes.
-	# - Runs multiple passes because flipping one node can create/resolve other doubles.
-
-	var max_passes := 12
-	for _pass in range(max_passes):
-		var changed := false
-
-		for gy in range(grid_size):
-			for gx in range(grid_size):
-				var a := gy * grid_size + gx
-				if not alive[a]:
-					continue
-
-				var ta := nodes[a].ntype
-
-				# Only break doubles for these (you can add/remove types here)
-				if ta == NodeType.COMBAT:
-					continue
-				if ta == NodeType.START:
-					continue
-				if ta == NodeType.BOSS:
-					continue
-
-				# Check neighbors in 8 directions
-				for dy in [-1, 0, 1]:
-					for dx in [-1, 0, 1]:
-						if dx == 0 and dy == 0:
-							continue
-
-						var nx = gx + dx
-						var ny = gy + dy
-						if nx < 0 or ny < 0 or nx >= grid_size or ny >= grid_size:
-							continue
-
-						var b = ny * grid_size + nx
-						if not alive[b]:
-							continue
-
-						# same type => a "double"
-						if nodes[b].ntype != ta:
-							continue
-
-						# never touch bosses (even if some logic accidentally matched)
-						if nodes[b].ntype == NodeType.BOSS:
-							continue
-
-						# Choose which one to flip to COMBAT
-						# Prefer flipping the one that is NOT start/boss_id, and also prefer higher difficulty.
-						var victim := a
-
-						# protect start/boss ids
-						if a == start_id or a == boss_id:
-							victim = b
-						elif b == start_id or b == boss_id:
-							victim = a
-						else:
-							# pick the higher difficulty node to become combat (feels “harder later”)
-							victim = (b if nodes[b].difficulty > nodes[a].difficulty else a)
-
-						# final safety: don't flip START/BOSS types or IDs
-						if victim == start_id or victim == boss_id:
-							continue
-						if nodes[victim].ntype == NodeType.START:
-							continue
-						if nodes[victim].ntype == NodeType.BOSS:
-							continue
-
-						nodes[victim].ntype = NodeType.COMBAT
-						changed = true
-
-						# Early exit helps avoid over-flipping in a single pass
-						# (and reduces “chain reaction” surprises)
-						break
-					if changed:
-						break
-				if changed:
-					break
-
-		if not changed:
-			break
-
-func _enforce_upgrade_before_battles() -> void:
-	var path := _path_start_to_boss()
-	if path.size() < 3:
-		return
-
-	# We’ll make pattern: UPGRADE -> BATTLE -> UPGRADE -> BATTLE ...
-	# Starting after START.
-	for i in range(1, path.size()):
-		var id := path[i]
-		if id < 0 or id >= nodes.size():
-			continue
-		if not alive[id]:
-			continue
-		if id == boss_id:
-			continue # boss stays boss
-
-		# Decide what this step should be based on index parity
-		# i=1 => upgrade, i=2 => battle, i=3 => upgrade ...
-		var should_be_upgrade := (i % 2 == 1)
-
-		if should_be_upgrade:
-			# Don’t overwrite special fights if you want; but usually ok to force upgrade slots
-			if nodes[id].ntype == NodeType.START or nodes[id].ntype == NodeType.BOSS:
-				continue
-			nodes[id].ntype = (NodeType.SUPPLY if rng.randf() < 0.55 else NodeType.EVENT)
-		else:
-			# battle slot: prefer COMBAT early, ELITE later
-			if nodes[id].ntype == NodeType.BOSS or nodes[id].ntype == NodeType.START:
-				continue
-			var d := nodes[id].difficulty
-			if d > 0.65 and rng.randf() < 0.55:
-				nodes[id].ntype = NodeType.ELITE
-			else:
-				nodes[id].ntype = NodeType.COMBAT
-
-func _ensure_prebattle_upgrade_neighbors() -> void:
-	for nd in nodes:
-		if not alive[nd.id]:
-			continue
-		if nd.ntype != NodeType.COMBAT and nd.ntype != NodeType.ELITE and nd.ntype != NodeType.BOSS:
-			continue
-
-		# Find neighbors "before" this node (lower difficulty)
-		var prev: Array[int] = []
-		for nb in nd.neighbors:
-			if not alive[nb]:
-				continue
-			if nodes[nb].difficulty < nd.difficulty:
-				prev.append(nb)
-
-		if prev.is_empty():
-			continue
-
-		# If any previous neighbor already upgrade, we’re good
-		var has_upgrade := false
-		for nb in prev:
-			if nodes[nb].ntype == NodeType.SUPPLY or nodes[nb].ntype == NodeType.EVENT:
-				has_upgrade = true
-				break
-		if has_upgrade:
-			continue
-
-		# Force one previous neighbor to upgrade (prefer one that isn’t start/boss)
-		prev.sort_custom(func(a:int, b:int) -> bool:
-			return nodes[a].difficulty > nodes[b].difficulty # choose the closest “before” node
-		)
-
-		for nb in prev:
-			if nodes[nb].ntype == NodeType.START or nodes[nb].ntype == NodeType.BOSS:
-				continue
-			nodes[nb].ntype = (NodeType.SUPPLY if rng.randf() < 0.55 else NodeType.EVENT)
-			break
 
 func _carve_voids_connected() -> void:
 	var n: int = grid_size * grid_size
@@ -1448,60 +1301,6 @@ func _get_prop_if_exists(obj: Object, prop: StringName) -> Variant:
 			return obj.get(prop)
 	return null
 
-func _assign_extra_boss_nodes() -> void:
-	# Ensure at least 1 boss (your farthest node)
-	if boss_id < 0:
-		return
-
-	# Clamp desired count
-	var desired = max(1, boss_node_count)
-
-	# Already have 1 boss via _assign_types()
-	var remaining = desired - 1
-	if remaining <= 0:
-		return
-
-	# Distances from start so we can prefer late nodes
-	var dist := _bfs_dist(start_id)
-
-	# Candidates: alive, not cleared, not start, not existing boss_id, high difficulty
-	var candidates: Array[int] = []
-	for nd in nodes:
-		if not alive[nd.id]:
-			continue
-		if nd.id == start_id:
-			continue
-		if nd.id == boss_id:
-			continue
-		if nd.difficulty < boss_min_difficulty:
-			continue
-		candidates.append(nd.id)
-
-	# Shuffle deterministically
-	_rng_shuffle_int(candidates)
-
-	# Keep bosses spaced out by BFS distance between them
-	var chosen: Array[int] = [boss_id]
-
-	for id in candidates:
-		if remaining <= 0:
-			break
-
-		# spacing check: BFS gap between this id and all chosen bosses
-		var ok := true
-		for b in chosen:
-			var gap := _bfs_distance_between(id, b)
-			if gap >= 0 and gap < boss_min_bfs_gap:
-				ok = false
-				break
-		if not ok:
-			continue
-
-		# Promote to boss
-		nodes[id].ntype = NodeType.BOSS
-		chosen.append(id)
-		remaining -= 1
-
 func _bfs_distance_between(a: int, b: int) -> int:
 	if a == b:
 		return 0
@@ -1531,147 +1330,6 @@ func _bfs_distance_between(a: int, b: int) -> int:
 			q.append(nb)
 
 	return -1
-
-func _assign_extra_elite_nodes() -> void:
-	elite_ids.clear()
-
-	# Clamp desired count
-	var desired = max(0, elite_node_count)
-	if desired <= 0:
-		return
-
-	# Candidates: alive, not cleared, not start, not boss, late difficulty
-	var candidates: Array[int] = []
-	for nd in nodes:
-		if not alive[nd.id]:
-			continue
-		if nd.id == start_id:
-			continue
-		if nd.ntype == NodeType.BOSS:
-			continue
-		if nd.difficulty < elite_min_difficulty:
-			continue
-
-		# Don’t steal other special nodes unless you want to allow it
-		# (If you DO want elites to overwrite COMBAT/EVENT/SUPPLY, remove this check.)
-		if nd.ntype != NodeType.COMBAT:
-			continue
-
-		candidates.append(nd.id)
-
-	_rng_shuffle_int(candidates)
-
-	# Keep ELITEs spaced out
-	var chosen: Array[int] = []
-
-	for id in candidates:
-		if chosen.size() >= desired:
-			break
-
-		var ok := true
-
-		# keep away from other elites
-		for e in chosen:
-			var gap := _bfs_distance_between(id, e)
-			if gap >= 0 and gap < elite_min_bfs_gap:
-				ok = false
-				break
-		if not ok:
-			continue
-
-		# optional: also keep away from bosses a bit
-		# (uncomment if you want)
-		# if boss_id >= 0:
-		# 	var gb := _bfs_distance_between(id, boss_id)
-		# 	if gb >= 0 and gb < elite_min_bfs_gap:
-		# 		continue
-
-		nodes[id].ntype = NodeType.ELITE
-		chosen.append(id)
-
-	elite_ids = chosen
-
-func _line_up_events() -> void:
-	# Gather event nodes
-	var ev: Array[NodeData] = []
-	for nd in nodes:
-		if alive[nd.id] and nd.ntype == NodeType.EVENT:
-			ev.append(nd)
-	if ev.size() <= 1:
-		return
-
-	# Sort by difficulty so they "read" left-to-right early->late
-	ev.sort_custom(func(a: NodeData, b: NodeData) -> bool:
-		return a.difficulty < b.difficulty
-	)
-
-	# Choose a row: the median event's current row (keeps it "somewhere" sensible)
-	var row := ev[int(ev.size() * 0.5)].gy
-	row = clampi(row, 0, grid_size - 1)
-
-	# Get all alive nodes in that row, excluding start/boss, sorted by gx
-	var slots: Array[NodeData] = []
-	for nd in nodes:
-		if not alive[nd.id]:
-			continue
-		if nd.id == start_id or nd.id == boss_id:
-			continue
-		if nd.gy != row:
-			continue
-		slots.append(nd)
-
-	slots.sort_custom(func(a: NodeData, b: NodeData) -> bool:
-		return a.gx < b.gx
-	)
-
-	if slots.size() == 0:
-		return
-
-	# If not enough slots in that row, fall back to the fullest row
-	if slots.size() < ev.size():
-		var best_row := row
-		var best_count := slots.size()
-		for y in range(grid_size):
-			var c := 0
-			for nd in nodes:
-				if alive[nd.id] and nd.id != start_id and nd.id != boss_id and nd.gy == y:
-					c += 1
-			if c > best_count:
-				best_count = c
-				best_row = y
-		row = best_row
-
-		# rebuild slots for chosen row
-		slots.clear()
-		for nd in nodes:
-			if not alive[nd.id]:
-				continue
-			if nd.id == start_id or nd.id == boss_id:
-				continue
-			if nd.gy != row:
-				continue
-			slots.append(nd)
-		slots.sort_custom(func(a: NodeData, b: NodeData) -> bool:
-			return a.gx < b.gx
-		)
-
-		if slots.size() < ev.size():
-			# not enough space anywhere; give up safely
-			return
-
-	# Move event types onto that row by swapping types with the slot nodes
-	for i in range(ev.size()):
-		var a := ev[i]
-		var b := slots[i]
-		if a.id == b.id:
-			continue
-		var tmp := a.ntype
-		a.ntype = b.ntype
-		b.ntype = tmp
-
-	# After changing types, rebuild graph/difficulty if you want them consistent
-	_rebuild_graph()
-	_assign_difficulty_from(start_id)
 
 func _ensure_current_is_alive(rs: Node) -> void:
 	# If current is invalid or dead, fall back to start if alive, else any alive node.
@@ -1877,3 +1535,50 @@ func get_node_world_pos(id: int) -> Vector2:
 	if id < 0 or id >= nodes.size():
 		return get_center_world()
 	return to_global(nodes[id].pos)
+
+func _assign_linear_route_types() -> void:
+	# Baseline everything to COMBAT (alive only)
+	for nd in nodes:
+		if not alive[nd.id]:
+			continue
+		nd.ntype = NodeType.COMBAT
+
+	# Ensure start/boss exist
+	if start_id >= 0 and start_id < nodes.size() and alive[start_id]:
+		nodes[start_id].ntype = NodeType.START
+	if boss_id >= 0 and boss_id < nodes.size() and alive[boss_id]:
+		nodes[boss_id].ntype = NodeType.BOSS
+
+	# Get path start -> boss
+	var path := _path_start_to_boss()
+	if path.is_empty():
+		return
+
+	# Apply pattern along the path (truncate if path shorter)
+	var L = min(path.size(), LINEAR_ROUTE.size())
+
+	for i in range(L):
+		var id := path[i]
+		if id < 0 or id >= nodes.size():
+			continue
+		if not alive[id]:
+			continue
+		nodes[id].ntype = LINEAR_ROUTE[i]
+
+	# Force the final to be BOSS if we reached the end of the path
+	var last := path[path.size() - 1]
+	if last >= 0 and last < nodes.size() and alive[last]:
+		nodes[last].ntype = NodeType.BOSS
+
+func _keep_only_path_constellation(path: Array[int]) -> void:
+	# Mark which ids to keep
+	var keep: Dictionary = {}
+	for id in path:
+		keep[int(id)] = true
+
+	# Kill everything else
+	for i in range(alive.size()):
+		alive[i] = keep.has(i)
+
+	# Rebuild graph based on the remaining alive nodes
+	_rebuild_graph()

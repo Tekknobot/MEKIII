@@ -8,7 +8,6 @@
 script = ExtResource("1_cn00k")
 label_font = ExtResource("2_hcx2u")
 label_font_size = 16
-fade_in_duration = 2.0
 grid_size = 6
 jitter_px = 0.0
 back_button_font = ExtResource("2_hcx2u")

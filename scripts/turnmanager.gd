@@ -2234,7 +2234,7 @@ func _run_event_cinematic_sequence() -> void:
 
 	# decide how many steps to try (big run)
 	# This is intentionally a lot; steps that fail will just do nothing if _cinematic_step blocks.
-	var steps := 8
+	var steps := 2
 
 	# Move them in a staggered "column" feel: a0 then a1 then a2, repeat
 	for i in range(steps):
