@@ -1797,17 +1797,21 @@ func _cleanup_dead_at(cell: Vector2i) -> void:
 	if not units_by_cell.has(cell):
 		return
 
-	var v = units_by_cell[cell]  # <-- DO NOT cast yet
+	var v = units_by_cell[cell]
 
-	# Freed or not even an Object anymore -> remove
 	if v == null or not (v is Object) or not is_instance_valid(v):
 		units_by_cell.erase(cell)
 		return
 
-	# Now it's safe to cast/use as Unit
 	var u := v as Unit
-	if u == null or u.hp <= 0:
+	if u == null:
 		units_by_cell.erase(cell)
+		return
+
+	if u.hp <= 0:
+		units_by_cell.erase(cell)
+		if is_instance_valid(u):
+			u.queue_free() # ✅ this is what you were missing
 
 func _do_attack(attacker: Unit, defender: Unit) -> void:
 	if attacker == null or defender == null:
