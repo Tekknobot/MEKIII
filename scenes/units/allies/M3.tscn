@@ -146,6 +146,7 @@ animations = [{
 [node name="Unit" type="CharacterBody2D"]
 script = ExtResource("1_voiqf")
 thumbnail = ExtResource("2_dxfo1")
+base_move_range = 4
 base_max_hp = 7
 artillery_cooldown = 0
 artillery_travel_time = 1.88
@@ -154,6 +155,7 @@ laser_friendly_fire = true
 laser_cooldown = 0
 laser_beam_width = 1.0
 sky_beam_width = 1.0
+sky_beam_fade_time = 0.88
 display_name = "MARV"
 attack_damage = 5
 

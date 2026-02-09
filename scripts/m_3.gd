@@ -320,29 +320,151 @@ func _sky_laser_strike(M: MapController, at_cell: Vector2i) -> void:
 	if M == null or not is_instance_valid(M):
 		return
 
-	# Beam visual (unchanged)
-	var hit_pos := M.terrain.to_global(M.terrain.map_to_local(at_cell)) + Vector2(0, -8) # ✅ offset up
-	var start_pos = hit_pos + Vector2(0, -sky_beam_height_px)
+	# ---------------------------------------------------------
+	# Positions
+	# ---------------------------------------------------------
+	var hit_pos := M.terrain.to_global(M.terrain.map_to_local(at_cell)) + Vector2(0, -8)
+	var start_pos := hit_pos + Vector2(0, -sky_beam_height_px)
+	var z := (at_cell.x + at_cell.y) + 600
 
-	var beam := Line2D.new()
-	beam.width = sky_beam_width
-	beam.default_color = sky_beam_color
-	beam.z_index = (at_cell.x + at_cell.y) + 600
-	M.add_child(beam)
+	# ---------------------------------------------------------
+	# Build a tiny 1x1 white pixel texture (local, no helpers)
+	# ---------------------------------------------------------
+	var img := Image.create(1, 1, false, Image.FORMAT_RGBA8)
+	img.fill(Color.WHITE)
+	var pixel_tex := ImageTexture.create_from_image(img)
 
-	beam.add_point(start_pos)
-	beam.add_point(hit_pos)
+	# ---------------------------------------------------------
+	# MULTI-PART LASER CONFIG
+	# ---------------------------------------------------------
+	var parts := 7
+	if parts < 2:
+		parts = 2
+
+	var strand_count := 1
+	var strand_jitter_px := 0.0
+
+	# ---------------------------------------------------------
+	# Compute segmented "jagged" points
+	# ---------------------------------------------------------
+	var main_pts: Array[Vector2] = []
+	for i in range(parts):
+		var t := float(i) / float(parts - 1)
+		var p := start_pos.lerp(hit_pos, t)
+
+		# 0 at ends, 1 near middle
+		var mid = 1.0 - abs(2.0 * t - 1.0)
+
+		# jaggedness (stronger mid-beam)
+		p += Vector2(
+			randf_range(0.0, 0.0),
+			randf_range(0.0, 0.0)
+		) * (0.0 + mid)
+
+		main_pts.append(p)
+
+	# ---------------------------------------------------------
+	# Create multiple beam strands
+	# ---------------------------------------------------------
+	var beams: Array[Line2D] = []
+	for s in range(strand_count):
+		var beam := Line2D.new()
+		beam.width = sky_beam_width
+		beam.default_color = sky_beam_color
+		beam.z_index = 0 + (at_cell.x + at_cell.y)
+		M.add_child(beam)
+		beams.append(beam)
+
+		var off := Vector2(
+			randf_range(-strand_jitter_px, strand_jitter_px),
+			randf_range(-strand_jitter_px, strand_jitter_px)
+		)
+
+		for p in main_pts:
+			beam.add_point(p + off)
+			
+		M._sfx("sat_laser")	
+
+	# ---------------------------------------------------------
+	# Spawn pixel particle bursts at each segment point
+	# (NO lambdas: connect finished -> queue_free)
+	# ---------------------------------------------------------
+	for i in range(main_pts.size()):
+		var burst_pos := main_pts[i]
+
+		var p := CPUParticles2D.new()
+		p.one_shot = true
+		p.emitting = false
+		p.z_index = z + 10
+		p.global_position = burst_pos
+		p.texture = pixel_tex
+
+		# particle tuning (pixel sparks)
+		p.amount = 1 + (i % 3) * 4
+		p.lifetime = 1.22
+		p.explosiveness = 0.95
+		p.spread = 90.0
+		p.initial_velocity_min = 18.0
+		p.initial_velocity_max = 34.0
+		p.gravity = Vector2.ZERO
+		p.damping_min = 10.0
+		p.damping_max = 26.0
+		p.scale_amount_min = 1
+		p.scale_amount_max = 1
+		p.color = sky_beam_color
+
+		# ✅ alternate left/right so pixels go on BOTH sides of the beam
+		if (i % 2) == 0:
+			p.direction = Vector2(-1, 0)  # LEFT
+		else:
+			p.direction = Vector2(1, 0)   # RIGHT
+
+		# tighter cone so it reads like "side spray"
+		p.spread = 35.0
+
+
+		M.add_child(p)
+		p.emitting = true
+
+		# ✅ Fade pixels out over lifetime
+		var tp := create_tween()
+		tp.tween_property(p, "modulate:a", 0.0, p.lifetime)
+		
+		p.finished.connect(p.queue_free)
+
+	# Extra impact burst
+	var p2 := CPUParticles2D.new()
+	p2.one_shot = true
+	p2.emitting = false
+	p2.z_index = z + 12
+	p2.global_position = hit_pos
+	p2.texture = pixel_tex
+	p2.amount = 8
+	p2.lifetime = 1.25
+	p2.explosiveness = 0.98
+	p2.spread = 180.0
+	p2.initial_velocity_min = 1.0
+	p2.initial_velocity_max = 1.0
+	p2.gravity = Vector2.ZERO
+	p2.damping_min = 12.0
+	p2.damping_max = 30.0
+	p2.scale_amount_min = 1.0
+	p2.scale_amount_max = 1.0
+	p2.color = sky_beam_color
+	M.add_child(p2)
+	p2.emitting = true
+	p2.finished.connect(p2.queue_free)
 
 	await get_tree().create_timer(0.05).timeout
 
-	# -------------------------
+	# ---------------------------------------------------------
 	# BASE explosion (does its usual 1 dmg)
-	# -------------------------
+	# ---------------------------------------------------------
 	await M.spawn_explosion_at_cell(at_cell)
 
-	# -------------------------
+	# ---------------------------------------------------------
 	# ✅ ADDITIONAL SKY STRIKE DAMAGE
-	# -------------------------
+	# ---------------------------------------------------------
 	for u in M.get_all_units():
 		if u == null or not is_instance_valid(u) or u.hp <= 0:
 			continue
@@ -353,15 +475,25 @@ func _sky_laser_strike(M: MapController, at_cell: Vector2i) -> void:
 		if d > sky_strike_radius:
 			continue
 
-		# ADD on top of explosion damage
-		_apply_damage_safely(u, sky_strike_damage)
+		_apply_damage_safely(M, u, sky_strike_damage, u.cell)
 
-	# Fade beam
+	# ---------------------------------------------------------
+	# Fade out all beam strands + free
+	# ---------------------------------------------------------
 	var tw := create_tween()
-	tw.tween_property(beam, "modulate:a", 0.0, sky_beam_fade_time)
+	for beam in beams:
+		if beam == null or not is_instance_valid(beam):
+			continue
+		var c0: Color = beam.default_color
+		var c1: Color = c0
+		c1.a = 0.0
+		tw.tween_property(beam, "default_color", c1, sky_beam_fade_time)
+
 	await tw.finished
-	if beam != null and is_instance_valid(beam):
-		beam.queue_free()
+
+	for beam in beams:
+		if beam != null and is_instance_valid(beam):
+			beam.queue_free()
 
 # -------------------------
 # Visual Effects
@@ -504,9 +636,13 @@ func _cell_to_global(M: MapController, c: Vector2i) -> Vector2:
 		return M.terrain.to_global(map_local)
 	return Vector2(c.x * 32, c.y * 32)
 
-func _apply_damage_safely(tgt: Object, dmg: int) -> void:
+func _apply_damage_safely(M: MapController, tgt: Object, dmg: int, c: Vector2i) -> void:
 	if tgt == null:
 		return
+
+	# ✅ Visual-only explosion (no damage) — do it BEFORE/AFTER, your choice
+	if M != null and is_instance_valid(M):
+		_spawn_explosion_visual(M, c)
 
 	if tgt.has_method("take_damage"):
 		var m := tgt.get_method_list().filter(func(x): return x.name == "take_damage")
@@ -530,7 +666,7 @@ func _apply_damage_safely(tgt: Object, dmg: int) -> void:
 			if tgt.has_method("die"):
 				tgt.call("die")
 			else:
-				tgt.queue_free()
+				tgt.queue_free()	
 
 func _face_toward_cell(M: MapController, target_cell: Vector2i) -> void:
 	var spr := get_node_or_null("Visual/AnimatedSprite2D") as AnimatedSprite2D
