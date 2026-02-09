@@ -317,7 +317,7 @@ offset_right = 526.0
 offset_bottom = -16.0
 grow_vertical = 0
 theme_override_fonts/font = ExtResource("2_sa3yf")
-text = "© 2026 -- All Brains Reserved -- Into the Brains anyone?"
+text = "© 2026 -- All Brains Reserved -- Into the Brains"
 
 [node name="Thumbnail" type="TextureRect" parent="."]
 visible = false
