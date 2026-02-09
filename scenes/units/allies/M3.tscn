@@ -154,6 +154,7 @@ artillery_projectile_width = 1.0
 laser_friendly_fire = true
 laser_cooldown = 0
 laser_beam_width = 1.0
+sky_beam_height_px = 300.0
 sky_beam_width = 1.0
 sky_beam_fade_time = 0.88
 display_name = "MARV"
