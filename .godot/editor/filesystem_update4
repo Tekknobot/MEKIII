@@ -13,3 +13,6 @@ res://shaders/text_outline_1px.gdshader
 res://shaders/desaturate.gdshader
 res://scripts/map_controller.gd
 res://scenes/Game.tscn
+res://scenes/units/allies/R4.tscn
+res://scripts/r_4.gd
+res://scripts/unit.gd

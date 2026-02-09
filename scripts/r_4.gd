@@ -574,6 +574,5 @@ func get_hud_extras() -> Dictionary:
 		"Malfunction Radius": str(malfunction_max_radius),
 		"Malfunction Damage": str(malfunction_damage + attack_damage),
 		"Storm Range": str(storm_range),
-		"Storm Targets": str(storm_max_targets),
 		"Storm Damage": str(storm_damage + attack_damage),
 	}

@@ -6,8 +6,8 @@ class_name M3
 # -------------------------
 @export var portrait_tex: Texture2D = preload("res://sprites/Portraits/pilots/l0_por01.png")
 @export var thumbnail: Texture2D
-@export var special: String = "ARTILLERY STRIKE / LASER SWEEP"
-@export var special_desc: String = "Fire explosive artillery or sweep enemies with a piercing laser beam"
+@export var special: String = "ARTILLERY STRIKE, LASER SWEEP"
+@export var special_desc: String = "Fire explosive artillery or sweep enemies with a piercing laser beam that chains."
 
 @export var attack_anim_name: StringName = &"attack"
 @export var attack_fx_scene: PackedScene = null

@@ -237,17 +237,20 @@ func get_display_name() -> String:
 	return name
 
 func get_portrait_texture() -> Texture2D:
-	# 1) Prefer exported property if subclass has it (like RecruitBot.portrait_tex)
-	if has_method("get") and ("portrait_tex" in self):
-		var v = get("portrait_tex")
-		if v is Texture2D:
-			return v
+	# 1) Try exported var on subclasses (safe even if missing)
+	var v = get("portrait_tex")
+	if v is Texture2D:
+		return v
 
-	# 2) Then meta
-	if has_meta("portrait_tex"):
-		var m = get_meta("portrait_tex")
-		if m is Texture2D:
-			return m
+	# 2) Meta fallback
+	var m = get_meta("portrait_tex") if has_meta("portrait_tex") else null
+	if m is Texture2D:
+		return m
+
+	# 3) Optional: fallback to thumbnail
+	var t = get("thumbnail")
+	if t is Texture2D:
+		return t
 
 	return null
 
