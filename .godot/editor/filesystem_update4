@@ -22,3 +22,4 @@ res://scripts/unit_registry.gd
 res://scripts/tutorial_manager.gd
 res://scripts/turnmanager.gd
 res://scenes/units/allies/car.tscn
+res://scenes/units/allies/R3.tscn

@@ -168,6 +168,7 @@ railgun_beam_width = 1.0
 railgun_muzzle_flash_scale = 1.0
 railgun_fire_sfx_id = &"volley_fire"
 display_name = "DECIMATOR"
+attack_damage = 5
 death_fx_offset = Vector2(0, -16)
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="."]

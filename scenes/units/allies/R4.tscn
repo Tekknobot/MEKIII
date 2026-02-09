@@ -167,6 +167,7 @@ storm_projectile_speed = 100.0
 storm_fire_sfx_id = &"volley_fire"
 projectile_scene = ExtResource("4_jxghm")
 display_name = "EDWARD"
+attack_damage = 5
 death_fx_offset = Vector2(0, -16)
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="."]

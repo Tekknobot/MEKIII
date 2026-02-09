@@ -155,6 +155,7 @@ laser_cooldown = 0
 laser_beam_width = 1.0
 sky_beam_width = 1.0
 display_name = "MARV"
+attack_damage = 5
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="."]
 position = Vector2(0, -9)
