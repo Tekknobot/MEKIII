@@ -56,6 +56,18 @@ class_name M3
 @export var laser_fire_duration := 0.4
 @export var laser_fade_time := 0.2
 
+@export var sky_chain_max_hits := 8
+@export var sky_chain_radius := 3          # Manhattan radius to “jump” to next enemy
+
+@export var sky_strike_damage := 4
+@export var sky_strike_radius := 1         # explosion splash radius
+
+@export var sky_beam_height_px := 220.0    # how far “from the sky”
+@export var sky_beam_width := 10.0
+@export var sky_beam_color := Color.CYAN
+@export var sky_beam_fade_time := 0.18
+
+
 signal artillery_complete
 var _pending_artillery_impacts := 0
 
@@ -208,64 +220,148 @@ func _spawn_explosion_visual(M: MapController, at_cell: Vector2i) -> void:
 # - Hit all units in line
 # -------------------------------------------------------
 func perform_laser_sweep(M: MapController, target_cell: Vector2i) -> void:
-	if not can_use_special("laser_sweep"):
-		return
 	if M == null:
 		return
-
-	# Determine direction from self to target
-	var dx := target_cell.x - cell.x
-	var dy := target_cell.y - cell.y
-	
-	var dir := Vector2i.ZERO
-	
-	# Snap to cardinal direction (strongest axis)
-	if abs(dx) > abs(dy):
-		dir = Vector2i(signi(dx), 0)  # East or West
-	else:
-		dir = Vector2i(0, signi(dy))  # North or South
-	
-	if dir == Vector2i.ZERO:
+	if _dying:
 		return
 
-	# Face direction
-	_face_toward_cell(M, cell + dir)
+	var id_key := "laser_sweep"
+	if int(special_cd.get(id_key, 0)) > 0:
+		return
 
-	# Charge up visual
+	# click gate: ANY cell in range
+	var d0 = abs(target_cell.x - cell.x) + abs(target_cell.y - cell.y)
+	if d0 == 0 or d0 > laser_range:
+		return
+
+	# ✅ pick an enemy ANYWHERE in range, closest to the click
+	var first := _pick_enemy_near_click(M, target_cell, laser_range)
+
+	# none -> do nothing, do NOT spend
+	if first == null:
+		_play_idle_anim()
+		return
+
+	_face_toward_cell(M, first.cell)
+
 	await _laser_charge_effect(M)
 
-	# Collect all cells in beam path
-	var beam_cells: Array[Vector2i] = []
-	for i in range(1, laser_range + 1):
-		var check_cell := cell + (dir * i)
-		if not _cell_in_bounds(M, check_cell):
+	var chain := _build_sky_chain_targets(M, first)
+	if chain.is_empty():
+		_play_idle_anim()
+		return
+
+	for u in chain:
+		if u == null or not is_instance_valid(u) or u.hp <= 0:
+			continue
+		await _sky_laser_strike(M, u.cell)
+
+	_play_idle_anim()
+	special_cd[id_key] = laser_cooldown
+
+func _build_sky_chain_targets(M: MapController, first: Unit) -> Array[Unit]:
+	var out: Array[Unit] = []
+	if first == null or not is_instance_valid(first):
+		return out
+
+	var used: Dictionary = {}
+	used[first.get_instance_id()] = true
+	out.append(first)
+
+	var chained := false
+
+	while out.size() < sky_chain_max_hits:
+		var from_u = out.back()
+		if from_u == null or not is_instance_valid(from_u) or from_u.hp <= 0:
 			break
-		beam_cells.append(check_cell)
 
-	# Fire laser beam visual
-	await _fire_laser_beam(M, beam_cells, dir)
+		var next := _find_nearest_enemy_within(M, from_u.cell, sky_chain_radius, used)
+		if next == null:
+			break
 
-	# SFX
-	if M.has_method("_sfx"):
-		var global_pos := global_position
-		M.call("_sfx", &"laser", 1.0, randf_range(0.95, 1.05), global_pos)
+		used[next.get_instance_id()] = true
+		out.append(next)
+		chained = true
 
-	# Damage all units in beam path
-	for bc in beam_cells:
-		var u := M.unit_at_cell(bc)
-		if u == null or not is_instance_valid(u):
+	# -------------------------
+	# SAY RESULT (once)
+	# -------------------------
+	if M.has_method("_say"):
+		if chained:
+			M.call("_say", self, "Chain!")
+		else:
+			M.call("_say", self, "Chain failed")
+
+	return out
+
+func _find_nearest_enemy_within(M: MapController, from_cell: Vector2i, r: int, used: Dictionary) -> Unit:
+	var best: Unit = null
+	var best_d := 999999
+
+	for u in M.get_all_units():
+		if u == null or not is_instance_valid(u) or u.hp <= 0:
 			continue
-		
-		if u == self:
+		if u.team != Unit.Team.ENEMY:
 			continue
-		
-		# Friendly fire check
-		if not laser_friendly_fire and u.team == team:
+		if used.has(u.get_instance_id()):
 			continue
-		
-		_apply_damage_safely(u, laser_damage)
 
-	mark_special_used("laser_sweep", laser_cooldown)
+		var d = abs(u.cell.x - from_cell.x) + abs(u.cell.y - from_cell.y)
+		if d <= 0 or d > r:
+			continue
+
+		if d < best_d:
+			best_d = d
+			best = u
+
+	return best
+
+func _sky_laser_strike(M: MapController, at_cell: Vector2i) -> void:
+	if M == null or not is_instance_valid(M):
+		return
+
+	# Beam visual (unchanged)
+	var hit_pos := M.terrain.to_global(M.terrain.map_to_local(at_cell)) + Vector2(0, -8) # ✅ offset up
+	var start_pos = hit_pos + Vector2(0, -sky_beam_height_px)
+
+	var beam := Line2D.new()
+	beam.width = sky_beam_width
+	beam.default_color = sky_beam_color
+	beam.z_index = (at_cell.x + at_cell.y) + 600
+	M.add_child(beam)
+
+	beam.add_point(start_pos)
+	beam.add_point(hit_pos)
+
+	await get_tree().create_timer(0.05).timeout
+
+	# -------------------------
+	# BASE explosion (does its usual 1 dmg)
+	# -------------------------
+	await M.spawn_explosion_at_cell(at_cell)
+
+	# -------------------------
+	# ✅ ADDITIONAL SKY STRIKE DAMAGE
+	# -------------------------
+	for u in M.get_all_units():
+		if u == null or not is_instance_valid(u) or u.hp <= 0:
+			continue
+		if u.team != Unit.Team.ENEMY:
+			continue
+
+		var d = abs(u.cell.x - at_cell.x) + abs(u.cell.y - at_cell.y)
+		if d > sky_strike_radius:
+			continue
+
+		# ADD on top of explosion damage
+		_apply_damage_safely(u, sky_strike_damage)
+
+	# Fade beam
+	var tw := create_tween()
+	tw.tween_property(beam, "modulate:a", 0.0, sky_beam_fade_time)
+	await tw.finished
+	if beam != null and is_instance_valid(beam):
+		beam.queue_free()
 
 # -------------------------
 # Visual Effects
@@ -468,11 +564,10 @@ func _play_attack_anim_once() -> void:
 
 func get_hud_extras() -> Dictionary:
 	return {
-		"Artillery Range": str(artillery_range),
-		"Artillery Damage": str(artillery_damage),
-		"Artillery AOE": str(artillery_aoe_radius),
-		"Laser Range": str(laser_range),
-		"Laser Damage": str(laser_damage),
+		"Strike Range": str(artillery_range),
+		"Strike Damage": str(artillery_damage),
+		"Sweep Range": str(laser_range),
+		"Sweep Damage": str(sky_strike_damage),
 	}
 
 func _play_idle_anim() -> void:
@@ -520,3 +615,32 @@ func _spawn_artillery_aoe_fx(M: MapController, center: Vector2i, r: int) -> void
 				M.call("_sfx", &"explosion_small", 0.85, randf_range(0.92, 1.08), p)
 			
 			await get_tree().create_timer(0.1).timeout
+
+func _pick_enemy_near_click(M: MapController, click_cell: Vector2i, max_range: int) -> Unit:
+	if M == null:
+		return null
+
+	var best: Unit = null
+	var best_score := 999999
+
+	for u in M.get_all_units():
+		if u == null or not is_instance_valid(u) or u.hp <= 0:
+			continue
+		if u.team != Unit.Team.ENEMY:
+			continue
+
+		# must be within ability range from THIS unit
+		var d_self = abs(u.cell.x - cell.x) + abs(u.cell.y - cell.y)
+		if d_self <= 0 or d_self > max_range:
+			continue
+
+		# prefer closest to clicked cell
+		var d_click = abs(u.cell.x - click_cell.x) + abs(u.cell.y - click_cell.y)
+
+		# score: prioritize click closeness, tie-break by closeness to self
+		var score = d_click * 100 + d_self
+		if score < best_score:
+			best_score = score
+			best = u
+
+	return best

@@ -153,6 +153,7 @@ artillery_projectile_width = 1.0
 laser_friendly_fire = true
 laser_cooldown = 0
 laser_beam_width = 1.0
+sky_beam_width = 1.0
 display_name = "MARV"
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="."]

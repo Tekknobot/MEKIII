@@ -2166,6 +2166,15 @@ func _draw_special_range(u: Unit, special: String) -> void:
 				if dist < min_q:
 					continue
 
+			if id == "laser_sweep":
+				var min_q := 1
+				if u.has_method("get_special_min_distance"):
+					min_q = int(u.call("get_special_min_distance", "laser_sweep"))
+				elif "laser_sweep_min_safe_dist" in u:
+					min_q = int(u.quake_min_safe_dist)
+				if dist < min_q:
+					continue
+					
 			if id == "slam":
 				continue
 
@@ -2207,11 +2216,6 @@ func _draw_special_range(u: Unit, special: String) -> void:
 			elif id == "artillery_strike":
 				# ✅ can target ANY cell in range (empty or occupied)
 				# (optional: disallow self)
-				if c == origin:
-					continue
-
-			elif id == "laser_sweep":
-				# ✅ click any cell to pick a cardinal direction (doesn't need a unit)
 				if c == origin:
 					continue
 
