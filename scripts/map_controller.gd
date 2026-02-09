@@ -1539,6 +1539,12 @@ func _perform_special(u: Unit, id: String, target_cell: Vector2i) -> void:
 
 	elif id == "storm" and u.has_method("perform_storm"):
 		await u.call("perform_storm", self, target_cell)
+		
+	elif id == "artillery_strike" and u.has_method("perform_artillery_strike"):
+		await u.call("perform_artillery_strike", self, target_cell)
+
+	elif id == "laser_sweep" and u.has_method("perform_laser_sweep"):
+		await u.call("perform_laser_sweep", self, target_cell)
 									
 	_is_moving = false
 
@@ -2197,6 +2203,17 @@ func _draw_special_range(u: Unit, special: String) -> void:
 				if tgt_sl != null and is_instance_valid(tgt_sl) and ("team" in tgt_sl) and tgt_sl.team == u.team:
 					continue
 				# empty is fine
+
+			elif id == "artillery_strike":
+				# ✅ can target ANY cell in range (empty or occupied)
+				# (optional: disallow self)
+				if c == origin:
+					continue
+
+			elif id == "laser_sweep":
+				# ✅ click any cell to pick a cardinal direction (doesn't need a unit)
+				if c == origin:
+					continue
 
 			else:
 				# enemy-only for all other specials
@@ -3445,6 +3462,10 @@ func _unit_can_use_special(u: Unit, id: String) -> bool:
 			return u.has_method("perform_malfunction")
 		"storm":
 			return u.has_method("perform_storm")
+		"artillery_strike":
+			return u.has_method("perform_artillery_strike")
+		"laser_sweep":
+			return u.has_method("perform_laser_sweep")
 				
 	return false
 
@@ -5764,6 +5785,42 @@ func apply_run_upgrades() -> void:
 					if u is S1:
 						# your S1 uses overcharge_range
 						u.overcharge_range += 1 * n
+
+				# -------------------------
+				# MARV (M3)
+				# -------------------------
+				&"marv_hp_plus_2":
+					if u is M3:
+						u.max_hp += 2 * n
+						u.hp = min(u.hp + 2 * n, u.max_hp)
+
+				&"marv_move_plus_1":
+					if u is M3:
+						u.move_range += 1 * n
+
+				&"marv_dmg_plus_1":
+					if u is M3:
+						u.attack_damage += 1 * n
+						# Optional: also boost special damages if you want upgrades to feel "real"
+						if "artillery_damage" in u:
+							u.artillery_damage += 1 * n
+						if "laser_damage" in u:
+							u.laser_damage += 1 * n
+
+				&"marv_artillery_strike_range_plus_1":
+					if u is M3:
+						if "artillery_range" in u:
+							u.artillery_range += 1 * n
+						else:
+							u.attack_range += 1 * n # fallback
+
+				&"marv_laser_sweep_range_plus_1":
+					if u is M3:
+						if "laser_range" in u:
+							u.laser_range += 1 * n
+						else:
+							u.attack_range += 1 * n # fallback
+
 
 					
 func reset_for_regen() -> void:

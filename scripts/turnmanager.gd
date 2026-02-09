@@ -55,7 +55,8 @@ const _SPAWN_WAIT_MAX_TRIES := 90  # ~1.5s at 60fps
 @export var railgun_button_path: NodePath
 @export var malfunction_button_path: NodePath
 @export var storm_button_path: NodePath
-
+@export var artillery_strike_button_path: NodePath
+@export var laser_sweep_button_path: NodePath
 
 @onready var suppress_button := get_node_or_null(suppress_button_path)
 @onready var stim_button := get_node_or_null(stim_button_path)
@@ -77,6 +78,8 @@ const _SPAWN_WAIT_MAX_TRIES := 90  # ~1.5s at 60fps
 @onready var railgun_button := get_node_or_null(railgun_button_path)
 @onready var malfunction_button := get_node_or_null(malfunction_button_path) 
 @onready var storm_button := get_node_or_null(storm_button_path) 
+@onready var artillery_strike_button := get_node_or_null(artillery_strike_button_path)
+@onready var laser_sweep_button := get_node_or_null(laser_sweep_button_path)
 
 enum Phase { PLAYER, ENEMY, BUSY }
 var phase: Phase = Phase.PLAYER
@@ -313,6 +316,10 @@ func _ready() -> void:
 		malfunction_button.pressed.connect(_on_malfunction_pressed)
 	if storm_button:
 		storm_button.pressed.connect(_on_storm_pressed)
+	if artillery_strike_button:
+		artillery_strike_button.pressed.connect(_on_artillery_strike_pressed)
+	if laser_sweep_button:
+		laser_sweep_button.pressed.connect(_on_laser_sweep_pressed)
 				
 	start_player_phase()
 	_update_end_turn_button()
@@ -1031,6 +1038,38 @@ func _on_storm_pressed() -> void:
 	M.activate_special("storm")
 	_update_special_buttons()
 
+func _on_artillery_strike_pressed() -> void:
+	if phase != Phase.PLAYER:
+		return
+	emit_signal("tutorial_event", &"special_button_pressed", {"id": "artillery_strike"})
+
+	var u := M.selected
+	if u == null or not is_instance_valid(u):
+		return
+	if _attacked.get(u, false):
+		return
+	if not u.has_method("perform_artillery_strike"):
+		return
+
+	M.activate_special("artillery_strike")
+	_update_special_buttons()
+
+func _on_laser_sweep_pressed() -> void:
+	if phase != Phase.PLAYER:
+		return
+	emit_signal("tutorial_event", &"special_button_pressed", {"id": "laser_sweep"})
+
+	var u := M.selected
+	if u == null or not is_instance_valid(u):
+		return
+	if _attacked.get(u, false):
+		return
+	if not u.has_method("perform_laser_sweep"):
+		return
+
+	M.activate_special("laser_sweep")
+	_update_special_buttons()
+
 func _update_special_buttons() -> void:
 	# Toggle visuals (pressed highlight)
 	if hellfire_button: hellfire_button.toggle_mode = true
@@ -1053,6 +1092,8 @@ func _update_special_buttons() -> void:
 	if railgun_button: railgun_button.toggle_mode = true
 	if malfunction_button: malfunction_button.toggle_mode = true
 	if storm_button: storm_button.toggle_mode = true
+	if artillery_strike_button: artillery_strike_button.toggle_mode = true
+	if laser_sweep_button: laser_sweep_button.toggle_mode = true
 						
 	# Reset
 	if hellfire_button:
@@ -1135,6 +1176,14 @@ func _update_special_buttons() -> void:
 		storm_button.disabled = true
 		storm_button.button_pressed = false
 		storm_button.visible = false		
+	if artillery_strike_button:
+		artillery_strike_button.disabled = true
+		artillery_strike_button.button_pressed = false
+		artillery_strike_button.visible = false
+	if laser_sweep_button:
+		laser_sweep_button.disabled = true
+		laser_sweep_button.button_pressed = false
+		laser_sweep_button.visible = false
 									
 	# Only during player phase
 	if phase != Phase.PLAYER:
@@ -1171,6 +1220,8 @@ func _update_special_buttons() -> void:
 	var has_railgun := u.has_method("perform_railgun")
 	var has_malfunction := u.has_method("perform_malfunction")
 	var has_storm := u.has_method("perform_storm")
+	var has_artillery_strike := u.has_method("perform_artillery_strike")
+	var has_laser_sweep := u.has_method("perform_laser_sweep")
 					
 	# Optional filter list
 	if u.has_method("get_available_specials"):
@@ -1199,6 +1250,8 @@ func _update_special_buttons() -> void:
 		has_railgun = has_railgun and specials.has("railgun")
 		has_malfunction = has_malfunction and specials.has("malfunction")
 		has_storm = has_storm and specials.has("storm")
+		has_artillery_strike = has_artillery_strike and specials.has("artillery_strike")
+		has_laser_sweep = has_laser_sweep and specials.has("laser_sweep")
 									
 	# Show ONLY if unit still has an attack action available
 	var show_specials := (not spent_attack)
@@ -1223,6 +1276,8 @@ func _update_special_buttons() -> void:
 	if railgun_button: railgun_button.visible = show_specials and has_railgun
 	if malfunction_button: malfunction_button.visible = show_specials and has_malfunction
 	if storm_button: storm_button.visible = show_specials and has_storm
+	if artillery_strike_button: artillery_strike_button.visible = show_specials and has_artillery_strike
+	if laser_sweep_button: laser_sweep_button.visible = show_specials and has_laser_sweep
 	
 	# Cooldowns
 	var ok_hellfire := true
@@ -1245,6 +1300,8 @@ func _update_special_buttons() -> void:
 	var ok_railgun := true
 	var ok_malfunction := true
 	var ok_storm := true
+	var ok_artillery_strike := true
+	var ok_laser_sweep := true
 		
 	if u.has_method("can_use_special"):
 		ok_hellfire = u.can_use_special("hellfire")
@@ -1267,7 +1324,9 @@ func _update_special_buttons() -> void:
 		ok_railgun = u.can_use_special("railgun")
 		ok_malfunction = u.can_use_special("malfunction")
 		ok_storm = u.can_use_special("storm")
-
+		ok_artillery_strike = u.can_use_special("artillery_strike")
+		ok_laser_sweep = u.can_use_special("laser_sweep")
+		
 	# Enable
 	if hellfire_button: hellfire_button.disabled = spent_attack or (not has_hellfire) or (not ok_hellfire)
 	if blade_button: blade_button.disabled = spent_attack or (not has_blade) or (not ok_blade)
@@ -1289,6 +1348,8 @@ func _update_special_buttons() -> void:
 	if railgun_button: railgun_button.disabled = spent_attack or (not has_railgun) or (not ok_railgun)
 	if malfunction_button: malfunction_button.disabled = spent_attack or (not has_malfunction) or (not ok_malfunction)
 	if storm_button: storm_button.disabled = spent_attack or (not has_storm) or (not ok_storm)
+	if artillery_strike_button: artillery_strike_button.disabled = spent_attack or (not has_artillery_strike) or (not ok_artillery_strike)
+	if laser_sweep_button: laser_sweep_button.disabled = spent_attack or (not has_laser_sweep) or (not ok_laser_sweep)
 
 	# Note: need to handle underscores in special_id comparison
 	var active := ""
@@ -1331,6 +1392,10 @@ func _update_special_buttons() -> void:
 		malfunction_button.button_pressed = (active == "malfunction")
 	if storm_button and not storm_button.disabled:
 		storm_button.button_pressed = (active == "storm")
+	if artillery_strike_button and not artillery_strike_button.disabled:
+		artillery_strike_button.button_pressed = (active == "artillery_strike")
+	if laser_sweep_button and not laser_sweep_button.disabled:
+		laser_sweep_button.button_pressed = (active == "laser_sweep")
 
 	# --- Apply colors based on pressed state ---
 	_skin_special_button(hellfire_button, hellfire_button.button_pressed if hellfire_button else false)
@@ -1353,6 +1418,8 @@ func _update_special_buttons() -> void:
 	_skin_special_button(railgun_button, railgun_button.button_pressed if railgun_button else false)
 	_skin_special_button(malfunction_button, malfunction_button.button_pressed if malfunction_button else false)
 	_skin_special_button(storm_button,storm_button.button_pressed if storm_button else false)	
+	_skin_special_button(artillery_strike_button, artillery_strike_button.button_pressed if artillery_strike_button else false)
+	_skin_special_button(laser_sweep_button, laser_sweep_button.button_pressed if laser_sweep_button else false)
 						
 	# Overwatch + Stim are instant toggles
 	if overwatch_button and not overwatch_button.disabled:

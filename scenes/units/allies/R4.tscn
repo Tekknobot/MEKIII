@@ -157,6 +157,7 @@ animations = [{
 script = ExtResource("1_y5g8v")
 portrait_tex = ExtResource("2_vlbvb")
 thumbnail = ExtResource("3_et23e")
+base_move_range = 4
 base_max_hp = 6
 malfunction_cooldown = 0
 malfunction_self_damage = 0

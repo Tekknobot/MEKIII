@@ -465,6 +465,20 @@ func _roll_3_upgrades() -> Array:
 			{"id": &"decimator_barrage_range_plus_1", "title": "WIDER SALVO",   "desc": "+1 Range for Barrage.",  "thumb": t},
 			{"id": &"decimator_railgun_range_plus_1", "title": "LONG BARREL",   "desc": "+1 Range for Railgun.",  "thumb": t},
 		])
+
+	# MARV
+	if has_unit.call("MARV"):
+		var t: Texture2D = thumb.call("MARV")
+		pool.append_array([
+			# --- core stats ---
+			{"id": &"marv_hp_plus_2",     "title": "REINFORCED PLATING", "desc": "+2 Max HP for MARV.",   "thumb": t},
+			{"id": &"marv_move_plus_1",   "title": "STABILIZED SERVOS", "desc": "+1 Move for MARV.",     "thumb": t},
+			{"id": &"marv_dmg_plus_1",    "title": "OVERPRESSURE CORE", "desc": "+1 Damage for MARV.",   "thumb": t},
+
+			# --- specials ---
+			{"id": &"marv_artillery_strike_range_plus_1", "title": "LONGER TRAJECTORY", "desc": "+1 Range for Artillery Strike.", "thumb": t},
+			{"id": &"marv_laser_sweep_range_plus_1",      "title": "EXTENDED EMITTERS", "desc": "+1 Range for Laser Sweep.",      "thumb": t},
+		])
 		
 	# DESTROYER A.I.
 	# NOTE: your key will be whatever display_name becomes after strip+upper.

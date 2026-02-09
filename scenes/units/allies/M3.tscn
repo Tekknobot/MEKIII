@@ -1,0 +1,176 @@
+[gd_scene load_steps=35 format=3 uid="uid://f3fqhrvmcgjf"]
+
+[ext_resource type="Texture2D" uid="uid://bdu5bykqk4f62" path="res://sprites/Meks/M3/m3atk_1.png" id="1_46j05"]
+[ext_resource type="Script" uid="uid://cc5sl5f3uhjd8" path="res://scripts/m_3.gd" id="1_voiqf"]
+[ext_resource type="Texture2D" uid="uid://cdmjshsx0e8bl" path="res://sprites/Portraits/pilots/mek_portraits/m3.png" id="2_dxfo1"]
+[ext_resource type="Texture2D" uid="uid://27n1bklq3sl8" path="res://sprites/Meks/M3/m3atk_2.png" id="2_voiqf"]
+[ext_resource type="Texture2D" uid="uid://cvaffs86tfgpi" path="res://sprites/Meks/M3/m3atk_3.png" id="3_dxfo1"]
+[ext_resource type="Texture2D" uid="uid://cwrafuq12cee7" path="res://sprites/Meks/M3/m3atk_4.png" id="4_2a8rs"]
+[ext_resource type="Texture2D" uid="uid://co8m81c8fdf51" path="res://sprites/Meks/M3/m3atk_5.png" id="5_8i6s4"]
+[ext_resource type="Texture2D" uid="uid://cd5fgak8tdwpl" path="res://sprites/Meks/M3/m3atk_6.png" id="6_1cj7k"]
+[ext_resource type="Texture2D" uid="uid://bkylv8dfqnkcg" path="res://sprites/Explosion/explosion1.png" id="10_q1udo"]
+[ext_resource type="Texture2D" uid="uid://5rowb55gcpdo" path="res://sprites/Explosion/explosion2.png" id="11_xjmfd"]
+[ext_resource type="Texture2D" uid="uid://bd7brxhvng8x2" path="res://sprites/Explosion/explosion3.png" id="12_dl1s7"]
+[ext_resource type="Texture2D" uid="uid://dba6mxmkieou5" path="res://sprites/Explosion/explosion4.png" id="13_uhnsp"]
+[ext_resource type="Texture2D" uid="uid://7vhtauytorjm" path="res://sprites/Explosion/explosion5.png" id="14_kex8i"]
+[ext_resource type="Texture2D" uid="uid://cx563mikd8xgq" path="res://sprites/Explosion/explosion6.png" id="15_uwdm5"]
+[ext_resource type="Texture2D" uid="uid://colhte0st8rgu" path="res://sprites/Explosion/explosion7.png" id="16_hhssj"]
+[ext_resource type="Texture2D" uid="uid://duocys137b0ff" path="res://sprites/Explosion/explosion8.png" id="17_ysl11"]
+[ext_resource type="Texture2D" uid="uid://12yes4vjuccq" path="res://sprites/Explosion/explosion9.png" id="18_u0e43"]
+[ext_resource type="Texture2D" uid="uid://d0b35fj4u2wvh" path="res://sprites/Explosion/explosion10.png" id="19_ylihs"]
+[ext_resource type="Texture2D" uid="uid://b0cc4uuasjv8a" path="res://sprites/Explosion/explosion11.png" id="20_e12bj"]
+[ext_resource type="Texture2D" uid="uid://d1tbo6yqoe1c4" path="res://sprites/Meks/M3/m3idle_1.png" id="21_4h123"]
+[ext_resource type="Texture2D" uid="uid://btqqeif8wuqwt" path="res://sprites/Explosion/explosion12.png" id="21_gx4n2"]
+[ext_resource type="Texture2D" uid="uid://ohqnd0ucje5w" path="res://sprites/Explosion/explosion13.png" id="22_5gry8"]
+[ext_resource type="Texture2D" uid="uid://cim3ba6wvfk3o" path="res://sprites/Meks/M3/m3idle_2.png" id="22_p338n"]
+[ext_resource type="Texture2D" uid="uid://cm2qwtjbqccar" path="res://sprites/Meks/M3/m3idle_3.png" id="23_b5wtf"]
+[ext_resource type="Texture2D" uid="uid://bevk2t4jsk0ry" path="res://sprites/Explosion/explosion14.png" id="23_dlnt1"]
+[ext_resource type="Texture2D" uid="uid://dxsdadssjnx3" path="res://sprites/Meks/M3/m3idle_4.png" id="24_xj7ce"]
+[ext_resource type="Texture2D" uid="uid://cjhugt1jk0lv8" path="res://sprites/Meks/M3/m3move_1.png" id="25_rnv37"]
+[ext_resource type="Texture2D" uid="uid://nkjo207wksav" path="res://sprites/Meks/M3/m3move_2.png" id="26_j4enw"]
+[ext_resource type="Texture2D" uid="uid://tr7t41w67o5a" path="res://sprites/Meks/M3/m3move_3.png" id="27_wk00w"]
+[ext_resource type="Texture2D" uid="uid://cs8urcxysnnmn" path="res://sprites/Meks/M3/m3move_4.png" id="28_q1udo"]
+[ext_resource type="FontFile" uid="uid://buw362wjb8o8d" path="res://fonts/magofonts/mago2.ttf" id="33_31mhj"]
+[ext_resource type="Script" uid="uid://lmsma3lhwhb8" path="res://scripts/hp_label.gd" id="34_urc58"]
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_7tcnj"]
+size = Vector2(20, 6)
+
+[sub_resource type="SpriteFrames" id="SpriteFrames_7uhu2"]
+animations = [{
+"frames": [{
+"duration": 1.0,
+"texture": ExtResource("1_46j05")
+}, {
+"duration": 1.0,
+"texture": ExtResource("2_voiqf")
+}, {
+"duration": 1.0,
+"texture": ExtResource("3_dxfo1")
+}, {
+"duration": 1.0,
+"texture": ExtResource("4_2a8rs")
+}, {
+"duration": 1.0,
+"texture": ExtResource("5_8i6s4")
+}, {
+"duration": 1.0,
+"texture": ExtResource("6_1cj7k")
+}],
+"loop": false,
+"name": &"attack",
+"speed": 24.0
+}, {
+"frames": [{
+"duration": 1.0,
+"texture": ExtResource("10_q1udo")
+}, {
+"duration": 1.0,
+"texture": ExtResource("11_xjmfd")
+}, {
+"duration": 1.0,
+"texture": ExtResource("12_dl1s7")
+}, {
+"duration": 1.0,
+"texture": ExtResource("13_uhnsp")
+}, {
+"duration": 1.0,
+"texture": ExtResource("14_kex8i")
+}, {
+"duration": 1.0,
+"texture": ExtResource("15_uwdm5")
+}, {
+"duration": 1.0,
+"texture": ExtResource("16_hhssj")
+}, {
+"duration": 1.0,
+"texture": ExtResource("17_ysl11")
+}, {
+"duration": 1.0,
+"texture": ExtResource("18_u0e43")
+}, {
+"duration": 1.0,
+"texture": ExtResource("19_ylihs")
+}, {
+"duration": 1.0,
+"texture": ExtResource("20_e12bj")
+}, {
+"duration": 1.0,
+"texture": ExtResource("21_gx4n2")
+}, {
+"duration": 1.0,
+"texture": ExtResource("22_5gry8")
+}, {
+"duration": 1.0,
+"texture": ExtResource("23_dlnt1")
+}],
+"loop": false,
+"name": &"death",
+"speed": 12.0
+}, {
+"frames": [{
+"duration": 1.0,
+"texture": ExtResource("21_4h123")
+}, {
+"duration": 1.0,
+"texture": ExtResource("22_p338n")
+}, {
+"duration": 1.0,
+"texture": ExtResource("23_b5wtf")
+}, {
+"duration": 1.0,
+"texture": ExtResource("24_xj7ce")
+}],
+"loop": true,
+"name": &"idle",
+"speed": 6.0
+}, {
+"frames": [{
+"duration": 1.0,
+"texture": ExtResource("25_rnv37")
+}, {
+"duration": 1.0,
+"texture": ExtResource("26_j4enw")
+}, {
+"duration": 1.0,
+"texture": ExtResource("27_wk00w")
+}, {
+"duration": 1.0,
+"texture": ExtResource("28_q1udo")
+}],
+"loop": true,
+"name": &"move",
+"speed": 12.0
+}]
+
+[node name="Unit" type="CharacterBody2D"]
+script = ExtResource("1_voiqf")
+thumbnail = ExtResource("2_dxfo1")
+base_max_hp = 7
+artillery_cooldown = 0
+artillery_travel_time = 1.88
+artillery_projectile_width = 1.0
+laser_friendly_fire = true
+laser_cooldown = 0
+laser_beam_width = 1.0
+display_name = "MARV"
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="."]
+position = Vector2(0, -9)
+shape = SubResource("RectangleShape2D_7tcnj")
+
+[node name="AnimatedSprite2D" type="AnimatedSprite2D" parent="."]
+sprite_frames = SubResource("SpriteFrames_7uhu2")
+animation = &"attack"
+autoplay = "idle"
+
+[node name="HPLabel" type="Label" parent="."]
+offset_top = -48.0
+offset_right = 40.0
+offset_bottom = -35.0
+theme_override_fonts/font = ExtResource("33_31mhj")
+text = "3"
+script = ExtResource("34_urc58")
+unit_path = NodePath("..")
+show_as_fraction = false
+prefix = ""

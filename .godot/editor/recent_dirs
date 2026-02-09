@@ -1,5 +1,6 @@
-D:/Godot/_Builds/Web/ZombieMECHA_Web
 res://scripts
+res://sprites/Meks/M3
+D:/Godot/_Builds/Web/ZombieMECHA_Web
 res://sprites/Meks/R4
 res://sprites/Meks/R3
 res://sprites/Meks/S1
@@ -19,4 +20,3 @@ res://sprites/Zombies/zomb/crusher/death
 res://sprites/Zombies/zomb/crusher/move
 res://sprites/Zombies/zomb/crusher/idle
 res://sprites/Zombies/idle
-res://scenes
