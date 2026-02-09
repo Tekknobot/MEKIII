@@ -19,6 +19,7 @@ const FORCE_EXPORT := [
 	preload("res://scenes/units/allies/S2.tscn"),
 	preload("res://scenes/units/allies/S3.tscn"),
 	preload("res://scenes/units/allies/car.tscn"),
+	preload("res://scenes/units/allies/roller.tscn"),
 ]
 
 # These strings are what RunState should use to build roster_scene_paths
@@ -38,4 +39,5 @@ const ALLY_PATHS: Array[String] = [
 	"res://scenes/units/allies/S2.tscn",
 	"res://scenes/units/allies/S3.tscn",
 	"res://scenes/units/allies/car.tscn",
+	"res://scenes/units/allies/roller.tscn",
 ]

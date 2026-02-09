@@ -1626,9 +1626,11 @@ func _run_support_bots_phase() -> void:
 			break
 
 		if u.has_method("auto_support_action"):
-			await u.call("auto_support_action", M)
+			await u.call("auto_support_action", M)   # RecruitBot
+		elif u.has_method("auto_roll_action"):
+			await u.call("auto_roll_action", M)      # Rollerbot
 		elif u.has_method("auto_drive_action"):
-			await u.call("auto_drive_action", M)
+			await u.call("auto_drive_action", M)     # CarBot
 
 	phase = prev
 	_update_end_turn_button()

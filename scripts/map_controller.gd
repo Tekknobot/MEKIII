@@ -5765,6 +5765,19 @@ func apply_run_upgrades() -> void:
 						u.attack_damage += 1 * n
 
 				# -------------------------
+				# ROLLERBOT
+				# -------------------------
+				&"rollerbot_hp_plus_2":
+					if u is Roller:
+						u.max_hp += 2 * n
+						u.hp = min(u.hp + 2 * n, u.max_hp)
+
+				&"rollerbot_roll_plus_1":
+					if u is Roller:
+						# Extend roll distance
+						u.roll_move_points += 1 * n
+
+				# -------------------------
 				# SCANNERZ (S1)
 				# -------------------------
 				&"scannerz_hp_plus_1":

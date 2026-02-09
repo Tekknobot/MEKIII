@@ -500,6 +500,15 @@ func _roll_3_upgrades() -> Array:
 			{"id": &"cobruh_dmg_plus_1", "title": "VENOM CIRCUITS",     "desc": "+1 Damage for Cobruh A.I.", "thumb": t},
 		])
 
+	# ROLLERBOT
+	# NOTE: key is whatever display_name becomes after strip+upper.
+	# If your display_name is "Rollerbot" then the key is "ROLLERBOT"
+	if has_unit.call("ROLLERBOT"):
+		var t: Texture2D = thumb.call("ROLLERBOT")
+		pool.append_array([
+			{"id": &"rollerbot_hp_plus_2",   "title": "DENSE PLATING",    "desc": "+2 Max HP for Rollerbot.", "thumb": t},
+			{"id": &"rollerbot_roll_plus_1", "title": "SPIKE DRUM",       "desc": "+1 Roll distance for Rollerbot.", "thumb": t},
+		])
 
 	# -------------------------
 	# 4) Pick 3

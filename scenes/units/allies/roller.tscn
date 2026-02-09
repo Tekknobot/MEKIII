@@ -1,0 +1,168 @@
+[gd_scene load_steps=27 format=3 uid="uid://ipn3tdwvik1e"]
+
+[ext_resource type="Script" uid="uid://c4hu3djub3xwj" path="res://scripts/roller.gd" id="1_o1xh0"]
+[ext_resource type="Texture2D" uid="uid://rp5dhl44g621" path="res://sprites/Bots/Orange/roller1.png" id="1_ohiig"]
+[ext_resource type="Texture2D" uid="uid://bal6s4hpsc71j" path="res://sprites/Portraits/cockpits/bg4.png" id="2_l5x43"]
+[ext_resource type="Texture2D" uid="uid://1tr8auwubfdy" path="res://sprites/Bots/Orange/roller2.png" id="2_q50r4"]
+[ext_resource type="Texture2D" uid="uid://cseq4immkcolc" path="res://sprites/Thumbnails/Allies/roller_thumb.png" id="3_lj7ux"]
+[ext_resource type="Texture2D" uid="uid://ctitg7hqu47qr" path="res://sprites/Bots/Orange/roller3.png" id="3_o1xh0"]
+[ext_resource type="Texture2D" uid="uid://n723hfs8gb0f" path="res://sprites/Bots/Orange/roller4.png" id="4_l5x43"]
+[ext_resource type="Texture2D" uid="uid://bkylv8dfqnkcg" path="res://sprites/Explosion/explosion1.png" id="8_6d3dm"]
+[ext_resource type="Texture2D" uid="uid://5rowb55gcpdo" path="res://sprites/Explosion/explosion2.png" id="9_kcxls"]
+[ext_resource type="Texture2D" uid="uid://bd7brxhvng8x2" path="res://sprites/Explosion/explosion3.png" id="10_cw27d"]
+[ext_resource type="Texture2D" uid="uid://dba6mxmkieou5" path="res://sprites/Explosion/explosion4.png" id="11_gvwqy"]
+[ext_resource type="Texture2D" uid="uid://7vhtauytorjm" path="res://sprites/Explosion/explosion5.png" id="12_gxt71"]
+[ext_resource type="Texture2D" uid="uid://cx563mikd8xgq" path="res://sprites/Explosion/explosion6.png" id="13_h5g4m"]
+[ext_resource type="Texture2D" uid="uid://colhte0st8rgu" path="res://sprites/Explosion/explosion7.png" id="14_7vw5j"]
+[ext_resource type="Texture2D" uid="uid://duocys137b0ff" path="res://sprites/Explosion/explosion8.png" id="15_k80iy"]
+[ext_resource type="Texture2D" uid="uid://12yes4vjuccq" path="res://sprites/Explosion/explosion9.png" id="16_s30qi"]
+[ext_resource type="Texture2D" uid="uid://d0b35fj4u2wvh" path="res://sprites/Explosion/explosion10.png" id="17_sjk2x"]
+[ext_resource type="Texture2D" uid="uid://b0cc4uuasjv8a" path="res://sprites/Explosion/explosion11.png" id="18_6rkbi"]
+[ext_resource type="Texture2D" uid="uid://btqqeif8wuqwt" path="res://sprites/Explosion/explosion12.png" id="19_ittsv"]
+[ext_resource type="Texture2D" uid="uid://ohqnd0ucje5w" path="res://sprites/Explosion/explosion13.png" id="20_rpmam"]
+[ext_resource type="Texture2D" uid="uid://bevk2t4jsk0ry" path="res://sprites/Explosion/explosion14.png" id="21_0c47s"]
+[ext_resource type="FontFile" uid="uid://buw362wjb8o8d" path="res://fonts/magofonts/mago2.ttf" id="22_8ruay"]
+[ext_resource type="Script" uid="uid://bhbfmv5ck1ep1" path="res://scripts/procedural_car_sfx.gd" id="22_l5x43"]
+[ext_resource type="Script" uid="uid://lmsma3lhwhb8" path="res://scripts/hp_label.gd" id="23_1nkp2"]
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_7tcnj"]
+size = Vector2(20, 6)
+
+[sub_resource type="SpriteFrames" id="SpriteFrames_7uhu2"]
+animations = [{
+"frames": [{
+"duration": 1.0,
+"texture": ExtResource("1_ohiig")
+}, {
+"duration": 1.0,
+"texture": ExtResource("2_q50r4")
+}, {
+"duration": 1.0,
+"texture": ExtResource("3_o1xh0")
+}, {
+"duration": 1.0,
+"texture": ExtResource("4_l5x43")
+}],
+"loop": false,
+"name": &"attack",
+"speed": 48.0
+}, {
+"frames": [{
+"duration": 1.0,
+"texture": ExtResource("8_6d3dm")
+}, {
+"duration": 1.0,
+"texture": ExtResource("9_kcxls")
+}, {
+"duration": 1.0,
+"texture": ExtResource("10_cw27d")
+}, {
+"duration": 1.0,
+"texture": ExtResource("11_gvwqy")
+}, {
+"duration": 1.0,
+"texture": ExtResource("12_gxt71")
+}, {
+"duration": 1.0,
+"texture": ExtResource("13_h5g4m")
+}, {
+"duration": 1.0,
+"texture": ExtResource("14_7vw5j")
+}, {
+"duration": 1.0,
+"texture": ExtResource("15_k80iy")
+}, {
+"duration": 1.0,
+"texture": ExtResource("16_s30qi")
+}, {
+"duration": 1.0,
+"texture": ExtResource("17_sjk2x")
+}, {
+"duration": 1.0,
+"texture": ExtResource("18_6rkbi")
+}, {
+"duration": 1.0,
+"texture": ExtResource("19_ittsv")
+}, {
+"duration": 1.0,
+"texture": ExtResource("20_rpmam")
+}, {
+"duration": 1.0,
+"texture": ExtResource("21_0c47s")
+}],
+"loop": false,
+"name": &"death",
+"speed": 12.0
+}, {
+"frames": [{
+"duration": 1.0,
+"texture": ExtResource("1_ohiig")
+}, {
+"duration": 1.0,
+"texture": ExtResource("2_q50r4")
+}, {
+"duration": 1.0,
+"texture": ExtResource("3_o1xh0")
+}, {
+"duration": 1.0,
+"texture": ExtResource("4_l5x43")
+}],
+"loop": true,
+"name": &"idle",
+"speed": 6.0
+}, {
+"frames": [{
+"duration": 1.0,
+"texture": ExtResource("1_ohiig")
+}, {
+"duration": 1.0,
+"texture": ExtResource("2_q50r4")
+}, {
+"duration": 1.0,
+"texture": ExtResource("3_o1xh0")
+}, {
+"duration": 1.0,
+"texture": ExtResource("4_l5x43")
+}],
+"loop": true,
+"name": &"move",
+"speed": 24.0
+}]
+
+[node name="Unit" type="CharacterBody2D"]
+script = ExtResource("1_o1xh0")
+portrait_tex = ExtResource("2_l5x43")
+thumbnail = ExtResource("3_lj7ux")
+roll_move_points = 8
+idle_vibe_amp_px = 0.15
+anim_path = NodePath("Visual/AnimatedSprite2D")
+display_name = "ROLLERBOT A.I."
+max_hp = 6
+hp = 6
+death_fx_offset = Vector2(0, -16)
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="."]
+position = Vector2(0, -9)
+shape = SubResource("RectangleShape2D_7tcnj")
+
+[node name="Visual" type="Node2D" parent="."]
+
+[node name="AnimatedSprite2D" type="AnimatedSprite2D" parent="Visual"]
+position = Vector2(0, -17)
+sprite_frames = SubResource("SpriteFrames_7uhu2")
+animation = &"idle"
+autoplay = "idle"
+
+[node name="HPLabel" type="Label" parent="."]
+offset_top = -48.0
+offset_right = 40.0
+offset_bottom = -35.0
+theme_override_fonts/font = ExtResource("22_8ruay")
+text = "3"
+script = ExtResource("23_1nkp2")
+unit_path = NodePath("..")
+show_as_fraction = false
+prefix = ""
+
+[node name="CarSFX" type="Node2D" parent="."]
+script = ExtResource("22_l5x43")

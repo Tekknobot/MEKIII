@@ -16,3 +16,9 @@ res://scenes/Game.tscn
 res://scenes/units/allies/R4.tscn
 res://scripts/r_4.gd
 res://scripts/unit.gd
+res://scenes/units/allies/roller.tscn
+res://scripts/roller.gd
+res://scripts/unit_registry.gd
+res://scripts/tutorial_manager.gd
+res://scripts/turnmanager.gd
+res://scenes/units/allies/car.tscn

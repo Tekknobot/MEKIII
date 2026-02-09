@@ -144,6 +144,7 @@ script = ExtResource("1_w1uy7")
 portrait_tex = ExtResource("2_coow6")
 thumbnail = ExtResource("3_jeejy")
 drive_move_points = 8
+idle_vibe_amp_px = 0.15
 anim_idle = &"default"
 debug_animation = true
 anim_path = NodePath("Visual/AnimatedSprite2D")
