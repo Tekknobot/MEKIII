@@ -446,10 +446,10 @@ func _roll_3_upgrades() -> Array:
 			{"id": &"edward_dmg_plus_1",   "title": "FOCUSED STRIKES",  "desc": "+1 Damage for Edward.", "thumb": t},
 
 			# --- specials (S1) ---
-			{"id": &"edward_<special1>_range_plus_1", "title": "<SPECIAL 1 TITLE>", "desc": "+1 Range for <Special 1>.", "thumb": t},
+			{"id": &"edward_<special1>_range_plus_1", "title": "MALFUNCTION", "desc": "+1 Range for MALFUNCTION.", "thumb": t},
 
 			# --- specials (S2) ---
-			{"id": &"edward_<special2>_range_plus_1", "title": "<SPECIAL 2 TITLE>", "desc": "+1 Range for <Special 2>.", "thumb": t},
+			{"id": &"edward_<special2>_range_plus_1", "title": "STORM", "desc": "+1 Range for STORM.", "thumb": t},
 		])
 		
 	# DECIMATOR

@@ -118,6 +118,25 @@ func _die() -> void:
 
 	_play_sfx(sfx_death)
 	emit_signal("died", self)
+
+	# ✅ EliteMech: custom death sequence (wait, then free)
+	if self is EliteMech and has_method("play_death_anim"):
+		# Remove from board occupancy immediately (but DO NOT free yet)
+		var M := get_tree().get_first_node_in_group("MapController")
+		if M != null and M.has_method("_cleanup_dead_at"):
+			M.call("_cleanup_dead_at", cell)
+
+		# Run custom anim + wait for finish signal
+		call("play_death_anim")
+		if has_signal("death_anim_finished"):
+			await self.death_anim_finished
+
+		# Now it's safe to actually free
+		if is_instance_valid(self):
+			queue_free()
+		return
+
+	# --- Everyone else ---
 	_spawn_blood_fx()
 
 	var a := _get_anim_sprite()
@@ -125,7 +144,6 @@ func _die() -> void:
 		a.sprite_frames.set_animation_loop("death", false)
 		a.stop()
 
-		# ✅ death offset: -16px Y for everyone EXCEPT Zombie/Human/HumanTwo
 		var apply_offset := not (self is Zombie) and not (self is Human) and not (self is HumanTwo)
 		var prev_pos := a.position
 		if apply_offset:
@@ -134,7 +152,6 @@ func _die() -> void:
 		a.play("death")
 		await a.animation_finished
 
-		# restore so we don't leave the node shifted for cleanup/free order
 		if apply_offset:
 			a.position = prev_pos
 
@@ -143,10 +160,10 @@ func _die() -> void:
 
 	await _play_death_anim_fallback()
 
-	var M := get_tree().get_first_node_in_group("MapController")
-	if M != null and M.has_method("_cleanup_dead_at"):
-		M.call("_cleanup_dead_at", cell)
-		
+	var MC := get_tree().get_first_node_in_group("MapController")
+	if MC != null and MC.has_method("_cleanup_dead_at"):
+		MC.call("_cleanup_dead_at", cell)
+
 	queue_free()
 
 func _play_death_anim_fallback() -> void:
@@ -295,9 +312,13 @@ func _spawn_blood_fx() -> void:
 	if team != Team.ENEMY:
 		return
 
-	if BLOOD_FX_SCENE == null:
+	# ✅ EliteMech should NOT spawn blood puff / small explosion
+	if self is EliteMech:
 		return
 
+	if BLOOD_FX_SCENE == null:
+		return
+		
 	var fx := BLOOD_FX_SCENE.instantiate() as Node2D
 	if fx == null:
 		return

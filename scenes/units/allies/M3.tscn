@@ -146,6 +146,7 @@ animations = [{
 [node name="Unit" type="CharacterBody2D"]
 script = ExtResource("1_voiqf")
 thumbnail = ExtResource("2_dxfo1")
+special = "STRIKE, SWEEP"
 base_move_range = 4
 base_max_hp = 7
 artillery_cooldown = 0

@@ -19,6 +19,7 @@ var _suppress_active := false
 # -------------------------
 @export var portrait_tex: Texture2D = preload("res://sprites/Portraits/Mechas/rob1_port.png") # swap to your asset
 @export var explosion_scene: PackedScene
+@export var durability_hp: int = 50
 
 # Optional: if your mech scene has a Sprite2D/AnimatedSprite2D you want as primary render
 @export var render_node_name: StringName = &"Sprite2D"
@@ -53,6 +54,17 @@ const Z_PER  := 0
 const Z_PROJ_ABOVE := 0
 const Z_FX_ABOVE   := 0
 
+@export var death_burst_count := 18           # total explosions
+@export var death_burst_duration := 0.55      # seconds (stagger across this)
+@export var death_burst_jitter_px := 6.0      # random offset per explosion
+@export var death_burst_sfx: StringName = &"explosion_small"
+@export var death_burst_pitch_min := 0.92
+@export var death_burst_pitch_max := 1.08
+
+signal death_anim_finished
+@export var death_fade_time := 2.6     # seconds to fade out
+@export var death_fade_min_alpha := 0.0
+
 func _z_for_cell(c: Vector2i) -> int:
 	return Z_BASE + (c.x + c.y)
 
@@ -84,7 +96,7 @@ func _ready() -> void:
 	attack_damage = 2
 
 	# Elite durability
-	max_hp = max(max_hp, 50)
+	max_hp = max(max_hp, durability_hp)
 	hp = clamp(hp, 0, max_hp)
 
 	super._ready()
@@ -201,51 +213,62 @@ func _get_render_item() -> CanvasItem:
 	return null
 
 func play_death_anim() -> void:
-	# Prevent double-run
 	if _death_tw != null and is_instance_valid(_death_tw):
 		return
+	_death_tw = create_tween() # just a running flag
 
-	# Stop interaction / AI side effects while dissolving
 	set_process(false)
 	set_physics_process(false)
 
-	# Optional: remove from MapController dicts immediately if you have a hook
-	# (usually MapController listens to died(u) anyway)
-
-	var ci := _get_render_canvas_item()
-	if ci == null or not is_instance_valid(ci):
+	var M := get_tree().get_first_node_in_group("MapController") as MapController
+	if M == null or not is_instance_valid(M):
+		emit_signal("death_anim_finished")
 		queue_free()
 		return
 
-	# Save old material so you don’t permanently overwrite in-editor
-	_saved_material = ci.material
+	var ci := _get_render_item()
+	if ci == null or not is_instance_valid(ci):
+		emit_signal("death_anim_finished")
+		queue_free()
+		return
 
-	var mat := ShaderMaterial.new()
-	mat.shader = dissolve_shader
-	mat.set_shader_parameter("progress", 0.0)
-	mat.set_shader_parameter("pixel_size", dissolve_pixel_size)
-	mat.set_shader_parameter("edge_width", dissolve_edge_width)
-	mat.set_shader_parameter("edge_color", dissolve_edge_color)
+	# ✅ Fade the mech while it detonates
+	var fade_tw := create_tween()
+	fade_tw.set_trans(Tween.TRANS_SINE)
+	fade_tw.set_ease(Tween.EASE_IN_OUT)
 
-	ci.material = mat
+	var start_a := ci.modulate.a
+	fade_tw.tween_method(func(a: float) -> void:
+		if ci != null and is_instance_valid(ci):
+			var m := ci.modulate
+			m.a = a
+			ci.modulate = m
+	, start_a, death_fade_min_alpha, death_fade_time)
 
-	# Tween dissolve progress
-	_death_tw = create_tween()
-	_death_tw.set_trans(Tween.TRANS_SINE)
-	_death_tw.set_ease(Tween.EASE_IN_OUT)
+	var rect := _get_render_world_rect(ci)
+	var count := int(death_burst_count)
 
-	_death_tw.tween_method(
-		func(v: float) -> void:
-			if ci != null and is_instance_valid(ci) and ci.material is ShaderMaterial:
-				(ci.material as ShaderMaterial).set_shader_parameter("progress", v),
-		0.0, 1.0, dissolve_time
-	)
+	for i in range(count):
+		if not is_instance_valid(self):
+			return
 
-	_death_tw.finished.connect(func():
-		# (Optional) restore material, but we’re freeing anyway
-		if is_instance_valid(self):
-			queue_free()
-	)
+		var p := Vector2(
+			randf_range(rect.position.x, rect.position.x + rect.size.x),
+			randf_range(rect.position.y, rect.position.y + rect.size.y)
+		) + Vector2(
+			randf_range(-death_burst_jitter_px, death_burst_jitter_px),
+			randf_range(-death_burst_jitter_px, death_burst_jitter_px)
+		)
+
+		_spawn_death_burst_at(M, p)
+		await get_tree().create_timer(death_burst_duration).timeout
+
+	emit_signal("death_anim_finished")
+
+	if fade_tw != null and is_instance_valid(fade_tw):
+		await fade_tw.finished
+
+	queue_free()
 
 func tick_cooldowns() -> void:
 	if _special_cd > 0:
@@ -573,3 +596,64 @@ func _fire_salvo_3x3(M: MapController, center_cell: Vector2i) -> void:
 		# fire each projectile (sequential, simple + reliable)
 		_fire_projectile_and_explode(M, c)
 		await get_tree().create_timer(0.1).timeout
+
+func _get_render_world_rect(ci: CanvasItem) -> Rect2:
+	# Sprite2D: rect is in local space, so transform corners to world.
+	if ci is Sprite2D:
+		var s := ci as Sprite2D
+		var r: Rect2 = s.get_rect() # local
+		var p0 := s.global_transform * r.position
+		var p1 := s.global_transform * (r.position + Vector2(r.size.x, 0))
+		var p2 := s.global_transform * (r.position + Vector2(0, r.size.y))
+		var p3 := s.global_transform * (r.position + r.size)
+
+		var minx = min(p0.x, p1.x, p2.x, p3.x)
+		var maxx = max(p0.x, p1.x, p2.x, p3.x)
+		var miny = min(p0.y, p1.y, p2.y, p3.y)
+		var maxy = max(p0.y, p1.y, p2.y, p3.y)
+		return Rect2(Vector2(minx, miny), Vector2(maxx - minx, maxy - miny))
+
+	# AnimatedSprite2D: we approximate via sprite_frames texture size (works well enough)
+	if ci is AnimatedSprite2D:
+		var a := ci as AnimatedSprite2D
+		if a.sprite_frames != null and a.animation != "":
+			var tex := a.sprite_frames.get_frame_texture(a.animation, a.frame)
+			if tex != null:
+				var size := tex.get_size() * a.scale
+				# anchor around global_position
+				return Rect2(a.global_position - size * 0.5, size)
+
+	# Fallback: box around node
+	return Rect2(global_position - Vector2(24, 24), Vector2(48, 48))
+
+func _spawn_death_burst_at(M: MapController, world_pos: Vector2) -> void:
+	# VFX
+	if explosion_scene != null:
+		var e := explosion_scene.instantiate() as Node2D
+		if e != null:
+			M.units_root.add_child(e)
+			e.global_position = world_pos
+			e.z_as_relative = false
+			e.z_index = _z_for_cell(_cell_from_world(M, world_pos)) + Z_FX_ABOVE
+
+			var ap := e.get_node_or_null("AnimationPlayer") as AnimationPlayer
+			if ap != null:
+				ap.play("explode" if ap.has_animation("explode") else ap.get_animation_list()[0])
+				ap.animation_finished.connect(func(_n):
+					if is_instance_valid(e): e.queue_free()
+				)
+			else:
+				var a := e.get_node_or_null("AnimatedSprite2D") as AnimatedSprite2D
+				if a != null:
+					a.play()
+					a.animation_finished.connect(func():
+						if is_instance_valid(e): e.queue_free()
+					)
+				else:
+					# safe fallback
+					e.queue_free()
+
+	# SFX (positioned)
+	if M != null and M.has_method("_sfx"):
+		var pitch := randf_range(death_burst_pitch_min, death_burst_pitch_max)
+		M.call("_sfx", death_burst_sfx, 1.0, pitch, world_pos)

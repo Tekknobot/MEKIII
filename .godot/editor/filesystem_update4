@@ -27,3 +27,5 @@ res://scenes/title_screen.tscn
 res://scenes/zombie.tscn
 res://scenes/structures/building.tscn
 res://scenes/threat_tile.tscn
+res://scenes/elite_mech.tscn
+res://scripts/elite_mech.gd

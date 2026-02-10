@@ -175,6 +175,7 @@ explosion_scene = ExtResource("2_0gnu1")
 special_damage = 1
 special_cooldown_turns = 0
 projectile_scene = ExtResource("2_lr6eu")
+death_burst_duration = 0.1
 display_name = "Elite Mech"
 team = 1
 footprint_size = Vector2i(2, 2)

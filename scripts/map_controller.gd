@@ -3549,7 +3549,8 @@ func _trigger_mine_if_present(u: Unit) -> void:
 	u.take_damage(dmg)
 
 	if u != null and is_instance_valid(u) and u.hp <= 0:
-		_remove_unit_from_board(u) # remove using the unit instance
+		# ✅ let Unit._die() / death anim handle freeing
+		_cleanup_dead_at(c) # remove from board dict so it no longer blocks tiles
 		return
 
 	_cleanup_dead_at(c)
