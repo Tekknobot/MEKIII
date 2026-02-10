@@ -1,4 +1,4 @@
-res://scenes/structures/building.tscn::49ba1a08e93d517260fa3f60edc9cb9f::1768886184::res://.godot/exported/133200997/export-40fc0e8e20e2d6a94bf722ddd4303f28-building.scn
+res://scenes/structures/building.tscn::49ba1a08e93d517260fa3f60edc9cb9f::1770747725::res://.godot/exported/133200997/export-40fc0e8e20e2d6a94bf722ddd4303f28-building.scn
 res://scenes/structures/district.tscn::e86cf5d1eaa0d1b4f0e06cbf24446a67::1768404302::res://.godot/exported/133200997/export-4353cf996c6e531d67d279ce9feba1d7-district.scn
 res://scenes/structures/stadium.tscn::1219bd0f58ee24d20562000082be4bdd::1768404300::res://.godot/exported/133200997/export-93d976388e730cfaa696ee38bcb9a08e-stadium.scn
 res://scenes/structures/structure_shot.tscn::1504948cb703fe89fb10d319999ce84d::1768632374::res://.godot/exported/133200997/export-af18e3148b15e361561f44c548075169-structure_shot.scn
@@ -21,7 +21,7 @@ res://scenes/cursor.tscn::b2a032078e12eab854e2433557dc4afb::1768855270::res://.g
 res://scenes/enemy_move_tile.tscn::7b5c97e80d7b188c1243293f03d00d5e::1769013097::res://.godot/exported/133200997/export-dfe38ac246494c2c1bf12dcee8a2e31f-enemy_move_tile.scn
 res://scenes/explosion.tscn::594c539d18aa9e13c08c25e7c164006f::1768877478::res://.godot/exported/133200997/export-19462905a0f3b4b39165a3350317f22c-explosion.scn
 res://scenes/floppy.tscn::487b2e3687aeb4fe0d18fe854079eba4::1769113977::res://.godot/exported/133200997/export-30cf651d32c90559d467de235678fa77-floppy.scn
-res://scenes/Game.tscn::9e459b69e81878bc2d928a0f2d49ce04::1770607171::res://.godot/exported/133200997/export-ff8ceb9b2bd5b48777d3d52e811276ab-Game.scn
+res://scenes/Game.tscn::6ae61e54c34ee3c638240a5ac0b474a7::1770748465::res://.godot/exported/133200997/export-ff8ceb9b2bd5b48777d3d52e811276ab-Game.scn
 res://scenes/HUD.tscn::85ab294eb9f7182411d3d6741fe6843f::1770156515::res://.godot/exported/133200997/export-2ea9781d6f9f7562c1d276c7fdd0b0ab-HUD.scn
 res://scenes/landmine.tscn::d27aba146113c508d79a61ee34a14a7b::1768483546::res://.godot/exported/133200997/export-398207af1f2555f9ff54bd28af3b9f17-landmine.scn
 res://scenes/laser_drop.tscn::a6e46f52108c1e6939ef4252f0a5bc92::1768682333::res://.godot/exported/133200997/export-2acb5049d4a8c5a67824282ef25bfbf9-laser_drop.scn
@@ -36,11 +36,11 @@ res://scenes/weakpoint.tscn::2a0ea380d76c34d239f852cc46de9a87::1769829253::res:/
 res://scenes/round_end_ui.tscn::5e488a2aa584cc493ca9cc24d9c15329::1769590787::res://.godot/exported/133200997/export-620b0d0d4d1f00cf0c1b2753ab67e856-round_end_ui.scn
 res://scenes/squad_deploy_screen.tscn::657eba55977db449defb7a779db78beb::1770512175::res://.godot/exported/133200997/export-67e608a257cdab65d4181addadb9c825-squad_deploy_screen.scn
 res://scenes/StarNight.tscn::67bc6e972e75eedc5fde63ddeda3a583::1769280711::res://.godot/exported/133200997/export-8ba7cb06005b1919209f5f2002cc8408-StarNight.scn
-res://scenes/title_screen.tscn::d3d7bc7e12647d4214bfd3e48a9b4d73::1770459192::res://.godot/exported/133200997/export-c315eff7b5f8a8ce1d6c4c72650ddc19-title_screen.scn
+res://scenes/title_screen.tscn::6eb887e854bc4179bbd95a642f09010c::1770739929::res://.godot/exported/133200997/export-c315eff7b5f8a8ce1d6c4c72650ddc19-title_screen.scn
 res://scenes/tnt.tscn::907790d46a6c6725120e6177dd5a7dc3::1768402530::res://.godot/exported/133200997/export-0cb138642eec2dd5c3a79a44286e5755-tnt.scn
 res://scenes/tutorial_toast.tscn::46f002530979557a41c97d158ab42c5f::1769703848::res://.godot/exported/133200997/export-4d6057b2b8a8b0d58eca66e69805723d-tutorial_toast.scn
 res://scenes/unit_card.tscn::efe8a5af75a6238e5e4821342c27675c::1769585440::res://.godot/exported/133200997/export-ab0a47df1992afe423300a64120afcec-unit_card.scn
-res://scenes/zombie.tscn::59b370be55e18d484935c4dcbdd4b9a9::1770438709::res://.godot/exported/133200997/export-eae6add4c928fd8479be83ea3330e8af-zombie.scn
+res://scenes/zombie.tscn::59b370be55e18d484935c4dcbdd4b9a9::1770750470::res://.godot/exported/133200997/export-eae6add4c928fd8479be83ea3330e8af-zombie.scn
 res://scenes/blood_particles.tscn::43f367c7e9da57fa1ca5d47b31380e5e::1770176277::res://.godot/exported/133200997/export-9cdc63a70dedde1f91406507bc2660d5-blood_particles.scn
 res://scenes/units/allies/car.tscn::af663074e24f35d7f91b9b8b713c8d91::1770615578::res://.godot/exported/133200997/export-5804310c677688368c0bbb74b9902513-car.scn
 res://scenes/units/allies/S1.tscn::996c3b7de96749b861ce95b2ab7ad038::1770437386::res://.godot/exported/133200997/export-242e762862a6f922d109975bce114042-S1.scn
@@ -48,3 +48,4 @@ res://scenes/units/allies/R3.tscn::3b56c187271ad2b0f911d9aaf6a5ac9b::1770616975:
 res://scenes/units/allies/R4.tscn::22451ea0a20556ea3d42c556810bc9f1::1770616975::res://.godot/exported/133200997/export-9c38a7fca24f8992bf3b533df7f4fca8-R4.scn
 res://scenes/units/allies/M3.tscn::141a14047bd6a23eab1fd6436ac92a3b::1770663615::res://.godot/exported/133200997/export-d68cb722b4a87285bbc8fde365eaaa00-M3.scn
 res://scenes/units/allies/roller.tscn::1dbb9237a9ee627f21b7a51243173b4f::1770616875::res://.godot/exported/133200997/export-140cf3b6db281a823b5a936b8bfa48be-roller.scn
+res://scenes/threat_tile.tscn::730051698f6825afbe8f9970acc44157::1770749377::res://.godot/exported/133200997/export-1a11ecf2e6915453d3033e1249688f99-threat_tile.scn

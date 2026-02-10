@@ -6125,6 +6125,11 @@ func _draw_zombie_threat_overlay() -> void:
 		var mr := z.get_move_range() if z.has_method("get_move_range") else z.move_range
 		var origin := z.cell
 
+		# ✅ NEW: only draw threat for zombies that can threaten an ally this turn
+		var threat_radius := mr + vision
+		if not _has_ally_within_threat(origin, threat_radius):
+			continue
+			
 		# 1) Compute reachable move cells (same rules as _draw_move_range)
 		var reachable: Array[Vector2i] = []
 		reachable.append(origin)
@@ -6176,3 +6181,18 @@ func _draw_zombie_threat_overlay() -> void:
 
 		# Make it subtle (works if the root or its children are CanvasItem)
 		t.modulate.a = zombie_threat_alpha
+
+func _has_ally_within_threat(origin: Vector2i, threat_radius: int) -> bool:
+	for u in get_all_units():
+		if u == null or not is_instance_valid(u):
+			continue
+		if u.hp <= 0:
+			continue
+		if u.team != Unit.Team.ALLY:
+			continue
+
+		var d = abs(u.cell.x - origin.x) + abs(u.cell.y - origin.y)
+		if d <= threat_radius:
+			return true
+
+	return false
