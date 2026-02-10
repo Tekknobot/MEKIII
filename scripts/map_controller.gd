@@ -296,6 +296,14 @@ var zombies_killed_this_map: int = 0
 var _floppy_pity_accum := 0.0
 var _floppy_misses := 0
 
+# --- Zombie threat overlay ---
+@export var show_zombie_threat := true
+@export var threat_tile_scene: PackedScene
+@export var zombie_threat_alpha := 1.0 # tweak
+
+var valid_zombie_threat_cells: Dictionary = {} # Vector2i -> true
+var overlay_threat_tiles_root: Node2D = null
+
 # -------------------------
 # Boss intent overlay
 # -------------------------
@@ -1893,6 +1901,10 @@ func _clear_overlay() -> void:
 		for ch in overlay_tiles_root.get_children():
 			ch.queue_free()
 
+	# ✅ clear threat tiles too
+	if overlay_threat_tiles_root != null and is_instance_valid(overlay_threat_tiles_root):
+		for ch in overlay_threat_tiles_root.get_children():
+			ch.queue_free()
 
 func _draw_move_range(u: Unit) -> void:
 	if move_tile_scene == null:
@@ -1980,6 +1992,10 @@ func _refresh_overlays() -> void:
 	valid_move_cells.clear()
 	valid_special_cells.clear()
 
+	# ✅ only show threat while a unit is selected
+	if selected != null and is_instance_valid(selected):
+		_draw_zombie_threat_overlay()
+		
 	if selected == null or not is_instance_valid(selected):
 		return
 
@@ -4201,6 +4217,12 @@ func _ensure_overlay_subroots() -> void:
 		overlay_ghosts_root.name = "Ghosts"
 		overlay_root.add_child(overlay_ghosts_root)
 
+	# Threat tiles root (separate so we can clear independently)
+	if overlay_threat_tiles_root == null or not is_instance_valid(overlay_threat_tiles_root):
+		overlay_threat_tiles_root = Node2D.new()
+		overlay_threat_tiles_root.name = "ThreatTiles"
+		overlay_root.add_child(overlay_threat_tiles_root)
+
 func _prune_overwatch_dicts() -> void:
 	# ----- overwatch_by_unit -----
 	var keys1 := overwatch_by_unit.keys() # snapshot
@@ -6069,3 +6091,88 @@ func _init_floppy_kill_curve() -> void:
 		floppy_kills_left = -1
 	else:
 		floppy_kills_left = int(round(float(curve[0]) * mult))
+
+func _draw_zombie_threat_overlay() -> void:
+	# ✅ Uses threat_tile_scene (your custom packed scene) with low alpha
+	if not show_zombie_threat:
+		return
+	if threat_tile_scene == null:
+		return
+
+	_ensure_overlay_subroots()
+	if overlay_tiles_root == null:
+		return
+
+	valid_zombie_threat_cells.clear()
+
+	var vision := 3
+	if TM != null and is_instance_valid(TM):
+		vision = int(TM.zombie_vision)
+
+	var structure_blocked: Dictionary = {}
+	if game_ref != null and "structure_blocked" in game_ref:
+		structure_blocked = game_ref.structure_blocked
+
+	# Collect all zombies
+	for z in get_all_units():
+		if z == null or not is_instance_valid(z):
+			continue
+		if z.team != Unit.Team.ENEMY:
+			continue
+		if z.hp <= 0:
+			continue
+
+		var mr := z.get_move_range() if z.has_method("get_move_range") else z.move_range
+		var origin := z.cell
+
+		# 1) Compute reachable move cells (same rules as _draw_move_range)
+		var reachable: Array[Vector2i] = []
+		reachable.append(origin)
+
+		for dx in range(-mr, mr + 1):
+			for dy in range(-mr, mr + 1):
+				var c := origin + Vector2i(dx, dy)
+
+				if grid != null and grid.has_method("in_bounds") and not grid.in_bounds(c):
+					continue
+				if abs(dx) + abs(dy) > mr:
+					continue
+				if not _is_walkable(c):
+					continue
+				if structure_blocked.has(c):
+					continue
+				if c != origin and unit_at_cell(c) != null:
+					continue
+
+				# Same "L path exists" constraint as your move overlay
+				if _pick_clear_L_path(origin, c).is_empty():
+					continue
+
+				reachable.append(c)
+
+		# 2) From each reachable cell, add vision radius
+		for p in reachable:
+			for vx in range(-vision, vision + 1):
+				for vy in range(-vision, vision + 1):
+					var tcell := p + Vector2i(vx, vy)
+
+					if abs(vx) + abs(vy) > vision:
+						continue
+					if grid != null and grid.has_method("in_bounds") and not grid.in_bounds(tcell):
+						continue
+
+					valid_zombie_threat_cells[tcell] = true
+
+	# 3) Draw the union once using your packed scene
+	for c in valid_zombie_threat_cells.keys():
+		var t := threat_tile_scene.instantiate() as Node2D
+		overlay_threat_tiles_root.add_child(t)
+
+		t.global_position = terrain.to_global(terrain.map_to_local(c))
+		t.z_as_relative = false
+
+		# Put threat UNDER normal aim tiles (move/attack/special)
+		t.z_index = (c.x + c.y) - 2
+
+		# Make it subtle (works if the root or its children are CanvasItem)
+		t.modulate.a = zombie_threat_alpha

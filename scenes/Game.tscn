@@ -1,4 +1,4 @@
-[gd_scene load_steps=99 format=3 uid="uid://bmtwqbsx674eo"]
+[gd_scene load_steps=100 format=3 uid="uid://bmtwqbsx674eo"]
 
 [ext_resource type="Script" uid="uid://bn08mhcoceqg" path="res://scripts/game.gd" id="1_400sg"]
 [ext_resource type="Texture2D" uid="uid://by1nnygq8fbib" path="res://sprites/Terrain/dirt.png" id="6_mcffj"]
@@ -68,6 +68,7 @@
 [ext_resource type="PackedScene" uid="uid://b6wrxn53ynbat" path="res://scenes/HUD.tscn" id="55_kg1ax"]
 [ext_resource type="AudioStream" uid="uid://27jfmu1rhtj1" path="res://audio/SFX/web_shoot.wav" id="58_d6agh"]
 [ext_resource type="AudioStream" uid="uid://c7b174hb043ra" path="res://audio/SFX/floppy_click.wav" id="59_lktnb"]
+[ext_resource type="PackedScene" uid="uid://fwmvcj5rwlnv" path="res://scenes/threat_tile.tscn" id="64_8fcgb"]
 
 [sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_g4kob"]
 texture = ExtResource("11_2rd6h")
@@ -395,8 +396,6 @@ infestation_title_font = ExtResource("52_px4p2")
 infestation_body_font = ExtResource("53_x0rj3")
 infestation_button_font = ExtResource("32_1gdd5")
 infestation_title_font_size = 32
-infestation_body_font_size = 16
-infestation_button_font_size = 16
 infestation_portrait_size = 64
 hellfire_button_path = NodePath("../UI/Hellfire")
 blade_button_path = NodePath("../UI/Blade")
@@ -495,6 +494,7 @@ drop_fall_time = 0.62
 drop_land_pop_time = 0.18
 evac_pickup_time = 0.02
 evac_lift_px = 10.0
+threat_tile_scene = ExtResource("64_8fcgb")
 
 [node name="AudioStreamPlayer2D" type="AudioStreamPlayer2D" parent="MapController"]
 
