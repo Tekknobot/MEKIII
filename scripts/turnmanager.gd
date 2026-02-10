@@ -19,8 +19,8 @@ class_name TurnManager
 @export var infestation_button_font: Font
 
 @export var infestation_title_font_size: int = 16
-@export var infestation_body_font_size: int = 14
-@export var infestation_button_font_size: int = 14
+@export var infestation_body_font_size: int = 16
+@export var infestation_button_font_size: int = 16
 
 @export var infestation_portrait_size: int = 48
 

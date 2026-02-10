@@ -4669,6 +4669,15 @@ func _try_recruit_near_structure(mover: Unit) -> void:
 	if s == null or not is_instance_valid(s):
 		return
 
+	# -------------------------------------------------
+	# 🚫 DO NOT recruit if structure is being demolished
+	# (AnimatedSprite2D)
+	# -------------------------------------------------
+	var asp := s.get_node_or_null("AnimatedSprite2D") as AnimatedSprite2D
+	if asp != null:
+		if asp.is_playing() and asp.animation == &"demolished":
+			return
+
 	# Walk up to a UNIQUE building root (group-based)
 	var root: Node = s
 	while root != null and is_instance_valid(root) and not root.is_in_group(UNIQUE_GROUP):
@@ -4711,16 +4720,20 @@ func _find_adjacent_structure_cell(cell: Vector2i) -> Vector2i:
 
 	var sb: Dictionary = game_ref.structure_blocked
 
-	# check 8-neighbors around the mover to see if any is a structure-blocked cell
-	for dx in [-1, 0, 1]:
-		for dy in [-1, 0, 1]:
-			if dx == 0 and dy == 0:
-				continue
-			var c := cell + Vector2i(dx, dy)
-			if grid != null and grid.has_method("in_bounds") and not grid.in_bounds(c):
-				continue
-			if sb.has(c):
-				return c
+	# ✅ 4-neighbors only (no diagonals)
+	var dirs := [
+		Vector2i(1, 0),
+		Vector2i(-1, 0),
+		Vector2i(0, 1),
+		Vector2i(0, -1),
+	]
+
+	for d in dirs:
+		var c = cell + d
+		if grid != null and grid.has_method("in_bounds") and not grid.in_bounds(c):
+			continue
+		if sb.has(c):
+			return c
 
 	return Vector2i(-999, -999)
 
