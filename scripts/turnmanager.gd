@@ -12,6 +12,7 @@ class_name TurnManager
 @export var zombie_limit: int = 32
 @export var show_infestation_hud: bool = true
 @export var zombie_portrait_tex: Texture2D = preload("res://sprites/Portraits/zombie_port.png") # change if needed
+@export var zombie_vision: int = 3
 
 @export var infestation_title_font: Font
 @export var infestation_body_font: Font
@@ -1954,7 +1955,7 @@ func _get_vision(u: Unit) -> int:
 	if u != null and is_instance_valid(u) and u.has_meta("vision"):
 		return int(u.get_meta("vision"))
 	# fallback: your old rule of thumb
-	return int(u.move_range) + 3
+	return int(u.move_range) + zombie_vision
 
 func _enemy_can_see_any_ally(z: Unit, allies: Array[Unit]) -> bool:
 	var vis := _get_vision(z)
