@@ -152,6 +152,7 @@ base_max_hp = 7
 artillery_cooldown = 0
 artillery_travel_time = 1.88
 artillery_projectile_width = 1.0
+artillery_min_safe_dist = 4
 laser_friendly_fire = true
 laser_cooldown = 0
 laser_beam_width = 1.0

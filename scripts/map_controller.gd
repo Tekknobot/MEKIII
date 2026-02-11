@@ -2103,6 +2103,22 @@ func _draw_special_range(u: Unit, special: String) -> void:
 			# Helper: manhattan from origin to c
 			var dist = abs(c.x - origin.x) + abs(c.y - origin.y)
 
+			if id == "artillery_strike":
+				var min_as := 1
+				if u.has_method("get_special_min_distance"):
+					min_as = int(u.call("get_special_min_distance", "artillery_strike"))
+				elif "artillery_min_safe_dist" in u:
+					min_as = int(u.artillery_min_safe_dist)
+				elif "artillery_strike_min_safe_dist" in u:
+					min_as = int(u.artillery_strike_min_safe_dist)
+
+				# (optional but recommended) don’t let splash hit yourself if you’re the center
+				if "artillery_aoe_radius" in u:
+					min_as = max(min_as, int(u.artillery_aoe_radius) + 1)
+
+				if dist < min_as:
+					continue
+
 			if id == "malfunction":
 				var min_mf := 1
 				if u.has_method("get_special_min_distance"):
@@ -2189,7 +2205,7 @@ func _draw_special_range(u: Unit, special: String) -> void:
 				if u.has_method("get_special_min_distance"):
 					min_q = int(u.call("get_special_min_distance", "laser_sweep"))
 				elif "laser_sweep_min_safe_dist" in u:
-					min_q = int(u.quake_min_safe_dist)
+					min_q = int(u.laser_sweep_min_safe_dist)
 				if dist < min_q:
 					continue
 					

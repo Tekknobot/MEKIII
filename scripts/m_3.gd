@@ -37,6 +37,8 @@ class_name M3
 @export var artillery_projectile_color := Color.ORANGE_RED
 @export var artillery_projectile_width := 4.0
 @export var artillery_explosion_scale := 2.0
+@export var artillery_min_safe_dist := 3  # Manhattan distance (tiles) you cannot target inside
+
 
 # -------------------------
 # SPECIAL 2: LASER SWEEP
@@ -123,7 +125,10 @@ func perform_artillery_strike(M: MapController, target_cell: Vector2i) -> void:
 		return
 
 	var d = abs(target_cell.x - cell.x) + abs(target_cell.y - cell.y)
-	if d <= 0 or d > artillery_range:
+
+	# ✅ minimum safe distance (also prevents clicking your own cell)
+	var min_d = max(1, artillery_min_safe_dist)  # never less than 1
+	if d < min_d or d > artillery_range:
 		return
 
 	_face_toward_cell(M, target_cell)
