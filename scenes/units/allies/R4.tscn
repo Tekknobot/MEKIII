@@ -159,6 +159,7 @@ portrait_tex = ExtResource("2_vlbvb")
 thumbnail = ExtResource("3_et23e")
 base_move_range = 4
 base_max_hp = 6
+basic_ranged_damage = 2
 malfunction_cooldown = 0
 malfunction_self_damage = 0
 storm_max_targets = 8

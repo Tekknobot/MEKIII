@@ -147,8 +147,7 @@ animations = [{
 script = ExtResource("1_voiqf")
 thumbnail = ExtResource("2_dxfo1")
 special = "STRIKE, SWEEP"
-base_move_range = 4
-base_max_hp = 7
+base_max_hp = 8
 artillery_cooldown = 0
 artillery_travel_time = 1.88
 artillery_projectile_width = 1.0
@@ -160,7 +159,7 @@ sky_beam_height_px = 300.0
 sky_beam_width = 1.0
 sky_beam_fade_time = 0.88
 display_name = "MARV"
-attack_damage = 5
+attack_damage = 7
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="."]
 position = Vector2(0, -9)

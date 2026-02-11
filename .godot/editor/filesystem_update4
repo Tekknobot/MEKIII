@@ -15,3 +15,14 @@ res://scripts/map_controller.gd
 res://scripts/turnmanager.gd
 res://scenes/units/allies/M3.tscn
 res://scripts/m_3.gd
+res://scenes/units/allies/human.tscn
+res://scenes/units/allies/humantwo.tscn
+res://scenes/units/allies/mech.tscn
+res://scenes/units/allies/mechtwo.tscn
+res://scenes/units/allies/M2.tscn
+res://scenes/units/allies/M1.tscn
+res://scenes/units/allies/R1.tscn
+res://scenes/units/allies/R2.tscn
+res://scenes/units/allies/R3.tscn
+res://scenes/units/allies/R4.tscn
+res://scenes/units/allies/S3.tscn

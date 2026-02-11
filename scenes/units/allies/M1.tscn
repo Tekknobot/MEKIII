@@ -150,11 +150,13 @@ script = ExtResource("1_ind6l")
 portrait_tex = ExtResource("2_m1fto")
 thumbnail = ExtResource("3_iscaa")
 special_desc = "Straight lines of fire and walls of fire."
-base_max_hp = 5
+base_move_range = 4
+base_max_hp = 7
 sunder_cooldown = 0
 sunder_step_delay = 0.0
 slam_range = 5
 slam_radius = 3
+slam_damage = 5
 slam_cooldown = 0
 slam_min_safe_dist = 3
 slam_ring_delay = 0.1
@@ -162,7 +164,7 @@ slam_explosion_scene = ExtResource("4_w0c3r")
 slam_splash_hits_allies = true
 slam_splash_hits_structures = true
 display_name = "BLADEGUARD"
-attack_damage = 2
+attack_damage = 6
 death_fx_offset = Vector2(0, -16)
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="."]
