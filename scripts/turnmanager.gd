@@ -12,7 +12,7 @@ class_name TurnManager
 @export var zombie_limit: int = 32
 @export var show_infestation_hud: bool = true
 @export var zombie_portrait_tex: Texture2D = preload("res://sprites/Portraits/zombie_port.png") # change if needed
-@export var zombie_vision: int = 3
+@export var zombie_vision: int = 2
 
 @export var infestation_title_font: Font
 @export var infestation_body_font: Font
@@ -600,7 +600,12 @@ func _on_end_turn_pressed() -> void:
 	
 	# --- Clear Overlays ---	
 	M._clear_overlay()
-		
+
+	# ✅ stop enemy pulses for next phase (they'll restart when threat overlay is redrawn)
+	if M != null and M.has_method("stop_all_enemy_red_pulse"):
+		M.call("stop_all_enemy_red_pulse")
+
+
 	# --- Tutorial hook ---
 	emit_signal("tutorial_event", &"end_turn_pressed", {"round": round_index})
 
@@ -775,7 +780,7 @@ func _enemy_in_ally_vision(z: Unit, allies: Array[Unit]) -> bool:
 		# vision distance = ally movement + 3
 		var vis := 0
 		if "move_range" in a:
-			vis = int(a.move_range) + 3
+			vis = int(a.move_range) + zombie_vision
 		else:
 			vis = 3
 

@@ -199,7 +199,7 @@ shape = SubResource("RectangleShape2D_o6twh")
 
 [node name="AnimatedSprite2D" type="AnimatedSprite2D" parent="."]
 sprite_frames = SubResource("SpriteFrames_0pyg8")
-animation = &"move"
+animation = &"attack"
 autoplay = "idle"
 
 [node name="HPLabel" type="Label" parent="."]

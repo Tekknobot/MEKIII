@@ -304,6 +304,8 @@ var _floppy_misses := 0
 var valid_zombie_threat_cells: Dictionary = {} # Vector2i -> true
 var overlay_threat_tiles_root: Node2D = null
 
+var _enemy_pulse_tweens: Dictionary = {} # instance_id -> Tween
+
 # -------------------------
 # Boss intent overlay
 # -------------------------
@@ -6101,12 +6103,15 @@ func _draw_zombie_threat_overlay() -> void:
 		return
 
 	_ensure_overlay_subroots()
-	if overlay_tiles_root == null:
+	if overlay_threat_tiles_root == null:
 		return
 
 	valid_zombie_threat_cells.clear()
 
-	var vision := 3
+	# ✅ Track which zombies should be pulsing this refresh
+	var engaged_ids: Dictionary = {} # int -> true
+
+	var vision := 2
 	if TM != null and is_instance_valid(TM):
 		vision = int(TM.zombie_vision)
 
@@ -6126,11 +6131,17 @@ func _draw_zombie_threat_overlay() -> void:
 		var mr := z.get_move_range() if z.has_method("get_move_range") else z.move_range
 		var origin := z.cell
 
-		# ✅ NEW: only draw threat for zombies that can threaten an ally this turn
+		# ✅ Only draw threat + pulse if this zombie can threaten an ally this turn
 		var threat_radius := mr + vision
 		if not _has_ally_within_threat(origin, threat_radius):
 			continue
-			
+
+		# ✅ Start/keep pulsing this zombie red
+		var zid := z.get_instance_id()
+		engaged_ids[zid] = true
+		if has_method("_start_enemy_red_pulse"):
+			_start_enemy_red_pulse(z) # looping tween; no-op if already pulsing
+
 		# 1) Compute reachable move cells (same rules as _draw_move_range)
 		var reachable: Array[Vector2i] = []
 		reachable.append(origin)
@@ -6169,6 +6180,14 @@ func _draw_zombie_threat_overlay() -> void:
 
 					valid_zombie_threat_cells[tcell] = true
 
+	# ✅ Stop pulsing for zombies that are no longer engaged (player moved away)
+	# Requires: _enemy_pulse_tweens dict and _stop_enemy_red_pulse_by_id(id) helper.
+	if "_enemy_pulse_tweens" in self:
+		for id in _enemy_pulse_tweens.keys():
+			if not engaged_ids.has(id):
+				if has_method("_stop_enemy_red_pulse_by_id"):
+					_stop_enemy_red_pulse_by_id(int(id))
+
 	# 3) Draw the union once using your packed scene
 	for c in valid_zombie_threat_cells.keys():
 		var t := threat_tile_scene.instantiate() as Node2D
@@ -6180,8 +6199,72 @@ func _draw_zombie_threat_overlay() -> void:
 		# Put threat UNDER normal aim tiles (move/attack/special)
 		t.z_index = (c.x + c.y) - 2
 
-		# Make it subtle (works if the root or its children are CanvasItem)
+		# Make it subtle
 		t.modulate.a = zombie_threat_alpha
+
+func stop_all_enemy_red_pulse() -> void:
+	for id in _enemy_pulse_tweens.keys():
+		var tw = _enemy_pulse_tweens[id]
+		if tw != null and is_instance_valid(tw):
+			tw.kill()
+
+		# reset color
+		var obj := instance_from_id(id)
+		if obj != null and is_instance_valid(obj) and obj is Unit:
+			var u := obj as Unit
+			var ci := u.get_node_or_null("Sprite2D")
+			if ci == null:
+				ci = u.get_node_or_null("AnimatedSprite2D")
+			if ci is CanvasItem:
+				(ci as CanvasItem).modulate = Color.WHITE
+
+	_enemy_pulse_tweens.clear()
+
+func _start_enemy_red_pulse(u: Unit, pulse_time := 0.35) -> void:
+	if u == null or not is_instance_valid(u):
+		return
+
+	var id := u.get_instance_id()
+	if _enemy_pulse_tweens.has(id):
+		return # already pulsing
+
+	var ci := u.get_node_or_null("Sprite2D")
+	if ci == null:
+		ci = u.get_node_or_null("AnimatedSprite2D")
+	if ci == null or not (ci is CanvasItem):
+		return
+
+	var item := ci as CanvasItem
+	var base := item.modulate
+
+	var tw := item.create_tween()
+	tw.set_loops() # 🔁 continuous
+	tw.set_trans(Tween.TRANS_SINE)
+	tw.set_ease(Tween.EASE_IN_OUT)
+
+	# pulse red → base → red → ...
+	tw.tween_property(item, "modulate", Color(1.4, 0.25, 0.25, base.a), pulse_time * 0.5)
+	tw.tween_property(item, "modulate", base, pulse_time * 0.5)
+
+	_enemy_pulse_tweens[id] = tw
+
+func _stop_enemy_red_pulse_by_id(id: int) -> void:
+	if not _enemy_pulse_tweens.has(id):
+		return
+	var tw = _enemy_pulse_tweens[id]
+	if tw != null and is_instance_valid(tw):
+		tw.kill()
+	_enemy_pulse_tweens.erase(id)
+
+	# reset modulate to default
+	var obj := instance_from_id(id)
+	if obj != null and is_instance_valid(obj) and obj is Unit:
+		var u := obj as Unit
+		var ci := u.get_node_or_null("Sprite2D")
+		if ci == null:
+			ci = u.get_node_or_null("AnimatedSprite2D")
+		if ci is CanvasItem:
+			(ci as CanvasItem).modulate = Color.WHITE
 
 func _has_ally_within_threat(origin: Vector2i, threat_radius: int) -> bool:
 	for u in get_all_units():

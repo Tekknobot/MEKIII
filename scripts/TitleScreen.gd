@@ -86,7 +86,7 @@ var _desat_tw: Tween = null
 @export var desat_hold := 0.06
 
 func _ready() -> void:
-	#MusicManagerNode.play_stream(preload("res://audio/Music/Track 3.wav"))	
+	#MusicManagerNode.play_stream(preload("res://audio/Music/Track 1.wav"))	
 	
 	# Fade in from black
 	fade.mouse_filter = Control.MOUSE_FILTER_IGNORE
