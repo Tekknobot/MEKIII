@@ -2554,7 +2554,7 @@ func _trigger_mine_if_present_id(uid: int) -> void:
 		return
 	if not (obj is Unit):
 		return
-	_trigger_mine_if_present(obj as Unit)
+	await _trigger_mine_if_present(obj as Unit)
 
 func _face_unit_for_step(u: Unit, from_world: Vector2, to_world: Vector2) -> void:
 	if u == null or not is_instance_valid(u):
@@ -3505,41 +3505,16 @@ func _trigger_mine_if_present(u: Unit) -> void:
 	var data = mines_by_cell[c]
 	var mine_team := int(data.get("team", Unit.Team.ALLY))
 
-	# -------------------------
-	# ✅ FRIENDLY MINE: PICK UP (no explosion)
-	# -------------------------
 	if u.team == mine_team:
-		# remove mine from board
 		mines_by_cell.erase(c)
 		remove_mine_visual(c)
-
-		# optional pickup sound (add this key to sfx_streams)
 		_sfx(&"mine_pickup", sfx_volume_ui, randf_range(0.95, 1.05), _cell_world(c))
-
-		# give mine back to the unit if it supports it
-		# (supports multiple possible APIs so you can match your Unit scripts)
-		if u.has_method("add_mine"):
-			u.call("add_mine", 1)
-		elif u.has_method("add_mines"):
-			u.call("add_mines", 1)
-		elif u.has_method("gain_mine"):
-			u.call("gain_mine", 1)
-		elif u.has_method("give_mine"):
-			u.call("give_mine", 1)
-		elif u.has_method("add_special_charge"):
-			u.call("add_special_charge", "mines", 1)
-		elif u.has_method("add_special_ammo"):
-			u.call("add_special_ammo", "mines", 1)
-		# else: silently just pick it up (still useful even without inventory)
-
+		# (inventory returns...)
 		emit_signal("tutorial_event", &"mine_picked_up", {"cell": c, "team": mine_team})
 		return
 
-	# -------------------------
-	# ✅ ENEMY ON MINE: DETONATE
-	# -------------------------
+	# ENEMY ON MINE: DETONATE
 	mines_by_cell.erase(c)
-
 	remove_mine_visual(c)
 	_sfx(&"mine_trigger", sfx_volume_world, 1.0, _cell_world(c))
 	spawn_explosion_at_cell(c)
@@ -3548,11 +3523,24 @@ func _trigger_mine_if_present(u: Unit) -> void:
 
 	_flash_unit_white(u, max(attack_flash_time, 0.12))
 	_jitter_unit(u, 3.5, 6, 0.14)
+
 	u.take_damage(dmg)
 
+	# ✅ If the mine killed it, remove from board + ensure the node disappears
 	if u != null and is_instance_valid(u) and u.hp <= 0:
-		# ✅ let Unit._die() / death anim handle freeing
-		_cleanup_dead_at(c) # remove from board dict so it no longer blocks tiles
+		_cleanup_dead_at(c) # free the cell immediately
+
+		# IMPORTANT: clear selection/hover if it points at this unit
+		if selected == u:
+			selected = null
+			emit_signal("selection_changed", null)
+
+		# Fire-and-forget death animation if it exists,
+		# but ALSO guarantee node is freed even if that coroutine hangs.
+		if u.has_method("await_die"):
+			u.call_deferred("await_die") # don't run inside current stack
+		# ✅ hard guarantee: if it's still around next frame, kill it
+		u.call_deferred("queue_free")
 		return
 
 	_cleanup_dead_at(c)

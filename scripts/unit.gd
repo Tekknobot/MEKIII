@@ -94,22 +94,22 @@ func tick_special_cooldowns() -> void:
 		special_cd[k] = max(0, int(special_cd[k]) - 1)
 
 func await_die() -> void:
-	# If already dying, just wait until freed (best-effort)
+	# If already dying, just wait a bounded number of frames
 	if _dying:
-		var t := 0.0
-		while is_instance_valid(self) and t < 2.0:
+		for i in range(120): # ~2 seconds at 60fps
+			if not is_instance_valid(self):
+				return
 			await get_tree().process_frame
-			t += get_process_delta_time()
 		return
 
-	# If not dying yet, force death (plays anim) then wait for free
+	# Force death, then wait a bounded number of frames
 	hp = 0
 	_die()
 
-	var tt := 0.0
-	while is_instance_valid(self) and tt < 2.0:
+	for i in range(120):
+		if not is_instance_valid(self):
+			return
 		await get_tree().process_frame
-		tt += get_process_delta_time()
 
 func _die() -> void:
 	if _dying:
