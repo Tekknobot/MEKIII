@@ -470,8 +470,8 @@ follow_camera = false
 [node name="Fade" type="ColorRect" parent="."]
 z_index = 4096
 layout_mode = 0
-offset_left = -26.0
-offset_top = -27.0
-offset_right = 1176.0
-offset_bottom = 674.0
+offset_left = -334.0
+offset_top = -464.0
+offset_right = 1548.0
+offset_bottom = 1048.0
 color = Color(0, 0, 0, 1)

@@ -13,3 +13,4 @@ res://shaders/text_outline_1px.gdshader
 res://shaders/desaturate.gdshader
 res://scenes/Game.tscn
 res://scripts/map_controller.gd
+res://scenes/title_screen.tscn
