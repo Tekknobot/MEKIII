@@ -4470,7 +4470,7 @@ func _edge_spawn_ok(c: Vector2i, structure_blocked: Dictionary) -> bool:
 	return true
 
 func spawn_edge_road_zombie() -> bool:
-	if enemy_zombie_scene == null or units_root == null or terrain == null or grid == null:
+	if units_root == null or terrain == null or grid == null:
 		return false
 
 	var structure_blocked: Dictionary = {}
@@ -4518,13 +4518,18 @@ func spawn_edge_road_zombie() -> bool:
 	if best_cell.x < 0:
 		return false
 
-	var z := enemy_zombie_scene.instantiate() as Unit
+	# ✅ Pick scene (normal or radioactive)
+	var scene := _pick_enemy_zombie_scene()
+	if scene == null:
+		return false
+
+	var z := scene.instantiate() as Unit
 	if z == null:
 		return false
 
 	units_root.add_child(z)
 
-	# ✅ FIX: connect died signal so parts/pickups can drop
+	# ✅ connect died signal so parts/pickups can drop
 	_wire_unit_signals(z)
 
 	z.team = Unit.Team.ENEMY
@@ -4533,6 +4538,10 @@ func spawn_edge_road_zombie() -> bool:
 	z.set_cell(best_cell, terrain)
 	units_by_cell[best_cell] = z
 	_set_unit_depth_from_world(z, z.global_position)
+
+	# Optional: tag variant for UI/logic
+	if scene == radioactive_zombie_scene:
+		z.set_meta("zombie_variant", "radioactive")
 
 	var ci := _get_unit_render_node(z)
 	if ci != null and is_instance_valid(ci):
