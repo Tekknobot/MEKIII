@@ -532,6 +532,17 @@ func start_enemy_phase() -> void:
 
 	_tick_buffs_enemy_phase_start()
 
+	# ✅ Radiation phase-start tick (aura + contam + standing damage)
+	if M != null and is_instance_valid(M):
+		# 1) Each radioactive zombie pulses + leaves/refreshes contam
+		if M.has_method("get_all_units"):
+			for u in M.get_all_units():
+				if u != null and is_instance_valid(u) and (u is RadioactiveZombie):
+					(u as RadioactiveZombie).rad_tick(M)
+
+		# 2) Contamination timers tick + damage allies standing on contaminated tiles
+		RadioactiveZombie.contam_tick(M)
+
 	_update_end_turn_button()
 	_update_special_buttons()
 

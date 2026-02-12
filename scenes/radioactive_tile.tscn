@@ -1,0 +1,40 @@
+[gd_scene load_steps=4 format=3 uid="uid://b5tsw0xtnqbo1"]
+
+[ext_resource type="Texture2D" uid="uid://bbg3458x06rys" path="res://sprites/Tiles_UI/mek3/1x1_beacon4.png" id="1_0tcfy"]
+[ext_resource type="Texture2D" uid="uid://dm6paajj4vro2" path="res://sprites/Textures/radioactive_gradient.png" id="2_3ai2i"]
+
+[sub_resource type="SpriteFrames" id="SpriteFrames_r47l1"]
+animations = [{
+"frames": [{
+"duration": 1.0,
+"texture": ExtResource("1_0tcfy")
+}],
+"loop": true,
+"name": &"default",
+"speed": 24.0
+}]
+
+[node name="RadioactiveTile" type="Node2D"]
+
+[node name="AnimatedSprite2D" type="AnimatedSprite2D" parent="."]
+visible = false
+sprite_frames = SubResource("SpriteFrames_r47l1")
+
+[node name="Cloud" type="Sprite2D" parent="."]
+modulate = Color(1, 1, 1, 0.7372549)
+position = Vector2(0, -21)
+texture = ExtResource("2_3ai2i")
+
+[node name="CPUParticles2D" type="CPUParticles2D" parent="."]
+position = Vector2(0, -21)
+amount = 16
+lifetime = 2.8
+preprocess = 3.0
+randomness = 1.0
+emission_shape = 1
+emission_sphere_radius = 15.81
+spread = 180.0
+gravity = Vector2(0, 0)
+initial_velocity_min = 2.0
+initial_velocity_max = 2.0
+color = Color(0, 1, 0, 1)

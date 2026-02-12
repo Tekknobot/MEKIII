@@ -7,7 +7,17 @@ class_name MapController
 @export var overlay_root_path: NodePath
 
 @export var ally_scenes: Array[PackedScene] = []
-@export var enemy_zombie_scene: PackedScene
+@export var enemy_zombie_scene: PackedScene # legacy fallback
+
+# ✅ New: pool of possible zombie scenes (regular variants)
+@export var enemy_zombie_scenes: Array[PackedScene] = []
+
+# ✅ Optional: special variant
+@export var radioactive_zombie_scene: PackedScene
+@export_range(0.0, 1.0, 0.01) var radioactive_spawn_chance := 0.10
+@export var rad_tile_scene: PackedScene # a simple Sprite2D/Node2D with a green glow / trefoil icon
+var rad_tiles_by_cell: Dictionary = {} # Vector2i -> Node2D
+
 @export var enemy_elite_mech_scene: PackedScene 
 
 @export var move_tile_scene: PackedScene
@@ -1212,13 +1222,13 @@ func _spawn_unit_walkable(preferred: Vector2i, team: int, reserved_ally: Diction
 			return false
 		scene = ally_scenes.pick_random()
 	else:
-		scene = enemy_zombie_scene
+		scene = _pick_enemy_zombie_scene()
 		if scene == null:
-			push_error("MapController: enemy_zombie_scene not assigned.")
+			push_error("MapController: no enemy zombie scenes assigned (enemy_zombie_scenes empty and enemy_zombie_scene null).")
 			return false
 
 	var inst := scene.instantiate()
-	var u := inst as Unit
+	var u := inst as Unit	
 	if u == null:
 		push_error("MapController: scene root is not a Unit (must extend Unit).")
 		return false
@@ -1234,6 +1244,27 @@ func _spawn_unit_walkable(preferred: Vector2i, team: int, reserved_ally: Diction
 
 	print("Spawned", ("ALLY" if team == Unit.Team.ALLY else "ZOMBIE"), "at", c, "world", u.global_position)
 	return true
+
+func _pick_enemy_zombie_scene() -> PackedScene:
+	# Base pool
+	var pool: Array[PackedScene] = []
+	for s in enemy_zombie_scenes:
+		if s != null:
+			pool.append(s)
+
+	# Fallback to legacy single scene if pool empty
+	if pool.is_empty() and enemy_zombie_scene != null:
+		pool.append(enemy_zombie_scene)
+
+	if pool.is_empty():
+		return null
+
+	# Inject radioactive with a chance (if assigned)
+	if radioactive_zombie_scene != null and randf() < radioactive_spawn_chance:
+		return radioactive_zombie_scene
+
+	# Otherwise pick a normal variant
+	return pool.pick_random()
 
 # --------------------------
 # Walkable + placement search
@@ -2987,7 +3018,12 @@ func ai_attack(attacker: Unit, defender: Unit) -> void:
 		return
 	if not is_instance_valid(attacker) or not is_instance_valid(defender):
 		return
+
 	await _do_attack(attacker, defender)
+
+	# ✅ Radioactive spread: contaminate the cell that was attacked
+	if attacker is RadioactiveZombie:
+		(attacker as RadioactiveZombie).on_hit_cell(self, defender.cell)
 
 func set_unit_exhausted(u: Unit, exhausted: bool) -> void:
 	if u == null or not is_instance_valid(u):
@@ -3086,16 +3122,21 @@ func _push_unit_to_cell(u: Unit, to_cell: Vector2i) -> void:
 	var from_world := _cell_world(from_cell)
 	var to_world := _cell_world(to_cell)
 
+	# Update occupancy map
 	if units_by_cell.has(from_cell) and units_by_cell[from_cell] == u:
 		units_by_cell.erase(from_cell)
 	units_by_cell[to_cell] = u
 
+	# Move the unit logically
 	u.set_cell(to_cell, terrain)
+
+	# Keep overwatch ghost aligned if needed
 	if is_overwatching(u):
 		_update_overwatch_ghost_pos(u)
-	
+
 	_set_unit_depth_from_world(u, to_world)
 
+	# Mines can kill + free the unit, so we must await then re-check
 	await _trigger_mine_if_present(u)
 
 	# ✅ IMPORTANT: u may be dead/freed now
@@ -3105,14 +3146,23 @@ func _push_unit_to_cell(u: Unit, to_cell: Vector2i) -> void:
 			if v == null or not (v is Object) or not is_instance_valid(v):
 				units_by_cell.erase(to_cell)
 		return
-		
+
+	# ✅ Radiation contam "on enter" damage (can also kill)
+	_try_radiation_contam_on_enter(u)
+
+	# If contam damage killed/freed the unit, clean up occupancy entry and stop
+	if u == null or not is_instance_valid(u) or u.hp <= 0:
+		if units_by_cell.has(to_cell) and units_by_cell[to_cell] == u:
+			units_by_cell.erase(to_cell)
+		return
+
 	# ✅ If we stepped onto a pickup, let it be visible briefly, then collect
 	if pickups_by_cell.has(to_cell):
 		_delayed_collect_pickup(u, to_cell)
 	else:
-		# normal: nothing to collect
 		pass
 
+	# Visual tween
 	var visual := _get_unit_visual_node(u)
 	if visual == null or not is_instance_valid(visual):
 		return
@@ -3129,10 +3179,39 @@ func _push_unit_to_cell(u: Unit, to_cell: Vector2i) -> void:
 
 	await tw.finished
 
+func _try_radiation_contam_on_enter(u: Unit) -> void:
+	if u == null or not is_instance_valid(u):
+		return
+	if u.team != Unit.Team.ALLY:
+		return
+
+	var key := &"rad_contam"
+	if not has_meta(key):
+		return
+	var contam = get_meta(key)
+	if not (contam is Dictionary):
+		return
+	if not contam.has(u.cell):
+		return
+
+	# Use damage value if you stored one; otherwise 1
+	var dmg := 1
+	# Optional: allow MapController export later: @export var rad_contam_damage_global := 1
+
+	# FX consistency
+	if has_method("_flash_unit_white"):
+		_flash_unit_white(u, 0.10)
+
+	if u.has_method("apply_damage"):
+		u.call("apply_damage", dmg)
+	elif u.has_method("take_damage"):
+		u.call("take_damage", dmg)
+	else:
+		u.hp = max(0, u.hp - dmg)
+
 func _delayed_collect_pickup(u: Unit, c: Vector2i) -> void:
 	# Fire-and-forget coroutine (doesn't block movement tween)
 	_delayed_collect_pickup_async(u, c)
-
 
 func _delayed_collect_pickup_async(u: Unit, c: Vector2i) -> void:
 	# If the pickup node exists, force it visible "on top" for the flash
@@ -6284,3 +6363,51 @@ func _has_ally_within_threat(origin: Vector2i, threat_radius: int) -> bool:
 			return true
 
 	return false
+
+func _rad_get_contam() -> Dictionary:
+	var key := &"rad_contam"
+	if not has_meta(key):
+		return {}
+	var d = get_meta(key)
+	return d if (d is Dictionary) else {}
+
+func _rad_clear_visual(c: Vector2i) -> void:
+	if rad_tiles_by_cell.has(c):
+		var n = rad_tiles_by_cell[c]
+		rad_tiles_by_cell.erase(c)
+		if n != null and is_instance_valid(n):
+			n.queue_free()
+
+func _rad_ensure_visual(c: Vector2i) -> void:
+	if rad_tile_scene == null:
+		return
+	if rad_tiles_by_cell.has(c):
+		var n = rad_tiles_by_cell[c]
+		if n != null and is_instance_valid(n):
+			return
+		rad_tiles_by_cell.erase(c)
+
+	var inst = rad_tile_scene.instantiate()
+	if inst == null:
+		return
+
+	add_child(inst)
+	rad_tiles_by_cell[c] = inst
+
+	# position + depth (match your tile/world conventions)
+	if inst is Node2D:
+		var n2 := inst as Node2D
+		n2.global_position = _cell_world(c)
+		n2.z_index = (c.x + c.y) - 1
+
+func _rad_refresh_visuals() -> void:
+	var contam := _rad_get_contam()
+
+	# remove visuals that no longer exist
+	for c in rad_tiles_by_cell.keys():
+		if not contam.has(c):
+			_rad_clear_visual(c)
+
+	# add/update visuals for active contamination
+	for c in contam.keys():
+		_rad_ensure_visual(c)

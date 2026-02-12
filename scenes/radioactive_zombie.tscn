@@ -1,0 +1,235 @@
+[gd_scene load_steps=46 format=3 uid="uid://bnwdxbsijm5v2"]
+
+[ext_resource type="Script" uid="uid://nnr3dioma5ae" path="res://scripts/radioactive_zombie.gd" id="1_4kmwq"]
+[ext_resource type="Texture2D" uid="uid://dy5yo3h0337f2" path="res://sprites/Zombies/zomb/radioactive/attack/zomb_radioactive_atk1.png" id="2_4kmwq"]
+[ext_resource type="Texture2D" uid="uid://dm6paajj4vro2" path="res://sprites/Textures/radioactive_gradient.png" id="2_pc0o6"]
+[ext_resource type="Texture2D" uid="uid://bk1ywo6kx4q1d" path="res://sprites/Zombies/zomb/radioactive/attack/zomb_radioactive_atk2.png" id="3_pc0o6"]
+[ext_resource type="Texture2D" uid="uid://jiqk8swar0av" path="res://sprites/Zombies/zomb/radioactive/attack/zomb_radioactive_atk3.png" id="4_066ai"]
+[ext_resource type="Texture2D" uid="uid://diqlvoxdjx4mc" path="res://sprites/Zombies/zomb/radioactive/attack/zomb_radioactive_atk4.png" id="5_gthl5"]
+[ext_resource type="Texture2D" uid="uid://kfd53ci37hd7" path="res://sprites/Zombies/zomb/radioactive/attack/zomb_radioactive_atk5.png" id="6_djmds"]
+[ext_resource type="Texture2D" uid="uid://0e8btulc0kyp" path="res://sprites/Zombies/zomb/radioactive/attack/zomb_radioactive_atk6.png" id="7_47su8"]
+[ext_resource type="Texture2D" uid="uid://cvb5g86oakuy8" path="res://sprites/Zombies/zomb/radioactive/attack/zomb_radioactive_atk7.png" id="8_y5f3p"]
+[ext_resource type="Texture2D" uid="uid://dnr871fjy5vua" path="res://sprites/Zombies/zomb/radioactive/attack/zomb_radioactive_atk8.png" id="9_grsl5"]
+[ext_resource type="Texture2D" uid="uid://55kmgqp1ppmj" path="res://sprites/Zombies/zomb/radioactive/attack/zomb_radioactive_atk9.png" id="10_3c7xx"]
+[ext_resource type="Texture2D" uid="uid://buo3i466romlo" path="res://sprites/Zombies/zomb/radioactive/death/zombactive_death1.png" id="11_fab63"]
+[ext_resource type="Texture2D" uid="uid://bqiuix2h0renn" path="res://sprites/Zombies/zomb/radioactive/death/zombactive_death2.png" id="12_k3els"]
+[ext_resource type="Texture2D" uid="uid://drpr3uuxvg17j" path="res://sprites/Zombies/zomb/radioactive/death/zombactive_death3.png" id="13_pcg3x"]
+[ext_resource type="Texture2D" uid="uid://ck2xo8bp471bj" path="res://sprites/Zombies/zomb/radioactive/death/zombactive_death4.png" id="14_ah1jf"]
+[ext_resource type="Texture2D" uid="uid://dmyj1yy6jer10" path="res://sprites/Zombies/zomb/radioactive/death/zombactive_death5.png" id="15_d2kx3"]
+[ext_resource type="Texture2D" uid="uid://km2m2sxqjdi7" path="res://sprites/Zombies/zomb/radioactive/death/zombactive_death6.png" id="16_2bqyi"]
+[ext_resource type="Texture2D" uid="uid://qiko26g24iv3" path="res://sprites/Zombies/zomb/radioactive/death/zombactive_death7.png" id="17_77gms"]
+[ext_resource type="Texture2D" uid="uid://camf7udnpwlkq" path="res://sprites/Zombies/zomb/radioactive/death/zombactive_death8.png" id="18_0dbmr"]
+[ext_resource type="Texture2D" uid="uid://bvgxhswqqvtrw" path="res://sprites/Zombies/zomb/radioactive/idle/zombie_radioactive_idle1.png" id="19_0seek"]
+[ext_resource type="Texture2D" uid="uid://bng6oqthvamk0" path="res://sprites/Zombies/zomb/radioactive/idle/zombie_radioactive_idle2.png" id="20_nv7wc"]
+[ext_resource type="Texture2D" uid="uid://cybnrdrdp71ev" path="res://sprites/Zombies/zomb/radioactive/idle/zombie_radioactive_idle3.png" id="21_k0arq"]
+[ext_resource type="Texture2D" uid="uid://dkkx2rbi73s57" path="res://sprites/Zombies/zomb/radioactive/idle/zombie_radioactive_idle4.png" id="22_0yh0n"]
+[ext_resource type="Texture2D" uid="uid://b86noaqj5acla" path="res://sprites/Zombies/zomb/radioactive/idle/zombie_radioactive_idle5.png" id="23_2im0d"]
+[ext_resource type="Texture2D" uid="uid://df3016nthmddj" path="res://sprites/Zombies/zomb/radioactive/idle/zombie_radioactive_idle6.png" id="24_erpl5"]
+[ext_resource type="Texture2D" uid="uid://cpukxmlfjb6dh" path="res://sprites/Zombies/zomb/radioactive/idle/zombie_radioactive_idle7.png" id="25_fvqab"]
+[ext_resource type="Texture2D" uid="uid://7i7ak3sh5wb8" path="res://sprites/Zombies/zomb/radioactive/idle/zombie_radioactive_idle8.png" id="26_amj0q"]
+[ext_resource type="Texture2D" uid="uid://d56atqm0vh2t" path="res://sprites/Zombies/zomb/radioactive/idle/zombie_radioactive_idle9.png" id="27_70we7"]
+[ext_resource type="Texture2D" uid="uid://b65n40mljj5nt" path="res://sprites/Zombies/zomb/radioactive/idle/zombie_radioactive_idle10.png" id="28_fqkor"]
+[ext_resource type="Texture2D" uid="uid://cl2l6kp8w0c0v" path="res://sprites/Zombies/zomb/radioactive/idle/zombie_radioactive_idle11.png" id="29_ik6yk"]
+[ext_resource type="Texture2D" uid="uid://dnwr4uqgdf3rl" path="res://sprites/Zombies/zomb/radioactive/idle/zombie_radioactive_idle12.png" id="30_extve"]
+[ext_resource type="Texture2D" uid="uid://bksbcye55d88p" path="res://sprites/Zombies/zomb/radioactive/idle/zombie_radioactive_idle13.png" id="31_fl7xg"]
+[ext_resource type="Texture2D" uid="uid://bl2rrh01cd2x7" path="res://sprites/Zombies/zomb/radioactive/idle/zombie_radioactive_idle14.png" id="32_oerpf"]
+[ext_resource type="Texture2D" uid="uid://bd3wc7jafa5d4" path="res://sprites/Zombies/zomb/radioactive/idle/zombie_radioactive_idle15.png" id="33_duyx5"]
+[ext_resource type="Texture2D" uid="uid://6yv03gwvhc21" path="res://sprites/Zombies/zomb/radioactive/idle/zombie_radioactive_idle16.png" id="34_jxsah"]
+[ext_resource type="Texture2D" uid="uid://dcsaht160iapd" path="res://sprites/Zombies/zomb/radioactive/move/zombactive1.png" id="35_jt8va"]
+[ext_resource type="Texture2D" uid="uid://b8m2c7rl1javt" path="res://sprites/Zombies/zomb/radioactive/move/zombactive2.png" id="36_oqbou"]
+[ext_resource type="Texture2D" uid="uid://c3r3jhtjy6ti2" path="res://sprites/Zombies/zomb/radioactive/move/zombactive3.png" id="37_bdk2y"]
+[ext_resource type="Texture2D" uid="uid://cxu7j1ej5d7uy" path="res://sprites/Zombies/zomb/radioactive/move/zombactive4.png" id="38_xbyyy"]
+[ext_resource type="Texture2D" uid="uid://c2n77i8qr4uie" path="res://sprites/Zombies/zomb/radioactive/move/zombactive5.png" id="39_2c1ji"]
+[ext_resource type="Texture2D" uid="uid://wk8lokjib7x4" path="res://sprites/Zombies/zomb/radioactive/move/zombactive6.png" id="40_xkdrw"]
+[ext_resource type="FontFile" uid="uid://buw362wjb8o8d" path="res://fonts/magofonts/mago2.ttf" id="41_54yn6"]
+[ext_resource type="Script" uid="uid://lmsma3lhwhb8" path="res://scripts/hp_label.gd" id="42_qa4j7"]
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_o6twh"]
+size = Vector2(20, 6)
+
+[sub_resource type="SpriteFrames" id="SpriteFrames_0pyg8"]
+animations = [{
+"frames": [{
+"duration": 1.0,
+"texture": ExtResource("2_4kmwq")
+}, {
+"duration": 1.0,
+"texture": ExtResource("3_pc0o6")
+}, {
+"duration": 1.0,
+"texture": ExtResource("4_066ai")
+}, {
+"duration": 1.0,
+"texture": ExtResource("5_gthl5")
+}, {
+"duration": 1.0,
+"texture": ExtResource("6_djmds")
+}, {
+"duration": 1.0,
+"texture": ExtResource("7_47su8")
+}, {
+"duration": 1.0,
+"texture": ExtResource("8_y5f3p")
+}, {
+"duration": 1.0,
+"texture": ExtResource("9_grsl5")
+}, {
+"duration": 1.0,
+"texture": ExtResource("10_3c7xx")
+}],
+"loop": false,
+"name": &"attack",
+"speed": 24.0
+}, {
+"frames": [{
+"duration": 1.0,
+"texture": ExtResource("11_fab63")
+}, {
+"duration": 1.0,
+"texture": ExtResource("12_k3els")
+}, {
+"duration": 1.0,
+"texture": ExtResource("13_pcg3x")
+}, {
+"duration": 1.0,
+"texture": ExtResource("14_ah1jf")
+}, {
+"duration": 1.0,
+"texture": ExtResource("15_d2kx3")
+}, {
+"duration": 1.0,
+"texture": ExtResource("16_2bqyi")
+}, {
+"duration": 1.0,
+"texture": ExtResource("17_77gms")
+}, {
+"duration": 1.0,
+"texture": ExtResource("18_0dbmr")
+}, {
+"duration": 1.0,
+"texture": null
+}],
+"loop": false,
+"name": &"death",
+"speed": 18.0
+}, {
+"frames": [{
+"duration": 1.0,
+"texture": ExtResource("19_0seek")
+}, {
+"duration": 1.0,
+"texture": ExtResource("20_nv7wc")
+}, {
+"duration": 1.0,
+"texture": ExtResource("21_k0arq")
+}, {
+"duration": 1.0,
+"texture": ExtResource("22_0yh0n")
+}, {
+"duration": 1.0,
+"texture": ExtResource("23_2im0d")
+}, {
+"duration": 1.0,
+"texture": ExtResource("24_erpl5")
+}, {
+"duration": 1.0,
+"texture": ExtResource("25_fvqab")
+}, {
+"duration": 1.0,
+"texture": ExtResource("26_amj0q")
+}, {
+"duration": 1.0,
+"texture": ExtResource("27_70we7")
+}, {
+"duration": 1.0,
+"texture": ExtResource("28_fqkor")
+}, {
+"duration": 1.0,
+"texture": ExtResource("29_ik6yk")
+}, {
+"duration": 1.0,
+"texture": ExtResource("30_extve")
+}, {
+"duration": 1.0,
+"texture": ExtResource("31_fl7xg")
+}, {
+"duration": 1.0,
+"texture": ExtResource("32_oerpf")
+}, {
+"duration": 1.0,
+"texture": ExtResource("33_duyx5")
+}, {
+"duration": 1.0,
+"texture": ExtResource("34_jxsah")
+}],
+"loop": true,
+"name": &"idle",
+"speed": 8.0
+}, {
+"frames": [{
+"duration": 1.0,
+"texture": ExtResource("35_jt8va")
+}, {
+"duration": 1.0,
+"texture": ExtResource("36_oqbou")
+}, {
+"duration": 1.0,
+"texture": ExtResource("37_bdk2y")
+}, {
+"duration": 1.0,
+"texture": ExtResource("38_xbyyy")
+}, {
+"duration": 1.0,
+"texture": ExtResource("39_2c1ji")
+}, {
+"duration": 1.0,
+"texture": ExtResource("40_xkdrw")
+}],
+"loop": true,
+"name": &"move",
+"speed": 8.0
+}]
+
+[node name="Unit" type="CharacterBody2D"]
+script = ExtResource("1_4kmwq")
+sprite_path = NodePath("Cloud")
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="."]
+position = Vector2(0, -9)
+shape = SubResource("RectangleShape2D_o6twh")
+
+[node name="AnimatedSprite2D" type="AnimatedSprite2D" parent="."]
+sprite_frames = SubResource("SpriteFrames_0pyg8")
+animation = &"idle"
+autoplay = "idle"
+frame_progress = 0.3694544
+
+[node name="Cloud" type="Sprite2D" parent="."]
+modulate = Color(1, 1, 1, 0.7372549)
+position = Vector2(0, -21)
+texture = ExtResource("2_pc0o6")
+
+[node name="CPUParticles2D" type="CPUParticles2D" parent="."]
+position = Vector2(0, -21)
+amount = 16
+lifetime = 2.8
+preprocess = 3.0
+randomness = 1.0
+emission_shape = 1
+emission_sphere_radius = 15.81
+spread = 180.0
+gravity = Vector2(0, 0)
+initial_velocity_min = 2.0
+initial_velocity_max = 2.0
+color = Color(0, 1, 0, 1)
+
+[node name="HPLabel" type="Label" parent="."]
+offset_top = -50.0
+offset_right = 40.0
+offset_bottom = -37.0
+theme_override_fonts/font = ExtResource("41_54yn6")
+text = "3"
+script = ExtResource("42_qa4j7")
+unit_path = NodePath("..")
+show_as_fraction = false
+prefix = ""
