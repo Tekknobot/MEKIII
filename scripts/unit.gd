@@ -14,6 +14,8 @@ var special_cd: Dictionary = {} # String -> int turns remaining
 @export var attack_range: int = 3
 @export var attack_damage: int = 1
 
+@export var chill_move_penalty: int = 2
+
 @export var tnt_throw_range: int = 0
 
 @export var max_hp: int = 3
@@ -210,12 +212,21 @@ func _play_sfx(cue: StringName) -> void:
 
 	M.call("_sfx", cue, 1.0, randf_range(0.95, 1.05), global_position)
 
-
 func get_move_range() -> int:
 	var r := move_range
-	if has_meta("stim_turns") and int(get_meta("stim_turns")) > 0:
-		r += int(get_meta("stim_move_bonus"))
-	return r
+
+	# Stim bonus
+	if has_meta(&"stim_turns") and int(get_meta(&"stim_turns", 0)) > 0:
+		r += int(get_meta(&"stim_move_bonus", 0))
+
+	# Chill penalty (default to 1 if not set)
+	var chilled := int(get_meta(&"chilled_turns", 0))
+	if chilled > 0:
+		var pen := int(get_meta(&"chill_move_penalty", chill_move_penalty))
+		r -= pen
+
+	return max(1, r)
+
 
 func get_attack_damage() -> int:
 	var d: int = int(attack_damage)

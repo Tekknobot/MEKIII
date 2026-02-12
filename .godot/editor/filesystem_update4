@@ -21,3 +21,9 @@ res://scripts/fire_emitter.gd
 res://scenes/fire_zombie.tscn
 res://scenes/fire_tile.tscn
 res://scripts/fire_zombie.gd
+res://scenes/ice_zombie.tscn
+res://shaders/pixel_ice.gdshader
+res://scripts/assign_current_texture.gd
+res://scripts/ice_zombie.gd
+res://scripts/unit.gd
+res://material/pixel_ice.tres

@@ -10,6 +10,7 @@ class_name MapController
 @export var enemy_zombie_scene: PackedScene # legacy fallback
 @export var radioactive_zombie_scene: PackedScene
 @export var fire_zombie_scene: PackedScene
+@export var ice_zombie_scene: PackedScene
 
 # ✅ New: pool of possible zombie scenes (regular variants)
 @export var enemy_zombie_scenes: Array[PackedScene] = []
@@ -17,16 +18,26 @@ class_name MapController
 # ✅ Optional: special variant
 @export_range(0.0, 1.0, 0.01) var radioactive_spawn_chance := 0.05
 @export_range(0.0, 1.0, 0.01) var fire_spawn_chance := 0.05
+@export_range(0.0, 1.0, 0.01) var ice_spawn_chance := 0.05
 @export var rad_tile_scene: PackedScene # a simple Sprite2D/Node2D with a green glow / trefoil icon
 var rad_tiles_by_cell: Dictionary = {} # Vector2i -> Node2D
 
 @export var fire_tile_scene: PackedScene # a small Sprite2D/Node2D "burning tile" overlay (pixel flames)
 var fire_tiles_by_cell: Dictionary = {} # Vector2i -> Node2D
 
+@export var ice_tile_chill_duration := 1
+
 @export var enemy_elite_mech_scene: PackedScene 
 
 @export var move_tile_scene: PackedScene
 @export var attack_tile_scene: PackedScene
+
+# --- Chill visual (reuses IceZombie's Sprite2D/AnimatedSprite2D material if present) ---
+@export var chill_material_override: Material = null # optional: drag your ice ShaderMaterial here to force it
+@export var chill_use_ice_zombie_material_template := true
+
+var _chill_material_template: Material = null
+
 
 var grid
 
@@ -1264,22 +1275,26 @@ func _pick_enemy_zombie_scene() -> PackedScene:
 	if pool.is_empty():
 		return null
 
-	# --- Special variant roll (fire / radioactive) ---
-	# Note: we choose at most one special per spawn.
-	var roll := randf()
-	var fire_ok := (fire_zombie_scene != null)
-	var rad_ok := (radioactive_zombie_scene != null)
+	# --- Special variant roll (fire / radioactive / ice) ---
+	var fire_p := (fire_spawn_chance if fire_zombie_scene != null else 0.0)
+	var rad_p  := (radioactive_spawn_chance if radioactive_zombie_scene != null else 0.0)
+	var ice_p  := (ice_spawn_chance if ice_zombie_scene != null else 0.0)
 
-	var fire_p := fire_spawn_chance if fire_ok else 0.0
-	var rad_p := radioactive_spawn_chance if rad_ok else 0.0
-	var special_total = fire_p + rad_p
+	var special_total := fire_p + rad_p + ice_p
 
-	if special_total > 0.0 and roll < special_total:
-		# Weighted pick between fire and rad
-		var r = randf() * special_total
+	if special_total > 0.0 and randf() < special_total:
+		var r := randf() * special_total
+
 		if r < fire_p:
 			return fire_zombie_scene
-		return radioactive_zombie_scene
+		r -= fire_p
+
+		if r < rad_p:
+			return radioactive_zombie_scene
+		r -= rad_p
+
+		# if we got here, it’s ice
+		return ice_zombie_scene
 
 	# Otherwise normal variant
 	return pool.pick_random()
@@ -3039,12 +3054,25 @@ func ai_attack(attacker: Unit, defender: Unit) -> void:
 
 	await _do_attack(attacker, defender)
 
+	if attacker is IceZombie:
+		var ice := attacker as IceZombie
+
+		# 1) Chill defender immediately (so their next player turn has -move)
+		ice._apply_chill(defender, ice.chill_duration)
+
+		# 2) Freeze the cell (optional, if you want ice-on-hit terrain)
+		ice.on_hit_cell(self, defender.cell)
+
+		# 3) Visual indicator on the defender (if you added refresh helper)
+		if has_method("_refresh_chill_visuals_for_unit"):
+			call("_refresh_chill_visuals_for_unit", defender)
+
 	if attacker is FireZombie:
 		(attacker as FireZombie).on_hit_cell(self, defender.cell)
 
-	# ✅ Radioactive spread: contaminate the cell that was attacked
 	if attacker is RadioactiveZombie:
 		(attacker as RadioactiveZombie).on_hit_cell(self, defender.cell)
+
 
 func set_unit_exhausted(u: Unit, exhausted: bool) -> void:
 	if u == null or not is_instance_valid(u):
@@ -3182,6 +3210,12 @@ func _push_unit_to_cell(u: Unit, to_cell: Vector2i) -> void:
 			units_by_cell.erase(to_cell)
 		return
 
+	_try_ice_on_enter(u, ice_tile_chill_duration)
+	if u == null or not is_instance_valid(u) or u.hp <= 0:
+		if units_by_cell.has(to_cell) and units_by_cell[to_cell] == u:
+			units_by_cell.erase(to_cell)
+		return
+		
 	# ✅ If we stepped onto a pickup, let it be visible briefly, then collect
 	if pickups_by_cell.has(to_cell):
 		_delayed_collect_pickup(u, to_cell)
@@ -6520,3 +6554,104 @@ func _try_fire_on_enter(u: Unit) -> void:
 		u.call("take_damage", dmg)
 	else:
 		u.hp = max(0, u.hp - dmg)
+
+func _ice_get_tiles() -> Dictionary:
+	var key := &"ice_tiles"
+	if not has_meta(key):
+		return {}
+	var d = get_meta(key)
+	return d if (d is Dictionary) else {}
+
+func _try_ice_on_enter(u: Unit, chill_turns: int = 1) -> void:
+	if u == null or not is_instance_valid(u):
+		return
+	if u.team != Unit.Team.ALLY:
+		return
+
+	var tiles := _ice_get_tiles()
+	if tiles.is_empty():
+		return
+	if not tiles.has(u.cell):
+		return
+
+	# ✅ Apply/refresh chilled debuff
+	var cur := int(u.get_meta(&"chilled_turns", 0))
+	u.set_meta(&"chilled_turns", max(cur, chill_turns))
+	
+	# ✅ Visual indicator while chilled
+	_refresh_chill_visuals_for_unit(u)
+	
+	# Optional feedback
+	if has_method("_flash_unit_white"):
+		_flash_unit_white(u, 0.08)
+
+	# Optional: small SFX hook if you have one
+	# if has_method("_sfx"):
+	#     _sfx(&"ice_step", 1.0, randf_range(0.95, 1.05), _cell_world(u.cell))
+
+# ---------------------------------------------------------
+# Chill visual helpers
+# ---------------------------------------------------------
+func _get_chill_material_template() -> Material:
+	# 1) explicit override
+	if chill_material_override != null:
+		return chill_material_override
+
+	# 2) cached template
+	if _chill_material_template != null and is_instance_valid(_chill_material_template):
+		return _chill_material_template
+
+	# 3) steal from an IceZombie's render material (best: matches your zombie shader exactly)
+	if chill_use_ice_zombie_material_template and has_method("get_all_units"):
+		for u in get_all_units():
+			if u == null or not is_instance_valid(u):
+				continue
+			if not (u is IceZombie):
+				continue
+			var ci := _get_unit_render_node(u)
+			if ci != null and is_instance_valid(ci) and ci.material != null:
+				_chill_material_template = ci.material
+				return _chill_material_template
+
+	return null
+
+func _refresh_chill_visuals() -> void:
+	# Call this after chill timers tick down (or whenever you want to re-sync)
+	if not has_method("get_all_units"):
+		return
+	for u in get_all_units():
+		if u == null or not is_instance_valid(u):
+			continue
+		if u.team != Unit.Team.ALLY:
+			continue
+		_refresh_chill_visuals_for_unit(u)
+
+func _refresh_chill_visuals_for_unit(u: Unit) -> void:
+	if u == null or not is_instance_valid(u):
+		return
+	var ci := _get_unit_render_node(u)
+	if ci == null or not is_instance_valid(ci):
+		return
+
+	var chilled := int(u.get_meta(&"chilled_turns", 0))
+	if chilled > 0:
+		# Apply (and keep) icy shader/material while chilled
+		var template := _get_chill_material_template()
+		if template == null:
+			return
+
+		# Give each unit its own instance so uniforms/time tweaks don't fight each other
+		var inst: Material = null
+		if u.has_meta(&"chill_material_instance"):
+			inst = u.get_meta(&"chill_material_instance") as Material
+
+		if inst == null or not is_instance_valid(inst):
+			inst = template.duplicate(true)
+			u.set_meta(&"chill_material_instance", inst)
+
+		ci.material = inst
+	else:
+		# Remove material when chill ends
+		if u.has_meta(&"chill_material_instance"):
+			u.set_meta(&"chill_material_instance", null)
+		ci.material = null

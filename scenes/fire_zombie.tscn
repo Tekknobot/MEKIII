@@ -241,7 +241,7 @@ animation = &"idle"
 autoplay = "idle"
 
 [node name="FireEmitter" type="GPUParticles2D" parent="."]
-position = Vector2(0, -9)
+position = Vector2(0, -14)
 amount = 16
 lifetime = 2.0
 preprocess = 1.5

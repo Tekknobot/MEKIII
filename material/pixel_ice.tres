@@ -1,0 +1,15 @@
+[gd_resource type="ShaderMaterial" load_steps=2 format=3 uid="uid://bfup18wpuk1qq"]
+
+[ext_resource type="Shader" uid="uid://dv8unlylnvpnh" path="res://shaders/pixel_ice.gdshader" id="1_l6hdt"]
+
+[resource]
+shader = ExtResource("1_l6hdt")
+shader_parameter/frost_amount = 0.75
+shader_parameter/rim_strength = 0.9
+shader_parameter/shimmer_speed = 0.8
+shader_parameter/sparkle_strength = 0.45
+shader_parameter/crack_strength = 0.35
+shader_parameter/block_px = 2.0
+shader_parameter/ice_tint = Color(0.55, 0.85, 1, 1)
+shader_parameter/deep_ice = Color(0.2, 0.55, 0.9, 1)
+shader_parameter/highlight = Color(0.95, 0.98, 1, 1)

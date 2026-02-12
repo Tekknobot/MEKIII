@@ -518,6 +518,9 @@ func start_enemy_phase() -> void:
 	phase = Phase.ENEMY
 	M.reset_turn_flags_for_enemies()
 
+	# ✅ Tick chill/ice AFTER player turn so chill affects player movement this turn
+	IceZombie.ice_tick_global(M)
+	
 	# EVENT: Titan Overwatch
 	if _is_titan_event:
 		# Event is cinematic; no enemy phase logic.
@@ -531,6 +534,10 @@ func start_enemy_phase() -> void:
 			return
 
 	_tick_buffs_enemy_phase_start()
+
+	for u in M.get_all_units():
+		if u != null and is_instance_valid(u) and (u is IceZombie):
+			(u as IceZombie).ice_tick(M)
 
 	# Fire zombies tick
 	for u in M.get_all_units():

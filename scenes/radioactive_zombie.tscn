@@ -220,7 +220,7 @@ texture = ExtResource("2_pc0o6")
 sprite_frames = SubResource("SpriteFrames_0pyg8")
 animation = &"idle"
 autoplay = "idle"
-frame_progress = 0.75161445
+frame_progress = 0.8599581
 
 [node name="HPLabel" type="Label" parent="."]
 offset_top = -50.0

@@ -1,4 +1,5 @@
 D:/Godot/_Builds/Web/ZombieMECHA_Web
+res://material
 res://scripts
 res://sprites/Zombies/zomb/radioactive/attack
 res://sprites/Zombies/zomb/radioactive/death
@@ -19,4 +20,3 @@ D:/Godot/_Builds/Web
 D:/Godot/_Builds/Android
 C:/Program Files/Eclipse Adoptium
 res://sprites/Mechas/Titan
-res://sprites/Mechas/Rob1
