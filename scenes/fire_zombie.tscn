@@ -230,7 +230,7 @@ position = Vector2(0, -9)
 shape = SubResource("RectangleShape2D_o6twh")
 
 [node name="Cloud" type="Sprite2D" parent="."]
-modulate = Color(1, 0, 0, 0.35000002)
+modulate = Color(1, 0, 0, 1)
 position = Vector2(0, -9)
 texture = ExtResource("42_fmwd0")
 
@@ -241,7 +241,7 @@ animation = &"idle"
 autoplay = "idle"
 
 [node name="FireEmitter" type="GPUParticles2D" parent="."]
-position = Vector2(-2, -11)
+position = Vector2(0, -9)
 amount = 16
 lifetime = 2.0
 preprocess = 1.5

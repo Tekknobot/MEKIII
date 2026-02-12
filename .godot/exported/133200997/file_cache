@@ -49,7 +49,7 @@ res://scenes/units/allies/R4.tscn::6380aed0e7d50f52206027b3205563c2::1770804737:
 res://scenes/units/allies/M3.tscn::93d2a5c1c2f53ba2e227c25f267c345c::1770804584::res://.godot/exported/133200997/export-d68cb722b4a87285bbc8fde365eaaa00-M3.scn
 res://scenes/units/allies/roller.tscn::1dbb9237a9ee627f21b7a51243173b4f::1770616875::res://.godot/exported/133200997/export-140cf3b6db281a823b5a936b8bfa48be-roller.scn
 res://scenes/threat_tile.tscn::730051698f6825afbe8f9970acc44157::1770749377::res://.godot/exported/133200997/export-1a11ecf2e6915453d3033e1249688f99-threat_tile.scn
-res://scenes/radioactive_zombie.tscn::5219107f57f85813fde1084ea1a07754::1770890235::res://.godot/exported/133200997/export-00b0e1b2f071a84ed083812544399095-radioactive_zombie.scn
-res://scenes/radioactive_tile.tscn::7d67d5a6ac7a433e16885c4ff4c19703::1770889300::res://.godot/exported/133200997/export-4c4e3f39aa2b349816cc6891f839d19c-radioactive_tile.scn
-res://scenes/fire_zombie.tscn::a19459606a8b3ed804e78e508e0a8d18::1770889290::res://.godot/exported/133200997/export-dc1d62651b9da8d7bb2c487187a354ab-fire_zombie.scn
-res://scenes/fire_tile.tscn::cf4819fc12ea3518c629f062f88874b1::1770889300::res://.godot/exported/133200997/export-9c67dc5f4f989fbfb0aa7e6583ec6f0e-fire_tile.scn
+res://scenes/radioactive_zombie.tscn::7078511a5fe5335a2e05157d15074bcb::1770891615::res://.godot/exported/133200997/export-00b0e1b2f071a84ed083812544399095-radioactive_zombie.scn
+res://scenes/radioactive_tile.tscn::1900c7f3344d9f80edbfb6a9b06c3080::1770891577::res://.godot/exported/133200997/export-4c4e3f39aa2b349816cc6891f839d19c-radioactive_tile.scn
+res://scenes/fire_zombie.tscn::6249fc10e1017e6d0e4c6032577424e6::1770891577::res://.godot/exported/133200997/export-dc1d62651b9da8d7bb2c487187a354ab-fire_zombie.scn
+res://scenes/fire_tile.tscn::29ec436a66ce5cc2d0aac74969a39e59::1770891578::res://.godot/exported/133200997/export-9c67dc5f4f989fbfb0aa7e6583ec6f0e-fire_tile.scn

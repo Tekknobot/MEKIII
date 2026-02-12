@@ -198,11 +198,6 @@ sprite_path = NodePath("Cloud")
 position = Vector2(0, -9)
 shape = SubResource("RectangleShape2D_o6twh")
 
-[node name="Cloud" type="Sprite2D" parent="."]
-modulate = Color(1, 1, 1, 0.25)
-position = Vector2(0, -9)
-texture = ExtResource("2_pc0o6")
-
 [node name="CPUParticles2D" type="CPUParticles2D" parent="."]
 position = Vector2(0, -21)
 amount = 16
@@ -217,11 +212,15 @@ initial_velocity_min = 2.0
 initial_velocity_max = 2.0
 color = Color(0, 1, 0, 1)
 
+[node name="Cloud" type="Sprite2D" parent="."]
+position = Vector2(0, -9)
+texture = ExtResource("2_pc0o6")
+
 [node name="AnimatedSprite2D" type="AnimatedSprite2D" parent="."]
 sprite_frames = SubResource("SpriteFrames_0pyg8")
 animation = &"idle"
 autoplay = "idle"
-frame_progress = 0.31479883
+frame_progress = 0.75161445
 
 [node name="HPLabel" type="Label" parent="."]
 offset_top = -50.0

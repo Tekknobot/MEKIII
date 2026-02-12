@@ -41,7 +41,7 @@ visible = false
 sprite_frames = SubResource("SpriteFrames_r47l1")
 
 [node name="Cloud" type="Sprite2D" parent="."]
-modulate = Color(1, 0, 0, 0.25)
+modulate = Color(1, 0, 0, 1)
 position = Vector2(0, -9)
 texture = ExtResource("2_81muj")
 
