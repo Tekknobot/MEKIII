@@ -1,0 +1,68 @@
+[gd_scene load_steps=7 format=3 uid="uid://blg5m6wyqpk30"]
+
+[ext_resource type="Texture2D" uid="uid://bbg3458x06rys" path="res://sprites/Tiles_UI/mek3/1x1_beacon4.png" id="1_itxmm"]
+[ext_resource type="Texture2D" uid="uid://dm6paajj4vro2" path="res://sprites/Textures/radioactive_gradient.png" id="2_81muj"]
+
+[sub_resource type="SpriteFrames" id="SpriteFrames_r47l1"]
+animations = [{
+"frames": [{
+"duration": 1.0,
+"texture": ExtResource("1_itxmm")
+}],
+"loop": true,
+"name": &"default",
+"speed": 24.0
+}]
+
+[sub_resource type="Gradient" id="Gradient_itxmm"]
+offsets = PackedFloat32Array(0, 0.4964539, 1)
+colors = PackedColorArray(1, 0.5978129, 0, 1, 1, 0, 0, 1, 0.06469653, 0.06469653, 0.06469653, 1)
+
+[sub_resource type="GradientTexture1D" id="GradientTexture1D_8a3xf"]
+gradient = SubResource("Gradient_itxmm")
+
+[sub_resource type="ParticleProcessMaterial" id="ParticleProcessMaterial_81muj"]
+particle_flag_disable_z = true
+emission_shape = 3
+emission_box_extents = Vector3(8, 8, 1)
+direction = Vector3(0, -1, 0)
+spread = 20.0
+flatness = 1.0
+initial_velocity_min = 8.0
+initial_velocity_max = 16.0
+gravity = Vector3(0, 1, 0)
+color = Color(1.2211751, 0.9765097, 0.59763867, 1)
+color_ramp = SubResource("GradientTexture1D_8a3xf")
+
+[node name="FireTile" type="Node2D"]
+
+[node name="AnimatedSprite2D" type="AnimatedSprite2D" parent="."]
+visible = false
+sprite_frames = SubResource("SpriteFrames_r47l1")
+
+[node name="Cloud" type="Sprite2D" parent="."]
+modulate = Color(1, 0, 0, 0.25)
+position = Vector2(0, -9)
+texture = ExtResource("2_81muj")
+
+[node name="CPUParticles2D" type="CPUParticles2D" parent="."]
+visible = false
+position = Vector2(0, -21)
+amount = 16
+lifetime = 2.8
+preprocess = 3.0
+randomness = 1.0
+emission_shape = 1
+emission_sphere_radius = 15.81
+spread = 180.0
+gravity = Vector2(0, 0)
+initial_velocity_min = 2.0
+initial_velocity_max = 2.0
+color = Color(0, 1, 0, 1)
+
+[node name="FireEmitter" type="GPUParticles2D" parent="."]
+position = Vector2(0, -9)
+amount = 16
+lifetime = 2.0
+preprocess = 1.5
+process_material = SubResource("ParticleProcessMaterial_81muj")

@@ -1,15 +1,14 @@
-Sprite2D
+GPUParticles2D
 Node2D
+Sprite2D
 CharacterBody2D
 ColorRect
 TextureRect
 TextEdit
 CPUParticles2D
-GPUParticles2D
 AnimatedSprite2D
 VBoxContainer
 Camera2D
 Node
 AudioStreamPlayer
 RichTextLabel
-Label

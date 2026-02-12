@@ -532,6 +532,14 @@ func start_enemy_phase() -> void:
 
 	_tick_buffs_enemy_phase_start()
 
+	# Fire zombies tick
+	for u in M.get_all_units():
+		if u != null and is_instance_valid(u) and (u is FireZombie):
+			(u as FireZombie).fire_tick(M)
+
+	# Burning tiles tick
+	FireZombie.fire_tiles_tick(M)
+
 	# ✅ Radiation phase-start tick (aura + contam + standing damage)
 	if M != null and is_instance_valid(M):
 		# 1) Each radioactive zombie pulses + leaves/refreshes contam

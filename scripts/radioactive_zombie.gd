@@ -19,11 +19,9 @@ var _rad_active := true
 
 func _ready() -> void:
 	super._ready()
-
 	# Identity
 	set_meta("display_name", "Radioactive Zombie")
-	# If you have a different portrait, swap it:
-	# set_meta("portrait_tex", preload("res://sprites/Portraits/zombie_rad_port.png"))
+	set_meta("portrait_tex", preload("res://sprites/Portraits/radioactive_zombie_port.png"))
 
 	# Slightly different stats (optional)
 	# These make it feel distinct without being a boss.

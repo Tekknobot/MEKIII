@@ -15,3 +15,9 @@ res://scripts/map_controller.gd
 res://scripts/turnmanager.gd
 res://scripts/radioactive_zombie.gd
 res://scenes/radioactive_tile.tscn
+res://scenes/zombie_2.tscn
+res://shaders/pixel_fire.gdshader
+res://scripts/fire_emitter.gd
+res://scenes/fire_zombie.tscn
+res://scenes/fire_tile.tscn
+res://scripts/fire_zombie.gd

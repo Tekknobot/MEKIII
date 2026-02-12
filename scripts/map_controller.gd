@@ -8,15 +8,20 @@ class_name MapController
 
 @export var ally_scenes: Array[PackedScene] = []
 @export var enemy_zombie_scene: PackedScene # legacy fallback
+@export var radioactive_zombie_scene: PackedScene
+@export var fire_zombie_scene: PackedScene
 
 # ✅ New: pool of possible zombie scenes (regular variants)
 @export var enemy_zombie_scenes: Array[PackedScene] = []
 
 # ✅ Optional: special variant
-@export var radioactive_zombie_scene: PackedScene
-@export_range(0.0, 1.0, 0.01) var radioactive_spawn_chance := 0.10
+@export_range(0.0, 1.0, 0.01) var radioactive_spawn_chance := 0.05
+@export_range(0.0, 1.0, 0.01) var fire_spawn_chance := 0.05
 @export var rad_tile_scene: PackedScene # a simple Sprite2D/Node2D with a green glow / trefoil icon
 var rad_tiles_by_cell: Dictionary = {} # Vector2i -> Node2D
+
+@export var fire_tile_scene: PackedScene # a small Sprite2D/Node2D "burning tile" overlay (pixel flames)
+var fire_tiles_by_cell: Dictionary = {} # Vector2i -> Node2D
 
 @export var enemy_elite_mech_scene: PackedScene 
 
@@ -1246,7 +1251,7 @@ func _spawn_unit_walkable(preferred: Vector2i, team: int, reserved_ally: Diction
 	return true
 
 func _pick_enemy_zombie_scene() -> PackedScene:
-	# Base pool
+	# Base pool (normal zombies)
 	var pool: Array[PackedScene] = []
 	for s in enemy_zombie_scenes:
 		if s != null:
@@ -1259,11 +1264,24 @@ func _pick_enemy_zombie_scene() -> PackedScene:
 	if pool.is_empty():
 		return null
 
-	# Inject radioactive with a chance (if assigned)
-	if radioactive_zombie_scene != null and randf() < radioactive_spawn_chance:
+	# --- Special variant roll (fire / radioactive) ---
+	# Note: we choose at most one special per spawn.
+	var roll := randf()
+	var fire_ok := (fire_zombie_scene != null)
+	var rad_ok := (radioactive_zombie_scene != null)
+
+	var fire_p := fire_spawn_chance if fire_ok else 0.0
+	var rad_p := radioactive_spawn_chance if rad_ok else 0.0
+	var special_total = fire_p + rad_p
+
+	if special_total > 0.0 and roll < special_total:
+		# Weighted pick between fire and rad
+		var r = randf() * special_total
+		if r < fire_p:
+			return fire_zombie_scene
 		return radioactive_zombie_scene
 
-	# Otherwise pick a normal variant
+	# Otherwise normal variant
 	return pool.pick_random()
 
 # --------------------------
@@ -3021,6 +3039,9 @@ func ai_attack(attacker: Unit, defender: Unit) -> void:
 
 	await _do_attack(attacker, defender)
 
+	if attacker is FireZombie:
+		(attacker as FireZombie).on_hit_cell(self, defender.cell)
+
 	# ✅ Radioactive spread: contaminate the cell that was attacked
 	if attacker is RadioactiveZombie:
 		(attacker as RadioactiveZombie).on_hit_cell(self, defender.cell)
@@ -3147,10 +3168,15 @@ func _push_unit_to_cell(u: Unit, to_cell: Vector2i) -> void:
 				units_by_cell.erase(to_cell)
 		return
 
+	# ✅ Fire "on enter" damage (can also kill)
+	_try_fire_on_enter(u)
+	if u == null or not is_instance_valid(u) or u.hp <= 0:
+		if units_by_cell.has(to_cell) and units_by_cell[to_cell] == u:
+			units_by_cell.erase(to_cell)
+		return
+
 	# ✅ Radiation contam "on enter" damage (can also kill)
 	_try_radiation_contam_on_enter(u)
-
-	# If contam damage killed/freed the unit, clean up occupancy entry and stop
 	if u == null or not is_instance_valid(u) or u.hp <= 0:
 		if units_by_cell.has(to_cell) and units_by_cell[to_cell] == u:
 			units_by_cell.erase(to_cell)
@@ -3159,8 +3185,6 @@ func _push_unit_to_cell(u: Unit, to_cell: Vector2i) -> void:
 	# ✅ If we stepped onto a pickup, let it be visible briefly, then collect
 	if pickups_by_cell.has(to_cell):
 		_delayed_collect_pickup(u, to_cell)
-	else:
-		pass
 
 	# Visual tween
 	var visual := _get_unit_visual_node(u)
@@ -4540,7 +4564,9 @@ func spawn_edge_road_zombie() -> bool:
 	_set_unit_depth_from_world(z, z.global_position)
 
 	# Optional: tag variant for UI/logic
-	if scene == radioactive_zombie_scene:
+	if scene == fire_zombie_scene:
+		z.set_meta("zombie_variant", "fire")
+	elif scene == radioactive_zombie_scene:
 		z.set_meta("zombie_variant", "radioactive")
 
 	var ci := _get_unit_render_node(z)
@@ -6407,7 +6433,7 @@ func _rad_ensure_visual(c: Vector2i) -> void:
 	if inst is Node2D:
 		var n2 := inst as Node2D
 		n2.global_position = _cell_world(c)
-		n2.z_index = (c.x + c.y) - 1
+		n2.z_index = 0 + (c.x + c.y)
 
 func _rad_refresh_visuals() -> void:
 	var contam := _rad_get_contam()
@@ -6420,3 +6446,77 @@ func _rad_refresh_visuals() -> void:
 	# add/update visuals for active contamination
 	for c in contam.keys():
 		_rad_ensure_visual(c)
+
+func _fire_get_tiles() -> Dictionary:
+	var key := &"fire_tiles"
+	if not has_meta(key):
+		return {}
+	var d = get_meta(key)
+	return d if (d is Dictionary) else {}
+
+func _fire_clear_visual(c: Vector2i) -> void:
+	if fire_tiles_by_cell.has(c):
+		var n = fire_tiles_by_cell[c]
+		fire_tiles_by_cell.erase(c)
+		if n != null and is_instance_valid(n):
+			n.queue_free()
+
+func _fire_ensure_visual(c: Vector2i) -> void:
+	if fire_tile_scene == null:
+		return
+
+	# Already exists and valid?
+	if fire_tiles_by_cell.has(c):
+		var existing = fire_tiles_by_cell[c]
+		if existing != null and is_instance_valid(existing):
+			return
+		fire_tiles_by_cell.erase(c)
+
+	var inst = fire_tile_scene.instantiate()
+	if inst == null:
+		return
+
+	add_child(inst)
+	fire_tiles_by_cell[c] = inst
+
+	if inst is Node2D:
+		var n2 := inst as Node2D
+		n2.global_position = _cell_world(c)
+		# ✅ Depth without calling _set_unit_depth_from_world (expects Unit)
+		n2.z_index = 0 + (c.x + c.y)  # under units, above terrain (tweak if needed)
+
+func _fire_refresh_visuals() -> void:
+	var tiles := _fire_get_tiles()
+
+	# Remove visuals that no longer exist
+	for c in fire_tiles_by_cell.keys():
+		if not tiles.has(c):
+			_fire_clear_visual(c)
+
+	# Add visuals for active tiles
+	for c in tiles.keys():
+		_fire_ensure_visual(c)
+
+func _try_fire_on_enter(u: Unit) -> void:
+	if u == null or not is_instance_valid(u):
+		return
+	if u.team != Unit.Team.ALLY:
+		return
+
+	var tiles := _fire_get_tiles()
+	if tiles.is_empty():
+		return
+	if not tiles.has(u.cell):
+		return
+
+	var dmg := 1 # matches FireZombie.fire_tile_damage; keep global for now
+
+	if has_method("_flash_unit_white"):
+		_flash_unit_white(u, 0.10)
+
+	if u.has_method("apply_damage"):
+		u.call("apply_damage", dmg)
+	elif u.has_method("take_damage"):
+		u.call("take_damage", dmg)
+	else:
+		u.hp = max(0, u.hp - dmg)

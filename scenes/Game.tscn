@@ -1,4 +1,4 @@
-[gd_scene load_steps=102 format=3 uid="uid://bmtwqbsx674eo"]
+[gd_scene load_steps=104 format=3 uid="uid://bmtwqbsx674eo"]
 
 [ext_resource type="Script" uid="uid://bn08mhcoceqg" path="res://scripts/game.gd" id="1_400sg"]
 [ext_resource type="Texture2D" uid="uid://by1nnygq8fbib" path="res://sprites/Terrain/dirt.png" id="6_mcffj"]
@@ -51,11 +51,13 @@
 [ext_resource type="AudioStream" uid="uid://dpslt5sraa3ko" path="res://audio/Zombie/zombie_massacre_vocal_impact_pain_hurt_01.wav" id="40_27c7x"]
 [ext_resource type="PackedScene" uid="uid://bnwdxbsijm5v2" path="res://scenes/radioactive_zombie.tscn" id="40_n86b2"]
 [ext_resource type="Texture2D" uid="uid://bsyc60b8surhm" path="res://sprites/Tiles_UI/mek3/1x1_no_attack.png" id="41_evnk2"]
+[ext_resource type="PackedScene" uid="uid://b4ttbwk8n1s08" path="res://scenes/fire_zombie.tscn" id="41_g5fqt"]
 [ext_resource type="AudioStream" uid="uid://8c083clar0gj" path="res://audio/Zombie/human_death.wav" id="41_ho5ir"]
 [ext_resource type="PackedScene" uid="uid://b5tsw0xtnqbo1" path="res://scenes/radioactive_tile.tscn" id="41_n6lnq"]
 [ext_resource type="AudioStream" uid="uid://bmery8486ov70" path="res://audio/SFX/missile_launch.wav" id="42_lscvm"]
 [ext_resource type="AudioStream" uid="uid://dvauweeh0mxu1" path="res://audio/SFX/Blip3.wav" id="43_evnk2"]
 [ext_resource type="AudioStream" uid="uid://dd1oh3lohb5yo" path="res://audio/SFX/laser-312360.mp3" id="43_pn7ev"]
+[ext_resource type="PackedScene" uid="uid://blg5m6wyqpk30" path="res://scenes/fire_tile.tscn" id="43_ptpqq"]
 [ext_resource type="AudioStream" uid="uid://cue0f2dfa4w6t" path="res://audio/SFX/rusty_machine_gun_fire_single.wav" id="44_rm8d8"]
 [ext_resource type="PackedScene" uid="uid://2ov7kvfue6bm" path="res://scenes/floppy.tscn" id="46_xfjuk"]
 [ext_resource type="PackedScene" uid="uid://c6mcd4ogd1jyq" path="res://scenes/beacon.tscn" id="47_6h74c"]
@@ -440,9 +442,11 @@ units_root_path = NodePath("../Units")
 overlay_root_path = NodePath("../Overlays")
 ally_scenes = Array[PackedScene]([ExtResource("26_rm8d8"), ExtResource("27_jipkd"), ExtResource("28_o01hm"), ExtResource("29_uxlqh"), ExtResource("30_xlhy4"), ExtResource("31_6jll0"), ExtResource("32_ly0d1")])
 enemy_zombie_scene = ExtResource("26_0bq3a")
-enemy_zombie_scenes = Array[PackedScene]([ExtResource("26_0bq3a"), ExtResource("40_n86b2")])
 radioactive_zombie_scene = ExtResource("40_n86b2")
+fire_zombie_scene = ExtResource("41_g5fqt")
+enemy_zombie_scenes = Array[PackedScene]([ExtResource("26_0bq3a"), ExtResource("40_n86b2"), ExtResource("41_g5fqt")])
 rad_tile_scene = ExtResource("41_n6lnq")
+fire_tile_scene = ExtResource("43_ptpqq")
 enemy_elite_mech_scene = ExtResource("38_ly0d1")
 move_tile_scene = ExtResource("27_0bq3a")
 attack_tile_scene = ExtResource("26_jhsr3")

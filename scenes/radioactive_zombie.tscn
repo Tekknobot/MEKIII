@@ -198,16 +198,16 @@ sprite_path = NodePath("Cloud")
 position = Vector2(0, -9)
 shape = SubResource("RectangleShape2D_o6twh")
 
+[node name="Cloud" type="Sprite2D" parent="."]
+modulate = Color(1, 1, 1, 0.25)
+position = Vector2(0, -9)
+texture = ExtResource("2_pc0o6")
+
 [node name="AnimatedSprite2D" type="AnimatedSprite2D" parent="."]
 sprite_frames = SubResource("SpriteFrames_0pyg8")
 animation = &"idle"
 autoplay = "idle"
-frame_progress = 0.3694544
-
-[node name="Cloud" type="Sprite2D" parent="."]
-modulate = Color(1, 1, 1, 0.7372549)
-position = Vector2(0, -21)
-texture = ExtResource("2_pc0o6")
+frame_progress = 0.124904625
 
 [node name="CPUParticles2D" type="CPUParticles2D" parent="."]
 position = Vector2(0, -21)
