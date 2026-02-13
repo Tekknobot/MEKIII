@@ -65,19 +65,21 @@ func has_save() -> bool:
 	return FileAccess.file_exists(SAVE_PATH)
 	
 func clear() -> void:
+	# "Clear run state" but KEEP unlocked roster.
 	run_upgrades.clear()
 	run_upgrade_counts.clear()
-
-	# reset run selections
 	squad_scene_paths.clear()
 
-	# ✅ reset roster/pool
-	roster_scene_paths.clear()
+	# Don't wipe roster unlock progression
 	recruit_pool_paths.clear()
 	recruited_scene_paths.clear()
-	
+	dead_scene_paths.clear()
+
 	event_mode_enabled_next_mission = false
-	event_id_next_mission = &""	
+	event_id_next_mission = &""
+
+	rebuild_recruit_pool()
+	save_to_disk()
 
 func add_upgrade(id: StringName) -> void:
 	run_upgrades.append(id)
@@ -441,8 +443,11 @@ func _dict_string_to_stringname_counts(d: Dictionary) -> Dictionary:
 	return out
 
 func reset_run() -> void:
+	# Start a NEW campaign, but KEEP unlocked roster stable.
+
 	# overworld
-	overworld_seed = 0
+	# Give the new campaign a seed (optional). Using time is fine, but don't use 0.
+	overworld_seed = int(Time.get_unix_time_from_system())
 	overworld_current_node_id = -1
 	overworld_cleared.clear()
 
@@ -456,28 +461,33 @@ func reset_run() -> void:
 	run_upgrades.clear()
 	run_upgrade_counts.clear()
 
-	# squad / roster / recruits
-	squad_scene_paths.clear()
-	roster_scene_paths.clear()
-	recruit_pool_paths.clear()
-	recruited_scene_paths.clear()
-	
+	# flags
 	event_mode_enabled_next_mission = false
 	event_id_next_mission = &""
-	
 	boss_mode_enabled_next_mission = false
 	boss_defeated_this_run = false
-	bomber_unlocked_this_run = false	
+	bomber_unlocked_this_run = false
+	run_over = false
 
+	# squad / recruits / permadeath reset (campaign-scoped)
 	squad_scene_paths.clear()
-	roster_scene_paths.clear()
 	recruit_pool_paths.clear()
 	recruited_scene_paths.clear()
-	
 	dead_scene_paths.clear()
 
+	# ✅ DO NOT clear roster_scene_paths (this is your unlocked progression)
+	# If this is the very first time ever and roster is empty, seed it once.
 	seed_roster_if_empty()
+
+	# Keep it clean + deterministic ordering in UI
+	roster_scene_paths = roster_scene_paths.filter(func(p): return ResourceLoader.exists(p))
+	roster_scene_paths.sort()
+
+	# Recruit pool should be rebuilt from the (persistent) roster
+	rebuild_recruit_pool()
+
 	save_to_disk()
+
 	
 func seed_roster_if_empty() -> void:
 	# If roster already exists, don't stomp it

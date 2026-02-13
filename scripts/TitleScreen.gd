@@ -1,6 +1,7 @@
 extends Control
 
 @export var game_scene: PackedScene = preload("res://scenes/squad_deploy_screen.tscn")
+@export var title_scene: PackedScene = preload("res://scenes/title_screen.tscn")
 @export var continue_scene: PackedScene
 @export var fade_time := 0.25
 
@@ -10,6 +11,9 @@ extends Control
 @onready var restart_button: Button = $Center/PanelContainer/MarginContainer/VBoxContainer/Buttons/RestartButton
 @onready var title: TextureRect = $Center/PanelContainer/MarginContainer/VBoxContainer/Title
 
+var _reset_layer: CanvasLayer = null
+var _reset_prompt_root: Control = null
+var _reset_prompt_open := false
 
 # --- Story (typewriter) ---
 @onready var story_clip: Control = $StoryClip
@@ -122,7 +126,8 @@ func _ready() -> void:
 	var can_continue := _has_save(rs) and _has_selected_squad(rs)
 
 	start_button.text = ("CONTINUE" if can_continue else "START")
-
+	
+	_build_reset_prompt()
 
 func _process(delta: float) -> void:
 	if _busy:
@@ -473,30 +478,57 @@ func _desaturate_bg_pulse() -> void:
 func _on_restart_pressed() -> void:
 	if _busy:
 		return
+	if _reset_prompt_root == null:
+		return
+
+	_reset_prompt_open = true
+	_reset_prompt_root.visible = true
+
+func _on_reset_cancel_pressed() -> void:
+	_reset_prompt_open = false
+	if _reset_prompt_root != null:
+		_reset_prompt_root.visible = false
+
+func _on_reset_confirm_pressed() -> void:
+	if _busy:
+		return
 	_busy = true
 	_type_running = false
+
+	# close prompt immediately
+	_reset_prompt_open = false
+	if _reset_prompt_root != null:
+		_reset_prompt_root.visible = false
+
 	await _fade_out()
 
+	# get RunState autoload
 	var rs := get_tree().root.get_node_or_null("RunStateNode")
 	if rs == null:
 		rs = get_tree().root.get_node_or_null("RunState")
 
-	# ✅ clear disk save + reset in-memory state if you have it
 	if rs != null:
+		# wipe disk save
 		if rs.has_method("wipe_save"):
-			rs.call("wipe_save")
-		# optional but recommended: reset the runtime values too
+			rs.wipe_save()
+
+		# clear progression FIRST (prevents “empty roster => show all units” fallback)
+		if "roster_scene_paths" in rs:
+			rs.roster_scene_paths.clear()
+
+		# reset / reseed starter roster (so deploy screen is normal)
 		if rs.has_method("reset_run"):
-			rs.call("reset_run")
+			rs.reset_run()
+		if rs.has_method("seed_roster_if_empty"):
+			rs.seed_roster_if_empty()
+		if rs.has_method("rebuild_recruit_pool"):
+			rs.rebuild_recruit_pool()
 
-	# go to squad select
+		if rs.has_method("save_to_disk"):
+			rs.save_to_disk()
+
+	# go to Factory Ship / squad deploy
 	get_tree().change_scene_to_packed(game_scene)
-
-func _get_rs() -> Node:
-	var rs := get_tree().root.get_node_or_null("RunStateNode")
-	if rs == null:
-		rs = get_tree().root.get_node_or_null("RunState")
-	return rs
 
 func _has_save(rs: Node) -> bool:
 	return rs != null and rs.has_method("has_save") and bool(rs.call("has_save"))
@@ -513,3 +545,129 @@ func _has_selected_squad(rs: Node) -> bool:
 		var b: Array = rs.starting_squad_paths
 		return b != null and b.size() > 0
 	return false
+
+func _build_reset_prompt() -> void:
+	# Put prompt on its own top layer
+	_reset_layer = CanvasLayer.new()
+	_reset_layer.name = "ResetPromptLayer"
+	_reset_layer.layer = 1000
+	add_child(_reset_layer)
+
+	_reset_prompt_root = Control.new()
+	_reset_prompt_root.name = "ResetPrompt"
+	_reset_prompt_root.anchor_left = 0.0
+	_reset_prompt_root.anchor_top = 0.0
+	_reset_prompt_root.anchor_right = 1.0
+	_reset_prompt_root.anchor_bottom = 1.0
+	_reset_prompt_root.mouse_filter = Control.MOUSE_FILTER_STOP
+	_reset_prompt_root.visible = false
+	_reset_layer.add_child(_reset_prompt_root)
+
+	# Dim background
+	var dim := ColorRect.new()
+	dim.anchor_left = 0.0
+	dim.anchor_top = 0.0
+	dim.anchor_right = 1.0
+	dim.anchor_bottom = 1.0
+	dim.color = Color(0, 0, 0, 0.65)
+	_reset_prompt_root.add_child(dim)
+
+	# Center container
+	var center := CenterContainer.new()
+	center.anchor_left = 0.0
+	center.anchor_top = 0.0
+	center.anchor_right = 1.0
+	center.anchor_bottom = 1.0
+	_reset_prompt_root.add_child(center)
+
+	# Red panel
+	var panel := PanelContainer.new()
+	center.add_child(panel)
+
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Color("4a0000d0")          # red translucent
+	sb.border_color = Color("ff3c3c")        # hot red border
+	sb.border_width_left = 2
+	sb.border_width_top = 2
+	sb.border_width_right = 2
+	sb.border_width_bottom = 2
+	sb.corner_radius_top_left = 10
+	sb.corner_radius_top_right = 10
+	sb.corner_radius_bottom_left = 10
+	sb.corner_radius_bottom_right = 10
+	panel.add_theme_stylebox_override("panel", sb)
+
+	var margin := MarginContainer.new()
+	margin.add_theme_constant_override("margin_left", 18)
+	margin.add_theme_constant_override("margin_right", 18)
+	margin.add_theme_constant_override("margin_top", 16)
+	margin.add_theme_constant_override("margin_bottom", 16)
+	panel.add_child(margin)
+
+	var v := VBoxContainer.new()
+	v.custom_minimum_size = Vector2(520, 0)
+	v.add_theme_constant_override("separation", 10)
+	margin.add_child(v)
+
+	# Title label (title_font)
+	var t := Label.new()
+	t.text = "RESET CAMPAIGN"
+	t.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	if title_font != null:
+		t.add_theme_font_override("font", title_font)
+	t.add_theme_font_size_override("font_size", int(title_font_size * 0.55)) # smaller than main title
+	t.add_theme_color_override("font_color", Color("ffb3b3"))
+	v.add_child(t)
+
+	# Body label (body_font)
+	var b := Label.new()
+	b.text = "This will wipe ALL progress and unlocked items.\nFactory systems will purge campaign records.\n\nProceed?"
+	b.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	b.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	if body_font != null:
+		b.add_theme_font_override("font", body_font)
+	b.add_theme_font_size_override("font_size", body_font_size)
+	b.add_theme_color_override("font_color", Color("ffd6d6"))
+	v.add_child(b)
+
+	# Buttons row
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 10)
+	row.alignment = BoxContainer.ALIGNMENT_CENTER
+	v.add_child(row)
+
+	var cancel := Button.new()
+	cancel.text = "CANCEL"
+	if button_font != null:
+		cancel.add_theme_font_override("font", button_font)
+	cancel.add_theme_font_size_override("font_size", button_font_size)
+	cancel.custom_minimum_size = Vector2(160, 42)
+	cancel.size_flags_horizontal = Control.SIZE_SHRINK_CENTER	
+	cancel.pressed.connect(_on_reset_cancel_pressed)
+	row.add_child(cancel)
+
+	var confirm := Button.new()
+	confirm.text = "RESET"
+	if button_font != null:
+		confirm.add_theme_font_override("font", button_font)
+	confirm.add_theme_font_size_override("font_size", button_font_size)
+	confirm.custom_minimum_size = Vector2(160, 42)
+	confirm.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	
+
+	# Optional: make RESET button feel “danger”
+	var csb := StyleBoxFlat.new()
+	csb.bg_color = Color("7a0000ff")
+	csb.border_color = Color("ff3c3c")
+	csb.border_width_left = 2
+	csb.border_width_top = 2
+	csb.border_width_right = 2
+	csb.border_width_bottom = 2
+	csb.corner_radius_top_left = 6
+	csb.corner_radius_top_right = 6
+	csb.corner_radius_bottom_left = 6
+	csb.corner_radius_bottom_right = 6
+	confirm.add_theme_stylebox_override("normal", csb)
+
+	confirm.pressed.connect(_on_reset_confirm_pressed)
+	row.add_child(confirm)

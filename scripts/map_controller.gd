@@ -317,7 +317,7 @@ var zombies_killed_this_map: int = 0
 @export var floppy_curve_combat: Array[int] = [4, 6, 8]
 @export var floppy_curve_elite:  Array[int] = [6, 8, 10]
 @export var floppy_curve_event:  Array[int] = [5, 7, 9]
-@export var floppy_curve_boss:   Array[int] = [999] # handled differently if you want phases
+@export var floppy_curve_boss:   Array[int] = [8, 10, 12] # handled differently if you want phases
 
 var _floppy_pity_accum := 0.0
 var _floppy_misses := 0

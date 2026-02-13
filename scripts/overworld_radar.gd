@@ -51,6 +51,7 @@ signal node_enter_requested(node_id: int)
 @export var squad_title_font_size := 32
 @export var squad_title_font: Font
 @export var title_scene_path: String = "res://scenes/title_screen.tscn"
+@export var squad_scene_path: String = "res://scenes/squad_deploy_screen.tscn"
 @export var back_button_text := "Back"
 
 @export var back_button_font_size := 16
@@ -1172,10 +1173,10 @@ func _build_squad_hud() -> void:
 	vbox.add_child(back)
 
 func _on_back_pressed() -> void:
-	if title_scene_path == "" or not ResourceLoader.exists(title_scene_path):
-		push_warning("OverworldRadar: title_scene_path missing or invalid: " + title_scene_path)
+	if squad_scene_path == "" or not ResourceLoader.exists(squad_scene_path):
+		push_warning("OverworldRadar: squad_scene_path missing or invalid: " + squad_scene_path)
 		return
-	get_tree().change_scene_to_file(title_scene_path)
+	get_tree().change_scene_to_file(squad_scene_path)
 
 func _refresh_squad_hud() -> void:
 	if _hud_row == null or not is_instance_valid(_hud_row):

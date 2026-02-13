@@ -2,8 +2,8 @@
 
 [ext_resource type="Script" uid="uid://q37bmmrkofy5" path="res://scripts/TitleScreen.gd" id="1_fgkus"]
 [ext_resource type="PackedScene" uid="uid://dp7v6b7f0bh4u" path="res://scenes/overworld.tscn" id="2_6uh13"]
+[ext_resource type="FontFile" uid="uid://cegmialmbsk70" path="res://fonts/Boycott/BOYCOTT_.ttf" id="2_aidx5"]
 [ext_resource type="FontFile" uid="uid://buw362wjb8o8d" path="res://fonts/magofonts/mago2.ttf" id="2_sa3yf"]
-[ext_resource type="FontFile" uid="uid://dgugahs6bc7so" path="res://fonts/magofonts/mago3.ttf" id="3_16pxe"]
 [ext_resource type="FontFile" uid="uid://csnhk3q4gx0" path="res://fonts/magofonts/mago1.ttf" id="3_mgrm8"]
 [ext_resource type="Texture2D" uid="uid://b8ydvfeaxe1yj" path="res://sprites/Dog/dog2.png" id="5_3yumr"]
 [ext_resource type="Texture2D" uid="uid://wm8nrbekb2d0" path="res://sprites/Humans/soldier5.png" id="6_cs5ya"]
@@ -243,7 +243,7 @@ continue_scene = ExtResource("2_6uh13")
 fade_time = 1.25
 sick_color_a = Color(0.4862745, 0, 0, 1)
 sick_color_b = Color(0.7137255, 0, 0, 1)
-title_font = ExtResource("3_16pxe")
+title_font = ExtResource("2_aidx5")
 title_font_size = 48
 body_font = ExtResource("3_mgrm8")
 body_font_size = 16
@@ -384,7 +384,7 @@ custom_minimum_size = Vector2(120, 16)
 layout_mode = 2
 theme_override_fonts/font = ExtResource("2_sa3yf")
 theme_override_font_sizes/font_size = 32
-text = "RESTART"
+text = "Restart"
 
 [node name="StoryClip" type="Control" parent="."]
 z_index = 4096

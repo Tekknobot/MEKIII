@@ -1912,9 +1912,15 @@ func _on_campaign_victory_continue() -> void:
 		# mark that the run ended cleanly
 		if "run_over" in rs:
 			rs.run_over = true
-		# keep overworld position at current node if you want; otherwise leave it
+
+		# ✅ Start a new campaign BUT keep unlocked roster
+		# (Requires the reset_run() replacement I gave you: it must NOT clear roster_scene_paths)
+		if rs.has_method("reset_run"):
+			rs.reset_run()
+
+		# persist
 		if rs.has_method("save_to_disk"):
-			rs.call("save_to_disk")
+			rs.save_to_disk()
 
 	tree.change_scene_to_file("res://scenes/squad_deploy_screen.tscn")
 
