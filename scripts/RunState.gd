@@ -4,6 +4,9 @@ class_name RunState
 
 var _keep := UnitRegistry.FORCE_EXPORT
 
+var starting_roster_size: int = 4
+var unlock_per_campaign_clear: int = 2
+
 # Overworld / mission
 var overworld_seed: int = 0
 var overworld_current_node_id: int = -1
@@ -481,21 +484,67 @@ func seed_roster_if_empty() -> void:
 	if not roster_scene_paths.is_empty():
 		return
 
-	# Touch preloads so export includes them
-	var _keep := UnitRegistry.FORCE_EXPORT
+	var all: Array[String] = UnitRegistry.ALLY_PATHS.duplicate()
+	all = all.filter(func(p): return ResourceLoader.exists(p))
+	all.sort()
 
+	# Deterministic shuffle based on overworld_seed (so "new run" can differ)
+	var rng := RandomNumberGenerator.new()
+	rng.seed = int(overworld_seed) if overworld_seed != 0 else int(Time.get_unix_time_from_system())
+
+	# Fisher–Yates shuffle
+	for i in range(all.size() - 1, 0, -1):
+		var j := rng.randi_range(0, i)
+		var tmp := all[i]
+		all[i] = all[j]
+		all[j] = tmp
+
+	# Take only first N
+	var n = clamp(starting_roster_size, 1, all.size())
 	roster_scene_paths.clear()
-	for p in UnitRegistry.ALLY_PATHS:
-		if ResourceLoader.exists(p):
-			roster_scene_paths.append(p)
-		else:
-			push_warning("[RUNSTATE] Missing ally scene: " + p)
+	for i in range(n):
+		roster_scene_paths.append(all[i])
 
 	# Build recruit pool from roster
 	rebuild_recruit_pool()
 
-	print("[RUNSTATE] Seeded roster_scene_paths=", roster_scene_paths.size(),
+	print("[RUNSTATE] Seeded START roster_scene_paths=", roster_scene_paths.size(),
 		" recruit_pool_paths=", recruit_pool_paths.size())
+
+func unlock_more_roster(count: int) -> Array[String]:
+	var unlocked_now: Array[String] = []
+
+	var all: Array[String] = UnitRegistry.ALLY_PATHS.duplicate()
+	all = all.filter(func(p): return ResourceLoader.exists(p))
+	all.sort()
+
+	# Candidates = not already in roster, not dead
+	var candidates: Array[String] = []
+	for p in all:
+		var sp := str(p)
+		if roster_scene_paths.has(sp):
+			continue
+		if dead_scene_paths.has(sp):
+			continue
+		candidates.append(sp)
+
+	if candidates.is_empty():
+		return unlocked_now
+
+	var rng := RandomNumberGenerator.new()
+	rng.seed = int(Time.get_unix_time_from_system())
+
+	for k in range(min(count, candidates.size())):
+		var idx := rng.randi_range(0, candidates.size() - 1)
+		var pick := candidates[idx]
+		candidates.remove_at(idx)
+
+		roster_scene_paths.append(pick)
+		unlocked_now.append(pick)
+
+	rebuild_recruit_pool()
+	save_to_disk()
+	return unlocked_now
 
 func is_dead(path: String) -> bool:
 	return dead_scene_paths.has(path)

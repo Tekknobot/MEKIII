@@ -39,6 +39,9 @@ var _probe_root: Node
 
 var _roster_cards: Dictionary = {} # path:String -> UnitCard
 
+const ROSTER_SLOTS := 16
+const LOCKED_LABEL := "LOCKED"
+
 func _ready() -> void:
 	start_button.pressed.connect(_on_start)
 	back_button.pressed.connect(_on_back)
@@ -269,9 +272,13 @@ func _build_roster_async() -> void:
 	var rs := _rs()
 	var paths: Array[String] = []
 
+	# Prefer the runstate roster (this is your "unlocked" list)
 	if rs != null and "roster_scene_paths" in rs and not rs.roster_scene_paths.is_empty():
 		paths = rs.roster_scene_paths.duplicate()
 	else:
+		# Fallback: if you want the UI to show "locked" slots meaningfully,
+		# you should seed rs.roster_scene_paths at run start.
+		# This fallback will make everything available (no locked slots).
 		paths = UnitRegistry.ALLY_PATHS.duplicate()
 
 	paths = paths.filter(func(p): return ResourceLoader.exists(p))
@@ -279,13 +286,30 @@ func _build_roster_async() -> void:
 
 	print("SquadDeploy: roster paths = ", paths.size())
 
+	# Build unlocked roster entries
 	for p in paths:
 		var data := await _extract_unit_card_data(p)
 		if data.is_empty():
 			continue
+		data["locked"] = false
+		data["scene_path"] = p
 		_roster.append(data)
 
+	# Sort unlocked mechs by name (your existing behavior)
 	_roster.sort_custom(func(a, b): return str(a.get("name","")) < str(b.get("name","")))
+
+	# Append locked placeholder slots to reach a fixed grid size
+	const ROSTER_SLOTS := 16
+	var missing := ROSTER_SLOTS - _roster.size()
+	if missing > 0:
+		for i in range(missing):
+			_roster.append({
+				"locked": true,
+				"name": "LOCKED",
+				"desc": "Unlock more mechs by clearing sectors.",
+				"portrait": null,      # your UI builder should handle null portrait
+				"scene_path": ""       # no scene
+			})
 
 func _scan_tscn_recursive(folder: String) -> Array[String]:
 	var out: Array[String] = []

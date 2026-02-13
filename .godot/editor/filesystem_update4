@@ -30,3 +30,5 @@ res://material/pixel_ice.tres
 res://scripts/end_game_panel_runtime.gd
 res://scenes/lunatic.tscn
 res://scripts/boss_controller.gd
+res://scripts/RunState.gd
+res://scripts/squad_deploy_screen.gd

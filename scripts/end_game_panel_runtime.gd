@@ -325,7 +325,7 @@ func show_loss(msg: String, button_text: String = "MAIN MENU") -> void:
 	_apply_upgrade_ui()
 	show_panel()
 
-func show_campaign_victory(stats: Dictionary, button_text: String = "RETURN TO OVERWORLD") -> void:
+func show_campaign_victory(stats: Dictionary, button_text: String = "RETURN TO SQUAD DEPLOY") -> void:
 	# No upgrade pick on campaign end
 	_shown_upgrades = []
 	_picked = true

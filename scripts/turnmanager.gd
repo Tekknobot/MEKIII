@@ -1916,8 +1916,7 @@ func _on_campaign_victory_continue() -> void:
 		if rs.has_method("save_to_disk"):
 			rs.call("save_to_disk")
 
-	tree.change_scene_to_file("res://scenes/overworld.tscn")
-
+	tree.change_scene_to_file("res://scenes/squad_deploy_screen.tscn")
 
 func _wait_for_units_then_enable_loss_checks() -> void:
 	if _game_over_triggered:
@@ -1976,8 +1975,30 @@ func _on_boss_defeated() -> void:
 		rs.boss_defeated_this_run = true
 		rs.bomber_unlocked_this_run = true
 		rs.boss_mode_enabled_next_mission = false
+
 		if "overworld_cleared" in rs:
 			rs.overworld_cleared[str(int(rs.overworld_current_node_id))] = true
+
+		# ✅ REWARD: unlock more mechs into the roster (optional system)
+		# Put this here (before awaits) so it always happens on boss clear.
+		if rs.has_method("unlock_more_roster"):
+			var n := int(rs.unlock_per_campaign_clear) if ("unlock_per_campaign_clear" in rs) else 2
+
+			# ✅ capture what got unlocked (expects Array[String] return)
+			var newly_unlocked: Array = rs.unlock_more_roster(n)
+
+			# ✅ store for UI / debugging (optional)
+			if "last_unlocked_roster" in rs:
+				rs.last_unlocked_roster = newly_unlocked
+			else:
+				# add dynamically if you don't have it declared
+				rs.set("last_unlocked_roster", newly_unlocked)
+
+			# ✅ persist
+			if rs.has_method("save_to_disk"):
+				rs.save_to_disk()
+
+			print("Unlocked roster mechs: ", newly_unlocked)
 
 	# Wait for boss outro tween to finish BEFORE changing scenes
 	if boss != null and is_instance_valid(boss):
@@ -2035,7 +2056,7 @@ func _on_boss_defeated() -> void:
 				"rounds": rounds,
 				"mechs_lost": mechs_lost,
 				"survivors": survivors,
-			}, "RETURN TO OVERWORLD")
+			}, "RETURN TO SQUAD DEPLOY")
 		else:
 			# fallback if you forgot to add the method
 			end_panel.show_loss("CAMPAIGN COMPLETE", "RETURN TO OVERWORLD")
@@ -2053,7 +2074,8 @@ func _on_boss_defeated() -> void:
 
 	else:
 		# absolute fallback: just return
-		get_tree().change_scene_to_file("res://scenes/overworld.tscn")
+		get_tree().change_scene_to_file("res://scenes/squad_deploy_screen.tscn")
+
 
 func _get_vision(u: Unit) -> int:
 	if u != null and is_instance_valid(u) and u.has_meta("vision"):
