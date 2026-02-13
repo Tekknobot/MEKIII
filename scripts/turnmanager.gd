@@ -1896,6 +1896,29 @@ func _on_game_over_main_menu() -> void:
 	# 2) Go to title screen
 	tree.change_scene_to_file("res://scenes/title_screen.tscn")
 
+func _on_campaign_victory_continue() -> void:
+	var tree := get_tree()
+	if tree == null:
+		tree = Engine.get_main_loop() as SceneTree
+	if tree == null:
+		push_error("No SceneTree available.")
+		return
+
+	var rs := tree.root.get_node_or_null("RunStateNode")
+	if rs == null:
+		rs = tree.root.get_node_or_null("RunState")
+
+	if rs != null:
+		# mark that the run ended cleanly
+		if "run_over" in rs:
+			rs.run_over = true
+		# keep overworld position at current node if you want; otherwise leave it
+		if rs.has_method("save_to_disk"):
+			rs.call("save_to_disk")
+
+	tree.change_scene_to_file("res://scenes/overworld.tscn")
+
+
 func _wait_for_units_then_enable_loss_checks() -> void:
 	if _game_over_triggered:
 		return
@@ -1978,9 +2001,59 @@ func _on_boss_defeated() -> void:
 			if boss != null and is_instance_valid(boss) and boss.boss_outro_finished.is_connected(callable):
 				boss.boss_outro_finished.disconnect(callable)
 
-	# NOW go back to overworld
+	# NOW extract allies first (keeps your current cinematic flow)
 	await M._extract_allies_with_bomber()
-	get_tree().change_scene_to_file("res://scenes/overworld.tscn")
+
+	# Hide mission HUD via TutorialManager
+	var tms := get_tree().get_nodes_in_group("TutorialManager")
+	if tms.size() > 0 and tms[0].has_method("_hide_mission_hud"):
+		tms[0]._hide_mission_hud()
+
+	# --- CAMPAIGN VICTORY SCREEN ---
+	if rs == null:
+		rs = get_tree().root.get_node_or_null("RunState")
+
+	var missions_cleared := 0
+	var mechs_lost := 0
+	var survivors := 0
+
+	if rs != null:
+		if "overworld_cleared" in rs:
+			missions_cleared = int(rs.overworld_cleared.size())
+		if "dead_scene_paths" in rs:
+			mechs_lost = int(rs.dead_scene_paths.size())
+		if "squad_scene_paths" in rs:
+			survivors = int(rs.squad_scene_paths.size())
+
+	var rounds := int(round_index) if ("round_index" in self) else 0
+
+	if end_panel != null and is_instance_valid(end_panel):
+		# show a dedicated campaign victory screen (no upgrade pick)
+		if end_panel.has_method("show_campaign_victory"):
+			end_panel.call("show_campaign_victory", {
+				"missions_cleared": missions_cleared,
+				"rounds": rounds,
+				"mechs_lost": mechs_lost,
+				"survivors": survivors,
+			}, "RETURN TO OVERWORLD")
+		else:
+			# fallback if you forgot to add the method
+			end_panel.show_loss("CAMPAIGN COMPLETE", "RETURN TO OVERWORLD")
+
+		# IMPORTANT: ensure loss handlers are not still wired
+		if end_panel.continue_pressed.is_connected(_on_game_over_retry):
+			end_panel.continue_pressed.disconnect(_on_game_over_retry)
+		if end_panel.continue_pressed.is_connected(_on_game_over_main_menu):
+			end_panel.continue_pressed.disconnect(_on_game_over_main_menu)
+
+		# Connect campaign handler (avoid stacking)
+		if end_panel.continue_pressed.is_connected(_on_campaign_victory_continue):
+			end_panel.continue_pressed.disconnect(_on_campaign_victory_continue)
+		end_panel.continue_pressed.connect(_on_campaign_victory_continue)
+
+	else:
+		# absolute fallback: just return
+		get_tree().change_scene_to_file("res://scenes/overworld.tscn")
 
 func _get_vision(u: Unit) -> int:
 	if u != null and is_instance_valid(u) and u.has_meta("vision"):

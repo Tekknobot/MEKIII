@@ -511,7 +511,7 @@ threat_tile_scene = ExtResource("64_8fcgb")
 
 [node name="AudioStreamPlayer2D" type="AudioStreamPlayer2D" parent="MapController"]
 
-[node name="TutorialManager" type="Node2D" parent="."]
+[node name="TutorialManager" type="Node2D" parent="." groups=["TutorialManager"]]
 script = ExtResource("49_0wf52")
 map_controller_path = NodePath("../MapController")
 turn_manager_path = NodePath("../TurnManager")

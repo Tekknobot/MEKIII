@@ -325,6 +325,30 @@ func show_loss(msg: String, button_text: String = "MAIN MENU") -> void:
 	_apply_upgrade_ui()
 	show_panel()
 
+func show_campaign_victory(stats: Dictionary, button_text: String = "RETURN TO OVERWORLD") -> void:
+	# No upgrade pick on campaign end
+	_shown_upgrades = []
+	_picked = true
+	_picked_upgrade = &""
+
+	if continue_button != null:
+		continue_button.disabled = false
+		continue_button.text = button_text
+
+	if title_label != null:
+		title_label.text = "CAMPAIGN COMPLETE"
+
+	var missions := int(stats.get("missions_cleared", 0))
+	var rounds := int(stats.get("rounds", 0))
+	var mechs_lost := int(stats.get("mechs_lost", 0))
+	var survivors := int(stats.get("survivors", 0))
+
+	if body_label != null:
+		body_label.text = "Sector stabilized.\n\nMissions cleared: %d\nRounds survived: %d\nMechs lost: %d\nSurvivors: %d" % [missions, rounds, mechs_lost, survivors]
+
+	_apply_upgrade_ui() # with empty upgrades, this hides the upgrade cards
+	show_panel()
+
 # -------------------------
 # Internals
 # -------------------------

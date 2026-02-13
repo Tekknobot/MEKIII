@@ -27,3 +27,6 @@ res://scripts/assign_current_texture.gd
 res://scripts/ice_zombie.gd
 res://scripts/unit.gd
 res://material/pixel_ice.tres
+res://scripts/end_game_panel_runtime.gd
+res://scenes/lunatic.tscn
+res://scripts/boss_controller.gd
