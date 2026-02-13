@@ -17,3 +17,6 @@ res://scenes/overworld.tscn
 res://scripts/overworld_radar.gd
 res://scenes/lunatic.tscn
 res://scripts/map_controller.gd
+res://scenes/units/allies/mech.tscn
+res://scripts/unit.gd
+res://scripts/turnmanager.gd

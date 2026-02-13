@@ -1933,7 +1933,9 @@ func _do_attack(attacker: Unit, defender: Unit) -> void:
 	if not await _safe_wait(attack_anim_lock_time):
 		return
 
-	_cleanup_dead_at(def_cell)
+	if defender.hp > 0:
+		_cleanup_dead_at(def_cell)
+		
 	_play_idle_anim(attacker)
 
 
@@ -2463,48 +2465,52 @@ func _set_unit_depth_from_world(u: Unit, world_pos: Vector2) -> void:
 	u.z_index = base + ((c.x + c.y) * per)
 
 func _move_selected_to(target: Vector2i) -> void:
-	# ✅ Per-unit move lock
-	if selected != null and is_instance_valid(selected) and selected.team == Unit.Team.ALLY:
-		if _unit_has_moved(selected):
-			_sfx(&"ui_denied", sfx_volume_ui, 1.0)
-			emit_signal("tutorial_event", &"move_denied_already_moved", {"cell": selected.cell})
-			return
-		
-	# Hard gates FIRST (PLAYER ONLY)
-	if TM != null and selected != null and is_instance_valid(selected) and selected.team == Unit.Team.ALLY:
-		if not TM.player_input_allowed():
-			emit_signal("tutorial_event", &"move_denied_input_locked", {"cell": selected.cell})
-			return
-		if not TM.can_move(selected):
-			emit_signal("tutorial_event", &"move_denied_tm_gate", {"cell": selected.cell})
-			return
+	# ---- hard gates / early returns (NO locks set yet) ----
 	if _is_moving:
 		return
 	if selected == null or not is_instance_valid(selected):
 		return
+
+	var u: Unit = selected
 	if not _is_valid_move_target(target):
 		return
-	var u := selected
+
+	# ✅ per-unit move lock (ally only)
+	if u.team == Unit.Team.ALLY:
+		if _unit_has_moved(u):
+			_sfx(&"ui_denied", sfx_volume_ui, 1.0)
+			emit_signal("tutorial_event", &"move_denied_already_moved", {"cell": u.cell})
+			return
+
+		if TM != null:
+			if not TM.player_input_allowed():
+				emit_signal("tutorial_event", &"move_denied_input_locked", {"cell": u.cell})
+				return
+			if not TM.can_move(u):
+				emit_signal("tutorial_event", &"move_denied_tm_gate", {"cell": u.cell})
+				return
+
+	# ---- only now do we commit to movement ----
+	_is_moving = true
+
 	var uid := u.get_instance_id()
 	var from_cell := u.cell
-	
-	# ✅ Check if this is a CarBot (or any unit with custom step animation)
 	var is_carbot := u.has_method("play_move_step_anim")
-	
-	# L path
+
 	var path := _pick_clear_L_path(from_cell, target)
 	if path.is_empty():
+		_end_move_cleanup()
 		return
-	_is_moving = true
+
 	_sfx(&"move_start", sfx_volume_world, 1.0, _cell_world(from_cell))
-	_say(u) # <-- NEW: say something before moving
-	#await get_tree().create_timer(0.38).timeout
+	_say(u)
 	_clear_overlay()
+
 	# Reserve destination
 	units_by_cell.erase(from_cell)
 	units_by_cell[target] = u
-	
-	# ✅ Only play default move anim if NOT CarBot
+
+	# Start anim / sfx
 	if not is_carbot:
 		_play_move_anim(u, true)
 	else:
@@ -2512,11 +2518,15 @@ func _move_selected_to(target: Vector2i) -> void:
 			u.call("car_start_move_sfx")
 
 	var step_time := _duration_for_step()
+
 	for step_cell in path:
+		if u == null or not is_instance_valid(u) or u.hp <= 0:
+			_end_move_cleanup()
+			return
+
 		var from_world := u.global_position
 		var to_world := _cell_world(step_cell)
-		
-		# ✅ Use true GRID direction for per-step anim (turns included)
+
 		if is_carbot:
 			var grid_dir: Vector2i = step_cell - u.cell
 			if u.has_method("play_move_step_anim_grid"):
@@ -2530,9 +2540,11 @@ func _move_selected_to(target: Vector2i) -> void:
 			u.call("car_step_sfx")
 
 		_sfx(&"move_step", sfx_volume_world * 0.55, randf_range(0.95, 1.05), to_world)
+
 		var tw := create_tween()
 		tw.set_trans(Tween.TRANS_LINEAR)
 		tw.set_ease(Tween.EASE_IN_OUT)
+
 		uid = u.get_instance_id()
 		tw.tween_method(func(p: Vector2):
 			var uu := instance_from_id(uid) as Unit
@@ -2541,67 +2553,81 @@ func _move_selected_to(target: Vector2i) -> void:
 			uu.global_position = p
 			_set_unit_depth_from_world(uu, p)
 		, from_world, to_world, step_time)
+
 		if is_overwatching(u):
 			_update_overwatch_ghost_pos(u)
+
 		await tw.finished
-		# ✅ IMPORTANT: update logical cell each step so next step_dir is correct
+
+		# update logical cell
 		if u != null and is_instance_valid(u):
 			u.cell = step_cell
-			
-		# Unit may have died/freed during the step
-		if u == null or not is_instance_valid(u):
-			_is_moving = false
-			_refresh_overlays()
-			emit_signal("aim_changed", int(aim_mode), special_id)
-			return
-		# Overwatch trigger: enemy entering a new step cell
+
+		# overwatch on entering step
 		#await _check_overwatch_trigger(u, step_cell)
+
+		# mover may have died during overwatch await
+		if u == null or not is_instance_valid(u) or u.hp <= 0:
+			_end_move_cleanup()
+			return
+
+	# finalize position
+	if u == null or not is_instance_valid(u) or u.hp <= 0:
+		_end_move_cleanup()
+		return
+
 	u.set_cell(target, terrain)
-	
-	# After move complete + mines resolved:
-	if u != null and is_instance_valid(u) and u.team == Unit.Team.ALLY:
-		_try_recruit_near_structure(u)
+
+	# ally extras
 	if u.team == Unit.Team.ALLY:
+		_try_recruit_near_structure(u)
 		_set_unit_moved(u, true)
+
 	_apply_turn_indicator(u)
-	# ✅ Overwatch triggers once, when mover finishes movement
+
+	# overwatch on arrival
 	await _check_overwatch_trigger(u, target)
+	if u == null or not is_instance_valid(u) or u.hp <= 0:
+		_end_move_cleanup()
+		return
+
 	await _trigger_mine_if_present_id(uid)
+
+	if u == null or not is_instance_valid(u) or u.hp <= 0:
+		_end_move_cleanup()
+		return
+
 	try_collect_pickup(u)
 	_check_and_trigger_beacon_sweep()
-	
-	# Mine might have killed / freed the mover (knockback, collision, etc.)
-	if u == null or not is_instance_valid(u):
-		_is_moving = false
-		_refresh_overlays()
-		emit_signal("aim_changed", int(aim_mode), special_id)
-		return
-	
-	# ✅ Only play default end anim if NOT CarBot
+
+	# end anim
 	if not is_carbot:
 		_play_move_anim(u, false)
 	else:
-		# CarBot returns to idle
 		if u.has_method("play_idle_anim"):
 			u.call("play_idle_anim")
 		if u.has_method("car_end_move_sfx"):
 			u.call("car_end_move_sfx")
 
 	_sfx(&"move_end", sfx_volume_world, 1.0, _cell_world(target))
-	
-	_is_moving = false
-	# ✅ Mark move spent (IMPORTANT)
+
+	# notify + tutorial + aim mode
 	if u.team == Unit.Team.ALLY and TM != null and TM.has_method("notify_player_moved"):
 		TM.notify_player_moved(u)
-	# --- Tutorial hook ---
-	if u != null and is_instance_valid(u) and u.team == Unit.Team.ALLY:
+
+	if u.team == Unit.Team.ALLY:
 		emit_signal("tutorial_event", &"ally_moved", {"from": from_cell, "to": target})
-	if u != null and is_instance_valid(u) and u.team == Unit.Team.ALLY:
 		if not _unit_has_attacked(u):
 			aim_mode = AimMode.ATTACK
 		else:
 			aim_mode = AimMode.MOVE
-		_refresh_overlays()
+
+	_end_move_cleanup()
+	
+func _end_move_cleanup() -> void:
+	_is_moving = false
+	_prune_dead_units_by_cell()
+	_refresh_overlays()
 	emit_signal("aim_changed", int(aim_mode), special_id)
 	
 func _find_anim_sprite(root: Node) -> AnimatedSprite2D:
@@ -2920,11 +2946,22 @@ func ai_move(u: Unit, target: Vector2i) -> void:
 		await tree.process_frame
 		safety -= 1
 
+	# ✅ FAILSAFE: never leave ai_move with _is_moving stuck true
+	if _is_moving:
+		push_warning("ai_move timeout: forcing unlock (unit may have died during overwatch)")
+		_force_unlock_movement()
+
 	# Restore selection if still valid
 	if is_instance_valid(prev):
 		selected = prev
 	else:
 		selected = null
+
+func _force_unlock_movement() -> void:
+	_is_moving = false
+	_prune_dead_units_by_cell()
+	_refresh_overlays()
+	emit_signal("aim_changed", int(aim_mode), special_id)
 
 # AI / scripted move that does NOT consume move/attack flags
 # (no _set_unit_moved, no TM.notify_player_moved, no aim_mode changes)
@@ -3028,6 +3065,13 @@ func ai_move_free(u: Unit, target: Vector2i) -> void:
 
 	# IMPORTANT: do game interactions, but do NOT set moved/attacked flags
 	await _check_overwatch_trigger(u, target)
+
+	# ✅ Overwatch may have killed/freed the mover DURING the await
+	if u == null or not is_instance_valid(u) or u.hp <= 0:
+		_prune_dead_units_by_cell()
+		_is_moving = false
+		return
+	
 	await _trigger_mine_if_present_id(uid)
 	try_collect_pickup(u)
 	_check_and_trigger_beacon_sweep()
@@ -3073,6 +3117,13 @@ func ai_attack(attacker: Unit, defender: Unit) -> void:
 	if attacker is RadioactiveZombie:
 		(attacker as RadioactiveZombie).on_hit_cell(self, defender.cell)
 
+
+func _prune_dead_units_by_cell() -> void:
+	# Removes freed/null refs and also clears “reserved target” ghosts.
+	for c in units_by_cell.keys():
+		var v = units_by_cell[c]
+		if v == null or not (v is Object) or not is_instance_valid(v):
+			units_by_cell.erase(c)
 
 func set_unit_exhausted(u: Unit, exhausted: bool) -> void:
 	if u == null or not is_instance_valid(u):
@@ -4245,8 +4296,8 @@ func _check_overwatch_trigger(_mover: Unit, _entered_cell: Vector2i) -> void:
 		await _do_attack(w, t)
 		
 		# ✅ If overwatch killed it, force the unit to fully die + free
-		if is_instance_valid(t) and ("hp" in t) and int(t.hp) <= 0:
-			await t._die()		
+		if is_instance_valid(t) and t.hp <= 0:
+			t.await_die()  # fire-and-forget (do NOT await)	
 
 func _get_unit_render_node(u: Unit) -> CanvasItem:
 	if u == null or not is_instance_valid(u):
@@ -4698,8 +4749,6 @@ func _ringout_push_and_die(attacker: Unit, defender: Unit) -> void:
 	if d.team == Unit.Team.ENEMY:
 		# 1) If you have an existing death handler, call it:
 		if has_method("on_unit_died"):
-			on_unit_died(d)
-		elif has_method("_on_unit_died"):
 			on_unit_died(d)
 
 		# 2) If TurnManager listens to tutorial_event to refresh infestation HUD:
