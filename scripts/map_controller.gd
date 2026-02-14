@@ -1551,6 +1551,10 @@ func _perform_special(u: Unit, id: String, target_cell: Vector2i) -> void:
 	_is_moving = true
 	_clear_overlay()
 
+	# ✅ Prevent queue_free() from stalling this await chain
+	u.set_meta(&"special_lock", true)
+	u.set_meta(&"pending_free", false)
+
 	# -------------------------
 	# Execute special
 	# -------------------------
@@ -1573,7 +1577,7 @@ func _perform_special(u: Unit, id: String, target_cell: Vector2i) -> void:
 		await u.call("perform_stim", self)
 
 	elif id == "sunder" and u.has_method("perform_sunder"):
-		await u.call("perform_sunder", self, target_cell) # ✅ NEW
+		await u.call("perform_sunder", self, target_cell)
 
 	elif id == "pounce" and u.has_method("perform_pounce"):
 		await u.call("perform_pounce", self, target_cell)
@@ -1586,7 +1590,7 @@ func _perform_special(u: Unit, id: String, target_cell: Vector2i) -> void:
 
 	elif id == "quake" and u.has_method("perform_quake"):
 		await u.call("perform_quake", self, target_cell)
-		
+
 	elif id == "nova" and u.has_method("perform_nova"):
 		await u.call("perform_nova", self, target_cell)
 
@@ -1600,8 +1604,8 @@ func _perform_special(u: Unit, id: String, target_cell: Vector2i) -> void:
 		await u.call("perform_laser_grid", self, target_cell)
 
 	elif id == "overcharge" and u.has_method("perform_overcharge"):
-		await u.call("perform_overcharge", self, target_cell)		
-		
+		await u.call("perform_overcharge", self, target_cell)
+
 	elif id == "barrage" and u.has_method("perform_barrage"):
 		await u.call("perform_barrage", self, target_cell)
 
@@ -1613,14 +1617,33 @@ func _perform_special(u: Unit, id: String, target_cell: Vector2i) -> void:
 
 	elif id == "storm" and u.has_method("perform_storm"):
 		await u.call("perform_storm", self, target_cell)
-		
+
 	elif id == "artillery_strike" and u.has_method("perform_artillery_strike"):
 		await u.call("perform_artillery_strike", self, target_cell)
 
 	elif id == "laser_sweep" and u.has_method("perform_laser_sweep"):
 		await u.call("perform_laser_sweep", self, target_cell)
-									
+
+	# ✅ Always release lock, even if the unit died during the special
+	if u != null and is_instance_valid(u):
+		u.set_meta(&"special_lock", false)
+
+	# ✅ Unblock input
 	_is_moving = false
+
+	# ✅ Free any units that died while "special_lock" was active
+	_finalize_pending_frees()
+
+func _finalize_pending_frees() -> void:
+	for v in get_all_units():
+		var u := v as Unit
+		if u == null or not is_instance_valid(u):
+			continue
+		if u.hp > 0:
+			continue
+		if u.has_meta(&"pending_free") and bool(u.get_meta(&"pending_free")):
+			u.remove_meta(&"pending_free")
+			u.queue_free()
 
 func _mouse_to_cell() -> Vector2i:
 	if terrain == null:

@@ -65,16 +65,18 @@ func _wait_seconds_no_timer(seconds: float) -> void:
 func perform_blade(M: MapController, target_cell: Vector2i) -> void:
 	if M == null or not is_instance_valid(M):
 		return
+	if hp <= 0:
+		return
+
+	var _self_alive := func() -> bool:
+		return self != null and is_instance_valid(self) and hp > 0
 
 	# -----------------------------
 	# 0) Build target list: all enemies in blade_range
-	# - includes the clicked target first (if valid)
-	# - then nearest enemies outward
 	# -----------------------------
 	var enemies: Array[Unit] = []
 	var clicked := M.unit_at_cell(target_cell)
 
-	# Helper: in range + enemy + alive
 	var _is_valid_enemy := func(u: Unit) -> bool:
 		if u == null or not is_instance_valid(u):
 			return false
@@ -85,17 +87,14 @@ func perform_blade(M: MapController, target_cell: Vector2i) -> void:
 		var d = abs(u.cell.x - cell.x) + abs(u.cell.y - cell.y)
 		return d <= blade_range + attack_range
 
-	# Add clicked target first if valid
 	if _is_valid_enemy.call(clicked):
 		enemies.append(clicked)
 
-	# Stim bonus from meta (if active)
 	var stim_bonus := 0
 	if has_meta(&"stim_turns") and int(get_meta(&"stim_turns")) > 0:
 		if has_meta(&"stim_damage_bonus"):
 			stim_bonus = int(get_meta(&"stim_damage_bonus"))
 
-	# Add all other enemies in range
 	for u in M.get_all_units():
 		if u == null or not is_instance_valid(u):
 			continue
@@ -104,7 +103,6 @@ func perform_blade(M: MapController, target_cell: Vector2i) -> void:
 		if _is_valid_enemy.call(u):
 			enemies.append(u)
 
-	# Sort by distance so chain feels snappy
 	enemies.sort_custom(func(a: Unit, b: Unit) -> bool:
 		var da = abs(a.cell.x - cell.x) + abs(a.cell.y - cell.y)
 		var db = abs(b.cell.x - cell.x) + abs(b.cell.y - cell.y)
@@ -128,7 +126,6 @@ func perform_blade(M: MapController, target_cell: Vector2i) -> void:
 		var best := Vector2i(-1, -1)
 		var best_d := 999999
 
-		# Structures block (so we don't dash into a building)
 		var structure_blocked: Dictionary = {}
 		if M.game_ref != null and "structure_blocked" in M.game_ref:
 			structure_blocked = M.game_ref.structure_blocked
@@ -151,6 +148,8 @@ func perform_blade(M: MapController, target_cell: Vector2i) -> void:
 		return best
 
 	var _hit_once := func(v: Unit, dmg: int, flash_time: float, cleanup_cell: Vector2i) -> void:
+		if not _self_alive.call():
+			return
 		if v == null or not is_instance_valid(v) or v.team == team:
 			return
 
@@ -161,7 +160,10 @@ func perform_blade(M: MapController, target_cell: Vector2i) -> void:
 		M._flash_unit_white(v, flash_time)
 		v.take_damage(dmg)
 
-		# Full cycle (NO create_timer)
+		# wait a bit (bounded), but only if we're still alive
+		if not _self_alive.call():
+			return
+
 		await M._wait_for_attack_anim(self)
 		await _wait_seconds_no_timer(M.attack_anim_lock_time)
 
@@ -170,9 +172,12 @@ func perform_blade(M: MapController, target_cell: Vector2i) -> void:
 	# -----------------------------
 	# 1) For EACH target: move adjacent -> hit -> cleave
 	# -----------------------------
-	var seen: Dictionary = {} # Unit -> true (prevents double-processing)
+	var seen: Dictionary = {}
 
 	for t in enemies:
+		if not _self_alive.call():
+			return
+
 		if t == null or not is_instance_valid(t):
 			continue
 		if t.team == team:
@@ -181,34 +186,35 @@ func perform_blade(M: MapController, target_cell: Vector2i) -> void:
 			continue
 		seen[t] = true
 
-		# Target might have moved/died since list creation; reacquire by cell
 		var tcell := t.cell
 		var target := M.unit_at_cell(tcell)
 		if target == null or not is_instance_valid(target) or target.team == team:
 			continue
 
-		# Still in range from our *current* position?
 		if abs(tcell.x - cell.x) + abs(tcell.y - cell.y) > blade_range + attack_range:
 			continue
 
-		# Find open adjacent tile to dash into
 		var dash_to = _adjacent_open_to.call(tcell)
 		if dash_to.x < 0:
 			continue
 
-		# Dash into position
+		# Dash (hazards can kill here)
 		if cell != dash_to:
 			await M._push_unit_to_cell(self, dash_to)
 
-		# Reacquire after dash
+		# ✅ If we died on the hazard tile, stop immediately.
+		if not _self_alive.call():
+			return
+
 		target = M.unit_at_cell(tcell)
 		if target == null or not is_instance_valid(target) or target.team == team:
 			continue
 
-		# Primary hit (fixed extra '+')
 		await _hit_once.call(target, blade_damage + attack_damage + stim_bonus, 0.12, tcell)
 
-		# Cleave around target cell
+		if not _self_alive.call():
+			return
+
 		var around := [
 			tcell + Vector2i(1, 0),
 			tcell + Vector2i(-1, 0),
@@ -216,12 +222,14 @@ func perform_blade(M: MapController, target_cell: Vector2i) -> void:
 			tcell + Vector2i(0, -1),
 		]
 		for c in around:
+			if not _self_alive.call():
+				return
 			var v := M.unit_at_cell(c)
 			if v != null and is_instance_valid(v) and v.team != team:
 				await _hit_once.call(v, blade_cleave_damage + stim_bonus, 0.10, c)
 
-	# Return to idle at end
-	M._play_idle_anim(self)
+	if _self_alive.call():
+		M._play_idle_anim(self)
 
 # ---------------------------------------------------------
 # Specials interface helpers (optional / used by your UI)

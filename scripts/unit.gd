@@ -121,6 +121,41 @@ func _die() -> void:
 	_play_sfx(sfx_death)
 	emit_signal("died", self)
 
+	# --------------------------------------------------------------------
+	# ✅ CRITICAL FIX:
+	# If MapController is awaiting a special coroutine on this unit,
+	# queue_free() during that await can stall MapController forever.
+	# So: play death visuals, cleanup board occupancy, mark pending_free,
+	# and let MapController free us safely once the special resolves.
+	# --------------------------------------------------------------------
+	if has_meta(&"special_lock") and bool(get_meta(&"special_lock")):
+		_spawn_blood_fx()
+
+		var a := _get_anim_sprite()
+		if a != null and a.sprite_frames != null and a.sprite_frames.has_animation("death"):
+			a.sprite_frames.set_animation_loop("death", false)
+			a.stop()
+
+			var apply_offset := not (self is Zombie) and not (self is Human) and not (self is HumanTwo)
+			var prev_pos := a.position
+			if apply_offset:
+				a.position = prev_pos + Vector2(0, -16)
+
+			a.play("death")
+			await a.animation_finished
+
+			if apply_offset and is_instance_valid(a):
+				a.position = prev_pos
+		else:
+			await _play_death_anim_fallback()
+
+		var MC := get_tree().get_first_node_in_group("MapController")
+		if MC != null and MC.has_method("_cleanup_dead_at"):
+			MC.call("_cleanup_dead_at", cell)
+
+		set_meta(&"pending_free", true)
+		return
+
 	# ✅ EliteMech: custom death sequence (wait, then free)
 	if self is EliteMech and has_method("play_death_anim"):
 		# Remove from board occupancy immediately (but DO NOT free yet)
@@ -141,30 +176,30 @@ func _die() -> void:
 	# --- Everyone else ---
 	_spawn_blood_fx()
 
-	var a := _get_anim_sprite()
-	if a != null and a.sprite_frames != null and a.sprite_frames.has_animation("death"):
-		a.sprite_frames.set_animation_loop("death", false)
-		a.stop()
+	var a2 := _get_anim_sprite()
+	if a2 != null and a2.sprite_frames != null and a2.sprite_frames.has_animation("death"):
+		a2.sprite_frames.set_animation_loop("death", false)
+		a2.stop()
 
-		var apply_offset := not (self is Zombie) and not (self is Human) and not (self is HumanTwo)
-		var prev_pos := a.position
-		if apply_offset:
-			a.position = prev_pos + Vector2(0, -16)
+		var apply_offset2 := not (self is Zombie) and not (self is Human) and not (self is HumanTwo)
+		var prev_pos2 := a2.position
+		if apply_offset2:
+			a2.position = prev_pos2 + Vector2(0, -16)
 
-		a.play("death")
-		await a.animation_finished
+		a2.play("death")
+		await a2.animation_finished
 
-		if apply_offset:
-			a.position = prev_pos
+		if apply_offset2:
+			a2.position = prev_pos2
 
 		queue_free()
 		return
 
 	await _play_death_anim_fallback()
 
-	var MC := get_tree().get_first_node_in_group("MapController")
-	if MC != null and MC.has_method("_cleanup_dead_at"):
-		MC.call("_cleanup_dead_at", cell)
+	var MC2 := get_tree().get_first_node_in_group("MapController")
+	if MC2 != null and MC2.has_method("_cleanup_dead_at"):
+		MC2.call("_cleanup_dead_at", cell)
 
 	queue_free()
 

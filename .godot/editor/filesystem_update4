@@ -25,3 +25,4 @@ res://scripts/RunState.gd
 res://scripts/game.gd
 res://scenes/weakpoint.tscn
 res://scripts/squad_deploy_screen.gd
+res://scripts/humantwo.gd
