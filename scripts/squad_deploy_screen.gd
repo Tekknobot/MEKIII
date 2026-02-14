@@ -522,17 +522,14 @@ func _on_start() -> void:
 		if rs.has_method("set_squad"):
 			rs.call("set_squad", _selected)
 
-		# ✅ store full roster paths (all recruitable allies)
-		var all_paths: Array[String] = []
-		for d in _roster:
-			all_paths.append(str(d.get("path","")))
+		# ✅ store squad
+		if rs.has_method("set_squad"):
+			rs.call("set_squad", _selected)
 
-		if rs.has_method("set_roster"):
-			rs.call("set_roster", all_paths)
-
-		# ✅ build recruit pool = roster - squad
+		# ✅ rebuild recruit pool from existing unlocked roster
 		if rs.has_method("rebuild_recruit_pool"):
 			rs.call("rebuild_recruit_pool")
+
 
 	if overworld_scene != null:
 		get_tree().change_scene_to_packed(overworld_scene)

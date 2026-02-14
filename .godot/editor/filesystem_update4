@@ -23,3 +23,5 @@ res://scripts/turnmanager.gd
 res://scenes/Game.tscn
 res://scripts/RunState.gd
 res://scripts/game.gd
+res://scenes/weakpoint.tscn
+res://scripts/squad_deploy_screen.gd

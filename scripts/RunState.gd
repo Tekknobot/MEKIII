@@ -60,6 +60,7 @@ var last_supply_failed_reason: String = "" # "missed_crate" / "no_evac" / "wiped
 var dead_scene_paths: Array[String] = []
 
 var run_over := false
+var pending_recruit_paths: Array[String] = []  # recruited this mission, not yet earned
 
 func has_save() -> bool:
 	return FileAccess.file_exists(SAVE_PATH)
@@ -69,6 +70,7 @@ func clear() -> void:
 	run_upgrades.clear()
 	run_upgrade_counts.clear()
 	squad_scene_paths.clear()
+	pending_recruit_paths.clear()
 
 	# Don't wipe roster unlock progression
 	recruit_pool_paths.clear()
@@ -478,6 +480,7 @@ func reset_run() -> void:
 	recruit_pool_paths.clear()
 	recruited_scene_paths.clear()
 	dead_scene_paths.clear()
+	pending_recruit_paths.clear()
 
 	# ✅ DO NOT clear roster_scene_paths (this is your unlocked progression)
 	# If this is the very first time ever and roster is empty, seed it once.
@@ -577,23 +580,25 @@ func mark_dead(path: String) -> void:
 	recruit_pool_paths.erase(path)
 
 func recruit_joined_team(path: String) -> void:
-	# Called when a recruit is spawned on a map
+	# Called when a recruit is spawned on a map (RUN-ONLY)
 	path = str(path)
 	if path == "" or is_dead(path):
 		return
 
-	# Ensure it’s known to the run
-	if not roster_scene_paths.has(path):
-		roster_scene_paths.append(path)
+	# ❌ DO NOT unlock here anymore.
+	# Unlocking must happen on evac via finalize_recruits_after_evac()
 
-	# Fill vacancies only (your “squad rebuilding”)
-	if squad_scene_paths.size() < 3 and not squad_scene_paths.has(path): #squad size 3
+	# Fill vacancies only (optional)
+	if squad_scene_paths.size() < 3 and not squad_scene_paths.has(path):
 		squad_scene_paths.append(path)
 
-	# Make sure it’s not still considered recruitable
+	# Not recruitable again this run
 	recruit_pool_paths.erase(path)
 	if not recruited_scene_paths.has(path):
 		recruited_scene_paths.append(path)
+
+	save_to_disk()
+
 
 func rebuild_recruit_pool() -> void:
 	# (your existing logic, but also exclude dead)
@@ -628,30 +633,47 @@ func get_locked_unit_paths() -> Array[String]:
 
 	return locked
 
+func peek_random_locked_unit_scene(blocked_paths: Array[String] = []) -> PackedScene:
+	var blocked: Dictionary = {}
+	for p in blocked_paths:
+		blocked[str(p)] = true
 
-func unlock_random_new_unit_scene() -> PackedScene:
 	var candidates := get_locked_unit_paths()
-
-	# If nothing locked, no new unit to unlock
-	if candidates.is_empty():
-		return null
-
-	# Extra safety: never return something currently in squad / already recruited this run
 	candidates = candidates.filter(func(p):
-		return (not squad_scene_paths.has(p)
-			and not recruited_scene_paths.has(p)
-			and not dead_scene_paths.has(p))
+		var sp := str(p)
+		return (not blocked.has(sp)) and ResourceLoader.exists(sp)
 	)
 
 	if candidates.is_empty():
 		return null
 
-	var path := candidates[randi() % candidates.size()]
-
-	if not roster_scene_paths.has(path):
-		roster_scene_paths.append(path)
-	if not recruited_scene_paths.has(path):
-		recruited_scene_paths.append(path)
-
-	save_to_disk()
+	var path := str(candidates[randi() % candidates.size()])
 	return load(path) as PackedScene
+
+func recruit_spawned_pending(path: String) -> void:
+	path = str(path)
+	if path == "" or is_dead(path):
+		return
+	if not pending_recruit_paths.has(path):
+		pending_recruit_paths.append(path)
+
+func finalize_recruits_after_evac(evaced_paths: Array[String]) -> Array[String]:
+	# returns what got permanently unlocked this time
+	var unlocked: Array[String] = []
+	var ev: Dictionary = {}
+	for p in evaced_paths:
+		ev[str(p)] = true
+
+	# Only finalize those pending AND evac'd
+	for p in pending_recruit_paths:
+		var sp := str(p)
+		if ev.has(sp):
+			if not roster_scene_paths.has(sp):
+				roster_scene_paths.append(sp)
+				unlocked.append(sp)
+
+	# Clear pending after mission
+	pending_recruit_paths.clear()
+	rebuild_recruit_pool()
+	save_to_disk()
+	return unlocked

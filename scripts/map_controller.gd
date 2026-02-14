@@ -5020,12 +5020,10 @@ func _spawn_recruited_ally_fadein(spawn_cell: Vector2i) -> void:
 			if sp != "":
 				blocked.append(sp)
 
-	# ✅ Preferred: pull from RunState pool (persists across regens)
+	# ✅ Preferred: pick a LOCKED unit (but do NOT unlock yet)
 	var rs := _rs()
-	if rs != null and rs.has_method("unlock_random_new_unit_scene"):
-		scene = rs.call("unlock_random_new_unit_scene")
-
-	scene = rs.call("take_random_recruit_scene", blocked)
+	if rs != null and rs.has_method("peek_random_locked_unit_scene"):
+		scene = rs.call("peek_random_locked_unit_scene", blocked)
 
 	# Fallback: old local pool behavior
 	if scene == null:
@@ -5050,8 +5048,8 @@ func _spawn_recruited_ally_fadein(spawn_cell: Vector2i) -> void:
 
 	# ✅ NEW: Recruit becomes part of the run roster/squad
 	var rs2 := _rs()
-	if rs2 != null and rs2.has_method("recruit_joined_team") and scene != null:
-		rs2.call("recruit_joined_team", scene.resource_path)
+	if rs2 != null and scene != null and rs2.has_method("recruit_spawned_pending"):
+		rs2.call("recruit_spawned_pending", scene.resource_path)
 
 	var u := scene.instantiate() as Unit
 	if scene != null and scene.resource_path != "":
@@ -5597,6 +5595,9 @@ func _extract_allies_with_bomber() -> void:
 	if allies.is_empty():
 		return
 
+	# ✅ Collect evac'd unit scene paths BEFORE units are freed/removed
+	var evaced_paths: Array[String] = []
+
 	# Lock inputs while extracting
 	_is_moving = true
 	_clear_overlay()
@@ -5639,13 +5640,25 @@ func _extract_allies_with_bomber() -> void:
 				max(0.05, bomber_arrive_time * 0.75)
 			)
 
+		# ✅ Record evac path now (unit may be freed during pickup)
+		if u.has_meta("scene_path"):
+			var sp := str(u.get_meta("scene_path"))
+			if sp != "":
+				evaced_paths.append(sp)
+
 		# Pick up ally (lift + fade), then remove from board
 		await _evac_pickup_unit(uid)
 
 		if evac_pause_between > 0.0:
 			await get_tree().create_timer(evac_pause_between).timeout
 
-	# Bomber exits
+	# ✅ Finalize unlocks HERE (units are gone after pickup)
+	var rs := _rs()
+	if rs != null and rs.has_method("finalize_recruits_after_evac"):
+		var unlocked_now: Array = rs.call("finalize_recruits_after_evac", evaced_paths)
+		print("Finalized unlocks (evac): ", unlocked_now)
+
+	# Bomber exits (from last position)
 	if bomber != null and is_instance_valid(bomber):
 		_sfx(bomber_sfx_out, sfx_volume_world, 1.0, bomber.global_position)
 		await _tween_node_global_pos(
@@ -5656,8 +5669,8 @@ func _extract_allies_with_bomber() -> void:
 		)
 		bomber.queue_free()
 
+	# Unlock inputs after extracting
 	_is_moving = false
-
 
 func _evac_pickup_unit(uid: int) -> void:
 	var obj := instance_from_id(uid)

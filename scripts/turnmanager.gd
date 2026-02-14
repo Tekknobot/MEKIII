@@ -2082,6 +2082,22 @@ func _on_boss_defeated() -> void:
 		# absolute fallback: just return
 		get_tree().change_scene_to_file("res://scenes/squad_deploy_screen.tscn")
 
+	var evaced: Array[String] = []
+	for u in M.get_all_units():
+		if u == null or not is_instance_valid(u):
+			continue
+		if u.team != Unit.Team.ALLY:
+			continue
+		# only those that actually evac'd:
+		# (you need a flag set during extraction; see below)
+		if u.has_meta("evaced") and bool(u.get_meta("evaced")):
+			if u.has_meta("scene_path"):
+				evaced.append(str(u.get_meta("scene_path")))
+
+	if rs != null and rs.has_method("finalize_recruits_after_evac"):
+		var unlocked_now: Array = rs.call("finalize_recruits_after_evac", evaced)
+		print("Finalized unlocks (evac): ", unlocked_now)
+
 
 func _get_vision(u: Unit) -> int:
 	if u != null and is_instance_valid(u) and u.has_meta("vision"):
