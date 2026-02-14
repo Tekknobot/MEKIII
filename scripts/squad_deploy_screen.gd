@@ -4,6 +4,12 @@ extends Control
 @export var game_scene: PackedScene
 @export var title_scene_path: String = "res://scenes/title_screen.tscn"
 
+# -------------------------------------------------------
+# Badge UI styling
+# -------------------------------------------------------
+@export var achievements_float_font: Font
+@export var achievements_float_font_size: int = 16
+
 # Folder containing ONLY ally unit scenes (and subfolders).
 @export var units_folder: String = "res://scenes/units/allies"
 
@@ -16,6 +22,9 @@ extends Control
 @onready var squad_grid: GridContainer = $UI/SquadPanel/SquadGrid
 @onready var start_button: Button = $UI/SquadPanel/StartButton
 @onready var back_button: Button = $UI/SquadPanel/BackButton
+
+# Achievements UI (optional panel)
+@onready var achievements_grid: GridContainer = $UI/AchievementsPanel/ScrollContainer/AchievementsGrid
 
 @onready var info_panel: Panel = $InfoPanel
 @onready var info_name: Label = $InfoPanel/VBox/InfoName
@@ -64,6 +73,7 @@ func _ready() -> void:
 	# Build roster
 	await _build_roster_async()
 	_refresh_all()
+	_refresh_achievements_ui()
 
 	info_panel.visible = false
 
@@ -126,6 +136,155 @@ func _rs() -> Node:
 # -----------------------
 func _refresh_all() -> void:
 	_rebuild_roster_ui()   # now updates selection without deleting
+	_rebuild_squad_ui()    # this one can still rebuild, that's fine
+	start_button.disabled = (_selected.size() != squad_size)
+
+func _refresh_achievements_ui() -> void:
+	if achievements_grid == null or not is_instance_valid(achievements_grid):
+		return
+	# Clear existing
+	for c in achievements_grid.get_children():
+		c.queue_free()
+
+	var rs := _rs()
+	if rs == null or not is_instance_valid(rs):
+		return
+	if not rs.has_method("get_all_achievement_defs"):
+		return
+	var defs: Array = rs.call("get_all_achievement_defs")
+	const LIMIT := 10
+	defs = defs.slice(0, min(LIMIT, defs.size()))
+
+	for d in defs:
+		if not (d is Dictionary):
+			continue
+		var id := str(d.get("id", ""))
+		var title := str(d.get("title", ""))
+		var desc := str(d.get("desc", ""))
+		var icon_path := str(d.get("icon", ""))
+		var unlocked := false
+		var sid := StringName(id) # ✅ convert to StringName (matches RunState keys)
+		if rs.has_method("is_achievement_unlocked"):
+			unlocked = bool(rs.call("is_achievement_unlocked", sid))
+
+		# Container so we can show icon + text
+		var box := VBoxContainer.new()
+		box.custom_minimum_size = Vector2(72, 44)
+		box.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+		box.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+
+		var tr := TextureRect.new()
+
+		tr.custom_minimum_size = Vector2(44, 44)
+		tr.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		tr.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		# Use custom hover panel instead of OS tooltip (so we can control font)
+		tr.tooltip_text = ""
+
+		var show_title := title
+		var show_desc := desc
+
+		if not unlocked:
+			# Silhouette/locked look
+			tr.modulate = Color(0.25, 0.25, 0.25, 0.9)
+
+			# Hide the real title, but give a hint
+			show_title = "???"
+
+			# If this badge is stat-based, show progress without revealing too much
+			if d.has("stat") and rs.has_method("get_stat"):
+				var stat_key := str(d.get("stat", ""))
+				var req := int(d.get("min", 0))
+				var cur := int(rs.call("get_stat", stat_key))
+				show_desc = "Progress: %d / %d" % [cur, req]
+			else:
+				# Non-stat: give a vague hint
+				show_desc = "Hint: " + _badge_hint(id)
+
+		if icon_path != "" and ResourceLoader.exists(icon_path):
+			var t = load(icon_path)
+			if t is Texture2D:
+				tr.texture = t
+	
+		# Custom hover (uses chosen font)
+		tr.mouse_entered.connect(func():
+			_show_badge_hover(show_title, show_desc)
+		)
+		tr.mouse_exited.connect(func():
+			_hide_badge_hover()
+		)	
+				
+		# Optional label (uses your chosen "floating font")
+		var lbl := Label.new()
+		lbl.text = show_title
+		
+		lbl.custom_minimum_size = Vector2(60, 0) # a bit wider than the 44px icon
+		lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		lbl.add_theme_constant_override("margin_left", 4)
+		lbl.add_theme_constant_override("margin_right", 4)
+		
+		lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		lbl.autowrap_mode = TextServer.AUTOWRAP_OFF
+		lbl.clip_text = false
+
+		if achievements_float_font != null:
+			lbl.add_theme_font_override("font", achievements_float_font)
+			lbl.add_theme_font_size_override("font_size", achievements_float_font_size)
+
+		# Build
+		box.add_child(tr)
+		box.add_child(lbl)
+		achievements_grid.add_child(box)
+
+
+	# Optional: listen for new unlocks while this screen is open
+	if rs.has_signal("achievement_unlocked"):
+		var cb := Callable(self, "_on_rs_achievement_unlocked")
+		if not rs.achievement_unlocked.is_connected(cb):
+			rs.achievement_unlocked.connect(cb)
+
+func _badge_hint(id: String) -> String:
+	match id:
+		"beacon_online":
+			return "Complete the beacon."
+		"weakpoint":
+			return "Something big has weak spots."
+		"mine_trigger":
+			return "Let the enemy step wrong."
+		"demolition":
+			return "Buildings can fall."
+		"overwatch":
+			return "Watch the lanes."
+		"ice_cold":
+			return "Cold status effects matter."
+		_:
+			return "Keep playing."
+
+func _show_badge_hover(title: String, desc: String) -> void:
+	if info_panel == null or not is_instance_valid(info_panel):
+		return
+
+	info_panel.visible = true
+	info_name.text = title
+	info_stats.text = desc
+
+	# ✅ apply chosen font to hover text
+	if achievements_float_font != null:
+		info_name.add_theme_font_override("font", achievements_float_font)
+		info_name.add_theme_font_size_override("font_size", achievements_float_font_size)
+
+		info_stats.add_theme_font_override("font", achievements_float_font)
+		info_stats.add_theme_font_size_override("font_size", achievements_float_font_size)
+
+func _hide_badge_hover() -> void:
+	if info_panel != null and is_instance_valid(info_panel):
+		info_panel.visible = false
+
+func _on_rs_achievement_unlocked(_id: String, _def: Dictionary) -> void:
+	# Refresh visuals live
+	_refresh_achievements_ui()
+
+   # now updates selection without deleting
 	_rebuild_squad_ui()    # this one can still rebuild, that's fine
 	start_button.disabled = (_selected.size() != squad_size)
 

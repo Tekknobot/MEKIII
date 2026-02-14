@@ -1,5 +1,5 @@
 72322a848ab928aa5c89f0cb78209805
-::res://::1771097306
+::res://::1771102430
 export_presets.cfg::TextFile::-1::1771093239::0::1::::<><><>0<>0<><>::
 icon.svg::CompressedTexture2D::5027532872362595313::1768402530::1768402530::1::::<><><>0<>0<>61364dcc74d2be96e103d75c3b7ed745<>res://.godot/imported/icon.svg-218a8f2b3041327d8a5756f3a245f83b.ctex::
 README.md::TextFile::-1::1768402530::0::1::::<><><>0<>0<><>::
@@ -72,7 +72,7 @@ icon.ico::OtherFile::-1::1741537040::0::1::::<><><>0<>0<><>::
 pizzza-logo.png::CompressedTexture2D::3136769873877040779::1762870219::1769232620::1::::<><><>0<>0<>61c5408ef4ef9f1c9ca4e37c46f5c0af<>res://.godot/imported/pizzza-logo.png-b8bf030c822a45cf948b4dc1b8c9bf97.ctex::
 ::res://material/::1770899684
 pixel_ice.tres::ShaderMaterial::2779611410462416392::1770899684::0::1::::<><><>0<>0<><>::uid://dv8unlylnvpnh::::res://shaders/pixel_ice.gdshader
-::res://scenes/::1771100904
+::res://scenes/::1771102389
 attack_tile.tscn::PackedScene::655881067316906897::1768855739::0::1::::<><><>0<>0<><>::uid://cchkas5ebl2h5::::res://sprites/Tiles_UI/mek3/1x1_attack.png
 beacon.tscn::PackedScene::6973596389663241636::1769135418::0::1::::<><><>0<>0<><>::uid://bbg3458x06rys::::res://sprites/Tiles_UI/mek3/1x1_beacon4.png
 blood_particles.tscn::PackedScene::7365491658420194268::1770176277::0::1::::<><><>0<>0<><>::uid://dg506c1lpjkgy::::res://scripts/blood_burst.gd
@@ -98,7 +98,7 @@ overworld_radar.tscn::PackedScene::7206473118058778738::1770509768::0::1::::<><>
 radioactive_tile.tscn::PackedScene::4532442712992443498::1770891577::0::1::::<><><>0<>0<><>::uid://bbg3458x06rys::::res://sprites/Tiles_UI/mek3/1x1_beacon4.png<>uid://dm6paajj4vro2::::res://sprites/Textures/radioactive_gradient.png
 radioactive_zombie.tscn::PackedScene::3344515266520796237::1770894735::0::1::::<><><>0<>0<><>::uid://nnr3dioma5ae::::res://scripts/radioactive_zombie.gd<>uid://dy5yo3h0337f2::::res://sprites/Zombies/zomb/radioactive/attack/zomb_radioactive_atk1.png<>uid://dm6paajj4vro2::::res://sprites/Textures/radioactive_gradient.png<>uid://bk1ywo6kx4q1d::::res://sprites/Zombies/zomb/radioactive/attack/zomb_radioactive_atk2.png<>uid://jiqk8swar0av::::res://sprites/Zombies/zomb/radioactive/attack/zomb_radioactive_atk3.png<>uid://diqlvoxdjx4mc::::res://sprites/Zombies/zomb/radioactive/attack/zomb_radioactive_atk4.png<>uid://kfd53ci37hd7::::res://sprites/Zombies/zomb/radioactive/attack/zomb_radioactive_atk5.png<>uid://0e8btulc0kyp::::res://sprites/Zombies/zomb/radioactive/attack/zomb_radioactive_atk6.png<>uid://cvb5g86oakuy8::::res://sprites/Zombies/zomb/radioactive/attack/zomb_radioactive_atk7.png<>uid://dnr871fjy5vua::::res://sprites/Zombies/zomb/radioactive/attack/zomb_radioactive_atk8.png<>uid://55kmgqp1ppmj::::res://sprites/Zombies/zomb/radioactive/attack/zomb_radioactive_atk9.png<>uid://buo3i466romlo::::res://sprites/Zombies/zomb/radioactive/death/zombactive_death1.png<>uid://bqiuix2h0renn::::res://sprites/Zombies/zomb/radioactive/death/zombactive_death2.png<>uid://drpr3uuxvg17j::::res://sprites/Zombies/zomb/radioactive/death/zombactive_death3.png<>uid://ck2xo8bp471bj::::res://sprites/Zombies/zomb/radioactive/death/zombactive_death4.png<>uid://dmyj1yy6jer10::::res://sprites/Zombies/zomb/radioactive/death/zombactive_death5.png<>uid://km2m2sxqjdi7::::res://sprites/Zombies/zomb/radioactive/death/zombactive_death6.png<>uid://qiko26g24iv3::::res://sprites/Zombies/zomb/radioactive/death/zombactive_death7.png<>uid://camf7udnpwlkq::::res://sprites/Zombies/zomb/radioactive/death/zombactive_death8.png<>uid://bvgxhswqqvtrw::::res://sprites/Zombies/zomb/radioactive/idle/zombie_radioactive_idle1.png<>uid://bng6oqthvamk0::::res://sprites/Zombies/zomb/radioactive/idle/zombie_radioactive_idle2.png<>uid://cybnrdrdp71ev::::res://sprites/Zombies/zomb/radioactive/idle/zombie_radioactive_idle3.png<>uid://dkkx2rbi73s57::::res://sprites/Zombies/zomb/radioactive/idle/zombie_radioactive_idle4.png<>uid://b86noaqj5acla::::res://sprites/Zombies/zomb/radioactive/idle/zombie_radioactive_idle5.png<>uid://df3016nthmddj::::res://sprites/Zombies/zomb/radioactive/idle/zombie_radioactive_idle6.png<>uid://cpukxmlfjb6dh::::res://sprites/Zombies/zomb/radioactive/idle/zombie_radioactive_idle7.png<>uid://7i7ak3sh5wb8::::res://sprites/Zombies/zomb/radioactive/idle/zombie_radioactive_idle8.png<>uid://d56atqm0vh2t::::res://sprites/Zombies/zomb/radioactive/idle/zombie_radioactive_idle9.png<>uid://b65n40mljj5nt::::res://sprites/Zombies/zomb/radioactive/idle/zombie_radioactive_idle10.png<>uid://cl2l6kp8w0c0v::::res://sprites/Zombies/zomb/radioactive/idle/zombie_radioactive_idle11.png<>uid://dnwr4uqgdf3rl::::res://sprites/Zombies/zomb/radioactive/idle/zombie_radioactive_idle12.png<>uid://bksbcye55d88p::::res://sprites/Zombies/zomb/radioactive/idle/zombie_radioactive_idle13.png<>uid://bl2rrh01cd2x7::::res://sprites/Zombies/zomb/radioactive/idle/zombie_radioactive_idle14.png<>uid://bd3wc7jafa5d4::::res://sprites/Zombies/zomb/radioactive/idle/zombie_radioactive_idle15.png<>uid://6yv03gwvhc21::::res://sprites/Zombies/zomb/radioactive/idle/zombie_radioactive_idle16.png<>uid://dcsaht160iapd::::res://sprites/Zombies/zomb/radioactive/move/zombactive1.png<>uid://b8m2c7rl1javt::::res://sprites/Zombies/zomb/radioactive/move/zombactive2.png<>uid://c3r3jhtjy6ti2::::res://sprites/Zombies/zomb/radioactive/move/zombactive3.png<>uid://cxu7j1ej5d7uy::::res://sprites/Zombies/zomb/radioactive/move/zombactive4.png<>uid://c2n77i8qr4uie::::res://sprites/Zombies/zomb/radioactive/move/zombactive5.png<>uid://wk8lokjib7x4::::res://sprites/Zombies/zomb/radioactive/move/zombactive6.png<>uid://buw362wjb8o8d::::res://fonts/magofonts/mago2.ttf<>uid://lmsma3lhwhb8::::res://scripts/hp_label.gd
 round_end_ui.tscn::PackedScene::2121275542755975765::1769590787::0::1::::<><><>0<>0<><>::
-squad_deploy_screen.tscn::PackedScene::1727145400561160667::1771100781::0::1::::<><><>0<>0<><>::uid://bpqdlu5ei0n4s::::res://scripts/squad_deploy_screen.gd<>uid://bmtwqbsx674eo::::res://scenes/Game.tscn<>uid://dp7v6b7f0bh4u::::res://scenes/overworld.tscn<>uid://dgugahs6bc7so::::res://fonts/magofonts/mago3.ttf<>uid://csnhk3q4gx0::::res://fonts/magofonts/mago1.ttf<>uid://cyl5d5rrn8tmm::::res://shaders/radar.gdshader<>uid://dviis5c1md2jn::::res://sprites/Backgrounds/Cockpit.png<>uid://ctsryacxldjgt::::res://scripts/center_with_camera.gd<>uid://buw362wjb8o8d::::res://fonts/magofonts/mago2.ttf<>uid://bt844t61erxfy::::res://scripts/pixel_3d.gd
+squad_deploy_screen.tscn::PackedScene::1727145400561160667::1771102389::0::1::::<><><>0<>0<><>::uid://bpqdlu5ei0n4s::::res://scripts/squad_deploy_screen.gd<>uid://bmtwqbsx674eo::::res://scenes/Game.tscn<>uid://dp7v6b7f0bh4u::::res://scenes/overworld.tscn<>uid://dgugahs6bc7so::::res://fonts/magofonts/mago3.ttf<>uid://csnhk3q4gx0::::res://fonts/magofonts/mago1.ttf<>uid://cyl5d5rrn8tmm::::res://shaders/radar.gdshader<>uid://dviis5c1md2jn::::res://sprites/Backgrounds/Cockpit.png<>uid://ctsryacxldjgt::::res://scripts/center_with_camera.gd<>uid://buw362wjb8o8d::::res://fonts/magofonts/mago2.ttf<>uid://bt844t61erxfy::::res://scripts/pixel_3d.gd
 StarNight.tscn::PackedScene::3282772831114845400::1769280711::0::1::::<><><>0<>0<><>::
 threat_tile.tscn::PackedScene::397126754701275707::1770749377::0::1::::<><><>0<>0<><>::uid://bginjgbqm0ts4::::res://sprites/Tiles_UI/mek3/1x1_threat.png
 titan.tscn::PackedScene::4467374022710151151::1770407548::0::1::::<><><>0<>0<><>::uid://bhcl0fcovgbcf::::res://scripts/boss_controller.gd<>uid://byvw2wssy6345::::res://scenes/weakpoint.tscn<>uid://bulgypadw5war::::res://scenes/explosion.tscn<>uid://dogvi6q7030pk::::res://audio/SFX/explosion_8bit.wav<>uid://cho77pun47cn4::::res://shaders/titan_cinematic.gdshader<>uid://c5ch02hdxdrus::::res://sprites/Mechas/Titan/titan1.png<>uid://crf1f5sfalwth::::res://sprites/Mechas/Titan/titan2.png<>uid://dm2aw7boag5t::::res://sprites/Mechas/Titan/titan3.png<>uid://ddeuboup3rvjn::::res://sprites/Mechas/Titan/titan4.png<>uid://bf48sads4itw2::::res://sprites/Mechas/Titan/titan5.png<>uid://doxlt2vxk8q5j::::res://sprites/Mechas/Titan/titan6.png<>uid://8u08mpqlvbee::::res://sprites/Mechas/Titan/titan7.png<>uid://dm2r6lmflt0mj::::res://sprites/Mechas/Titan/titan8.png<>uid://dk5vow54eck1l::::res://sprites/Mechas/Titan/titan9.png<>uid://dv7iabia7vtup::::res://sprites/Mechas/Titan/titan10.png<>uid://du73xinvlhfjw::::res://sprites/Mechas/Titan/titan11.png<>uid://bu000gxvi6t3y::::res://sprites/Mechas/Titan/titan12.png<>uid://cqod05ms453ve::::res://sprites/Mechas/Titan/titan13.png<>uid://d1bo21wpjq6fs::::res://sprites/Mechas/Titan/titan14.png<>uid://dcxmjb2ndjhm1::::res://sprites/Mechas/Titan/titan15.png<>uid://hxue8bkr8lum::::res://sprites/Mechas/Titan/titan16.png
@@ -155,7 +155,7 @@ humantwo.gd::GDScript::8835111560680286956::1771091099::0::1::::HumanTwo<>Unit<>
 ice_zombie.gd::GDScript::4581118191960961714::1770901696::0::1::::IceZombie<>Zombie<><>0<>0<><>::
 infestation_hud.gd::GDScript::7516637848721520577::1770515699::0::1::::InfestationHUD<>CanvasLayer<><>0<>0<><>::
 laser_drop.gd::GDScript::5660095407001403613::1768573178::0::1::::LaserDrop<>Area2D<><>0<>0<><>::
-map_controller.gd::GDScript::1339218945848339098::1771100904::0::1::::MapController<>Node<><>0<>0<><>::
+map_controller.gd::GDScript::1339218945848339098::1771120124::0::1::::MapController<>Node<><>0<>0<><>::
 mech.gd::GDScript::2900730098770733897::1770155960::0::1::::Mech<>Unit<><>0<>0<><>::
 mecha_approach.gd::GDScript::8576206704205549889::1770405262::0::1::::MechaApproachShaderController<>ColorRect<><>0<>0<><>::
 mechtwo.gd::GDScript::4522883189531162008::1770080886::0::1::::RecruitBot<>Unit<><>0<>0<><>::
@@ -171,12 +171,12 @@ pixel_3d.gd::GDScript::3789946806533109350::1770498133::0::1::::<>Node2D<><>0<>0
 procedural_car_sfx.gd::GDScript::2880133130843825368::1770283625::0::1::::ProceduralCarSFX<>Node<><>0<>0<><>::
 radioactive_zombie.gd::GDScript::940374239784217468::1770879255::0::1::::RadioactiveZombie<>Zombie<><>0<>0<><>::
 roller.gd::GDScript::6824032991636688897::1770615420::0::1::::Roller<>Unit<><>0<>0<><>::
-RunState.gd::GDScript::8462144173556029392::1771100904::0::1::::RunState<>Node<><>0<>0<><>::
+RunState.gd::GDScript::8462144173556029392::1771120194::0::1::::RunState<>Node<><>0<>0<><>::
 r_1.gd::GDScript::8167850487916189749::1770156943::0::1::::R1<>Unit<><>0<>0<><>::
 r_2.gd::GDScript::6643835771851426621::1770401075::0::1::::R2<>Unit<><>0<>0<><>::
 r_3.gd::GDScript::8254255711694918773::1770573992::0::1::::R3<>Unit<><>0<>0<><>::
 r_4.gd::GDScript::7052128113948187040::1770606548::0::1::::R4<>Unit<><>0<>0<><>::
-squad_deploy_screen.gd::GDScript::3472486274044362856::1771034639::0::1::::<>Control<><>0<>0<><>::
+squad_deploy_screen.gd::GDScript::3472486274044362856::1771120146::0::1::::<>Control<><>0<>0<><>::
 structure.gd::GDScript::5059433714952554409::1769798780::0::1::::Structure<>Node2D<><>0<>0<><>::
 structure_shot.gd::GDScript::2381686684775652292::1768629898::0::1::::StructureShot<>Node2D<><>0<>0<><>::
 s_1.gd::GDScript::2611708585112322520::1770434818::0::1::::S1<>Unit<><>0<>0<><>::
@@ -207,7 +207,7 @@ stim_jacked.gdshader::Shader::9160955346841231395::1771007203::0::1::::<><><>0<>
 text_outline_1px.gdshader::Shader::2064443907391048140::1771007203::0::1::::<><><>0<>0<><>::
 titan_cinematic.gdshader::Shader::5295065469959764431::1771007203::0::1::::<><><>0<>0<><>::
 wobble_shimmer.gdshader::Shader::1894806362428682302::1771007203::0::1::::<><><>0<>0<><>::
-::res://sprites/::1771100964
+::res://sprites/::1771101223
 ::res://sprites/Backgrounds/::1770238387
 Cockpit.png::CompressedTexture2D::8650262249730500931::1770238385::1770238387::1::::<><><>0<>0<>5e7fb5e09005e97bd9a5941d61ce288b<>res://.godot/imported/Cockpit.png-482e67f2b7aade394cbe9e1ef1f9b440.ctex::
 ::res://sprites/Bots/::1770613089
@@ -361,7 +361,7 @@ soldier_idle14.png::CompressedTexture2D::7129014217757516810::1768402530::176840
 soldier_idle15.png::CompressedTexture2D::7527480183903636785::1768402530::1768402530::1::::<><><>0<>0<>0622e00a32108b861f736a19bcbb1a8f<>res://.godot/imported/soldier_idle15.png-2947fc27c00d6b2ad90d721b95081a0e.ctex::
 soldier_idle16.png::CompressedTexture2D::2196771752857940972::1768402530::1768402530::1::::<><><>0<>0<>d4f29593d7e2cc47a51276f754430a10<>res://.godot/imported/soldier_idle16.png-e4d64c433fd27b3c1ff650b7922d126e.ctex::
 ::res://sprites/Icons/::1771100977
-::res://sprites/Icons/pilot_icons/::1771100977
+::res://sprites/Icons/pilot_icons/::1771100980
 icon_01.png::CompressedTexture2D::5437912588294215685::1771116612::1771100980::1::::<><><>0<>0<>15ad0a96a10f046e85105284b046d511<>res://.godot/imported/icon_01.png-73dc94635d18bd3e92355a40df1c2856.ctex::
 icon_02.png::CompressedTexture2D::5387024716131408450::1771116612::1771100980::1::::<><><>0<>0<>8f387cdcac1c371782181dbb31cf47d2<>res://.godot/imported/icon_02.png-a6eea50e0741fdbf2b6fbc79c7a170e8.ctex::
 icon_03.png::CompressedTexture2D::4857784444235681442::1771116612::1771100980::1::::<><><>0<>0<>6f3d67f65c326bfddaeb65ddfa3d5b98<>res://.godot/imported/icon_03.png-f95b215ad44914a1a81143ce987d33cb.ctex::
@@ -382,7 +382,7 @@ icon_17.png::CompressedTexture2D::2695809073880036501::1771116612::1771100980::1
 icon_18.png::CompressedTexture2D::422070398096673600::1771116612::1771100980::1::::<><><>0<>0<>1a5d77156ba1057f186d1f99b75e0015<>res://.godot/imported/icon_18.png-4fe485eb701af67209525b3eac1e51dd.ctex::
 icon_19.png::CompressedTexture2D::7083670595653622545::1771116612::1771100980::1::::<><><>0<>0<>ef25e542a5f313fd2d2dce824d863cef<>res://.godot/imported/icon_19.png-05b8ff1e5633f7d34732fa99f807a781.ctex::
 icon_20.png::CompressedTexture2D::7199228713456223197::1771116612::1771100980::1::::<><><>0<>0<>ddf3161fd7dee1b32b594578a703b7c2<>res://.godot/imported/icon_20.png-2d964bf5c8ffc2ffc93defb0f01a8e0d.ctex::
-::res://sprites/Items/::1769108250
+::res://sprites/Items/::1771101312
 floppy-disk.png::CompressedTexture2D::6010720271963412896::1741537040::1769108250::1::::<><><>0<>0<>78f03bb2e81f9c8e19a62d75ed4de49a<>res://.godot/imported/floppy-disk.png-d48ece24aa60fa6f25657ae4c0bb3693.ctex::
 ::res://sprites/Mechas/::1769843511
 Zillatron_sprite.png::CompressedTexture2D::6235016026776846038::1769571274::1769571598::1::::<><><>0<>0<>bd5a873ad9aa041f994c0c393e02b775<>res://.godot/imported/Zillatron_sprite.png-5a8126928c022c65e273cb34a1a2d171.ctex::

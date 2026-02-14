@@ -80,6 +80,30 @@ var _start_max_zombies := 8
 signal selection_changed(unit: Unit)
 signal aim_changed(mode: int, special_id: StringName)
 
+# -------------------------------------------------------
+# Achievements / stats helpers (RunState-backed)
+# -------------------------------------------------------
+var _rs_cache: Node = null
+
+func _rs() -> Node:
+	if _rs_cache != null and is_instance_valid(_rs_cache):
+		return _rs_cache
+	var rs := get_tree().root.get_node_or_null("RunStateNode")
+	if rs == null:
+		rs = get_tree().root.get_node_or_null("RunState")
+	_rs_cache = rs
+	return rs
+
+func _ach_unlock(id: StringName) -> void:
+	var rs := _rs()
+	if rs != null and is_instance_valid(rs) and rs.has_method("unlock_achievement"):
+		rs.unlock_achievement(id)
+
+func _ach_stat(stat: StringName, delta: int = 1) -> void:
+	var rs := _rs()
+	if rs != null and is_instance_valid(rs) and rs.has_method("record_stat"):
+		rs.record_stat(stat, delta)
+
 @export var explosion_scene: PackedScene
 
 @export var explosion_y_offset_px := -16.0
@@ -3562,6 +3586,9 @@ func activate_special(id: String) -> void:
 
 		await _perform_special(u, id, u.cell) # dummy cell
 
+		# Achievement: used overwatch
+		_ach_unlock(&"overwatch")
+
 		if _unit_has_attacked(u):
 			aim_mode = AimMode.MOVE
 			special_id = &""
@@ -3745,6 +3772,9 @@ func _trigger_mine_if_present(u: Unit) -> void:
 	remove_mine_visual(c)
 	_sfx(&"mine_trigger", sfx_volume_world, 1.0, _cell_world(c))
 	spawn_explosion_at_cell(c)
+
+	# Achievement: mine detonated (enemy stepped on it)
+	_ach_unlock(&"mine_trigger")
 
 	var dmg := int(data.get("damage", 2))
 
@@ -4043,10 +4073,14 @@ func _damage_structure_only_at_cell(cell: Vector2i, dmg: int) -> void:
 		died = hp <= 0
 
 	if died:
+		# Achievement: structure destroyed
+		_ach_unlock(&"demolition")
+
 		_play_structure_demolished(s)
 		# ✅ DO NOT free occupancy when demolished.
 		# Leave game_ref.structure_blocked as-is so rubble still blocks movement/LOS.
 		return
+
 
 func _pick_bubble_line(u: Unit) -> String:
 	# Optional override per-unit:
@@ -5309,6 +5343,10 @@ func try_collect_pickup(u: Variant) -> void:
 	var p = pickups_by_cell[c]
 	pickups_by_cell.erase(c)
 
+	# Achievements: floppy collected
+	_ach_stat(&"floppies_collected", 1)
+	_ach_unlock(&"first_floppy")
+
 	# ✅ PLAY PICKUP SFX (cell-world position is best)
 	if has_method("_sfx"):
 		_sfx(&"pickup_floppy", 1.0, randf_range(0.95, 1.05), _cell_world(c))
@@ -5343,6 +5381,10 @@ func on_unit_died(u: Unit) -> void:
 
 		zombies_killed_this_map += 1
 
+		# Achievements: kills
+		_ach_stat(&"zombies_killed", 1)
+		_ach_unlock(&"first_blood")
+
 		# Stop dropping if we already have enough parts
 		if _team_floppy_total_allies() < beacon_parts_needed:
 			if floppy_kills_left > 0:
@@ -5373,6 +5415,9 @@ func on_unit_died(u: Unit) -> void:
 
 		var part_id = u.get_meta("boss_part_id", null)
 		if part_id != null:
+			# Achievement: boss part down
+			_ach_unlock(&"weakpoint")
+
 			var dmg := int(u.get_meta("boss_damage_on_destroy", 3))
 			var tm := get_tree().root.get_node_or_null("TurnManager")
 			if tm != null and tm.boss != null and is_instance_valid(tm.boss):
@@ -5430,6 +5475,9 @@ func try_deliver_to_beacon(u: Unit) -> void:
 		beacon_ready = true
 		_update_beacon_marker()
 		_sfx(&"beacon_ready", 1.0, 1.0, _cell_world(beacon_cell))
+
+		# Achievement: beacon powered
+		_ach_unlock(&"beacon_online")
 
 func satellite_sweep() -> void:
 	# snapshot the list (important)
@@ -6219,16 +6267,6 @@ func apply_recruit_pool_from_runstate(rs: Node) -> void:
 	if _recruit_pool.is_empty():
 		_rebuild_recruit_pool_from_allies()
 
-func _rs() -> Node:
-	var r := get_tree().root
-	var rs := r.get_node_or_null("RunStateNode")
-	if rs != null:
-		return rs
-	rs = r.get_node_or_null("RunState")
-	if rs != null:
-		return rs
-	return null
-
 func _spawn_bomber(world_x: float, world_y: float) -> Node2D:
 	if bomber_scene == null:
 		return null
@@ -6673,6 +6711,10 @@ func _try_ice_on_enter(u: Unit, chill_turns: int = 1) -> void:
 	# ✅ Apply/refresh chilled debuff
 	var cur := int(u.get_meta(&"chilled_turns", 0))
 	u.set_meta(&"chilled_turns", max(cur, chill_turns))
+
+	# Achievement: got chilled (first time only)
+	if cur <= 0:
+		_ach_unlock(&"ice_cold")
 	
 	# ✅ Visual indicator while chilled
 	_refresh_chill_visuals_for_unit(u)

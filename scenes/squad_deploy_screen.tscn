@@ -35,6 +35,7 @@ grow_vertical = 2
 mouse_filter = 2
 script = ExtResource("1_ojx2h")
 game_scene = ExtResource("2_jek1g")
+achievements_float_font = ExtResource("5_r4wy4")
 overworld_scene = ExtResource("3_6856t")
 background_starfield = NodePath("Pixel_3D")
 UI = NodePath("UI")
@@ -140,6 +141,32 @@ layout_mode = 2
 theme_override_fonts/font = ExtResource("10_iuh7l")
 theme_override_font_sizes/font_size = 32
 text = "BACK"
+
+[node name="AchievementsPanel" type="VBoxContainer" parent="UI"]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+theme_override_constants/separation = 12
+
+[node name="AchievementsTitle" type="Label" parent="UI/AchievementsPanel"]
+layout_mode = 2
+theme_override_fonts/font = ExtResource("4_5wfc2")
+theme_override_font_sizes/font_size = 32
+text = "BADGES"
+
+[node name="ScrollContainer" type="ScrollContainer" parent="UI/AchievementsPanel"]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+follow_focus = true
+
+[node name="AchievementsGrid" type="GridContainer" parent="UI/AchievementsPanel/ScrollContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+theme_override_constants/h_separation = 10
+theme_override_constants/v_separation = 10
+columns = 4
 
 [node name="InfoPanel" type="Panel" parent="."]
 layout_mode = 0

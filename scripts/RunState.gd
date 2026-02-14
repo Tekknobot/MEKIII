@@ -62,6 +62,40 @@ var dead_scene_paths: Array[String] = []
 var run_over := false
 var pending_recruit_paths: Array[String] = []  # recruited this mission, not yet earned
 
+# -------------------------
+# Achievements (NEW)
+# -------------------------
+signal achievement_unlocked(id: String, def: Dictionary)
+
+# id:String -> true
+var achievements_unlocked: Dictionary = {}
+# stat_key:String -> int
+var achievement_stats: Dictionary = {}
+
+# 20 badges mapped to your pilot_icons/icon_01..icon_20
+const ACHIEVEMENT_DEFS: Array[Dictionary] = [
+	{"id":"first_blood", "title":"First Blood", "desc":"Kill a zombie.", "icon":"res://sprites/Icons/pilot_icons/icon_01.png", "stat":"zombies_killed", "min":1},
+	{"id":"body_count_25", "title":"Body Count", "desc":"Kill 25 zombies (total).", "icon":"res://sprites/Icons/pilot_icons/icon_02.png", "stat":"zombies_killed", "min":25},
+	{"id":"body_count_100", "title":"Exterminator", "desc":"Kill 100 zombies (total).", "icon":"res://sprites/Icons/pilot_icons/icon_03.png", "stat":"zombies_killed", "min":100},
+	{"id":"beacon_online", "title":"Beacon Online", "desc":"Fully power the beacon.", "icon":"res://sprites/Icons/pilot_icons/icon_04.png"},
+	{"id":"first_floppy", "title":"Data Runner", "desc":"Collect a floppy disk.", "icon":"res://sprites/Icons/pilot_icons/icon_05.png", "stat":"floppies_collected", "min":1},
+	{"id":"overwatch", "title":"Eyes Up", "desc":"Activate Overwatch.", "icon":"res://sprites/Icons/pilot_icons/icon_06.png", "stat":"overwatch_activated", "min":1},
+	{"id":"mine_trigger", "title":"Boom Patrol", "desc":"Trigger a mine on an enemy.", "icon":"res://sprites/Icons/pilot_icons/icon_07.png", "stat":"mines_detonated", "min":1},
+	{"id":"demolition", "title":"Demolition", "desc":"Destroy a structure.", "icon":"res://sprites/Icons/pilot_icons/icon_08.png", "stat":"structures_destroyed", "min":1},
+	{"id":"weakpoint", "title":"Weakpoint Hunter", "desc":"Destroy a boss weakpoint.", "icon":"res://sprites/Icons/pilot_icons/icon_09.png", "stat":"weakpoints_destroyed", "min":1},
+	{"id":"ice_cold", "title":"Ice Cold", "desc":"Apply Chill to an enemy.", "icon":"res://sprites/Icons/pilot_icons/icon_10.png", "stat":"chill_applied", "min":1},
+	{"id":"badge_11", "title":"Badge 11", "desc":"(Hook me up to a trigger later)", "icon":"res://sprites/Icons/pilot_icons/icon_11.png"},
+	{"id":"badge_12", "title":"Badge 12", "desc":"(Hook me up to a trigger later)", "icon":"res://sprites/Icons/pilot_icons/icon_12.png"},
+	{"id":"badge_13", "title":"Badge 13", "desc":"(Hook me up to a trigger later)", "icon":"res://sprites/Icons/pilot_icons/icon_13.png"},
+	{"id":"badge_14", "title":"Badge 14", "desc":"(Hook me up to a trigger later)", "icon":"res://sprites/Icons/pilot_icons/icon_14.png"},
+	{"id":"badge_15", "title":"Badge 15", "desc":"(Hook me up to a trigger later)", "icon":"res://sprites/Icons/pilot_icons/icon_15.png"},
+	{"id":"badge_16", "title":"Badge 16", "desc":"(Hook me up to a trigger later)", "icon":"res://sprites/Icons/pilot_icons/icon_16.png"},
+	{"id":"badge_17", "title":"Badge 17", "desc":"(Hook me up to a trigger later)", "icon":"res://sprites/Icons/pilot_icons/icon_17.png"},
+	{"id":"badge_18", "title":"Badge 18", "desc":"(Hook me up to a trigger later)", "icon":"res://sprites/Icons/pilot_icons/icon_18.png"},
+	{"id":"badge_19", "title":"Badge 19", "desc":"(Hook me up to a trigger later)", "icon":"res://sprites/Icons/pilot_icons/icon_19.png"},
+	{"id":"badge_20", "title":"Badge 20", "desc":"(Hook me up to a trigger later)", "icon":"res://sprites/Icons/pilot_icons/icon_20.png"},
+]
+
 func has_save() -> bool:
 	return FileAccess.file_exists(SAVE_PATH)
 	
@@ -363,7 +397,11 @@ func to_save_dict() -> Dictionary:
 		"last_supply_units_evaced": last_supply_units_evaced,
 		"last_supply_reward_tier": last_supply_reward_tier,
 		"last_supply_failed_reason": last_supply_failed_reason,
-		
+
+		# Achievements
+		"achievements_unlocked": achievements_unlocked.keys(),
+		"achievement_stats": achievement_stats.duplicate(true),
+
 	}
 
 func load_from_save_dict(d: Dictionary) -> void:
@@ -409,6 +447,13 @@ func load_from_save_dict(d: Dictionary) -> void:
 	last_supply_units_evaced = int(d.get("last_supply_units_evaced", 0))
 	last_supply_reward_tier = int(d.get("last_supply_reward_tier", 0))
 	last_supply_failed_reason = str(d.get("last_supply_failed_reason", ""))
+
+	# Achievements
+	achievements_unlocked.clear()
+	for a in d.get("achievements_unlocked", []):
+		achievements_unlocked[str(a)] = true
+	achievement_stats = d.get("achievement_stats", {}).duplicate(true)
+	_check_stat_achievements()
 	
 func save_to_disk() -> void:
 	var f := FileAccess.open(SAVE_PATH, FileAccess.WRITE)
@@ -677,3 +722,53 @@ func finalize_recruits_after_evac(evaced_paths: Array[String]) -> Array[String]:
 	rebuild_recruit_pool()
 	save_to_disk()
 	return unlocked
+
+
+# -------------------------
+# Achievements API
+# -------------------------
+func get_all_achievement_defs() -> Array[Dictionary]:
+	return ACHIEVEMENT_DEFS
+
+func get_achievement_def(id: String) -> Dictionary:
+	for d in ACHIEVEMENT_DEFS:
+		if str(d.get("id","")) == id:
+			return d
+	return {}
+
+func is_achievement_unlocked(id: String) -> bool:
+	return achievements_unlocked.has(id)
+
+func unlock_achievement(id: String) -> bool:
+	if id == "":
+		return false
+	if achievements_unlocked.has(id):
+		return false
+	achievements_unlocked[id] = true
+	# Save immediately so the unlock survives crashes / quits
+	save_to_disk()
+	var d := get_achievement_def(id)
+	emit_signal("achievement_unlocked", id, d)
+	return true
+
+func record_stat(key: String, delta: int = 1) -> void:
+	if key == "":
+		return
+	achievement_stats[key] = int(achievement_stats.get(key, 0)) + int(delta)
+	_check_stat_achievements()
+
+func get_stat(key: String) -> int:
+	return int(achievement_stats.get(key, 0))
+
+func _check_stat_achievements() -> void:
+	# Unlock any achievements gated by stats
+	for d in ACHIEVEMENT_DEFS:
+		if not d.has("stat"):
+			continue
+		var id := str(d.get("id",""))
+		if id == "" or achievements_unlocked.has(id):
+			continue
+		var stat_key := str(d.get("stat",""))
+		var minv := int(d.get("min", 0))
+		if stat_key != "" and get_stat(stat_key) >= minv:
+			unlock_achievement(id)
