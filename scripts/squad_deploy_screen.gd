@@ -163,9 +163,8 @@ func _refresh_achievements_ui() -> void:
 		var desc := str(d.get("desc", ""))
 		var icon_path := str(d.get("icon", ""))
 		var unlocked := false
-		var sid := StringName(id) # ✅ convert to StringName (matches RunState keys)
 		if rs.has_method("is_achievement_unlocked"):
-			unlocked = bool(rs.call("is_achievement_unlocked", sid))
+			unlocked = bool(rs.call("is_achievement_unlocked", id)) # ✅ RunState uses String keys
 
 		# Container so we can show icon + text
 		var box := VBoxContainer.new()
@@ -191,15 +190,16 @@ func _refresh_achievements_ui() -> void:
 			# Hide the real title, but give a hint
 			show_title = "???"
 
-			# If this badge is stat-based, show progress without revealing too much
+			var hint := _badge_hint(id)
+
+			# If stat-based, show BOTH hint + progress
 			if d.has("stat") and rs.has_method("get_stat"):
 				var stat_key := str(d.get("stat", ""))
 				var req := int(d.get("min", 0))
 				var cur := int(rs.call("get_stat", stat_key))
-				show_desc = "Progress: %d / %d" % [cur, req]
+				show_desc = "Hint: %s\nProgress: %d / %d" % [hint, cur, req]
 			else:
-				# Non-stat: give a vague hint
-				show_desc = "Hint: " + _badge_hint(id)
+				show_desc = "Hint: %s" % hint
 
 		if icon_path != "" and ResourceLoader.exists(icon_path):
 			var t = load(icon_path)
@@ -207,12 +207,15 @@ func _refresh_achievements_ui() -> void:
 				tr.texture = t
 	
 		# Custom hover (uses chosen font)
+		var hover_title := show_title
+		var hover_desc := show_desc
+
 		tr.mouse_entered.connect(func():
-			_show_badge_hover(show_title, show_desc)
+			_show_badge_hover(hover_title, hover_desc)
 		)
 		tr.mouse_exited.connect(func():
 			_hide_badge_hover()
-		)	
+		)
 				
 		# Optional label (uses your chosen "floating font")
 		var lbl := Label.new()
@@ -245,18 +248,26 @@ func _refresh_achievements_ui() -> void:
 
 func _badge_hint(id: String) -> String:
 	match id:
+		"first_blood":
+			return "Kill any zombie."
+		"body_count_25":
+			return "Total kills add up across runs."
+		"body_count_100":
+			return "Keep thinning the horde."
 		"beacon_online":
-			return "Complete the beacon."
-		"weakpoint":
-			return "Something big has weak spots."
-		"mine_trigger":
-			return "Let the enemy step wrong."
-		"demolition":
-			return "Buildings can fall."
+			return "Fully power the beacon."
+		"first_floppy":
+			return "Pick up a floppy disk."
 		"overwatch":
-			return "Watch the lanes."
+			return "Use an Overwatch special."
+		"mine_trigger":
+			return "Lure an enemy onto a mine."
+		"demolition":
+			return "Reduce a structure to 0 HP."
+		"weakpoint":
+			return "Destroy a boss weakpoint."
 		"ice_cold":
-			return "Cold status effects matter."
+			return "Get Chilled."
 		_:
 			return "Keep playing."
 

@@ -15,3 +15,4 @@ res://shaders/pixel_fire.gdshader
 res://scripts/human.gd
 res://scripts/map_controller.gd
 res://scripts/squad_deploy_screen.gd
+res://scripts/RunState.gd

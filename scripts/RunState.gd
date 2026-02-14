@@ -83,7 +83,7 @@ const ACHIEVEMENT_DEFS: Array[Dictionary] = [
 	{"id":"mine_trigger", "title":"Boom Patrol", "desc":"Trigger a mine on an enemy.", "icon":"res://sprites/Icons/pilot_icons/icon_07.png", "stat":"mines_detonated", "min":1},
 	{"id":"demolition", "title":"Demolition", "desc":"Destroy a structure.", "icon":"res://sprites/Icons/pilot_icons/icon_08.png", "stat":"structures_destroyed", "min":1},
 	{"id":"weakpoint", "title":"Weakpoint Hunter", "desc":"Destroy a boss weakpoint.", "icon":"res://sprites/Icons/pilot_icons/icon_09.png", "stat":"weakpoints_destroyed", "min":1},
-	{"id":"ice_cold", "title":"Ice Cold", "desc":"Apply Chill to an enemy.", "icon":"res://sprites/Icons/pilot_icons/icon_10.png", "stat":"chill_applied", "min":1},
+	{"id":"ice_cold", "title":"Cold Feet", "desc":"Get Chilled (player).", "icon":"res://sprites/Icons/pilot_icons/icon_10.png"},
 	{"id":"badge_11", "title":"Badge 11", "desc":"(Hook me up to a trigger later)", "icon":"res://sprites/Icons/pilot_icons/icon_11.png"},
 	{"id":"badge_12", "title":"Badge 12", "desc":"(Hook me up to a trigger later)", "icon":"res://sprites/Icons/pilot_icons/icon_12.png"},
 	{"id":"badge_13", "title":"Badge 13", "desc":"(Hook me up to a trigger later)", "icon":"res://sprites/Icons/pilot_icons/icon_13.png"},
@@ -480,6 +480,8 @@ func load_from_disk() -> void:
 func wipe_save() -> void:
 	if FileAccess.file_exists(SAVE_PATH):
 		DirAccess.remove_absolute(ProjectSettings.globalize_path(SAVE_PATH))
+		achievements_unlocked.clear()
+		achievement_stats.clear()
 
 func _dict_stringname_to_string(d: Dictionary) -> Dictionary:
 	var out := {}
@@ -538,8 +540,11 @@ func reset_run() -> void:
 	# Recruit pool should be rebuilt from the (persistent) roster
 	rebuild_recruit_pool()
 
-	save_to_disk()
+	# 🔥 wipe achievements (optional)
+	achievements_unlocked.clear()
+	achievement_stats.clear()
 
+	save_to_disk()
 	
 func seed_roster_if_empty() -> void:
 	# If roster already exists, don't stomp it
