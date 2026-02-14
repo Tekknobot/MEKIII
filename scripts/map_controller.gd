@@ -5011,10 +5011,21 @@ func _spawn_recruited_ally_fadein(spawn_cell: Vector2i) -> void:
 
 	var scene: PackedScene = null
 
+	var blocked: Array[String] = []
+	for u2 in get_all_units():
+		if u2 == null or not is_instance_valid(u2):
+			continue
+		if u2.has_meta("scene_path"):
+			var sp := str(u2.get_meta("scene_path"))
+			if sp != "":
+				blocked.append(sp)
+
 	# ✅ Preferred: pull from RunState pool (persists across regens)
 	var rs := _rs()
-	if rs != null and rs.has_method("take_random_recruit_scene"):
-		scene = rs.call("take_random_recruit_scene")
+	if rs != null and rs.has_method("unlock_random_new_unit_scene"):
+		scene = rs.call("unlock_random_new_unit_scene")
+
+	scene = rs.call("take_random_recruit_scene", blocked)
 
 	# Fallback: old local pool behavior
 	if scene == null:
@@ -6704,3 +6715,15 @@ func _refresh_chill_visuals_for_unit(u: Unit) -> void:
 		if u.has_meta(&"chill_material_instance"):
 			u.set_meta(&"chill_material_instance", null)
 		ci.material = null
+
+func _is_scene_path_already_on_map(scene_path: String) -> bool:
+	for u in get_all_units():
+		if u == null or not is_instance_valid(u):
+			continue
+		# You set this meta when spawning
+		var sp := ""
+		if u.has_meta("scene_path"):
+			sp = str(u.get_meta("scene_path"))
+		if sp == scene_path:
+			return true
+	return false

@@ -121,23 +121,27 @@ func get_remaining_recruit_count() -> int:
 func has_remaining_recruits() -> bool:
 	return not recruit_pool_paths.is_empty()
 
-func take_random_recruit_scene() -> PackedScene:
-	if recruit_pool_paths.is_empty():
+func take_random_recruit_scene(blocked_paths: Array[String] = []) -> PackedScene:
+	var blocked: Dictionary = {}
+	for p in blocked_paths:
+		blocked[str(p)] = true
+
+	var candidates: Array[String] = []
+	for p in roster_scene_paths:
+		if p == "":
+			continue
+		var sp := str(p)
+		if blocked.has(sp):
+			continue
+		if not ResourceLoader.exists(sp):
+			continue
+		candidates.append(sp)
+
+	if candidates.is_empty():
 		return null
 
-	var idx := randi() % recruit_pool_paths.size()
-	var path := recruit_pool_paths[idx]
-
-	# remove from pool so it can’t be recruited again
-	recruit_pool_paths.remove_at(idx)
-	recruited_scene_paths.append(path)
-
-	var res := load(path)
-	if res is PackedScene:
-		return res
-
-	# if load failed, just skip it and try again
-	return take_random_recruit_scene()
+	var path := candidates[randi() % candidates.size()]
+	return load(path) as PackedScene
 
 func _unit_key_from_display_name(s: String) -> String:
 	return s.strip_edges().to_upper()
@@ -571,7 +575,6 @@ func mark_dead(path: String) -> void:
 	# Remove from this run only
 	squad_scene_paths.erase(path)
 	recruit_pool_paths.erase(path)
-	recruited_scene_paths.erase(path)
 
 func recruit_joined_team(path: String) -> void:
 	# Called when a recruit is spawned on a map
@@ -608,3 +611,47 @@ func rebuild_recruit_pool() -> void:
 		var sp := str(p)
 		if not taken.has(sp):
 			recruit_pool_paths.append(sp)
+
+func get_locked_unit_paths() -> Array[String]:
+	var all: Array[String] = UnitRegistry.ALLY_PATHS.duplicate()
+	all = all.filter(func(p): return ResourceLoader.exists(p))
+
+	var unlocked: Dictionary = {}
+	for p in roster_scene_paths:
+		unlocked[str(p)] = true
+
+	var locked: Array[String] = []
+	for p in all:
+		var sp := str(p)
+		if not unlocked.has(sp):
+			locked.append(sp)
+
+	return locked
+
+
+func unlock_random_new_unit_scene() -> PackedScene:
+	var candidates := get_locked_unit_paths()
+
+	# If nothing locked, no new unit to unlock
+	if candidates.is_empty():
+		return null
+
+	# Extra safety: never return something currently in squad / already recruited this run
+	candidates = candidates.filter(func(p):
+		return (not squad_scene_paths.has(p)
+			and not recruited_scene_paths.has(p)
+			and not dead_scene_paths.has(p))
+	)
+
+	if candidates.is_empty():
+		return null
+
+	var path := candidates[randi() % candidates.size()]
+
+	if not roster_scene_paths.has(path):
+		roster_scene_paths.append(path)
+	if not recruited_scene_paths.has(path):
+		recruited_scene_paths.append(path)
+
+	save_to_disk()
+	return load(path) as PackedScene

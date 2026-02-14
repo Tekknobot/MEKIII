@@ -22,3 +22,4 @@ res://scripts/unit.gd
 res://scripts/turnmanager.gd
 res://scenes/Game.tscn
 res://scripts/RunState.gd
+res://scripts/game.gd

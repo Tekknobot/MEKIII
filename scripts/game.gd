@@ -203,7 +203,6 @@ func regenerate_map() -> void:
 		map_controller.apply_recruit_pool_from_runstate(rs)
 		
 	map_controller._recruits_spawned_at.clear()
-	map_controller.reset_recruit_pool()
 		
 	map_controller.reset_for_regen()
 	
