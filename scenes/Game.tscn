@@ -1,4 +1,4 @@
-[gd_scene load_steps=106 format=3 uid="uid://bmtwqbsx674eo"]
+[gd_scene load_steps=107 format=3 uid="uid://bmtwqbsx674eo"]
 
 [ext_resource type="Script" uid="uid://bn08mhcoceqg" path="res://scripts/game.gd" id="1_400sg"]
 [ext_resource type="Texture2D" uid="uid://by1nnygq8fbib" path="res://sprites/Terrain/dirt.png" id="6_mcffj"]
@@ -75,6 +75,7 @@
 [ext_resource type="AudioStream" uid="uid://27jfmu1rhtj1" path="res://audio/SFX/web_shoot.wav" id="58_d6agh"]
 [ext_resource type="AudioStream" uid="uid://c7b174hb043ra" path="res://audio/SFX/floppy_click.wav" id="59_lktnb"]
 [ext_resource type="PackedScene" uid="uid://fwmvcj5rwlnv" path="res://scenes/threat_tile.tscn" id="64_8fcgb"]
+[ext_resource type="AudioStream" uid="uid://b4lp2xohi5ktg" path="res://audio/SFX/robo_bark.wav" id="66_p3r3h"]
 
 [sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_g4kob"]
 texture = ExtResource("11_2rd6h")
@@ -476,6 +477,7 @@ sfx_streams = {
 "move_start": ExtResource("36_m2g6u"),
 "move_step": ExtResource("36_m2g6u"),
 "nova_hit": ExtResource("39_evnk2"),
+"overwatch_shot": ExtResource("66_p3r3h"),
 "pickup_floppy": ExtResource("59_lktnb"),
 "quake_hit": ExtResource("39_evnk2"),
 "sat_laser": ExtResource("43_pn7ev"),

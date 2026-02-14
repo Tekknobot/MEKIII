@@ -20,3 +20,5 @@ res://scripts/map_controller.gd
 res://scenes/units/allies/mech.tscn
 res://scripts/unit.gd
 res://scripts/turnmanager.gd
+res://scenes/Game.tscn
+res://scripts/RunState.gd

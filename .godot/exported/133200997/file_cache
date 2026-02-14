@@ -7,7 +7,7 @@ res://scenes/units/allies/human.tscn::eb6fd927c4ac441578ec546a98d403f6::17708040
 res://scenes/units/allies/humantwo.tscn::7c651c0c9de26b2619d380ea439fa0bc::1770804084::res://.godot/exported/133200997/export-8aff91ee2bbb4048c41fe78ab4602f61-humantwo.scn
 res://scenes/units/allies/M1.tscn::2576845c20d2752aac50c33565e23fed::1770804511::res://.godot/exported/133200997/export-132d3122195940fab92757ddce1e5c47-M1.scn
 res://scenes/units/allies/M2.tscn::47aca473488d0a6e10d57f3862fa2e64::1770804509::res://.godot/exported/133200997/export-421725147f21734a14dd2c81cdaea80d-M2.scn
-res://scenes/units/allies/mech.tscn::27be6332ff2e212ff4d84464dab28152::1770804162::res://.godot/exported/133200997/export-d7ad46ba90d9246baf69aeb30a93f8c5-mech.scn
+res://scenes/units/allies/mech.tscn::27be6332ff2e212ff4d84464dab28152::1771023461::res://.godot/exported/133200997/export-d7ad46ba90d9246baf69aeb30a93f8c5-mech.scn
 res://scenes/units/allies/mechtwo.tscn::8038ec6b36295ac0a912569ba1e96d3d::1770804163::res://.godot/exported/133200997/export-cd7141156e5a7a9a4fcb215fd6859c5e-mechtwo.scn
 res://scenes/units/allies/R1.tscn::2790ea004906826f618eefa611b3b5c7::1770804633::res://.godot/exported/133200997/export-1ca8d4c3dfda6247c492b4c824005f02-R1.scn
 res://scenes/units/allies/R2.tscn::6db00abd78b53da6aac4393e4dc3721a::1770804664::res://.godot/exported/133200997/export-b494200632244b6ef359268b5926d73d-R2.scn
@@ -21,11 +21,11 @@ res://scenes/cursor.tscn::b2a032078e12eab854e2433557dc4afb::1768855270::res://.g
 res://scenes/enemy_move_tile.tscn::7b5c97e80d7b188c1243293f03d00d5e::1769013097::res://.godot/exported/133200997/export-dfe38ac246494c2c1bf12dcee8a2e31f-enemy_move_tile.scn
 res://scenes/explosion.tscn::594c539d18aa9e13c08c25e7c164006f::1768877478::res://.godot/exported/133200997/export-19462905a0f3b4b39165a3350317f22c-explosion.scn
 res://scenes/floppy.tscn::487b2e3687aeb4fe0d18fe854079eba4::1769113977::res://.godot/exported/133200997/export-30cf651d32c90559d467de235678fa77-floppy.scn
-res://scenes/Game.tscn::3321dd2e143e4705f04ac762a79c3980::1771001824::res://.godot/exported/133200997/export-ff8ceb9b2bd5b48777d3d52e811276ab-Game.scn
+res://scenes/Game.tscn::9052eebf0f0d891f45e56311145baa33::1771025875::res://.godot/exported/133200997/export-ff8ceb9b2bd5b48777d3d52e811276ab-Game.scn
 res://scenes/HUD.tscn::85ab294eb9f7182411d3d6741fe6843f::1770156515::res://.godot/exported/133200997/export-2ea9781d6f9f7562c1d276c7fdd0b0ab-HUD.scn
 res://scenes/landmine.tscn::d27aba146113c508d79a61ee34a14a7b::1768483546::res://.godot/exported/133200997/export-398207af1f2555f9ff54bd28af3b9f17-landmine.scn
 res://scenes/laser_drop.tscn::a6e46f52108c1e6939ef4252f0a5bc92::1768682333::res://.godot/exported/133200997/export-2acb5049d4a8c5a67824282ef25bfbf9-laser_drop.scn
-res://scenes/lunatic.tscn::a2ac6c5ae8dfcbc2ea6a9ee328a4f161::1771009045::res://.godot/exported/133200997/export-10e96c5996d9065834c51dd79ff296a6-lunatic.scn
+res://scenes/lunatic.tscn::a2ac6c5ae8dfcbc2ea6a9ee328a4f161::1771025965::res://.godot/exported/133200997/export-10e96c5996d9065834c51dd79ff296a6-lunatic.scn
 res://scenes/medkit_drop.tscn::6a19bc32316ed22b74d1c859508f52fd::1768682333::res://.godot/exported/133200997/export-22d7bb5c8e98966a32607eb94713dd4d-medkit_drop.scn
 res://scenes/move_tile.tscn::e4b1b17ebf704761165db36ad19e519a::1768856809::res://.godot/exported/133200997/export-dab062f6c8270317377563b715e1a0c5-move_tile.scn
 res://scenes/overworld.tscn::3bc474ed2551263e6a61042967387c4d::1771007933::res://.godot/exported/133200997/export-da8a30b31f4988d0c9e34b55162e0e36-overworld.scn

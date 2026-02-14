@@ -568,9 +568,8 @@ func mark_dead(path: String) -> void:
 
 	dead_scene_paths.append(path)
 
-	# Remove everywhere so it can’t come back this run
+	# Remove from this run only
 	squad_scene_paths.erase(path)
-	roster_scene_paths.erase(path)
 	recruit_pool_paths.erase(path)
 	recruited_scene_paths.erase(path)
 
