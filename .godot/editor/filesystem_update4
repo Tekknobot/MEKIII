@@ -26,3 +26,8 @@ res://scripts/game.gd
 res://scenes/weakpoint.tscn
 res://scripts/squad_deploy_screen.gd
 res://scripts/humantwo.gd
+res://scripts/boss_controller.gd
+res://scripts/pilot_decorations.gd
+res://scenes/unit_card.tscn
+res://scripts/unit_card.gd
+res://scenes/squad_deploy_screen.tscn
