@@ -16,3 +16,10 @@ res://scripts/human.gd
 res://scripts/map_controller.gd
 res://scripts/squad_deploy_screen.gd
 res://scripts/RunState.gd
+res://scenes/radioactive_tile.tscn
+res://scenes/RadTileShader.tscn
+res://shaders/rad_tile_shader.gdshader
+res://scenes/Game.tscn
+res://scenes/fire_tile.tscn
+res://shaders/fire_overlay.gdshader
+res://shaders/rad_overlay.gdshader

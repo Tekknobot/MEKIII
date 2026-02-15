@@ -1,7 +1,9 @@
-[gd_scene load_steps=7 format=3 uid="uid://blg5m6wyqpk30"]
+[gd_scene load_steps=10 format=3 uid="uid://blg5m6wyqpk30"]
 
 [ext_resource type="Texture2D" uid="uid://bbg3458x06rys" path="res://sprites/Tiles_UI/mek3/1x1_beacon4.png" id="1_itxmm"]
 [ext_resource type="Texture2D" uid="uid://dm6paajj4vro2" path="res://sprites/Textures/radioactive_gradient.png" id="2_81muj"]
+[ext_resource type="Shader" uid="uid://du5bm4nydssr8" path="res://shaders/fire_overlay.gdshader" id="2_h2d4l"]
+[ext_resource type="Texture2D" uid="uid://del82i3840oyo" path="res://sprites/Terrain/hazard/1x1_fire.png" id="2_rsl0o"]
 
 [sub_resource type="SpriteFrames" id="SpriteFrames_r47l1"]
 animations = [{
@@ -13,6 +15,18 @@ animations = [{
 "name": &"default",
 "speed": 24.0
 }]
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_81muj"]
+shader = ExtResource("2_h2d4l")
+shader_parameter/p0 = Color(0.1, 0.02, 0.02, 1)
+shader_parameter/p1 = Color(0.45, 0.05, 0.02, 1)
+shader_parameter/p2 = Color(1, 0.22, 0.02, 1)
+shader_parameter/p3 = Color(1, 0.85, 0.25, 1)
+shader_parameter/intensity = 1.1
+shader_parameter/rise_speed = 0.0
+shader_parameter/flicker_speed = 10.0
+shader_parameter/ember_chance = 0.015
+shader_parameter/ember_boost = 0.75
 
 [sub_resource type="Gradient" id="Gradient_itxmm"]
 offsets = PackedFloat32Array(0, 0.4964539, 1)
@@ -39,6 +53,10 @@ color_ramp = SubResource("GradientTexture1D_8a3xf")
 [node name="AnimatedSprite2D" type="AnimatedSprite2D" parent="."]
 visible = false
 sprite_frames = SubResource("SpriteFrames_r47l1")
+
+[node name="Tile" type="Sprite2D" parent="."]
+material = SubResource("ShaderMaterial_81muj")
+texture = ExtResource("2_rsl0o")
 
 [node name="Cloud" type="Sprite2D" parent="."]
 modulate = Color(1, 0, 0, 1)

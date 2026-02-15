@@ -1,7 +1,9 @@
-[gd_scene load_steps=4 format=3 uid="uid://b5tsw0xtnqbo1"]
+[gd_scene load_steps=7 format=3 uid="uid://b5tsw0xtnqbo1"]
 
 [ext_resource type="Texture2D" uid="uid://bbg3458x06rys" path="res://sprites/Tiles_UI/mek3/1x1_beacon4.png" id="1_0tcfy"]
 [ext_resource type="Texture2D" uid="uid://dm6paajj4vro2" path="res://sprites/Textures/radioactive_gradient.png" id="2_3ai2i"]
+[ext_resource type="Texture2D" uid="uid://cqyprst8w23q1" path="res://sprites/Terrain/hazard/1x1_rad.png" id="3_mbnnx"]
+[ext_resource type="Shader" uid="uid://sbjl7hjr3s3s" path="res://shaders/rad_overlay.gdshader" id="3_p2tkx"]
 
 [sub_resource type="SpriteFrames" id="SpriteFrames_r47l1"]
 animations = [{
@@ -14,6 +16,18 @@ animations = [{
 "speed": 24.0
 }]
 
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_e4k8t"]
+shader = ExtResource("3_p2tkx")
+shader_parameter/g0 = Color(0.02, 0.06, 0.03, 1)
+shader_parameter/g1 = Color(0.04, 0.25, 0.12, 1)
+shader_parameter/g2 = Color(0.1, 0.85, 0.3, 1)
+shader_parameter/g3 = Color(0.009929727, 0.012617188, 0.0021575391, 1)
+shader_parameter/intensity = 1.05
+shader_parameter/crawl_speed = 4.5
+shader_parameter/flicker_speed = 7.5
+shader_parameter/hotspot_chance = 0.012
+shader_parameter/hotspot_boost = 0.85
+
 [node name="RadioactiveTile" type="Node2D"]
 
 [node name="AnimatedSprite2D" type="AnimatedSprite2D" parent="."]
@@ -23,6 +37,10 @@ sprite_frames = SubResource("SpriteFrames_r47l1")
 [node name="Cloud" type="Sprite2D" parent="."]
 position = Vector2(0, -10)
 texture = ExtResource("2_3ai2i")
+
+[node name="Tile" type="Sprite2D" parent="."]
+material = SubResource("ShaderMaterial_e4k8t")
+texture = ExtResource("3_mbnnx")
 
 [node name="CPUParticles2D" type="CPUParticles2D" parent="."]
 position = Vector2(0, -17)
