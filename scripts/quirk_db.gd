@@ -14,7 +14,7 @@ const QUIRK_DEFS: Array[Dictionary] = [
 	{
 		"id": &"reinforced_frame",
 		"title": "Reinforced Frame",
-		"desc": "+1 Max HP. Heavier plating.",
+		"desc": "+1 Max HP. Heavier plating on first hit.",
 		"effects": {"max_hp": 1}
 	},
 	{

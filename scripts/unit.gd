@@ -49,6 +49,8 @@ const BLOOD_FX_SCENE := preload("res://scenes/blood_particles.tscn")
 
 var _quirk_used_this_mission: Dictionary = {}  # StringName -> bool
 
+var _armor_used_this_turn := false
+
 func quirks_get() -> Array:
 	return get_meta(&"quirks", []) if has_meta(&"quirks") else []
 
@@ -96,6 +98,8 @@ func on_kill(_victim: Unit) -> void:
 		_emit_quirk(&"hardened_core", "PUNCH")
 		
 func _ready() -> void:
+	apply_quirk_stat_mods_once()
+		
 	hp = clamp(hp, 0, max_hp)
 	_update_depth()
 
@@ -139,10 +143,12 @@ func take_damage(dmg: int) -> void:
 			dmg += 1
 		emit_signal("quirk_triggered", &"thin_armor", "FRAGILE", QuirkDB.get_color(&"thin_armor"))
 
-	# Reinforced Frame: takes -1 damage (min 0)
-	if qs.has(&"reinforced_frame"):
-		dmg = max(dmg - 1, 0)
-		emit_signal("quirk_triggered", &"reinforced_frame", "ARMOR", QuirkDB.get_color(&"reinforced_frame"))
+	# Reinforced Frame: -1 damage on first hit each turn
+	if qs.has(&"reinforced_frame") and not _armor_used_this_turn:
+		if dmg > 0:
+			dmg -= 1
+		_armor_used_this_turn = true
+		_emit_quirk(&"reinforced_frame", "ARMOR")
 
 	# -------------------------
 	# APPLY DAMAGE
@@ -502,3 +508,14 @@ func get_hud_extras() -> Dictionary:
 	if qs.size() > 0:
 		d["Quirks"] = QuirkDB.describe_list(qs)
 	return d
+
+func apply_quirk_stat_mods_once() -> void:
+	if get_meta(&"_quirk_stats_applied", false):
+		return
+	set_meta(&"_quirk_stats_applied", true)
+
+	# Sentinel Rig: +2 max HP + float text
+	if _has_quirk(&"sentinel_rig"):
+		max_hp += 2
+		hp = min(max_hp, hp + 2)  # keep current hp boosted but not over max
+		_emit_quirk(&"sentinel_rig", "TITAN")

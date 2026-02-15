@@ -86,6 +86,7 @@ var _start_max_zombies := 8
 signal selection_changed(unit: Unit)
 signal aim_changed(mode: int, special_id: StringName)
 
+
 # -------------------------------------------------------
 # Achievements / stats helpers (RunState-backed)
 # -------------------------------------------------------
@@ -1047,6 +1048,9 @@ func spawn_units() -> void:
 		if not quirks.is_empty():
 			QuirkDB.apply_to_unit(u, quirks)
 			print("spawn_units: applied quirks meta=", u.get_meta(&"quirks", []))
+
+			if u.has_method("apply_quirk_stat_mods_once"):
+				u.apply_quirk_stat_mods_once()
 
 		u.hp = u.max_hp
 

@@ -502,6 +502,8 @@ func _on_loss_restart_pressed() -> void:
 func start_player_phase() -> void:
 	M.reset_turn_flags_for_allies()
 	
+	_reset_first_hit_armor_flags()  # ✅ RESET HERE
+	
 	phase = Phase.PLAYER
 	_moved.clear()
 	_attacked.clear()
@@ -517,6 +519,8 @@ func start_player_phase() -> void:
 func start_enemy_phase() -> void:
 	phase = Phase.ENEMY
 	M.reset_turn_flags_for_enemies()
+	
+	_reset_first_hit_armor_flags()  # ✅ RESET HERE
 
 	# ✅ Tick chill/ice AFTER player turn so chill affects player movement this turn
 	IceZombie.ice_tick_global(M)
@@ -2767,3 +2771,15 @@ func _set_hud_visible(v: bool) -> void:
 			for ch in cur.get_children():
 				if ch is Node:
 					stack.append(ch)
+
+func _reset_first_hit_armor_flags() -> void:
+	if M == null:
+		return
+	for u in M.get_all_units():
+		if u == null or not is_instance_valid(u):
+			continue
+		# Only units that implement it (safe)
+		if "_armor_used_this_turn" in u:
+			u._armor_used_this_turn = false
+		elif u.has_method("on_new_turn"):
+			u.call("on_new_turn")
