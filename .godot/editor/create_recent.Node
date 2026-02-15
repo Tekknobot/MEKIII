@@ -1,3 +1,5 @@
+Control
+CanvasLayer
 HBoxContainer
 GPUParticles2D
 Node2D
@@ -11,5 +13,3 @@ AnimatedSprite2D
 VBoxContainer
 Camera2D
 Node
-AudioStreamPlayer
-RichTextLabel

@@ -129,7 +129,7 @@ func _make_quirk_pill(text: String, quirk_color: Color, tooltip: String) -> Cont
 
 	if quirk_pill_font != null:
 		lbl.add_theme_font_override("font", quirk_pill_font)
-	lbl.add_theme_font_size_override("font_size", quirk_pill_font_size)
+		lbl.add_theme_font_size_override("font_size", quirk_pill_font_size)
 
 	pill.add_child(lbl)
 	
@@ -332,21 +332,17 @@ func _world_float_text(msg: String, col: Color) -> void:
 
 	if quirk_pill_font != null:
 		lbl.add_theme_font_override("font", quirk_pill_font)
-		lbl.add_theme_font_size_override("font_size", quirk_pill_font_size)
+		lbl.add_theme_font_size_override("font_size", quirk_pill_font_size * 2)
 
 	lbl.add_theme_color_override("font_outline_color", Color.BLACK)
 	lbl.add_theme_constant_override("outline_size", 2)
 
-	# font
-	if quirk_pill_font != null:
-		lbl.add_theme_font_override("font", quirk_pill_font)
-	lbl.add_theme_font_size_override("font_size", quirk_pill_font_size)
+	# add to overlay canvas (CanvasLayer/Control)
+	M.float_root.add_child(lbl)
 
-	# add to world (NOT HUD)
-	M.add_child(lbl)
-
-	# position above unit
-	lbl.global_position = _unit.global_position + Vector2(-8, -28)
+	# world -> screen
+	var screen_pos := M.get_viewport().get_canvas_transform() * _unit.global_position
+	lbl.position = screen_pos + Vector2(-8, -28)
 
 	lbl.scale = Vector2(0.6, 0.6)
 

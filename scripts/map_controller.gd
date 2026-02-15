@@ -43,6 +43,7 @@ var fire_tiles_by_cell: Dictionary = {} # Vector2i -> Node2D
 
 var _chill_material_template: Material = null
 
+@onready var float_root: Control = $FloatLayer/FloatRoot
 
 var grid
 
@@ -1034,10 +1035,9 @@ func spawn_units() -> void:
 
 		units_root.add_child(u)
 
+		u.team = Unit.Team.ALLY
 		_apply_runstate_upgrades_to_unit(u)
 		_wire_unit_signals(u)
-
-		u.team = Unit.Team.ALLY
 
 		# Apply RunState upgrades (safe)
 		if rs != null and rs.has_method("apply_upgrades_to_unit"):
@@ -2149,6 +2149,10 @@ func _do_attack(attacker: Unit, defender: Unit) -> void:
 
 	var def_cell := defender.cell  # ✅ store before defender can die/free
 
+	# ✅ QUIRK TRIGGER: attack fired (LOCK) at max range / important shot
+	if attacker != null and is_instance_valid(attacker) and attacker.has_method("on_attack_fired"):
+		attacker.call("on_attack_fired", defender)
+
 	_face_unit_toward_world(attacker, defender.global_position)
 	_face_unit_toward_world(defender, attacker.global_position)
 	
@@ -2162,7 +2166,16 @@ func _do_attack(attacker: Unit, defender: Unit) -> void:
 
 	_sfx(&"attack_hit", sfx_volume_world, randf_range(0.95, 1.05), defender.global_position)
 
+	# ✅ QUIRK TRIGGER: kill confirm
+	# (defender might be freed later; check now)
+	if attacker != null and is_instance_valid(attacker) and attacker.has_method("on_kill"):
+		if defender == null or not is_instance_valid(defender) or defender.hp <= 0:
+			attacker.call("on_kill", defender)
+			
 	await _wait_for_attack_anim(attacker)
+
+	if attacker != null and attacker.has_method("on_attack_fired"):
+		attacker.on_attack_fired(defender)
 
 	if not is_inside_tree():
 		return
@@ -2172,7 +2185,7 @@ func _do_attack(attacker: Unit, defender: Unit) -> void:
 	if not await _safe_wait(attack_anim_lock_time):
 		return
 
-	if defender.hp > 0:
+	if defender == null or not is_instance_valid(defender) or defender.hp <= 0:
 		_cleanup_dead_at(def_cell)
 		
 	_play_idle_anim(attacker)
@@ -2824,6 +2837,13 @@ func _move_selected_to(target: Vector2i) -> void:
 
 	_apply_turn_indicator(u)
 
+	# ✅ QUIRK TRIGGER: move (once, after full movement)
+	if u != null and is_instance_valid(u) and u.team == Unit.Team.ALLY:
+		var steps_taken = max(0, path.size() - 1)
+		var max_steps := u.get_move_range() if u.has_method("get_move_range") else int(u.move_range)
+		if u.has_method("on_moved"):
+			u.on_moved(steps_taken, max_steps)
+
 	# overwatch on arrival
 	await _check_overwatch_trigger(u, target)
 	if u == null or not is_instance_valid(u) or u.hp <= 0:
@@ -2860,6 +2880,13 @@ func _move_selected_to(target: Vector2i) -> void:
 			aim_mode = AimMode.ATTACK
 		else:
 			aim_mode = AimMode.MOVE
+
+	# ✅ QUIRK TRIGGER: move (BOOST) when using full move
+	if u != null and is_instance_valid(u) and u.team == Unit.Team.ALLY:
+		var steps_taken := path.size()
+		var max_steps := u.get_move_range() if u.has_method("get_move_range") else int(u.move_range)
+		if u.has_method("on_moved"):
+			u.call("on_moved", steps_taken, max_steps)
 
 	_end_move_cleanup()
 	
@@ -5002,7 +5029,7 @@ func _ringout_push_and_die(attacker: Unit, defender: Unit) -> void:
 	if d.team == Unit.Team.ENEMY:
 		# 1) If you have an existing death handler, call it:
 		if has_method("on_unit_died"):
-			on_unit_died(d)
+			on_unit_died(d, attacker)
 
 		# 2) If TurnManager listens to tutorial_event to refresh infestation HUD:
 		if has_signal("tutorial_event"):
@@ -5560,9 +5587,13 @@ func try_collect_pickup(u: Variant) -> void:
 		"beacon_parts_needed": beacon_parts_needed
 	})
 
-func on_unit_died(u: Unit) -> void:
+func on_unit_died(u: Unit, killer: Unit = null) -> void:
 	if u == null:
 		return
+
+	# Quirk hook: on-kill (PUNCH etc)
+	if killer != null and is_instance_valid(killer) and killer.has_method("on_kill"):
+		killer.on_kill(u)
 
 	# -------------------------
 	# ENEMY death (your existing behavior)

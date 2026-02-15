@@ -30,3 +30,4 @@ res://scenes/title_screen.tscn
 res://scenes/squad_deploy_screen.tscn
 res://scripts/unit.gd
 res://scenes/HUD.tscn
+res://scenes/Game.tscn

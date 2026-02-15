@@ -47,6 +47,54 @@ signal died(u: Unit)
 
 const BLOOD_FX_SCENE := preload("res://scenes/blood_particles.tscn")
 
+var _quirk_used_this_mission: Dictionary = {}  # StringName -> bool
+
+func quirks_get() -> Array:
+	return get_meta(&"quirks", []) if has_meta(&"quirks") else []
+
+func _emit_quirk(id: StringName, label: String) -> void:
+	emit_signal("quirk_triggered", id, label, QuirkDB.get_color(id))
+
+func _quirks() -> Array:
+	return get_meta(&"quirks", []) if has_meta(&"quirks") else []
+
+func _has_quirk(id: StringName) -> bool:
+	for q in _quirks():
+		if StringName(str(q)) == id:
+			return true
+	return false
+
+func on_moved(steps_taken: int, max_steps: int) -> void:
+	if _dying:
+		return
+
+	# ---------------------------------
+	# OVERCLOCKED SERVOS (BOOST)
+	# ---------------------------------
+	if _has_quirk(&"overclocked_servos") and steps_taken >= max_steps:
+		_emit_quirk(&"overclocked_servos", "BOOST")
+
+	# ---------------------------------
+	# LEAKY HYDRAULICS (movement penalty)
+	# ---------------------------------
+	if _has_quirk(&"leaky_hydraulics") and steps_taken > 0:
+		_emit_quirk(&"leaky_hydraulics", "LEAK")
+
+		# self-damage from moving
+		hp = max(hp - 1, 1)
+
+func on_attack_fired(target: Unit) -> void:
+	if target == null or not is_instance_valid(target):
+		return
+	if _has_quirk(&"stabilized_targeting"):
+		var dist := cell.distance_to(target.cell)
+		if dist >= attack_range: # or == attack_range if you want strict max-range only
+			_emit_quirk(&"stabilized_targeting", "LOCK")
+
+func on_kill(_victim: Unit) -> void:
+	if _has_quirk(&"hardened_core"):
+		_emit_quirk(&"hardened_core", "PUNCH")
+		
 func _ready() -> void:
 	hp = clamp(hp, 0, max_hp)
 	_update_depth()
@@ -77,12 +125,29 @@ func take_damage(dmg: int) -> void:
 	if _dying:
 		return
 
+	var qs: Array = []
 	if has_meta(&"quirks"):
-		var qs: Array = get_meta(&"quirks", [])
-		if qs.has(&"reinforced_frame"):
-			emit_signal("quirk_triggered", &"reinforced_frame", "ARMOR", QuirkDB.get_color(&"reinforced_frame"))
+		qs = get_meta(&"quirks", [])
 
-	hp = max(hp - dmg, 0)	
+	# -------------------------
+	# QUIRK MODIFIERS (edit dmg)
+	# -------------------------
+
+	# Thin Armor: takes +1 damage (min 1 if dmg > 0)
+	if qs.has(&"thin_armor"):
+		if dmg > 0:
+			dmg += 1
+		emit_signal("quirk_triggered", &"thin_armor", "FRAGILE", QuirkDB.get_color(&"thin_armor"))
+
+	# Reinforced Frame: takes -1 damage (min 0)
+	if qs.has(&"reinforced_frame"):
+		dmg = max(dmg - 1, 0)
+		emit_signal("quirk_triggered", &"reinforced_frame", "ARMOR", QuirkDB.get_color(&"reinforced_frame"))
+
+	# -------------------------
+	# APPLY DAMAGE
+	# -------------------------
+	hp = max(hp - dmg, 0)
 
 	# ✅ Hurt sound if still alive
 	if hp > 0:
