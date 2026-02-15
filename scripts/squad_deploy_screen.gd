@@ -7,8 +7,14 @@ extends Control
 # -------------------------------------------------------
 # Badge UI styling
 # -------------------------------------------------------
-@export var achievements_float_font: Font
-@export var achievements_float_font_size: int = 16
+# Badge title (label under icon + hover title)
+@export var achievements_title_font: Font
+@export var achievements_title_font_size: int = 16
+
+# Badge body (hover description text)
+@export var achievements_body_font: Font
+@export var achievements_body_font_size: int = 14
+
 
 # Folder containing ONLY ally unit scenes (and subfolders).
 @export var units_folder: String = "res://scenes/units/allies"
@@ -27,7 +33,7 @@ extends Control
 @onready var achievements_grid: GridContainer = $UI/AchievementsPanel/ScrollContainer/AchievementsGrid
 
 @onready var info_panel: Panel = $InfoPanel
-@onready var info_name: Label = $InfoPanel/VBox/HBoxContainer/InfoName
+@onready var info_name: Label = $InfoPanel/VBox/InfoName
 @onready var info_stats: Label = $InfoPanel/VBox/HBoxContainer/InfoStats
 @onready var info_thumbnail: TextureRect = $InfoPanel/VBox/HBoxContainer/Thumbnail
 
@@ -308,9 +314,9 @@ func _refresh_achievements_ui() -> void:
 		lbl.autowrap_mode = TextServer.AUTOWRAP_OFF
 		lbl.clip_text = false
 
-		if achievements_float_font != null:
-			lbl.add_theme_font_override("font", achievements_float_font)
-			lbl.add_theme_font_size_override("font_size", achievements_float_font_size)
+		if achievements_title_font != null:
+			lbl.add_theme_font_override("font", achievements_title_font)
+			lbl.add_theme_font_size_override("font_size", achievements_title_font_size)
 
 		# Build
 		box.add_child(tr)
@@ -357,13 +363,16 @@ func _show_badge_hover(title: String, desc: String) -> void:
 	info_name.text = title
 	info_stats.text = desc
 
-	# ✅ apply chosen font to hover text
-	if achievements_float_font != null:
-		info_name.add_theme_font_override("font", achievements_float_font)
-		info_name.add_theme_font_size_override("font_size", achievements_float_font_size)
+	# Title (achievement name)
+	if achievements_title_font != null:
+		info_name.add_theme_font_override("font", achievements_title_font)
+		info_name.add_theme_font_size_override("font_size", achievements_title_font_size)
 
-		info_stats.add_theme_font_override("font", achievements_float_font)
-		info_stats.add_theme_font_size_override("font_size", achievements_float_font_size)
+	# Body (description / hint / progress)
+	if achievements_body_font != null:
+		info_stats.add_theme_font_override("font", achievements_body_font)
+		info_stats.add_theme_font_size_override("font_size", achievements_body_font_size)
+
 
 func _hide_badge_hover() -> void:
 	if info_panel != null and is_instance_valid(info_panel):

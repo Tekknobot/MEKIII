@@ -1,15 +1,41 @@
-[gd_scene load_steps=13 format=3 uid="uid://yuv3ki773sul"]
+[gd_scene load_steps=17 format=3 uid="uid://yuv3ki773sul"]
 
 [ext_resource type="Script" uid="uid://bpqdlu5ei0n4s" path="res://scripts/squad_deploy_screen.gd" id="1_ojx2h"]
 [ext_resource type="PackedScene" uid="uid://bmtwqbsx674eo" path="res://scenes/Game.tscn" id="2_jek1g"]
-[ext_resource type="PackedScene" uid="uid://dp7v6b7f0bh4u" path="res://scenes/overworld.tscn" id="3_6856t"]
 [ext_resource type="FontFile" uid="uid://dgugahs6bc7so" path="res://fonts/magofonts/mago3.ttf" id="4_5wfc2"]
+[ext_resource type="Script" uid="uid://dl0f3yc10sent" path="res://scripts/overworld.gd" id="4_jek1g"]
 [ext_resource type="FontFile" uid="uid://csnhk3q4gx0" path="res://fonts/magofonts/mago1.ttf" id="5_r4wy4"]
 [ext_resource type="Shader" uid="uid://cyl5d5rrn8tmm" path="res://shaders/radar.gdshader" id="7_3tvho"]
+[ext_resource type="PackedScene" uid="uid://daw4tavxwlaxm" path="res://scenes/overworld_radar.tscn" id="7_5wfc2"]
 [ext_resource type="Texture2D" uid="uid://dviis5c1md2jn" path="res://sprites/Backgrounds/Cockpit.png" id="7_623tr"]
+[ext_resource type="Script" uid="uid://bh08gfncx0601" path="res://scripts/overworld_camera.gd" id="8_r4wy4"]
 [ext_resource type="Script" uid="uid://ctsryacxldjgt" path="res://scripts/center_with_camera.gd" id="9_ojx2h"]
 [ext_resource type="FontFile" uid="uid://buw362wjb8o8d" path="res://fonts/magofonts/mago2.ttf" id="10_iuh7l"]
 [ext_resource type="Script" uid="uid://bt844t61erxfy" path="res://scripts/pixel_3d.gd" id="10_ojx2h"]
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_nesqq"]
+shader = ExtResource("7_3tvho")
+shader_parameter/intensity = 2.0
+shader_parameter/noise_amount = 0.08
+shader_parameter/scanline_amount = 0.12
+shader_parameter/glow_amount = 2.0
+shader_parameter/glow_speed = 4.0
+shader_parameter/vignette_amount = 1.0
+shader_parameter/scanline_density = 480.0
+shader_parameter/pixelate = 4.000000142499999
+
+[sub_resource type="PackedScene" id="PackedScene_0ldrx"]
+_bundled = {
+"conn_count": 0,
+"conns": PackedInt32Array(),
+"editable_instances": [],
+"names": PackedStringArray("Overworld", "script", "game_scene", "upgrade_title_font", "upgrade_body_font", "upgrade_button_font", "radar_path", "camera_path", "fade_rect", "Node2D", "FadeLayer", "CanvasLayer", "ColorRect", "anchors_preset", "anchor_right", "anchor_bottom", "grow_horizontal", "grow_vertical", "mouse_filter", "color", "OverworldRadar", "elite_node_count", "OverworldCamera", "position", "launch_time", "Camera2D", "BG", "modulate", "z_index", "material", "anchor_left", "anchor_top", "offset_left", "offset_top", "offset_right", "offset_bottom", "texture", "expand_mode", "screen_offset", "TextureRect", "Pixel_3D", "mask_radius"),
+"node_count": 7,
+"node_paths": [],
+"nodes": PackedInt32Array(-1, -1, 9, 0, -1, 8, 1, 0, 2, 1, 3, 2, 4, 3, 5, 4, 6, 5, 7, 6, 1073741832, 7, 0, 0, 0, 11, 10, -1, 0, 0, 1, 0, 12, 12, -1, 7, 13, 8, 14, 9, 15, 9, 16, 10, 17, 10, 18, 10, 19, 11, 0, 0, 0, 2147483647, 20, 12, 1, 21, 13, 0, 0, 0, 25, 22, -1, 4, 23, 14, 1, 15, 6, 16, 24, 17, 0, 0, 0, 39, 26, -1, 18, 27, 18, 28, 19, 29, 20, 13, 21, 30, 22, 31, 22, 14, 22, 15, 22, 32, 23, 33, 24, 34, 25, 35, 26, 16, 10, 17, 10, 36, 27, 37, 28, 1, 29, 38, 30, 0, 0, 0, 9, 40, -1, 2, 1, 31, 41, 32, 0),
+"variants": [ExtResource("4_jek1g"), ExtResource("2_jek1g"), ExtResource("4_5wfc2"), ExtResource("5_r4wy4"), ExtResource("10_iuh7l"), NodePath("OverworldRadar"), NodePath("OverworldCamera"), NodePath("FadeLayer/ColorRect"), 15, 1.0, 2, Color(0, 0, 0, 1), ExtResource("7_5wfc2"), 3, Vector2(576, 329), ExtResource("8_r4wy4"), NodePath("../OverworldRadar"), 1.35, Color(0.41215247, 0.41215247, 0.41215247, 1), -4096, SubResource("ShaderMaterial_nesqq"), 8, 0.5, 109.0, -25.0, 1046.0762, 804.0, ExtResource("7_623tr"), 1, ExtResource("9_ojx2h"), Vector2(0, 64), ExtResource("10_ojx2h"), 250.0],
+"version": 3
+}
 
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_5vrpl"]
 shader = ExtResource("7_3tvho")
@@ -35,8 +61,9 @@ grow_vertical = 2
 mouse_filter = 2
 script = ExtResource("1_ojx2h")
 game_scene = ExtResource("2_jek1g")
-achievements_float_font = ExtResource("5_r4wy4")
-overworld_scene = ExtResource("3_6856t")
+achievements_title_font = ExtResource("4_5wfc2")
+achievements_body_font = ExtResource("5_r4wy4")
+overworld_scene = SubResource("PackedScene_0ldrx")
 background_starfield = NodePath("Pixel_3D")
 UI = NodePath("UI")
 InfoPanel = NodePath("InfoPanel")
@@ -181,12 +208,12 @@ layout_mode = 0
 offset_right = 40.0
 offset_bottom = 40.0
 
-[node name="HBoxContainer" type="HBoxContainer" parent="InfoPanel/VBox"]
-layout_mode = 2
-
-[node name="InfoName" type="Label" parent="InfoPanel/VBox/HBoxContainer"]
+[node name="InfoName" type="Label" parent="InfoPanel/VBox"]
 layout_mode = 2
 theme_override_fonts/font = ExtResource("4_5wfc2")
+
+[node name="HBoxContainer" type="HBoxContainer" parent="InfoPanel/VBox"]
+layout_mode = 2
 
 [node name="Thumbnail" type="TextureRect" parent="InfoPanel/VBox/HBoxContainer"]
 layout_mode = 2
