@@ -92,6 +92,14 @@ func _apply_chill(u: Unit, turns: int) -> void:
 	var cur := int(u.get_meta(&"chilled_turns", 0))
 	u.set_meta(&"chilled_turns", max(cur, turns))
 
+	# ✅ Achievement: Get Chilled (first time only)
+	if cur <= 0 and u.team == Unit.Team.ALLY:
+		var rs := get_node_or_null("/root/RunStateNode")
+		if rs == null:
+			rs = get_node_or_null("/root/RunState")
+		if rs != null and rs.has_method("unlock_achievement"):
+			rs.unlock_achievement("ice_cold")
+			
 func _mark_ice_tile(M: Node, c: Vector2i, turns: int) -> void:
 	# MapController meta: cell -> remaining turns
 	var key := &"ice_tiles"
