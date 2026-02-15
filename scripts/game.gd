@@ -137,9 +137,15 @@ func _start_mission() -> void:
 	# apply chosen squad + recruit pool from RunState
 	var rs := _rs()
 	if rs != null and rs.has_method("has_squad") and rs.call("has_squad"):
-		var chosen: Array[PackedScene] = rs.call("get_squad_packed_scenes")
-		if not chosen.is_empty():
-			map_controller.ally_scenes = chosen
+		if rs.has_method("get_squad_defs"):
+			var defs: Array = rs.call("get_squad_defs")
+			if not defs.is_empty():
+				map_controller.ally_defs = defs
+				# Keep inspector list untouched; ally_defs takes priority.
+		else:
+			var chosen: Array[PackedScene] = rs.call("get_squad_packed_scenes")
+			if not chosen.is_empty():
+				map_controller.ally_scenes = chosen
 
 	if rs != null:
 		map_controller.apply_recruit_pool_from_runstate(rs)
@@ -194,9 +200,14 @@ func regenerate_map() -> void:
 	# apply chosen squad from RunState autoload (if any)
 	var rs := _rs()
 	if rs != null and rs.has_method("has_squad") and rs.call("has_squad"):
-		var chosen: Array[PackedScene] = rs.call("get_squad_packed_scenes")
-		if not chosen.is_empty():
-			map_controller.ally_scenes = chosen
+		if rs.has_method("get_squad_defs"):
+			var defs: Array = rs.call("get_squad_defs")
+			if not defs.is_empty():
+				map_controller.ally_defs = defs
+		else:
+			var chosen: Array[PackedScene] = rs.call("get_squad_packed_scenes")
+			if not chosen.is_empty():
+				map_controller.ally_scenes = chosen
 				
 	# sync recruit pool from RunState (non-selected only)
 	if rs != null:

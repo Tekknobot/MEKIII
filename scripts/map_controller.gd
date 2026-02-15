@@ -7,6 +7,11 @@ class_name MapController
 @export var overlay_root_path: NodePath
 
 @export var ally_scenes: Array[PackedScene] = []
+
+# Optional (NEW): if provided, spawns allies using per-unit defs:
+#   [{scene:PackedScene, id:String, path:String, quirks:Array}]
+# This enables "Quirks" to be per-individual unit (not just per scene path).
+var ally_defs: Array[Dictionary] = []
 @export var enemy_zombie_scene: PackedScene # legacy fallback
 @export var radioactive_zombie_scene: PackedScene
 @export var fire_zombie_scene: PackedScene
@@ -644,8 +649,9 @@ func _ready() -> void:
 		push_error("MapController: units_root_path not set or invalid. Add a Node2D named 'Units' and assign it.")
 	if overlay_root == null:
 		push_error("MapController: overlay_root_path not set or invalid. Add a Node2D named 'Overlays' and assign it.")
-	if ally_scenes.is_empty():
-		push_error("MapController: ally_scenes is empty. Add 3 ally scenes in Inspector.")
+	# ally_scenes is your inspector default; ally_defs can be provided at runtime (per-unit quirks).
+	if ally_scenes.is_empty() and ally_defs.is_empty():
+		push_error("MapController: no allies set. Assign ally_scenes in Inspector OR set ally_defs at runtime.")
 	else:
 		for i in range(ally_scenes.size()):
 			if ally_scenes[i] == null:
@@ -681,45 +687,119 @@ func spawn_units() -> void:
 	recruit_round_stamp += 1
 	_randomize_beacon_cell()
 
+	# ---------------------------------------------------
+	# Safe RunState + safe property reads (Godot4-proof)
+	# ---------------------------------------------------
+	var rs := get_tree().root.get_node_or_null("RunStateNode")
+	if rs == null:
+		rs = get_tree().root.get_node_or_null("RunState")
+
+	var has_prop := func(obj: Object, prop: StringName) -> bool:
+		if obj == null:
+			return false
+		for p in obj.get_property_list():
+			if StringName(p.get("name","")) == prop:
+				return true
+		return false
+
+	var get_prop := func(obj: Object, prop: StringName, default_val) -> Variant:
+		if obj == null:
+			return default_val
+		if has_prop.call(obj, prop):
+			return obj.get(prop)
+		if obj.has_meta(prop):
+			return obj.get_meta(prop)
+		return default_val
+
+	var mission_type := ""
+	if rs != null:
+		mission_type = StringName(str(get_prop.call(rs, &"mission_node_type", ""))).to_lower()
+
+	var is_boss_mission := (mission_type == "boss")
+	var is_elite_mission := (mission_type == "elite")
+
+	# ---------------------------------------------------
+	# ✅ Build ally_defs from RunState so quirks exist
+	# ---------------------------------------------------
+	ally_defs.clear()
+
+	if rs != null and rs.has_method("get_squad_defs"):
+		var defs: Array = rs.call("get_squad_defs")  # expects [{path:String, quirks:Array, (optional) id:String}]
+		for d in defs:
+			if not (d is Dictionary):
+				continue
+			var p := str(d.get("path", ""))
+			if p == "" or not ResourceLoader.exists(p):
+				continue
+			var qs: Array = d.get("quirks", [])
+			var scene := load(p)
+			if scene is PackedScene:
+				ally_defs.append({
+					"scene": scene,
+					"path": p,
+					"id": str(d.get("id", "")),
+					"quirks": qs
+				})
+
+	# ---------------------------------------------------
+	# ✅ NEW: If ally_defs isn't populated, pull it from RunState
+	# This keeps quirks (and ids) without needing any external wiring.
+	# ---------------------------------------------------
+	if ally_defs.is_empty() and rs != null:
+		var raw_defs: Array = []
+		if rs.has_method("get_squad_defs"):
+			raw_defs = rs.get_squad_defs()
+		elif get_prop.call(rs, &"squad_defs", null) is Array:
+			raw_defs = get_prop.call(rs, &"squad_defs", [])
+
+		# Build MapController-friendly ally_defs = [{scene,id,path,quirks}]
+		if raw_defs != null and raw_defs.size() > 0:
+			ally_defs.clear()
+			for d in raw_defs:
+				if not (d is Dictionary):
+					continue
+				var p := str(d.get("path", ""))
+				var scn = d.get("scene", null)
+				if scn == null and p != "" and ResourceLoader.exists(p):
+					scn = load(p)
+				if not (scn is PackedScene):
+					continue
+				ally_defs.append({
+					"scene": scn,
+					"id": str(d.get("id", "")),
+					"path": p,
+					"quirks": d.get("quirks", []),
+				})
+
+
+	# ---------------------------------------------------
+	# Structure blocked
+	# ---------------------------------------------------
 	var structure_blocked: Dictionary = {}
-	if game_ref != null and "structure_blocked" in game_ref:
+	if game_ref != null and (typeof(game_ref) == TYPE_OBJECT) and ("structure_blocked" in game_ref):
 		structure_blocked = game_ref.structure_blocked
 
-	# ✅ NEW: reserve boss/weakpoint cells BEFORE picking allies
+	# ---------------------------------------------------
+	# Reserve boss/weakpoint cells BEFORE building spawn lists
+	# ---------------------------------------------------
 	var reserved_boss: Dictionary = {} # Vector2i -> true
-	var rs := get_tree().root.get_node_or_null("RunStateNode")
-	var is_boss_mission = (rs != null and ("mission_node_type" in rs) and rs.mission_node_type == &"boss")
 
 	if is_boss_mission:
-		# Option A: if your Game/BossController provides explicit cells:
-		# set game_ref.weakpoint_reserved_cells = [Vector2i(...), ...]
+		# Option A: explicit reserved cells
 		if game_ref != null and ("weakpoint_reserved_cells" in game_ref):
 			for c in game_ref.weakpoint_reserved_cells:
-				reserved_boss[c] = true
+				if c is Vector2i:
+					reserved_boss[c] = true
 
-		# Option B (fallback): reserve a top band so boss always has space
-		# (tune the number; 3–5 rows usually enough)
+		# Option B: fallback reserve top band
 		for x in range(int(grid.w)):
 			for y in range(0, 4):
 				reserved_boss[Vector2i(x, y)] = true
 
-	var valid_cells: Array[Vector2i] = []
-
-	var start_n = min(ally_count, ally_scenes.size())
-
-	# Prefer near beacon if you want; otherwise use a top-left-ish point or center
-	var prefer := Vector2i(int(grid.w / 2), int(grid.h / 2))
-	# If you have a beacon cell variable, use that instead:
-	# prefer = beacon_cell
-
-	var comp_cells := _pick_component_for_allies(valid_cells, start_n, prefer)
-	if comp_cells.is_empty() or comp_cells.size() < start_n:
-		# Fallback: just use all valid_cells (but you’ll still risk islands)
-		# Better: bail or log
-		push_warning("No connected component large enough for ally spawns.")
-	else:
-		valid_cells = comp_cells
-	
+	# ---------------------------------------------------
+	# 0) Build BASE valid cells ONCE (no duplicates)
+	# ---------------------------------------------------
+	var base_cells: Array[Vector2i] = []
 	var w := int(grid.w)
 	var h := int(grid.h)
 
@@ -730,16 +810,104 @@ func spawn_units() -> void:
 				continue
 			if structure_blocked.has(c):
 				continue
-			# ✅ NEW: keep allies out of boss-reserved cells
 			if reserved_boss.has(c):
 				continue
-			valid_cells.append(c)
+			base_cells.append(c)
 
-	if valid_cells.is_empty():
+	if base_cells.is_empty():
+		push_warning("spawn_units: no walkable cells found.")
 		return
 
 	# ---------------------------------------------------
-	# 1) Pick ally cluster center + choose ally cells (cells only, no units yet)
+	# Decide how many allies we can spawn
+	# ---------------------------------------------------
+	
+	# ---------------------------------------------------
+	# ✅ AUTO-PULL SQUAD DEFS (WITH QUIRKS) FROM RUNSTATE
+	# so quirks exist even if nothing sets ally_defs externally.
+	# ---------------------------------------------------
+	if ally_defs.is_empty() and rs != null:
+		var raw_defs: Array = []
+
+		# Prefer explicit squad_defs written by deploy screen
+		raw_defs = get_prop.call(rs, &"squad_defs", [])
+		if not (raw_defs is Array) or raw_defs.is_empty():
+			# Fallback to method (if it exists)
+			if rs.has_method("get_squad_defs"):
+				raw_defs = rs.get_squad_defs()
+
+		if raw_defs is Array and raw_defs.size() > 0:
+			ally_defs.clear()
+			for d in raw_defs:
+				if not (d is Dictionary):
+					continue
+
+				var p := str(d.get("path", ""))
+				var scn = d.get("scene", null)
+				if scn == null and p != "" and ResourceLoader.exists(p):
+					scn = load(p)
+
+				if not (scn is PackedScene):
+					continue
+
+				ally_defs.append({
+					"scene": scn,
+					"id": str(d.get("id", "")),
+					"path": p,
+					"quirks": d.get("quirks", []),
+				})
+
+			print("spawn_units: pulled ally_defs from RunState. count=", ally_defs.size(),
+				" sample_quirks=", ally_defs[0].get("quirks", []) if ally_defs.size() > 0 else "none")
+
+	# ---------------------------------------------------
+	# ✅ Ensure ally_defs includes quirks by pulling squad_defs from RunState
+	# (Deploy screen writes squad_defs into RunState meta/property)
+	# ---------------------------------------------------
+	if ally_defs.is_empty() and rs != null:
+		var raw_defs: Array = get_prop.call(rs, &"squad_defs", [])
+		if raw_defs is Array and raw_defs.size() > 0:
+			ally_defs.clear()
+			for d in raw_defs:
+				if not (d is Dictionary):
+					continue
+				var p := str(d.get("path", ""))
+				if p == "" or not ResourceLoader.exists(p):
+					continue
+				var scn := load(p)
+				if not (scn is PackedScene):
+					continue
+				ally_defs.append({
+					"scene": scn,
+					"id": str(d.get("id", "")),
+					"path": p,
+					"quirks": d.get("quirks", []),
+				})
+
+			print("spawn_units: ally_defs from squad_defs = ", ally_defs.size(),
+				" quirks0=", ally_defs[0].get("quirks", []) if ally_defs.size() > 0 else "none")
+	
+	var ally_src_n := ally_defs.size() if not ally_defs.is_empty() else ally_scenes.size()
+	var start_n = min(ally_count, ally_src_n)
+	if start_n <= 0:
+		push_warning("spawn_units: no allies to spawn (start_n <= 0).")
+		return
+
+	# ---------------------------------------------------
+	# 1) Pick a connected component big enough for allies
+	# ---------------------------------------------------
+	var prefer := Vector2i(int(w / 2), int(h / 2))
+	var comp_cells := _pick_component_for_allies(base_cells, start_n, prefer)
+
+	var valid_cells: Array[Vector2i] = []
+	if comp_cells.is_empty() or comp_cells.size() < start_n:
+		push_warning("spawn_units: no connected component large enough; using base_cells.")
+		valid_cells = base_cells.duplicate()
+	else:
+		valid_cells = comp_cells
+
+	# ---------------------------------------------------
+	# 2) Pick ally cluster center + choose ally cells
 	# ---------------------------------------------------
 	var cluster_center: Vector2i = valid_cells.pick_random()
 
@@ -776,50 +944,47 @@ func spawn_units() -> void:
 
 		chosen_cells.append(chosen)
 
+	if chosen_cells.is_empty():
+		push_warning("spawn_units: failed to pick ally cells.")
+		return
+
 	# ---------------------------------------------------
-	# 1.5) Reserve ally cells so enemies can never spawn there
+	# 2.5) Reserve ally cells so enemies NEVER spawn there
 	# ---------------------------------------------------
-	var reserved_ally: Dictionary = {} # cell -> true
+	var reserved_ally: Dictionary = {}
 	for c in chosen_cells:
 		reserved_ally[c] = true
 
 	# ---------------------------------------------------
-	# 2) Zombies FIRST (based on far center from cluster_center)
+	# 3) Zombies FIRST (far from cluster)
 	# ---------------------------------------------------
-	var enemy_center := _pick_far_center(valid_cells, cluster_center)
+	var enemy_center := _pick_far_center(base_cells, cluster_center)
 
 	var enemy_zone_radius := 16
-	var enemy_zone_cells := _cells_within_radius(valid_cells, enemy_center, enemy_zone_radius)
+	var enemy_zone_cells := _cells_within_radius(base_cells, enemy_center, enemy_zone_radius)
 	if enemy_zone_cells.size() < max_zombies:
-		enemy_zone_cells = valid_cells.duplicate()
+		enemy_zone_cells = base_cells.duplicate()
 
-	# ✅ Remove reserved ally cells from enemy spawn zone up-front
+	# Remove reserved ally cells (and boss-reserved just in case)
 	enemy_zone_cells = enemy_zone_cells.filter(func(c: Vector2i) -> bool:
-		return not reserved_ally.has(c)
+		return (not reserved_ally.has(c)) and (not reserved_boss.has(c))
 	)
 
 	_rebuild_recruit_pool_from_allies()
 
-	var is_elite_mission = (rs != null and ("mission_node_type" in rs) and rs.mission_node_type == &"elite")
-
-	# If elite mission, spawn one fewer normal zombie so total pressure stays similar
 	var zombies_to_spawn := max_zombies
 	if is_elite_mission:
 		zombies_to_spawn = maxi(0, max_zombies - 1)
 
 	_spawn_zombies_in_clusters(enemy_zone_cells, zombies_to_spawn, reserved_ally)
 
-	# Spawn the EliteMech in the enemy zone
 	if is_elite_mission:
 		_spawn_elite_mech_in_zone(enemy_zone_cells, structure_blocked, reserved_ally)
 
 	# ---------------------------------------------------
-	# 3) Allies AFTER (bomber drop)
+	# 4) Allies AFTER (bomber drop)
 	# ---------------------------------------------------
-	var drop_center_cell := cluster_center
-	if not chosen_cells.is_empty():
-		drop_center_cell = chosen_cells[0]
-
+	var drop_center_cell := chosen_cells[0]
 	var drop_center_world := _cell_world(drop_center_cell)
 	_sfx(bomber_sfx_in, sfx_volume_world, 1.0, drop_center_world)
 
@@ -834,28 +999,55 @@ func spawn_units() -> void:
 
 	for i in range(chosen_cells.size()):
 		var cell_i := chosen_cells[i]
-		var scene := ally_scenes[i]
+
+		var scene: PackedScene = null
+		var unit_id := ""
+		var quirks: Array = []
+		var scene_path := ""
+
+		if not ally_defs.is_empty():
+			if i >= ally_defs.size():
+				continue
+			var def: Dictionary = ally_defs[i]
+			scene = def.get("scene", null)
+			unit_id = str(def.get("id", ""))
+			scene_path = str(def.get("path", ""))
+			quirks = def.get("quirks", [])
+		else:
+			if i >= ally_scenes.size():
+				continue
+			scene = ally_scenes[i]
+			if scene != null:
+				scene_path = scene.resource_path
+
 		if scene == null:
 			continue
 
 		var u := scene.instantiate() as Unit
-		if scene != null and scene.resource_path != "":
-			u.set_meta("scene_path", scene.resource_path)
-		
 		if u == null:
 			continue
 
+		if scene_path != "":
+			u.set_meta("scene_path", scene_path)
+		if unit_id != "":
+			u.set_meta("unit_id", unit_id)
+
 		units_root.add_child(u)
+
 		_apply_runstate_upgrades_to_unit(u)
 		_wire_unit_signals(u)
 
 		u.team = Unit.Team.ALLY
 
-		# ✅ Apply RunState upgrades to THIS unit
+		# Apply RunState upgrades (safe)
 		if rs != null and rs.has_method("apply_upgrades_to_unit"):
 			rs.apply_upgrades_to_unit(u)
 
-		# ✅ Now clamp hp to new max
+		# Apply Quirks
+		if not quirks.is_empty():
+			QuirkDB.apply_to_unit(u, quirks)
+			print("spawn_units: applied quirks meta=", u.get_meta(&"quirks", []))
+
 		u.hp = u.max_hp
 
 		units_by_cell[cell_i] = u
@@ -870,7 +1062,7 @@ func spawn_units() -> void:
 			_set_unit_depth_from_world(u, u.global_position)
 
 	# ---------------------------------------------------
-	# 4) Weakpoints LAST (boss mission only)
+	# 5) Weakpoints LAST (boss mission only)
 	# ---------------------------------------------------
 	if is_boss_mission:
 		_spawn_weakpoints_last(structure_blocked, reserved_boss, reserved_ally)
@@ -885,7 +1077,7 @@ func spawn_units() -> void:
 		)
 		bomber.queue_free()
 
-	print("Spawned allies:", ally_count, "zombies:", max_zombies)
+	print("Spawned allies:", chosen_cells.size(), "zombies:", zombies_to_spawn, " mission_type=", mission_type)
 
 	apply_run_upgrades()
 
@@ -4295,6 +4487,10 @@ func set_overwatch(u: Unit, enabled: bool, r: int = 0, turns := 1) -> void:
 	if r <= 0:
 		r = u.attack_range + 3
 
+	# Quirk hook: some units can have a bonus overwatch range
+	if u.has_meta(&"overwatch_bonus"):
+		r += int(u.get_meta(&"overwatch_bonus", 0))
+
 	overwatch_by_unit[u] = {"range": r, "turns": int(turns)}
 	emit_signal("tutorial_event", &"overwatch_set", {"cell": u.cell, "range": r, "turns": int(turns)})
 	
@@ -5666,8 +5862,9 @@ func _extract_allies_with_bomber() -> void:
 	if allies.is_empty():
 		return
 
-	# ✅ Collect evac'd unit scene paths BEFORE units are freed/removed
+	# ✅ Collect evac'd unit ids + scene paths BEFORE units are freed/removed
 	var evaced_paths: Array[String] = []
+	var evaced_unit_ids: Array[String] = []
 
 	# Lock inputs while extracting
 	_is_moving = true
@@ -5711,7 +5908,11 @@ func _extract_allies_with_bomber() -> void:
 				max(0.05, bomber_arrive_time * 0.75)
 			)
 
-		# ✅ Record evac path now (unit may be freed during pickup)
+		# ✅ Record evac ids/paths now (unit may be freed during pickup)
+		if u.has_meta("unit_id"):
+			var uid_str := str(u.get_meta("unit_id"))
+			if uid_str != "":
+				evaced_unit_ids.append(uid_str)
 		if u.has_meta("scene_path"):
 			var sp := str(u.get_meta("scene_path"))
 			if sp != "":
@@ -5728,6 +5929,9 @@ func _extract_allies_with_bomber() -> void:
 	if rs != null and rs.has_method("finalize_recruits_after_evac"):
 		var unlocked_now: Array = rs.call("finalize_recruits_after_evac", evaced_paths)
 		print("Finalized unlocks (evac): ", unlocked_now)
+	# ✅ Award post-mission quirk rolls to surviving units
+	if rs != null and rs.has_method("award_post_mission_quirks"):
+		rs.call("award_post_mission_quirks", evaced_unit_ids)
 
 	# Bomber exits (from last position)
 	if bomber != null and is_instance_valid(bomber):

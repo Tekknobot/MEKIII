@@ -110,11 +110,14 @@ func set_data(data: Dictionary) -> void:
 		name_label.text = str(data.get("name", unit_path.get_file().get_basename()))
 
 	var hp := int(data.get("hp", 0))
-	var mv := int(data.get("move_range", 0))
-	var rng := int(data.get("attack_range", 0))
-	var dmg := int(data.get("attack_damage", 0))
+	# Back-compat: SquadDeploy uses keys: move/range/damage
+	var mv := int(data.get("move_range", data.get("move", 0)))
+	var rng := int(data.get("attack_range", data.get("range", 0)))
+	var dmg := int(data.get("attack_damage", data.get("damage", 0)))
 	if stats_label:
-		stats_label.text = "HP %d  •  MV %d  •  RNG %d  •  DMG %d" % [hp, mv, rng, dmg]
+		var base := "HP %d  •  MV %d  •  RNG %d  •  DMG %d" % [hp, mv, rng, dmg]
+		var quirks := str(data.get("quirks_text", ""))
+		stats_label.text = base if quirks == "" else (base + "\n" + quirks)
 
 	disabled = false
 	modulate = Color(1, 1, 1, 1)

@@ -27,9 +27,9 @@ extends Control
 @onready var achievements_grid: GridContainer = $UI/AchievementsPanel/ScrollContainer/AchievementsGrid
 
 @onready var info_panel: Panel = $InfoPanel
-@onready var info_name: Label = $InfoPanel/VBox/InfoName
-@onready var info_stats: Label = $InfoPanel/VBox/InfoStats
-@onready var info_thumbnail: TextureRect = $InfoPanel/VBox/Thumbnail
+@onready var info_name: Label = $InfoPanel/VBox/HBoxContainer/InfoName
+@onready var info_stats: Label = $InfoPanel/VBox/HBoxContainer/InfoStats
+@onready var info_thumbnail: TextureRect = $InfoPanel/VBox/HBoxContainer/Thumbnail
 
 @export var overworld_scene: PackedScene
 
@@ -42,19 +42,25 @@ extends Control
 
 # roster entries: {path,name,portrait,hp,move,range,damage}
 var _roster: Array[Dictionary] = []
-var _selected: Array[String] = []  # ordered scene paths
+var _selected: Array[String] = []  # ordered roster unit IDs
 
 var _probe_root: Node
 
-var _roster_cards: Dictionary = {} # path:String -> UnitCard
+var _roster_cards: Dictionary = {} # id:String -> UnitCard
 
 const ROSTER_SLOTS := 16
 const LOCKED_LABEL := "LOCKED"
+
+var _roster_lookup: Dictionary = {}   # uid -> data
 
 func _ready() -> void:
 	start_button.pressed.connect(_on_start)
 	back_button.pressed.connect(_on_back)
 
+	# ✅ Safety: exported PackedScene can be overridden to null in inspector
+	if unit_card_scene == null:
+		unit_card_scene = preload("res://scenes/unit_card.tscn")
+		
 	# ✅ Start with everything visible (alpha = 1)
 	_set_fade_targets_alpha(1.0)
 
@@ -77,6 +83,78 @@ func _ready() -> void:
 
 	info_panel.visible = false
 
+func _on_start() -> void:
+	if _selected.size() != squad_size:
+		return
+
+	await _fade_out_all()
+
+	var rs := _rs()
+	if rs != null:
+		var paths: Array[String] = []
+		var owned_ids: Array[String] = []
+		var defs: Array[Dictionary] = []
+
+		for ui_id in _selected:
+			var d := _find_roster_data(ui_id)
+			if d.is_empty():
+				continue
+
+			var p := str(d.get("path", ""))
+			if p != "" and ResourceLoader.exists(p):
+				paths.append(p)
+
+			# ✅ always use the REAL owned id, never the UI id with "#1"
+			var owned_id := str(d.get("owned_id", ""))
+
+			# ultra-safe fallback: strip "#N" if owned_id wasn't stored
+			if owned_id == "":
+				owned_id = ui_id
+				var hash := owned_id.rfind("#")
+				if hash != -1:
+					owned_id = owned_id.substr(0, hash)
+
+			owned_ids.append(owned_id)
+
+			defs.append({
+				"id": owned_id,
+				"path": p,
+				"quirks": d.get("quirks", []).duplicate(true),
+			})
+
+		# ✅ Primary: store owned ids so RunState can recover quirks reliably
+		if rs.has_method("set_squad_units"):
+			rs.call("set_squad_units", owned_ids)
+		else:
+			if "squad_unit_ids" in rs:
+				rs.set("squad_unit_ids", owned_ids)
+			rs.set_meta(&"squad_unit_ids", owned_ids)
+
+		# ✅ ALSO store explicit per-slot entries (path + quirks) so spawn can't "guess wrong"
+		if rs.has_method("set_squad_entries"):
+			rs.call("set_squad_entries", defs)
+		else:
+			# fallback: save it as meta if older RunState
+			rs.set_meta(&"squad_entries", defs)
+
+		# Keep legacy paths in sync (for old code/UI)
+		if "squad_scene_paths" in rs:
+			rs.set("squad_scene_paths", paths)
+		rs.set_meta(&"squad_scene_paths", paths)
+
+		# Optional debug defs
+		if "squad_defs" in rs:
+			rs.set("squad_defs", defs)
+		rs.set_meta(&"squad_defs", defs)
+
+		if rs.has_method("save_to_disk"):
+			rs.call("save_to_disk")
+
+	# go to overworld
+	if overworld_scene != null:
+		get_tree().change_scene_to_packed(overworld_scene)
+	else:
+		get_tree().change_scene_to_file("res://scenes/overworld.tscn")
 
 func _fade_on_ready() -> void:
 	# optional: one frame delay so Control layout/modulate is initialized
@@ -300,39 +378,60 @@ func _on_rs_achievement_unlocked(_id: String, _def: Dictionary) -> void:
 	start_button.disabled = (_selected.size() != squad_size)
 
 func _rebuild_roster_ui() -> void:
+	if roster_grid == null or not is_instance_valid(roster_grid):
+		return
+
 	if roster_grid.columns <= 0:
 		roster_grid.columns = roster_columns
 
-	# Build ONCE
-	if roster_grid.get_child_count() == 0:
-		_roster_cards.clear()
+	if unit_card_scene == null:
+		push_warning("SquadDeploy: unit_card_scene is null (check inspector override).")
+		return
 
-		for data in _roster:
-			var card := unit_card_scene.instantiate()
-			roster_grid.add_child(card)
+	# ✅ Always clear UI to prevent duplicates
+	for ch in roster_grid.get_children():
+		ch.queue_free()
 
-			if card.has_method("set_data"):
-				card.call("set_data", data)
+	_roster_cards.clear()
 
-			var p := str(data.get("path",""))
-			_roster_cards[p] = card
+	# ✅ Rebuild from current _roster data
+	for data in _roster:
+		var card := unit_card_scene.instantiate()
+		roster_grid.add_child(card)
 
+		if card.has_method("set_data"):
+			card.call("set_data", data)
+
+		var locked := bool(data.get("locked", false))
+		var ui_id := str(data.get("id", ""))
+
+		# Store by UI id
+		_roster_cards[ui_id] = card
+
+		# Locked: disable and skip hooks
+		if locked or ui_id == "" or str(data.get("path","")) == "":
 			if card is BaseButton:
-				(card as BaseButton).pressed.connect(func():
-					_toggle_pick(p)
-				)
+				(card as BaseButton).disabled = true
+			if card.has_method("set_selected"):
+				card.call("set_selected", false)
+			continue
 
-			if card.has_signal("hovered"):
-				card.hovered.connect(_on_card_hovered)
-			if card.has_signal("unhovered"):
-				card.unhovered.connect(_on_card_unhovered)
+		# Unlocked: click to toggle
+		if card is BaseButton:
+			(card as BaseButton).pressed.connect(Callable(self, "_on_roster_card_pressed").bind(ui_id))
 
-	# Update selection state ONLY (no rebuilding)
-	for p in _roster_cards.keys():
-		var c = _roster_cards[p]
+		if card.has_signal("hovered"):
+			card.hovered.connect(_on_card_hovered)
+		if card.has_signal("unhovered"):
+			card.unhovered.connect(_on_card_unhovered)
+
+	# ✅ Apply selection highlight
+	for id_key in _roster_cards.keys():
+		var c = _roster_cards[id_key]
 		if c != null and is_instance_valid(c) and c.has_method("set_selected"):
-			c.call("set_selected", _selected.has(str(p)))
-
+			var d := _find_roster_data(str(id_key))
+			var locked2 := bool(d.get("locked", false))
+			c.call("set_selected", (not locked2) and _selected.has(str(id_key)))
 
 func _on_card_hovered(data: Dictionary) -> void:
 	info_panel.visible = true
@@ -370,6 +469,12 @@ func _on_card_hovered(data: Dictionary) -> void:
 		if special_desc != "":
 			lines.append(special_desc)
 
+	var quirks_text := str(data.get("quirks_text", "")).strip_edges()
+	if quirks_text != "":
+		lines.append("")
+		lines.append("QUIRKS:")
+		lines.append(quirks_text)
+
 	info_stats.text = "\n".join(lines)
 
 	# ✅ thumbnail
@@ -392,8 +497,8 @@ func _rebuild_squad_ui() -> void:
 
 	for i in range(squad_size):
 		if i < _selected.size():
-			var p := _selected[i]
-			var d := _find_roster_data(p)
+			var uid := _selected[i]
+			var d := _find_roster_data(uid)
 
 			var card := unit_card_scene.instantiate()
 			squad_grid.add_child(card)
@@ -404,81 +509,132 @@ func _rebuild_squad_ui() -> void:
 				card.call("set_selected", true)
 
 			if card is BaseButton:
-				(card as BaseButton).pressed.connect(func():
-					if i < _selected.size():
-						_selected.remove_at(i)
-						_refresh_all()
-				)
+				var b := card as BaseButton
+				# ✅ capture-safe: stores i at connect-time
+				b.pressed.connect(Callable(self, "_on_squad_slot_pressed").bind(i))
 		else:
 			var empty := unit_card_scene.instantiate()
 			squad_grid.add_child(empty)
 			if empty.has_method("set_empty"):
 				empty.call("set_empty", "EMPTY")
 
-func _toggle_pick(path: String) -> void:
-	var idx := _selected.find(path)
+func _toggle_pick(uid: String) -> void:
+	var idx := _selected.find(uid)
 	if idx != -1:
 		_selected.remove_at(idx)
 	else:
 		if _selected.size() < squad_size:
-			_selected.append(path)
+			_selected.append(uid)
 		else:
 			# replace last slot
-			_selected[squad_size - 1] = path
+			_selected[squad_size - 1] = uid
 	_refresh_all()
 
-func _find_roster_data(path: String) -> Dictionary:
+func _find_roster_data(uid: String) -> Dictionary:
+	# direct hit
+	if _roster_lookup.has(uid):
+		return _roster_lookup[uid]
+
+	# strip "#N" suffix (duplicate instances)
+	var hash_idx := uid.rfind("#")
+	if hash_idx != -1:
+		var base_uid := uid.substr(0, hash_idx)
+		if _roster_lookup.has(base_uid):
+			return _roster_lookup[base_uid]
+
+	# last resort: scan _roster array (shouldn't be needed once lookup is built)
 	for d in _roster:
-		if str(d.get("path","")) == path:
+		if str(d.get("id", "")) == uid:
 			return d
-	return {"path": path, "name": path.get_file().get_basename(), "portrait": null, "hp": 0, "move": 0, "range": 0, "damage": 0}
+
+	return {}
 
 # -----------------------
 # Roster discovery
 # -----------------------
 func _build_roster_async() -> void:
 	_roster.clear()
+	_roster_lookup.clear()
 
 	var rs := _rs()
-	var paths: Array[String] = []
+	var entries: Array = []
 
-	# Prefer the runstate roster (this is your "unlocked" list)
-	if rs != null and "roster_scene_paths" in rs and not rs.roster_scene_paths.is_empty():
-		paths = rs.roster_scene_paths.duplicate()
+	# Prefer NEW roster_units (owned individual units)
+	if rs != null and ("roster_units" in rs) and (rs.roster_units is Array) and not rs.roster_units.is_empty():
+		entries = rs.roster_units.duplicate(true)
+	elif rs != null and rs.has_method("get_roster_units"):
+		entries = rs.call("get_roster_units")
 	else:
-		# Fallback: if you want the UI to show "locked" slots meaningfully,
-		# you should seed rs.roster_scene_paths at run start.
-		# This fallback will make everything available (no locked slots).
-		paths = UnitRegistry.ALLY_PATHS.duplicate()
+		# Fallback (older saves): show unlocked unit TYPES
+		var paths: Array[String] = []
+		if rs != null and "roster_scene_paths" in rs and not rs.roster_scene_paths.is_empty():
+			paths = rs.roster_scene_paths.duplicate()
+		else:
+			paths = UnitRegistry.ALLY_PATHS.duplicate()
+		paths = paths.filter(func(p): return ResourceLoader.exists(p))
+		paths.sort()
+		for p in paths:
+			entries.append({"id": p, "path": p, "quirks": []})
 
-	paths = paths.filter(func(p): return ResourceLoader.exists(p))
-	paths.sort()
+	print("SquadDeploy: roster entries = ", entries.size())
 
-	print("SquadDeploy: roster paths = ", paths.size())
+	# ✅ enforce unique ids (so selection works even if save has dup/missing ids)
+	var seen: Dictionary = {}  # uid:String -> true
+	var make_uid := func(base: String) -> String:
+		var u := base
+		var n := 1
+		while seen.has(u):
+			u = "%s#%d" % [base, n]
+			n += 1
+		seen[u] = true
+		return u
 
-	# Build unlocked roster entries
-	for p in paths:
+	for e in entries:
+		if not (e is Dictionary):
+			continue
+
+		var p := str(e.get("path", ""))
+		if p == "" or not ResourceLoader.exists(p):
+			continue
+
+		# ✅ This is the REAL owned unit id from RunState.roster_units
+		var owned_id := str(e.get("id", e.get("uid", "")))
+		if owned_id == "":
+			owned_id = p  # fallback only for legacy path-only entries
+
+		# ✅ UI id must be unique (so the grid can display duplicates safely)
+		var ui_id = make_uid.call(owned_id)
+
 		var data := await _extract_unit_card_data(p)
 		if data.is_empty():
 			continue
+
 		data["locked"] = false
-		data["scene_path"] = p
+		data["id"] = ui_id                 # ✅ UI id (may include #1/#2)
+		data["owned_id"] = owned_id        # ✅ REAL RunState roster_units id
+		data["path"] = p
+		data["quirks"] = e.get("quirks", [])
+
+		_apply_quirks_to_card_data(data)
+
 		_roster.append(data)
+		_roster_lookup[ui_id] = data # ✅ so hover/selection always finds the right one
 
 	# Sort unlocked mechs by name (your existing behavior)
 	_roster.sort_custom(func(a, b): return str(a.get("name","")) < str(b.get("name","")))
 
 	# Append locked placeholder slots to reach a fixed grid size
-	const ROSTER_SLOTS := 16
 	var missing := ROSTER_SLOTS - _roster.size()
 	if missing > 0:
 		for i in range(missing):
 			_roster.append({
+				"id": "LOCKED_%02d" % i, # ✅ unique, never collides
 				"locked": true,
 				"name": "LOCKED",
 				"desc": "Unlock more mechs by clearing sectors.",
-				"portrait": null,      # your UI builder should handle null portrait
-				"scene_path": ""       # no scene
+				"portrait": null,
+				"thumb": null,
+				"path": ""
 			})
 
 func _scan_tscn_recursive(folder: String) -> Array[String]:
@@ -599,6 +755,37 @@ func _extract_unit_card_data(scene_path: String) -> Dictionary:
 	inst.queue_free()
 	return data
 
+
+func _apply_quirks_to_card_data(data: Dictionary) -> void:
+	# Apply quirk stat deltas to the UI card data so the player sees the variant.
+	if data.is_empty() or not data.has("quirks"):
+		return
+	var quirks: Array = data.get("quirks", [])
+	if quirks.is_empty():
+		data["quirks_text"] = ""
+		return
+
+	var d_hp := 0
+	var d_mv := 0
+	var d_rng := 0
+	var d_dmg := 0
+
+	for q in quirks:
+		var def := QuirkDB.get_def(StringName(str(q)))
+		if def.is_empty():
+			continue
+		var fx: Dictionary = def.get("effects", {})
+		d_hp += int(fx.get("max_hp", 0))
+		d_mv += int(fx.get("move_range", 0))
+		d_rng += int(fx.get("attack_range", 0))
+		d_dmg += int(fx.get("attack_damage", 0))
+
+	data["hp"] = max(1, int(data.get("hp", 1)) + d_hp)
+	data["move"] = max(1, int(data.get("move", 1)) + d_mv)
+	data["range"] = max(0, int(data.get("range", 0)) + d_rng)
+	data["damage"] = max(0, int(data.get("damage", 0)) + d_dmg)
+	data["quirks_text"] = QuirkDB.describe_list(quirks)
+
 # -----------------------
 # Robust unit getters
 # -----------------------
@@ -672,41 +859,6 @@ func _fade_out_all() -> void:
 # -----------------------
 # Start / Back
 # -----------------------
-func _on_start() -> void:
-	if _selected.size() != squad_size:
-		return
-
-	# ✅ Fade out everything first
-	await _fade_out_all()
-
-	var rs := _rs()
-
-	print("[EXPORT CHECK] rs=", rs)
-	print("[EXPORT CHECK] squad_scene_paths=", rs.squad_scene_paths if rs != null and "squad_scene_paths" in rs else "NONE")
-
-	print("exists units=", DirAccess.dir_exists_absolute("res://scenes/units"))
-	print("exists allies=", DirAccess.dir_exists_absolute("res://scenes/units/allies"))
-	
-	if rs != null:
-		# ✅ store squad
-		if rs.has_method("set_squad"):
-			rs.call("set_squad", _selected)
-
-		# ✅ store squad
-		if rs.has_method("set_squad"):
-			rs.call("set_squad", _selected)
-
-		# ✅ rebuild recruit pool from existing unlocked roster
-		if rs.has_method("rebuild_recruit_pool"):
-			rs.call("rebuild_recruit_pool")
-
-
-	if overworld_scene != null:
-		get_tree().change_scene_to_packed(overworld_scene)
-	else:
-		get_tree().change_scene_to_file("res://scenes/overworld.tscn")
-
-
 func _unit_get_string(u: Node, key: String, default_val := "") -> String:
 	if key in u:
 		var v = u.get(key)
@@ -715,7 +867,6 @@ func _unit_get_string(u: Node, key: String, default_val := "") -> String:
 	if u.has_meta(key):
 		return str(u.get_meta(key))
 	return default_val
-
 
 func _unit_get_string_array(u: Node, key: String) -> Array[String]:
 	var out: Array[String] = []
@@ -735,3 +886,12 @@ func _unit_get_string_array(u: Node, key: String) -> Array[String]:
 
 func _on_back() -> void:
 	get_tree().change_scene_to_file(title_scene_path)
+
+func _on_roster_card_pressed(uid: String) -> void:
+	_toggle_pick(uid)
+
+func _on_squad_slot_pressed(slot_i: int) -> void:
+	if slot_i < 0 or slot_i >= _selected.size():
+		return
+	_selected.remove_at(slot_i)
+	_refresh_all()

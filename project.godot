@@ -22,6 +22,7 @@ config/icon="uid://chr7hpqn7573j"
 
 RunStateNode="*res://scripts/RunState.gd"
 MusicManagerNode="*res://scripts/music_manager.gd"
+QuirkData="*res://scripts/quirk_db.gd"
 
 [display]
 

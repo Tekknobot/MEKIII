@@ -1182,27 +1182,41 @@ func _refresh_squad_hud() -> void:
 	if _hud_row == null or not is_instance_valid(_hud_row):
 		return
 
-	# clear
 	for ch in _hud_row.get_children():
 		ch.queue_free()
+	await get_tree().process_frame
 
 	var rs := _rs()
 	if rs == null:
-		return
-	if not ("squad_scene_paths" in rs):
+		print("HUD: rs is null")
 		return
 
-	var paths: Array = rs.squad_scene_paths
+	# ✅ always try to read squad_scene_paths safely
+	var raw := _get_array_prop(rs, &"squad_scene_paths")
+
+	print("HUD: squad_scene_paths size=", raw.size(), " value=", raw)
+
+	var paths: Array[String] = []
+	for p_any in raw:
+		var p := ""
+		if p_any is PackedScene:
+			p = (p_any as PackedScene).resource_path
+		else:
+			p = str(p_any)
+
+		if p != "" and ResourceLoader.exists(p):
+			paths.append(p)
+
+	if paths.is_empty():
+		print("HUD: no valid paths after filtering (missing files or empty array)")
+		return
+
 	for p in paths:
-		var path := str(p)
-		if path == "":
-			continue
-		var chip = await _make_squad_chip(path)
-		# ✅ Set each chip invisible if fade-in is enabled
+		var chip := await _make_squad_chip(p)
 		if fade_in_enabled:
 			chip.modulate = Color(1, 1, 1, 0)
 		_hud_row.add_child(chip)
-		
+	
 func _make_squad_chip(scene_path: String) -> Control:
 	var chip := VBoxContainer.new()
 	chip.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -1273,26 +1287,53 @@ func _read_unit_visuals(scene_path: String) -> Dictionary:
 	if inst == null:
 		return out
 
-	# Exports (properties)
-	out["portrait"] = _get_prop_if_exists(inst, "portrait_tex")
-	out["thumb"] = _get_prop_if_exists(inst, "thumbnail")
-	out["name"] = _get_prop_if_exists(inst, "display_name")
+	var u := _find_unit_in_tree(inst)
+	if u == null:
+		u = inst  # fallback
 
-	# Meta fallback (only if you still have legacy units using meta)
-	if out["portrait"] == null and inst.has_meta("portrait_tex"):
-		out["portrait"] = inst.get_meta("portrait_tex")
-	if out["thumb"] == null and inst.has_meta("thumbnail"):
-		out["thumb"] = inst.get_meta("thumbnail")
-	if (out["name"] == null or str(out["name"]) == "") and inst.has_meta("display_name"):
-		out["name"] = inst.get_meta("display_name")
+	# Prefer your Unit getters if present
+	if u.has_method("get_portrait_texture"):
+		out["portrait"] = u.call("get_portrait_texture")
+	else:
+		out["portrait"] = _get_prop_if_exists(u, "portrait_tex")
+
+	if u.has_method("get_thumbnail_texture"):
+		out["thumb"] = u.call("get_thumbnail_texture")
+	else:
+		out["thumb"] = _get_prop_if_exists(u, "thumbnail")
+
+	if u.has_method("get_display_name"):
+		out["name"] = str(u.call("get_display_name"))
+	else:
+		out["name"] = str(_get_prop_if_exists(u, "display_name"))
+
+	# Meta fallback
+	if out["portrait"] == null and u.has_meta("portrait_tex"):
+		out["portrait"] = u.get_meta("portrait_tex")
+	if out["thumb"] == null and u.has_meta("thumbnail"):
+		out["thumb"] = u.get_meta("thumbnail")
+	if (out["name"] == null or str(out["name"]) == "") and u.has_meta("display_name"):
+		out["name"] = str(u.get_meta("display_name"))
 
 	if out["name"] == null or str(out["name"]) == "":
-		out["name"] = inst.name
-	else:
-		out["name"] = str(out["name"])
+		out["name"] = u.name
 
 	inst.queue_free()
 	return out
+
+func _find_unit_in_tree(n: Node) -> Node:
+	if n == null:
+		return null
+	# your Unit tends to have these
+	if n.has_method("get_display_name") and n.has_method("get_portrait_texture"):
+		return n
+	if ("hp" in n) and ("max_hp" in n) and n.has_method("take_damage"):
+		return n
+	for ch in n.get_children():
+		var u := _find_unit_in_tree(ch)
+		if u != null:
+			return u
+	return null
 
 func _get_prop_if_exists(obj: Object, prop: StringName) -> Variant:
 	# Checks actual properties (includes exported vars)
@@ -1583,3 +1624,29 @@ func _keep_only_path_constellation(path: Array[int]) -> void:
 
 	# Rebuild graph based on the remaining alive nodes
 	_rebuild_graph()
+
+func _has_prop(obj: Object, prop: StringName) -> bool:
+	if obj == null:
+		return false
+	for p in obj.get_property_list():
+		if StringName(p.get("name","")) == prop:
+			return true
+	return false
+
+func _get_array_prop(obj: Object, key: StringName) -> Array:
+	if obj == null or not is_instance_valid(obj):
+		return []
+
+	# 1) Real property (declared var / exported var)
+	if (key in obj):
+		var v = obj.get(String(key))
+		if v is Array:
+			return v
+
+	# 2) Meta fallback (what your SquadDeploy sometimes writes)
+	if obj.has_meta(key):
+		var m = obj.get_meta(key)
+		if m is Array:
+			return m
+
+	return []

@@ -181,15 +181,18 @@ layout_mode = 0
 offset_right = 40.0
 offset_bottom = 40.0
 
-[node name="InfoName" type="Label" parent="InfoPanel/VBox"]
+[node name="HBoxContainer" type="HBoxContainer" parent="InfoPanel/VBox"]
+layout_mode = 2
+
+[node name="InfoName" type="Label" parent="InfoPanel/VBox/HBoxContainer"]
 layout_mode = 2
 theme_override_fonts/font = ExtResource("4_5wfc2")
 
-[node name="Thumbnail" type="TextureRect" parent="InfoPanel/VBox"]
+[node name="Thumbnail" type="TextureRect" parent="InfoPanel/VBox/HBoxContainer"]
 layout_mode = 2
 stretch_mode = 2
 
-[node name="InfoStats" type="Label" parent="InfoPanel/VBox"]
+[node name="InfoStats" type="Label" parent="InfoPanel/VBox/HBoxContainer"]
 layout_mode = 2
 theme_override_fonts/font = ExtResource("5_r4wy4")
 

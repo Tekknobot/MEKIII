@@ -31,6 +31,17 @@ var run_upgrade_counts: Dictionary = {} # StringName -> int
 var squad_scene_paths: Array[String] = []  # ordered .tscn paths
 
 # -------------------------
+# "Quirks" system (NEW)
+# -------------------------
+# We keep roster_scene_paths as the *unlocked unit types* list (progression).
+# roster_units is the player-owned "garage" of individual units.
+# Each entry: {"id":String, "path":String, "quirks":Array[StringName]}
+var roster_units: Array[Dictionary] = []
+
+# Squad selection by roster unit IDs (so you can have multiple variants of the same base unit).
+var squad_unit_ids: Array[String] = []
+
+# -------------------------
 # Roster + Recruit pool (NEW)
 # -------------------------
 var roster_scene_paths: Array[String] = []        # all ally unit .tscn paths discovered
@@ -38,7 +49,7 @@ var recruit_pool_paths: Array[String] = []        # remaining recruitable .tscn 
 var recruited_scene_paths: Array[String] = []     # what you’ve recruited so far (optional bookkeeping)
 
 const SAVE_PATH := "user://runstate_save.json"
-const SAVE_VERSION := 1
+const SAVE_VERSION := 2
 
 var boss_defeated_this_run: bool = false
 var bomber_unlocked_this_run: bool = false
@@ -71,6 +82,8 @@ signal achievement_unlocked(id: String, def: Dictionary)
 var achievements_unlocked: Dictionary = {}
 # stat_key:String -> int
 var achievement_stats: Dictionary = {}
+
+var squad_entries: Array = [] # each: {"path": String, "quirks": Array[StringName]}
 
 # 20 badges mapped to your pilot_icons/icon_01..icon_20
 const ACHIEVEMENT_DEFS: Array[Dictionary] = [
@@ -129,20 +142,130 @@ func get_upgrade_count(id: StringName) -> int:
 
 func set_squad(paths: Array[String]) -> void:
 	squad_scene_paths = paths.duplicate()
+	# Back-compat: if caller sets paths directly, clear id-based squad.
+	squad_unit_ids.clear()
+
+func set_squad_units(ids: Array[String]) -> void:
+	squad_unit_ids = ids.duplicate()
+	# Keep legacy paths roughly in sync for debugging/older code.
+	squad_scene_paths.clear()
+	for uid in squad_unit_ids:
+		var e := get_roster_unit(uid)
+		if not e.is_empty():
+			squad_scene_paths.append(str(e.get("path", "")))
 
 func has_squad() -> bool:
-	return not squad_scene_paths.is_empty()
+	return (not squad_unit_ids.is_empty()) or (not squad_scene_paths.is_empty())
 
 func clear_squad() -> void:
 	squad_scene_paths.clear()
+	squad_unit_ids.clear()
+
+func get_roster_unit(uid: String) -> Dictionary:
+	uid = str(uid)
+	for e in roster_units:
+		if str(e.get("id", "")) == uid:
+			return e
+	return {}
+
+func get_roster_units() -> Array[Dictionary]:
+	return roster_units.duplicate(true)
+
+func get_squad_defs() -> Array[Dictionary]:
+	# Returns [{path:String, id:String, quirks:Array[StringName]}]
+	var out: Array[Dictionary] = []
+
+	# ✅ Primary: owned unit ids (this is where quirks live)
+	if not squad_unit_ids.is_empty():
+		for uid in squad_unit_ids:
+			var e := get_roster_unit(str(uid))
+			if e.is_empty():
+				continue
+			var p := str(e.get("path", ""))
+			if p == "" or not ResourceLoader.exists(p):
+				continue
+			var qs: Array[StringName] = []
+			for q in e.get("quirks", []):
+				qs.append(StringName(str(q)))
+			out.append({"id": str(uid), "path": p, "quirks": qs})
+		if out.size() > 0:
+			return out
+
+	# ✅ Secondary: squad_entries (if you use it)
+	if squad_entries != null and squad_entries.size() > 0:
+		for e in squad_entries:
+			if not (e is Dictionary):
+				continue
+			var p2 := str(e.get("path", ""))
+			if p2 == "":
+				continue
+			out.append({"id": str(e.get("id","")), "path": p2, "quirks": e.get("quirks", [])})
+		if out.size() > 0:
+			return out
+
+	# ✅ Fallback: paths-only (no quirks)
+	for p3 in squad_scene_paths:
+		var ps := str(p3)
+		if ps != "":
+			out.append({"id": "", "path": ps, "quirks": []})
+	return out
 
 func get_squad_packed_scenes() -> Array[PackedScene]:
+	# Legacy accessor used by older code paths.
 	var out: Array[PackedScene] = []
-	for p in squad_scene_paths:
-		var res := load(p)
-		if res is PackedScene:
-			out.append(res)
+	var defs := get_squad_defs()
+	for d in defs:
+		var s = d.get("scene", null)
+		if s is PackedScene:
+			out.append(s)
 	return out
+
+func _make_unit_id(rng: RandomNumberGenerator) -> String:
+	# Not cryptographically unique; just stable enough for a roguelite save.
+	var a := int(Time.get_unix_time_from_system())
+	var b := rng.randi()
+	return "%08x%08x" % [a, b]
+
+func _add_owned_unit(path: String, quirks: Array[StringName]) -> String:
+	path = str(path)
+	if path == "" or not ResourceLoader.exists(path):
+		return ""
+	var rng := RandomNumberGenerator.new()
+	rng.seed = int(Time.get_unix_time_from_system())
+	var uid := _make_unit_id(rng)
+	roster_units.append({"id": uid, "path": path, "quirks": quirks.duplicate()})
+	return uid
+
+func _roll_starting_quirks(rng: RandomNumberGenerator) -> Array[StringName]:
+	# Keep early game readable: 0-1 quirks per starter.
+	var out: Array[StringName] = []
+	if rng.randf() < 0.45:
+		var q := QuirkDB.roll_random_quirk(rng, out)
+		if q != &"":
+			out.append(q)
+	return out
+
+func award_post_mission_quirks(evaced_unit_ids: Array[String]) -> void:
+	# Called on evac. Small chance to gain a new quirk.
+	if evaced_unit_ids.is_empty():
+		return
+	var rng := RandomNumberGenerator.new()
+	rng.seed = int(Time.get_unix_time_from_system())
+	for uid in evaced_unit_ids:
+		uid = str(uid)
+		for i in range(roster_units.size()):
+			var e := roster_units[i]
+			if str(e.get("id", "")) != uid:
+				continue
+			var qs: Array = e.get("quirks", [])
+			# 25% chance to gain a new quirk if you have space.
+			if qs.size() < QuirkDB.MAX_QUIRKS_PER_UNIT and rng.randf() < 0.25:
+				var qnew := QuirkDB.roll_random_quirk(rng, qs)
+				if qnew != &"":
+					qs.append(qnew)
+					e["quirks"] = qs
+					roster_units[i] = e
+			break
 
 # -------------------------
 # Roster / recruitment API
@@ -363,6 +486,20 @@ func _notification(what: int) -> void:
 		save_to_disk()
 
 func to_save_dict() -> Dictionary:
+	# Serialize roster_units quirks safely (StringName -> String)
+	var roster_units_save: Array = []
+	for e in roster_units:
+		if not (e is Dictionary):
+			continue
+		var qs: Array = []
+		for q in e.get("quirks", []):
+			qs.append(String(q))
+		roster_units_save.append({
+			"id": str(e.get("id", "")),
+			"path": str(e.get("path", "")),
+			"quirks": qs,
+		})
+
 	return {
 		"version": SAVE_VERSION,
 
@@ -383,7 +520,9 @@ func to_save_dict() -> Dictionary:
 
 		# Squad / roster / recruits
 		"squad_scene_paths": squad_scene_paths.duplicate(),
+		"squad_unit_ids": squad_unit_ids.duplicate(),
 		"roster_scene_paths": roster_scene_paths.duplicate(),
+		"roster_units": roster_units_save,
 		"recruit_pool_paths": recruit_pool_paths.duplicate(),
 		"recruited_scene_paths": recruited_scene_paths.duplicate(),
 		"dead_scene_paths": dead_scene_paths.duplicate(),
@@ -429,8 +568,34 @@ func load_from_save_dict(d: Dictionary) -> void:
 	squad_scene_paths.clear()
 	squad_scene_paths.append_array(d.get("squad_scene_paths", []))
 
+	squad_unit_ids.clear()
+	squad_unit_ids.append_array(d.get("squad_unit_ids", []))
+
 	roster_scene_paths.clear()
 	roster_scene_paths.append_array(d.get("roster_scene_paths", []))
+
+	# roster_units (v2+) - migrate safely
+	roster_units.clear()
+	for raw in d.get("roster_units", []):
+		if not (raw is Dictionary):
+			continue
+		var p := str(raw.get("path", ""))
+		if p == "" or not ResourceLoader.exists(p):
+			continue
+		var uid := str(raw.get("id", ""))
+		if uid == "":
+			# generate a replacement id
+			var rng := RandomNumberGenerator.new()
+			rng.seed = int(Time.get_unix_time_from_system())
+			uid = _make_unit_id(rng)
+		var qs: Array[StringName] = []
+		for q in raw.get("quirks", []):
+			var qid := StringName(str(q))
+			if QuirkDB.has_def(qid):
+				qs.append(qid)
+		roster_units.append({"id": uid, "path": p, "quirks": qs})
+
+	_ensure_roster_units_exist()
 
 	recruit_pool_paths.clear()
 	recruit_pool_paths.append_array(d.get("recruit_pool_paths", []))
@@ -496,18 +661,18 @@ func _dict_string_to_stringname_counts(d: Dictionary) -> Dictionary:
 	return out
 
 func reset_run() -> void:
-	# Start a NEW campaign, but KEEP unlocked roster stable.
+	# ✅ FACTORY RESET: wipe EVERYTHING (including roster + quirks + unlocks)
 
 	# overworld
-	# Give the new campaign a seed (optional). Using time is fine, but don't use 0.
 	overworld_seed = int(Time.get_unix_time_from_system())
 	overworld_current_node_id = -1
 	overworld_cleared.clear()
+	overworld_current_node = -1
 
 	# mission
 	mission_seed = 0
-	mission_node_type = &""
-	mission_difficulty = 1.0
+	mission_node_type = &"combat"
+	mission_difficulty = 0.0
 	mission_node_id = -1
 
 	# upgrades
@@ -522,30 +687,40 @@ func reset_run() -> void:
 	bomber_unlocked_this_run = false
 	run_over = false
 
-	# squad / recruits / permadeath reset (campaign-scoped)
+	# ✅ squad / deploy selections
 	squad_scene_paths.clear()
+	squad_unit_ids.clear()
+	squad_entries.clear()
+
+	# ✅ recruits / run bookkeeping
 	recruit_pool_paths.clear()
 	recruited_scene_paths.clear()
-	dead_scene_paths.clear()
 	pending_recruit_paths.clear()
+	last_supply_success = false
+	last_supply_crates_total = 0
+	last_supply_crates_collected = 0
+	last_supply_units_evaced = 0
+	last_supply_reward_tier = 0
+	last_supply_failed_reason = ""
 
-	# ✅ DO NOT clear roster_scene_paths (this is your unlocked progression)
-	# If this is the very first time ever and roster is empty, seed it once.
-	seed_roster_if_empty()
+	# ✅ permadeath list
+	dead_scene_paths.clear()
 
-	# Keep it clean + deterministic ordering in UI
-	roster_scene_paths = roster_scene_paths.filter(func(p): return ResourceLoader.exists(p))
-	roster_scene_paths.sort()
+	# ✅ wipe progression + owned garage variants (THIS removes quirks)
+	roster_scene_paths.clear()
+	roster_units.clear()
 
-	# Recruit pool should be rebuilt from the (persistent) roster
-	rebuild_recruit_pool()
-
-	# 🔥 wipe achievements (optional)
+	# ✅ wipe achievements (if you want factory reset to do this)
 	achievements_unlocked.clear()
 	achievement_stats.clear()
 
+	# ✅ reseed everything from scratch (creates new roster_units w/ starting quirks)
+	seed_roster_if_empty()
+	_ensure_roster_units_exist()
+	rebuild_recruit_pool()
+
 	save_to_disk()
-	
+
 func seed_roster_if_empty() -> void:
 	# If roster already exists, don't stomp it
 	if not roster_scene_paths.is_empty():
@@ -569,14 +744,29 @@ func seed_roster_if_empty() -> void:
 	# Take only first N
 	var n = clamp(starting_roster_size, 1, all.size())
 	roster_scene_paths.clear()
+	roster_units.clear()
 	for i in range(n):
 		roster_scene_paths.append(all[i])
+		# Create an owned unit variant with 0-1 starting quirks
+		var qs := _roll_starting_quirks(rng)
+		_add_owned_unit(all[i], qs)
 
 	# Build recruit pool from roster
 	rebuild_recruit_pool()
 
 	print("[RUNSTATE] Seeded START roster_scene_paths=", roster_scene_paths.size(),
 		" recruit_pool_paths=", recruit_pool_paths.size())
+
+func _ensure_roster_units_exist() -> void:
+	# Migration / back-compat: older saves have roster_scene_paths but no roster_units.
+	if not roster_units.is_empty():
+		return
+	if roster_scene_paths.is_empty():
+		return
+	var rng := RandomNumberGenerator.new()
+	rng.seed = int(Time.get_unix_time_from_system())
+	for p in roster_scene_paths:
+		_add_owned_unit(str(p), [])
 
 func unlock_more_roster(count: int) -> Array[String]:
 	var unlocked_now: Array[String] = []
@@ -608,6 +798,9 @@ func unlock_more_roster(count: int) -> Array[String]:
 
 		roster_scene_paths.append(pick)
 		unlocked_now.append(pick)
+		# Getting a new chassis also adds a new owned unit (starts with 0-1 quirks)
+		var qs := _roll_starting_quirks(rng)
+		_add_owned_unit(pick, qs)
 
 	rebuild_recruit_pool()
 	save_to_disk()
@@ -721,6 +914,11 @@ func finalize_recruits_after_evac(evaced_paths: Array[String]) -> Array[String]:
 			if not roster_scene_paths.has(sp):
 				roster_scene_paths.append(sp)
 				unlocked.append(sp)
+				# New owned unit variant on unlock
+				var rng := RandomNumberGenerator.new()
+				rng.seed = int(Time.get_unix_time_from_system())
+				var qs := _roll_starting_quirks(rng)
+				_add_owned_unit(sp, qs)
 
 	# Clear pending after mission
 	pending_recruit_paths.clear()
@@ -777,3 +975,17 @@ func _check_stat_achievements() -> void:
 		var minv := int(d.get("min", 0))
 		if stat_key != "" and get_stat(stat_key) >= minv:
 			unlock_achievement(id)
+
+func set_squad_entries(entries: Array) -> void:
+	squad_entries = entries.duplicate(true)
+
+	# keep paths for legacy code that expects them
+	squad_scene_paths.clear()
+	for e in squad_entries:
+		if e is Dictionary and e.has("path"):
+			squad_scene_paths.append(str(e["path"]))
+
+	# ensure ids don’t override anything
+	squad_unit_ids.clear()
+
+	save_to_disk()

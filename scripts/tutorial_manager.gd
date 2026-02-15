@@ -534,8 +534,6 @@ func _get_squad_display_names() -> Array[String]:
 		rs = get_tree().root.get_node_or_null("RunState")
 	if rs == null:
 		return out
-	if not ("squad_scene_paths" in rs):
-		return out
 
 	for p in rs.squad_scene_paths:
 		var path := str(p)
@@ -624,8 +622,6 @@ func _get_squad_name_to_thumb() -> Dictionary:
 	if rs == null:
 		rs = get_tree().root.get_node_or_null("RunState")
 	if rs == null:
-		return out
-	if not ("squad_scene_paths" in rs):
 		return out
 
 	for p in rs.squad_scene_paths:
@@ -730,10 +726,6 @@ func _get_squad_key_to_thumb() -> Dictionary:
 		rs = get_tree().root.get_node_or_null("RunState")
 	if rs == null:
 		print("[SQUAD THUMBS] No RunState found")
-		return out
-
-	if not ("squad_scene_paths" in rs):
-		print("[SQUAD THUMBS] RunState has no squad_scene_paths")
 		return out
 
 	# Map scene basenames -> your upgrade keys

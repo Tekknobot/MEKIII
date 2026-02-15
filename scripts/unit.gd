@@ -403,3 +403,29 @@ func _get_anim_sprite() -> AnimatedSprite2D:
 
 func _get_map_controller() -> Node:
 	return get_tree().get_first_node_in_group("MapController")
+
+func get_quirk_ids() -> Array[StringName]:
+	# Quirks are stored as metadata by QuirkDB.apply_to_unit()
+	var qs: Array = get_meta(&"quirks", []) if has_meta(&"quirks") else []
+	var out: Array[StringName] = []
+	for q in qs:
+		if q == null:
+			continue
+		out.append(StringName(str(q)))
+	return out
+
+func has_quirks() -> bool:
+	return get_quirk_ids().size() > 0
+
+func get_quirks_text() -> String:
+	var qs := get_quirk_ids()
+	if qs.is_empty():
+		return ""
+	return QuirkDB.describe_list(qs)
+
+func get_hud_extras() -> Dictionary:
+	var d := {}
+	var qs: Array = get_meta(&"quirks", []) if has_meta(&"quirks") else []
+	if qs.size() > 0:
+		d["Quirks"] = QuirkDB.describe_list(qs)
+	return d

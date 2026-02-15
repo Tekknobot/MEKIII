@@ -70,9 +70,19 @@ func _render_extras(u):
 	if u == null:
 		return
 
+	print("HUD extras for ", u.get_display_name() if u.has_method("get_display_name") else u.name,
+		" quirks_meta=", u.get_meta(&"quirks", "NO_META") if u.has_meta(&"quirks") else "MISSING")
+
 	var extras := {}
 	if u.has_method("get_hud_extras"):
 		extras = u.call("get_hud_extras")
+
+	# ✅ Always show quirks if present
+	if u.has_meta(&"quirks"):
+		var qs: Array = u.get_meta(&"quirks", [])
+		var qtxt := QuirkDB.describe_list(qs)
+		if qtxt != "":
+			extras["Quirks"] = qtxt
 
 	for k in extras.keys():
 		var row := HBoxContainer.new()

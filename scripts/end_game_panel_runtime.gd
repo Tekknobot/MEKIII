@@ -430,8 +430,6 @@ func _thumb_from_unit_scene_by_class(unit_class: String) -> Texture2D:
 		rs = get_tree().root.get_node_or_null("RunStateNode")
 	if rs == null:
 		return null
-	if not ("squad_scene_paths" in rs):
-		return null
 
 	for p in rs.squad_scene_paths:
 		var path := str(p)
