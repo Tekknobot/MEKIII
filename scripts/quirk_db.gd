@@ -150,3 +150,14 @@ static func apply_to_unit(u: Node, quirks: Array) -> void:
 	# Clamp current HP after max HP changes
 	if "hp" in u and "max_hp" in u:
 		u.hp = clamp(int(u.hp), 0, int(u.max_hp))
+
+static func get_color(id: StringName) -> Color:
+	var d := get_def(id)
+	if d.has("color"):
+		var s := str(d.get("color", ""))
+		if s != "":
+			return Color(s)
+
+	# ✅ fallback: stable hashed color per id (still “unique per quirk”)
+	var h = abs(hash(String(id))) % 360
+	return Color.from_hsv(float(h) / 360.0, 0.55, 0.95)

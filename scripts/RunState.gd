@@ -249,15 +249,21 @@ func award_post_mission_quirks(evaced_unit_ids: Array[String]) -> void:
 	# Called on evac. Small chance to gain a new quirk.
 	if evaced_unit_ids.is_empty():
 		return
+
 	var rng := RandomNumberGenerator.new()
 	rng.seed = int(Time.get_unix_time_from_system())
+
+	var changed := false
+
 	for uid in evaced_unit_ids:
 		uid = str(uid)
 		for i in range(roster_units.size()):
 			var e := roster_units[i]
 			if str(e.get("id", "")) != uid:
 				continue
+
 			var qs: Array = e.get("quirks", [])
+
 			# 25% chance to gain a new quirk if you have space.
 			if qs.size() < QuirkDB.MAX_QUIRKS_PER_UNIT and rng.randf() < 0.25:
 				var qnew := QuirkDB.roll_random_quirk(rng, qs)
@@ -265,7 +271,12 @@ func award_post_mission_quirks(evaced_unit_ids: Array[String]) -> void:
 					qs.append(qnew)
 					e["quirks"] = qs
 					roster_units[i] = e
+					changed = true
 			break
+
+	# ✅ IMPORTANT: save right away so closing / scene swaps won’t lose quirks
+	if changed and has_method("save_to_disk"):
+		save_to_disk()
 
 # -------------------------
 # Roster / recruitment API
