@@ -28,6 +28,8 @@ default_font_size = 16
 [node name="HUD" type="CanvasLayer"]
 layer = 10
 script = ExtResource("1_qpvh6")
+quirk_pill_font = ExtResource("2_fls4u")
+quirk_pill_font_size = 8
 
 [node name="UnitCard" type="PanelContainer" parent="."]
 anchors_preset = 2

@@ -28,3 +28,5 @@ res://scripts/turnmanager.gd
 res://scripts/TitleScreen.gd
 res://scenes/title_screen.tscn
 res://scenes/squad_deploy_screen.tscn
+res://scripts/unit.gd
+res://scenes/HUD.tscn

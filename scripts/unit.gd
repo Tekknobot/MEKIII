@@ -2,6 +2,9 @@ extends Node2D
 class_name Unit
 
 enum Team { ALLY, ENEMY }
+
+signal quirk_triggered(quirk_id: StringName, label: String, color: Color)
+
 # --- Specials base plumbing ---
 var special_cd: Dictionary = {} # String -> int turns remaining
 
@@ -74,7 +77,12 @@ func take_damage(dmg: int) -> void:
 	if _dying:
 		return
 
-	hp = max(hp - dmg, 0)
+	if has_meta(&"quirks"):
+		var qs: Array = get_meta(&"quirks", [])
+		if qs.has(&"reinforced_frame"):
+			emit_signal("quirk_triggered", &"reinforced_frame", "ARMOR", QuirkDB.get_color(&"reinforced_frame"))
+
+	hp = max(hp - dmg, 0)	
 
 	# ✅ Hurt sound if still alive
 	if hp > 0:

@@ -7009,3 +7009,65 @@ func _is_scene_path_already_on_map(scene_path: String) -> bool:
 		if sp == scene_path:
 			return true
 	return false
+
+func vfx_spark_flash(parent: Node, world_pos: Vector2, col: Color) -> void:
+	var p := CPUParticles2D.new()
+	p.position = world_pos
+	p.one_shot = true
+	p.emitting = true
+	p.amount = 10
+	p.lifetime = 0.18
+	p.direction = Vector2(0, -1)
+	p.spread = 180
+	p.initial_velocity_min = 40
+	p.initial_velocity_max = 120
+	p.gravity = Vector2(0, 220)
+	p.color = col
+	parent.add_child(p)
+
+	# cleanup
+	await parent.get_tree().create_timer(0.25).timeout
+	if is_instance_valid(p):
+		p.queue_free()
+
+func vfx_ring(parent: Node, world_pos: Vector2, col: Color) -> void:
+	var ring := Line2D.new()
+	ring.width = 2
+	ring.default_color = col
+	ring.position = world_pos
+	parent.add_child(ring)
+
+	# build a circle polyline
+	var r0 := 4.0
+	var steps := 20
+	for i in range(steps + 1):
+		var a := TAU * float(i) / float(steps)
+		ring.add_point(Vector2(cos(a), sin(a)) * r0)
+
+	var tw := parent.create_tween()
+	tw.tween_property(ring, "scale", Vector2(6, 6), 0.18).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	tw.tween_property(ring, "modulate:a", 0.0, 0.18)
+	await tw.finished
+	if is_instance_valid(ring):
+		ring.queue_free()
+
+func vfx_tracer(parent: Node, from: Vector2, to: Vector2, col: Color) -> void:
+	var l := Line2D.new()
+	l.width = 2
+	l.default_color = col
+	l.add_point(from)
+	l.add_point(to)
+	parent.add_child(l)
+
+	var tw := parent.create_tween()
+	tw.tween_property(l, "modulate:a", 0.0, 0.10)
+	await tw.finished
+	if is_instance_valid(l):
+		l.queue_free()
+
+func sfx_play(player: AudioStreamPlayer, stream: AudioStream, vol_db := 0.0, pitch := 1.0) -> void:
+	if player == null: return
+	player.stream = stream
+	player.volume_db = vol_db
+	player.pitch_scale = pitch
+	player.play()
