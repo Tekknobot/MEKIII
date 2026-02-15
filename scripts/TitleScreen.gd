@@ -518,7 +518,7 @@ func _on_reset_confirm_pressed() -> void:
 
 		# reset / reseed starter roster (so deploy screen is normal)
 		if rs.has_method("reset_run"):
-			rs.reset_run()
+			rs.reset_run(true) # ✅ factory reset
 		if rs.has_method("seed_roster_if_empty"):
 			rs.seed_roster_if_empty()
 		if rs.has_method("rebuild_recruit_pool"):

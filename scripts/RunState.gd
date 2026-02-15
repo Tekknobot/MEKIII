@@ -246,7 +246,6 @@ func _roll_starting_quirks(rng: RandomNumberGenerator) -> Array[StringName]:
 	return out
 
 func award_post_mission_quirks(evaced_unit_ids: Array[String]) -> void:
-	# Called on evac. Small chance to gain a new quirk.
 	if evaced_unit_ids.is_empty():
 		return
 
@@ -264,7 +263,6 @@ func award_post_mission_quirks(evaced_unit_ids: Array[String]) -> void:
 
 			var qs: Array = e.get("quirks", [])
 
-			# 25% chance to gain a new quirk if you have space.
 			if qs.size() < QuirkDB.MAX_QUIRKS_PER_UNIT and rng.randf() < 0.25:
 				var qnew := QuirkDB.roll_random_quirk(rng, qs)
 				if qnew != &"":
@@ -274,8 +272,7 @@ func award_post_mission_quirks(evaced_unit_ids: Array[String]) -> void:
 					changed = true
 			break
 
-	# ✅ IMPORTANT: save right away so closing / scene swaps won’t lose quirks
-	if changed and has_method("save_to_disk"):
+	if changed:
 		save_to_disk()
 
 # -------------------------
@@ -489,11 +486,7 @@ func _build_roster_from_dir(dir_path: String) -> void:
 	print("[RUNSTATE] Roster initialized with ", roster_scene_paths.size(), " units")
 
 func _notification(what: int) -> void:
-	# Desktop close button
 	if what == NOTIFICATION_WM_CLOSE_REQUEST:
-		save_to_disk()
-	# Also fires when the SceneTree is shutting down
-	elif what == NOTIFICATION_PREDELETE:
 		save_to_disk()
 
 func to_save_dict() -> Dictionary:
@@ -671,8 +664,9 @@ func _dict_string_to_stringname_counts(d: Dictionary) -> Dictionary:
 		out[StringName(str(k))] = int(d[k])
 	return out
 
-func reset_run() -> void:
-	# ✅ FACTORY RESET: wipe EVERYTHING (including roster + quirks + unlocks)
+func reset_run(wipe_progression: bool = true) -> void:
+	# wipe_progression=true  -> FACTORY RESET (wipe roster_units/quirks/unlocks)
+	# wipe_progression=false -> NEW RUN (keep roster_units + quirks)
 
 	# overworld
 	overworld_seed = int(Time.get_unix_time_from_system())
@@ -686,7 +680,7 @@ func reset_run() -> void:
 	mission_difficulty = 0.0
 	mission_node_id = -1
 
-	# upgrades
+	# upgrades (run-scoped)
 	run_upgrades.clear()
 	run_upgrade_counts.clear()
 
@@ -698,12 +692,12 @@ func reset_run() -> void:
 	bomber_unlocked_this_run = false
 	run_over = false
 
-	# ✅ squad / deploy selections
+	# squad / deploy selections
 	squad_scene_paths.clear()
 	squad_unit_ids.clear()
 	squad_entries.clear()
 
-	# ✅ recruits / run bookkeeping
+	# recruits / run bookkeeping
 	recruit_pool_paths.clear()
 	recruited_scene_paths.clear()
 	pending_recruit_paths.clear()
@@ -714,20 +708,27 @@ func reset_run() -> void:
 	last_supply_reward_tier = 0
 	last_supply_failed_reason = ""
 
-	# ✅ permadeath list
+	# permadeath list (run-scoped)
 	dead_scene_paths.clear()
 
-	# ✅ wipe progression + owned garage variants (THIS removes quirks)
-	roster_scene_paths.clear()
-	roster_units.clear()
+	if wipe_progression:
+		# ✅ FACTORY RESET: wipe progression + owned garage variants (removes quirks)
+		roster_scene_paths.clear()
+		roster_units.clear()
 
-	# ✅ wipe achievements (if you want factory reset to do this)
-	achievements_unlocked.clear()
-	achievement_stats.clear()
+		# achievements too (your current behavior)
+		achievements_unlocked.clear()
+		achievement_stats.clear()
 
-	# ✅ reseed everything from scratch (creates new roster_units w/ starting quirks)
-	seed_roster_if_empty()
-	_ensure_roster_units_exist()
+		# reseed everything from scratch
+		seed_roster_if_empty()
+		_ensure_roster_units_exist()
+	else:
+		# ✅ NEW RUN: keep roster_units + quirks
+		# (but ensure it exists / migrated)
+		_ensure_roster_units_exist()
+
+	# rebuild recruit pool using whatever roster exists now
 	rebuild_recruit_pool()
 
 	save_to_disk()

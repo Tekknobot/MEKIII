@@ -1,7 +1,6 @@
-[gd_scene load_steps=59 format=3 uid="uid://rriol7fhna81"]
+[gd_scene load_steps=58 format=3 uid="uid://rriol7fhna81"]
 
 [ext_resource type="Script" uid="uid://q37bmmrkofy5" path="res://scripts/TitleScreen.gd" id="1_fgkus"]
-[ext_resource type="PackedScene" uid="uid://dp7v6b7f0bh4u" path="res://scenes/overworld.tscn" id="2_6uh13"]
 [ext_resource type="FontFile" uid="uid://buw362wjb8o8d" path="res://fonts/magofonts/mago2.ttf" id="2_sa3yf"]
 [ext_resource type="FontFile" uid="uid://dgugahs6bc7so" path="res://fonts/magofonts/mago3.ttf" id="3_16pxe"]
 [ext_resource type="FontFile" uid="uid://csnhk3q4gx0" path="res://fonts/magofonts/mago1.ttf" id="3_mgrm8"]
@@ -239,7 +238,7 @@ anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
 script = ExtResource("1_fgkus")
-continue_scene = ExtResource("2_6uh13")
+continue_scene = null
 fade_time = 1.25
 sick_color_a = Color(0.4862745, 0, 0, 1)
 sick_color_b = Color(0.7137255, 0, 0, 1)

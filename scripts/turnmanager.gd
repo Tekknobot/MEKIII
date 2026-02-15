@@ -1887,7 +1887,8 @@ func _on_game_over_main_menu() -> void:
 
 	if rs != null:
 		if rs.has_method("reset_run"):
-			rs.call("reset_run")
+			# ✅ start a new run but keep roster quirks/unlocks
+			rs.call("reset_run", false)
 		if rs.has_method("save_to_disk"):
 			rs.call("save_to_disk")
 	else:

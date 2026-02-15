@@ -50,8 +50,8 @@ const QUIRK_DEFS: Array[Dictionary] = [
 	{
 		"id": &"sentinel_rig",
 		"title": "Sentinel Rig",
-		"desc": "+1 Overwatch range.",
-		"effects": {"overwatch_range": 1}
+		"desc": "+2 Max HP.",
+		"effects": {"max_hp": 2}
 	},
 ]
 

@@ -24,3 +24,6 @@ res://scripts/hud.gd
 res://scripts/map_controller.gd
 res://scripts/quirk_db.gd
 res://scripts/unit_card.gd
+res://scripts/turnmanager.gd
+res://scripts/TitleScreen.gd
+res://scenes/title_screen.tscn

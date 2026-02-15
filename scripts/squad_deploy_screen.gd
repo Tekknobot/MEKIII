@@ -785,6 +785,7 @@ func _apply_quirks_to_card_data(data: Dictionary) -> void:
 	data["range"] = max(0, int(data.get("range", 0)) + d_rng)
 	data["damage"] = max(0, int(data.get("damage", 0)) + d_dmg)
 	data["quirks_text"] = QuirkDB.describe_list(quirks)
+	
 
 # -----------------------
 # Robust unit getters
