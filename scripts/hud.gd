@@ -174,6 +174,12 @@ func _render_extras(u):
 			# We'll render this ourselves (not as a plain text extra)
 			extras["__QUIRK_PILLS__"] = qs
 
+	# ✅ KILL any text-based quirk extra from unit scripts (prevents duplicates)
+	if extras.has("Quirks"):
+		extras.erase("Quirks")
+	if extras.has("quirks"):
+		extras.erase("quirks")
+
 	for k in extras.keys():
 		# Special render: quirk pills
 		if str(k) == "__QUIRK_PILLS__":
