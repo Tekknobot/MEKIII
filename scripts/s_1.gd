@@ -38,7 +38,7 @@ class_name S1
 @export var grid_range := 6
 @export var grid_size := 3  # creates a 3x3 grid
 @export var grid_damage := 2
-@export var grid_cooldown := 5
+@export var grid_cooldown := 0
 @export var grid_min_safe_dist := 2
 
 # Grid visuals
@@ -63,7 +63,7 @@ class_name S1
 @export var overcharge_beam_count := 5  # number of beams in the cone
 @export var overcharge_cone_angle := 60.0  # degrees
 @export var overcharge_damage := 3
-@export var overcharge_cooldown := 6
+@export var overcharge_cooldown := 0
 @export var overcharge_min_safe_dist := 1
 
 # Overcharge visuals

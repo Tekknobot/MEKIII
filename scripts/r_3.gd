@@ -30,7 +30,7 @@ class_name R3
 @export var barrage_max_missiles := 8
 @export var barrage_damage := 2
 @export var barrage_splash_radius := 1
-@export var barrage_cooldown := 6
+@export var barrage_cooldown := 0
 @export var barrage_min_safe_dist := 3
 
 # Missile flight properties
@@ -53,7 +53,7 @@ class_name R3
 @export var railgun_range := 12
 @export var railgun_damage := 3
 @export var railgun_pierce_damage_falloff := 0.5  # each target takes 50% less
-@export var railgun_cooldown := 5
+@export var railgun_cooldown := 0
 @export var railgun_min_safe_dist := 2
 
 # Railgun beam visuals
@@ -76,6 +76,8 @@ class_name R3
 signal barrage_complete
 var _pending_impacts: int = 0
 
+var _barrage_hit_cache: Dictionary
+
 func _ready() -> void:
 	set_meta("portrait_tex", portrait_tex)
 	set_meta("display_name", display_name)
@@ -86,6 +88,8 @@ func _ready() -> void:
 
 	max_hp = max(max_hp, base_max_hp)
 	hp = clamp(hp, 0, max_hp)
+
+	_barrage_hit_cache = {}
 
 	super._ready()
 
@@ -160,6 +164,9 @@ func perform_basic_attack(M: MapController, target_cell: Vector2i) -> void:
 func perform_barrage(M: MapController, target_cell: Vector2i) -> void:
 	if M == null:
 		return
+		
+	_barrage_hit_cache = {}
+		
 	if not _alive():
 		return
 
@@ -240,7 +247,8 @@ func _on_barrage_impact(M: MapController, impact_cell: Vector2i) -> void:
 	await M._apply_splash_damage(
 		impact_cell,
 		barrage_splash_radius,
-		barrage_damage + attack_damage
+		barrage_damage + attack_damage,
+		_barrage_hit_cache
 	)
 
 	# Structure damage

@@ -43,7 +43,7 @@ var _saved_material: Material = null
 @export var special_range: int = 6
 @export var special_damage: int = 3
 @export var splash_radius: int = 1          # 1 = center + 4-neighbors (Manhattan)
-@export var special_cooldown_turns: int = 3
+@export var special_cooldown_turns: int = 0
 
 @export var projectile_scene: PackedScene   # optional (recommended)
 @export var explosion_sfx: StringName = &"explosion_small"

@@ -51,6 +51,7 @@ size = Vector2(20, 6)
 
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_igh6m"]
 shader = ExtResource("2_bdjsb")
+shader_parameter/sprite_tex = ExtResource("12_bon33")
 shader_parameter/frost_amount = 0.65
 shader_parameter/rim_strength = 0.4
 shader_parameter/shimmer_speed = 0.8

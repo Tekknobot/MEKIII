@@ -4169,7 +4169,7 @@ func _trigger_structure_explosion(center: Vector2i) -> void:
 	_apply_structure_splash_damage(center, structure_splash_radius, structure_hit_damage)
 
 
-func _apply_splash_damage(center: Vector2i, radius: int, dmg: int) -> void:
+func _apply_splash_damage(center: Vector2i, radius: int, dmg: int, hit_cache = null) -> void:
 	if dmg <= 0:
 		return
 
@@ -4185,6 +4185,13 @@ func _apply_splash_damage(center: Vector2i, radius: int, dmg: int) -> void:
 			var u := unit_at_cell(c)
 			if u == null or not is_instance_valid(u):
 				continue
+
+			# Prevent multi-hit stacking within the same special/action
+			if hit_cache != null:
+				var uid := u.get_instance_id()
+				if hit_cache.has(uid):
+					continue
+				hit_cache[uid] = true
 
 			_flash_unit_white(u, max(attack_flash_time, 0.12))
 			_jitter_unit(u, 2.5, 5, 0.10)

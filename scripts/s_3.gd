@@ -30,7 +30,7 @@ class_name S3
 @export var nova_range := 6
 @export var nova_radius := 3
 @export var nova_damage := 2
-@export var nova_cooldown := 5
+@export var nova_cooldown := 0
 @export var nova_min_safe_dist := 2
 
 # Aftershock ring (optional)
@@ -62,7 +62,7 @@ class_name S3
 @export var web_target_count := 3  # how many enemies to tether
 @export var web_damage := 2
 @export var web_pull_distance := 2  # how many cells to pull enemies
-@export var web_cooldown := 6
+@export var web_cooldown := 0
 @export var web_min_safe_dist := 2
 
 # Web visuals
@@ -164,7 +164,8 @@ func perform_nova(M: MapController, target_cell: Vector2i) -> void:
 
 	# Primary starburst (wavey)
 	var primary_cells := _get_starburst_cells(M, target_cell, nova_radius)
-	await _apply_cells_damage_wave(M, primary_cells, nova_damage + attack_damage, target_cell)
+	var hit_cache: Dictionary = {}
+	await _apply_cells_damage_wave(M, primary_cells, nova_damage + attack_damage, target_cell, hit_cache)
 	if not _alive():
 		return
 
@@ -176,7 +177,7 @@ func perform_nova(M: MapController, target_cell: Vector2i) -> void:
 
 		var ring_r = max(1, nova_radius + aftershock_radius_offset)
 		var ring_cells := _get_ring_cells(M, target_cell, ring_r)
-		await _apply_cells_damage_wave(M, ring_cells, aftershock_damage, target_cell)
+		await _apply_cells_damage_wave(M, ring_cells, aftershock_damage, target_cell, hit_cache)
 		if not _alive():
 			return
 
@@ -372,7 +373,7 @@ func _fade_out_web_line(line_container: Node2D) -> void:
 # -------------------------
 # NOVA helpers (unchanged)
 # -------------------------
-func _apply_cells_damage_wave(M: MapController, cells: Array[Vector2i], dmg: int, center: Vector2i) -> void:
+func _apply_cells_damage_wave(M: MapController, cells: Array[Vector2i], dmg: int, center: Vector2i, hit_cache: Dictionary) -> void:
 	if M == null or dmg <= 0:
 		return
 	if cells.is_empty():
@@ -405,15 +406,21 @@ func _apply_cells_damage_wave(M: MapController, cells: Array[Vector2i], dmg: int
 			_spawn_nova_explosion(M, c)
 			_sfx_at_cell(M, nova_hit_sfx_id, c)
 
-			_apply_damage_at_cell(M, c, dmg)
-			_apply_nova_splash_damage(M, c)
+			_apply_damage_at_cell(M, c, dmg, hit_cache)
+			_apply_nova_splash_damage(M, c, hit_cache)
 
 		if ring < max_ring and nova_ring_delay > 0.0:
 			await get_tree().create_timer(nova_ring_delay).timeout
 
-func _apply_damage_at_cell(M: MapController, c: Vector2i, dmg: int) -> void:
+func _apply_damage_at_cell(M: MapController, c: Vector2i, dmg: int, hit_cache: Dictionary) -> void:
 	var tgt := M.unit_at_cell(c)
 	if tgt != null and is_instance_valid(tgt):
+		# Prevent multi-hit stacking within the same special/action
+		if hit_cache != null:
+			var uid := tgt.get_instance_id()
+			if hit_cache.has(uid):
+				return
+			hit_cache[uid] = true
 		if ("team" in tgt) and (tgt.team == team):
 			return
 
@@ -433,7 +440,7 @@ func _apply_damage_at_cell(M: MapController, c: Vector2i, dmg: int) -> void:
 		if s != null and is_instance_valid(s):
 			_apply_damage_safely(s, dmg)
 
-func _apply_nova_splash_damage(M: MapController, center: Vector2i) -> void:
+func _apply_nova_splash_damage(M: MapController, center: Vector2i, hit_cache: Dictionary) -> void:
 	if nova_splash_radius <= 0 or nova_splash_damage <= 0:
 		return
 

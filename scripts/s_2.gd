@@ -32,7 +32,7 @@ class_name S2
 @export var quake_range := 6
 @export var quake_radius := 3
 @export var quake_damage := 2
-@export var quake_cooldown := 5
+@export var quake_cooldown := 0
 
 # Visual feel
 @export var quake_amplitude_px := 10.0   # how high cells/units pop visually
@@ -142,6 +142,8 @@ func perform_quake(M: MapController, target_cell: Vector2i) -> void:
 func _play_quake_ripple(M: MapController, center_cell: Vector2i) -> void:
 	# Collect affected cells (circular-ish radius) and play as rings (Manhattan dist delay)
 	var affected: Array[Vector2i] = []
+	var hit_cache: Dictionary = {}
+
 	for ox in range(-quake_radius, quake_radius + 1):
 		for oy in range(-quake_radius, quake_radius + 1):
 			var c := center_cell + Vector2i(ox, oy)
@@ -166,16 +168,17 @@ func _play_quake_ripple(M: MapController, center_cell: Vector2i) -> void:
 		var dist = abs(c.x - center_cell.x) + abs(c.y - center_cell.y)
 		if dist > max_dist:
 			max_dist = dist
-		_quake_bump_cell(M, c, dist)
+		# ✅ pass shared hit_cache so splash can't multi-hit during this quake action
+		_quake_bump_cell(M, c, dist, hit_cache)
 
 	var total_wait := float(max_dist) * quake_ring_delay + quake_up_time + quake_pause_at_peak + quake_down_time + 0.02
 	await get_tree().create_timer(max(total_wait, 0.01)).timeout
 
-func _quake_bump_cell(M: MapController, c: Vector2i, dist: int) -> void:
+func _quake_bump_cell(M: MapController, c: Vector2i, dist: int, hit_cache: Dictionary) -> void:
 	# Fire-and-forget async using a detached task
-	_quake_bump_cell_async(M, c, dist)
+	_quake_bump_cell_async(M, c, dist, hit_cache)
 
-func _quake_bump_cell_async(M: MapController, c: Vector2i, dist: int) -> void:
+func _quake_bump_cell_async(M: MapController, c: Vector2i, dist: int, hit_cache: Dictionary) -> void:
 	# Create a tiny Node2D as the "ground bump" marker (visual proxy for tile height)
 	var bump := Node2D.new()
 	bump.name = "QuakeBump"
@@ -189,12 +192,12 @@ func _quake_bump_cell_async(M: MapController, c: Vector2i, dist: int) -> void:
 	var u := M.unit_at_cell(c)
 	var unit_visual: Node2D = null
 	var unit_base_y := 0.0
-	
+
 	if u != null and is_instance_valid(u):
 		unit_visual = _get_unit_visual_node(u)
 		if unit_visual != null:
 			unit_base_y = unit_visual.position.y
-	
+
 	# Stagger for ring ripple
 	var delay := float(dist) * quake_ring_delay
 	if delay > 0.0:
@@ -213,11 +216,19 @@ func _quake_bump_cell_async(M: MapController, c: Vector2i, dist: int) -> void:
 	# --- Peak moment (synced to ripple) ---
 	_spawn_quake_explosion(M, c)
 	_sfx_at_cell(M, quake_hit_sfx_id, c)
-	_apply_quake_splash_damage(M, c)
+
+	# ✅ If there's an enemy on the epicenter, mark it in hit_cache so splash can't double-dip it.
+	if u != null and is_instance_valid(u):
+		if ("team" in u) and (u.team != team):
+			var uid0 := u.get_instance_id()
+			hit_cache[uid0] = true
+
+	# Splash (won't multi-hit within the same quake action because hit_cache is shared)
+	_apply_quake_splash_damage(M, c, hit_cache)
 
 	# Direct bump damage (unit standing exactly on this cell)
 	if u != null and is_instance_valid(u):
-		if "team" in u and u.team != team:
+		if ("team" in u) and (u.team != team):
 			_apply_damage_safely(u, quake_damage + attack_damage)
 			M._flash_unit_white(u, 0.68)
 			_sfx_at_cell(M, quake_hit_sfx_id, c)
@@ -359,7 +370,7 @@ func _spawn_quake_explosion(M: MapController, c: Vector2i) -> void:
 
 	M.add_child(fx)
 
-func _apply_quake_splash_damage(M: MapController, center: Vector2i) -> void:
+func _apply_quake_splash_damage(M: MapController, center: Vector2i, hit_cache: Dictionary) -> void:
 	if M == null:
 		return
 	if quake_splash_radius <= 0 or quake_splash_damage <= 0:

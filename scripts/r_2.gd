@@ -35,7 +35,7 @@ class_name R2
 # -------------------------
 @export var cannon_range := 7
 @export var cannon_damage := 3
-@export var cannon_cooldown := 5
+@export var cannon_cooldown := 0
 @export var cannon_shots := 3
 
 @export var projectile_scene: PackedScene                 # assign: res://fx/R2Shell.tscn (Node2D recommended)
@@ -107,12 +107,13 @@ func perform_basic_attack(M: MapController, target_cell: Vector2i) -> void:
 # -------------------------------------------------------
 func perform_cannon(M: MapController, _target_cell: Vector2i) -> void:
 	var id_key := "cannon"
-	if int(special_cd.get(id_key, 0)) > 0:
-		return
 	if M == null:
 		return
 	if attack_range <= 0 or cannon_shots <= 0:
 		return
+
+	# ✅ Per-action cache: prevents multi-hit AoE stacking for this cannon use
+	var hit_cache: Dictionary = {}
 
 	var structure_blocked := _get_structure_blocked(M)
 
@@ -149,10 +150,9 @@ func perform_cannon(M: MapController, _target_cell: Vector2i) -> void:
 			if not _alive():
 				return
 
-		await _fire_projectile_to_cell_with_explosion(M, c)
+		await _fire_projectile_to_cell_with_explosion(M, c, hit_cache)
 		if not _alive():
 			return
-
 
 	# back to idle
 	var spr := get_node_or_null("AnimatedSprite2D") as AnimatedSprite2D
@@ -164,8 +164,8 @@ func perform_cannon(M: MapController, _target_cell: Vector2i) -> void:
 	if not _alive():
 		return
 
-	# cooldown once at end
-	special_cd[id_key] = cannon_cooldown
+	# ✅ cooldowns forced to 0
+	special_cd[id_key] = 0
 
 # Collect enemy cells within Manhattan range, sorted closest-first
 func _get_enemy_cells_in_range(M: MapController, r: int) -> Array[Vector2i]:
@@ -198,7 +198,7 @@ func _get_enemy_cells_in_range(M: MapController, r: int) -> Array[Vector2i]:
 # -------------------------------------------------------
 # Projectile firing
 # -------------------------------------------------------
-func _fire_projectile_to_cell_with_explosion(M: MapController, dest_cell: Vector2i) -> void:
+func _fire_projectile_to_cell_with_explosion(M: MapController, dest_cell: Vector2i, hit_cache: Dictionary) -> void:
 	if M == null or not _alive():
 		return
 			
@@ -245,11 +245,11 @@ func _fire_projectile_to_cell_with_explosion(M: MapController, dest_cell: Vector
 		return
 
 	_spawn_explosion_fx(M, dest_cell)
-	_apply_splash_damage(M, dest_cell)
+	_apply_splash_damage(M, dest_cell, hit_cache)
 
-func _apply_splash_damage(M: MapController, center_cell: Vector2i) -> void:
+func _apply_splash_damage(M: MapController, center_cell: Vector2i, hit_cache: Dictionary) -> void:
 	# Center hit always uses cannon_damage
-	_damage_enemy_on_cell(M, center_cell, cannon_damage + attack_damage)
+	_damage_enemy_on_cell(M, center_cell, cannon_damage + attack_damage, hit_cache)
 	_damage_structure_on_cell_if_enabled(M, center_cell, cannon_damage)
 
 	if splash_radius <= 0:
@@ -270,14 +270,20 @@ func _apply_splash_damage(M: MapController, center_cell: Vector2i) -> void:
 			if dmg <= 0:
 				continue
 
-			_damage_enemy_on_cell(M, c, dmg)
+			_damage_enemy_on_cell(M, c, dmg, hit_cache)
 			_damage_structure_on_cell_if_enabled(M, c, dmg)
 
-func _damage_enemy_on_cell(M: MapController, c: Vector2i, dmg: int) -> void:
+func _damage_enemy_on_cell(M: MapController, c: Vector2i, dmg: int, hit_cache: Dictionary) -> void:
 	if M == null:
 		return
 	var u := M.unit_at_cell(c)
 	if u != null and is_instance_valid(u) and u.team != team:
+	# Prevent multi-hit stacking within the same special/action
+		if hit_cache != null:
+			var uid := u.get_instance_id()
+			if hit_cache.has(uid):
+				return
+			hit_cache[uid] = true
 		_apply_damage_safely(u, dmg)
 
 func _damage_structure_on_cell_if_enabled(M: MapController, c: Vector2i, dmg: int) -> void:

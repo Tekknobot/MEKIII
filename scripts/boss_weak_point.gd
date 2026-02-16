@@ -3,6 +3,7 @@ class_name BossWeakpoint
 
 @export var part_id: StringName = &"CORE"
 @export var boss_damage_on_destroy: int = 3
+@export var base_max_hp: int = 16
 
 func _ready() -> void:
 	footprint_size = Vector2i(1, 1)
@@ -11,7 +12,7 @@ func _ready() -> void:
 	team = Unit.Team.ENEMY
 
 	# Make it feel “structural”
-	max_hp = max(1, max_hp)
+	max_hp = max(1, max(max_hp, base_max_hp))
 	hp = clamp(hp, 0, max_hp)
 
 	set_meta("boss_part_id", part_id)

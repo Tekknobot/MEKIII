@@ -28,7 +28,7 @@ class_name R4
 # -------------------------
 @export var malfunction_max_radius := 4
 @export var malfunction_damage := 2
-@export var malfunction_cooldown := 7
+@export var malfunction_cooldown := 0
 @export var malfunction_min_safe_dist := 2
 @export var malfunction_self_damage := 1  # ED-209 hurts itself during malfunction!
 
@@ -48,7 +48,7 @@ class_name R4
 @export var storm_max_targets := 6
 @export var storm_damage := 2
 @export var storm_splash_radius := 1
-@export var storm_cooldown := 5
+@export var storm_cooldown := 0
 @export var storm_min_safe_dist := 2
 
 # Projectile properties
@@ -68,6 +68,7 @@ class_name R4
 @export var iso_feet_offset_y := 16.0
 
 signal storm_complete
+var _storm_hit_cache: Dictionary = {}
 
 func _ready() -> void:
 	set_meta("portrait_tex", portrait_tex)
@@ -283,6 +284,7 @@ func perform_storm(M: MapController, target_cell: Vector2i) -> void:
 
 	var shots = min(storm_max_targets, targets.size())
 	var pending_impacts := 0
+	_storm_hit_cache = {}
 
 	# Fire at each target
 	for i in range(shots):
@@ -356,7 +358,8 @@ func _on_storm_impact(M: MapController, impact_cell: Vector2i) -> void:
 	await M._apply_splash_damage(
 		impact_cell,
 		storm_splash_radius,
-		storm_damage + attack_damage
+		storm_damage + attack_damage,
+		_storm_hit_cache
 	)
 
 	# Structure damage

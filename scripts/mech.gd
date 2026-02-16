@@ -67,7 +67,7 @@ func perform_overwatch(M: MapController) -> void:
 	if not can_use_special("overwatch"):
 		return
 	M.set_overwatch(self, true, overwatch_range, 1) # ✅ 1 round
-	mark_special_used("overwatch", 2)
+	mark_special_used("overwatch", 0)
 
 func play_death_anim() -> void:
 	var M := get_tree().get_first_node_in_group("MapController")
@@ -110,7 +110,7 @@ func mine_placed_one() -> void:
 func end_mine_special(commit_cooldown: bool = true) -> void:
 	placing_mines = false
 	if commit_cooldown:
-		mark_special_used("mines", 2)
+		mark_special_used("mines", 0)
 
 func get_hud_extras() -> Dictionary:
 	return {

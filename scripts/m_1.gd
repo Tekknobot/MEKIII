@@ -33,7 +33,7 @@ class_name M1
 # -------------------------
 @export var sunder_range := 5
 @export var sunder_damage := 2
-@export var sunder_cooldown := 3
+@export var sunder_cooldown := 0
 @export var sunder_step_delay := 0.08
 
 # -------------------------
@@ -45,7 +45,7 @@ class_name M1
 @export var slam_range := 4
 @export var slam_radius := 2
 @export var slam_damage := 2
-@export var slam_cooldown := 4
+@export var slam_cooldown := 0
 @export var slam_min_safe_dist := 1
 
 # Visual feel
@@ -212,6 +212,7 @@ func perform_slam(M: MapController, target_cell: Vector2i) -> void:
 # SLAM implementation
 # -------------------------------------------------------
 func _play_slam_ripple_from_unit_half(M: MapController, target_cell: Vector2i) -> void:
+	var hit_cache: Dictionary = {}
 	var center := cell
 	var start := slam_min_safe_dist
 
@@ -270,7 +271,7 @@ func _play_slam_ripple_from_unit_half(M: MapController, target_cell: Vector2i) -
 
 		# bump all cells in this inward layer
 		for c in cell_set.keys():
-			_slam_bump_cell(M, c, layer)
+			_slam_bump_cell(M, c, layer, hit_cache)
 
 		if slam_ring_delay > 0.0:
 			await get_tree().create_timer(slam_ring_delay).timeout
@@ -278,10 +279,10 @@ func _play_slam_ripple_from_unit_half(M: MapController, target_cell: Vector2i) -
 	var tail := slam_up_time + slam_pause_at_peak + slam_down_time + 0.02
 	await get_tree().create_timer(max(tail, 0.01)).timeout
 
-func _slam_bump_cell(M: MapController, c: Vector2i, dist: int) -> void:
-	_slam_bump_cell_async(M, c, dist)
+func _slam_bump_cell(M: MapController, c: Vector2i, dist: int, hit_cache: Dictionary) -> void:
+	_slam_bump_cell_async(M, c, dist, hit_cache)
 
-func _slam_bump_cell_async(M: MapController, c: Vector2i, dist: int) -> void:
+func _slam_bump_cell_async(M: MapController, c: Vector2i, dist: int, hit_cache: Dictionary) -> void:
 	# visual proxy for tile bump
 	var bump := Node2D.new()
 	bump.name = "SlamBump"
@@ -317,12 +318,21 @@ func _slam_bump_cell_async(M: MapController, c: Vector2i, dist: int) -> void:
 
 	# peak moment
 	_spawn_slam_explosion(M, c)
-	_apply_slam_splash_damage(M, c)
+	_apply_slam_splash_damage(M, c, hit_cache)
 
 	# direct cell damage (unit standing exactly here)
 	if u != null and is_instance_valid(u):
 		if "team" in u and u.team != team:
-			_apply_damage_safely(u, slam_damage + attack_damage)
+			# Prevent multi-hit stacking within the same special/action
+			if hit_cache != null:
+				var uid2 := u.get_instance_id()
+				if hit_cache.has(uid2):
+					pass
+				else:
+					hit_cache[uid2] = true
+					_apply_damage_safely(u, slam_damage + attack_damage)
+			else:
+				_apply_damage_safely(u, slam_damage + attack_damage)
 			if M.has_method("_flash_unit_white"):
 				M.call("_flash_unit_white", u, 0.10)
 			elif M.has_method("flash_unit_white"):
@@ -421,7 +431,7 @@ func _spawn_slam_explosion(M: MapController, c: Vector2i) -> void:
 
 	M.add_child(fx)
 
-func _apply_slam_splash_damage(M: MapController, center: Vector2i) -> void:
+func _apply_slam_splash_damage(M: MapController, center: Vector2i, hit_cache: Dictionary) -> void:
 	if M == null:
 		return
 	if slam_splash_radius <= 0 or slam_splash_damage <= 0:

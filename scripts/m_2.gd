@@ -30,7 +30,7 @@ class_name M2
 @export var pounce_range := 4
 @export var pounce_damage := 2
 @export var pounce_knockback := 1
-@export var pounce_cooldown := 3
+@export var pounce_cooldown := 0
 
 @export var slam_damage := 2
 @export var slam_kills_both := true  # set false if you only want damage

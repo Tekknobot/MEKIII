@@ -35,7 +35,7 @@ class_name R1
 # -------------------------
 @export var volley_range := 6
 @export var volley_damage := 2
-@export var volley_cooldown := 4
+@export var volley_cooldown := 0
 
 @export var projectile_scene: PackedScene                 # <-- assign: res://fx/R1Projectile.tscn (Node2D recommended)
 @export var projectile_travel_time := 0.22                # seconds per shot
@@ -147,6 +147,9 @@ func perform_volley(M: MapController, _target_cell: Vector2i) -> void:
 	# SFX at start
 	_sfx_at_cell(M, fire_sfx_id, cell)
 
+	# Track units already damaged this volley (prevents multi-projectile stacking)
+	var hit_units_this_volley: Dictionary = {}
+
 	# Fire at each target cell (closest first)
 	for c in target_cells:
 		if not _cell_in_bounds(M, c):
@@ -159,7 +162,7 @@ func perform_volley(M: MapController, _target_cell: Vector2i) -> void:
 		if projectile_stagger > 0.0:
 			await get_tree().create_timer(projectile_stagger).timeout
 
-		await _fire_projectile_to_cell_with_explosion(M, c)
+		await _fire_projectile_to_cell_with_explosion(M, c, hit_units_this_volley)
 
 	# ✅ go back to idle after volley finishes
 	var spr := get_node_or_null("AnimatedSprite2D") as AnimatedSprite2D
@@ -208,7 +211,7 @@ func _get_enemy_cells_in_range(M: MapController, r: int) -> Array[Vector2i]:
 # - Spawns projectile_scene (Node2D recommended) and tweens it to the cell.
 # - On impact, damages unit there and (optionally) a structure if your Game has a method.
 # -------------------------------------------------------
-func _fire_projectile_to_cell_with_explosion(M: MapController, dest_cell: Vector2i) -> void:
+func _fire_projectile_to_cell_with_explosion(M: MapController, dest_cell: Vector2i, hit_units: Dictionary) -> void:
 	# compute world positions
 	var start_pos := _cell_to_global(M, cell)
 	var end_pos := _cell_to_global(M, dest_cell)
@@ -253,13 +256,13 @@ func _fire_projectile_to_cell_with_explosion(M: MapController, dest_cell: Vector
 	_spawn_explosion_fx(M, dest_cell)
 
 	# ✅ splash damage at impact
-	_apply_splash_damage(M, dest_cell)
+	_apply_splash_damage(M, dest_cell, hit_units)
 
 
-func _apply_splash_damage(M: MapController, center_cell: Vector2i) -> void:
+func _apply_splash_damage(M: MapController, center_cell: Vector2i, hit_units: Dictionary) -> void:
 	if splash_radius <= 0:
 		# treat as single-tile
-		_damage_enemy_on_cell(M, center_cell, volley_damage)
+		_damage_enemy_on_cell(M, center_cell, volley_damage, hit_units)
 		_damage_structure_on_cell_if_enabled(M, center_cell, volley_damage)
 		return
 
@@ -278,12 +281,17 @@ func _apply_splash_damage(M: MapController, center_cell: Vector2i) -> void:
 			if dmg <= 0:
 				continue
 
-			_damage_enemy_on_cell(M, c, dmg)
+			_damage_enemy_on_cell(M, c, dmg, hit_units)
 			_damage_structure_on_cell_if_enabled(M, c, dmg)
 
-func _damage_enemy_on_cell(M: MapController, c: Vector2i, dmg: int) -> void:
+func _damage_enemy_on_cell(M: MapController, c: Vector2i, dmg: int, hit_units: Dictionary) -> void:
 	var u := M.unit_at_cell(c)
 	if u != null and is_instance_valid(u) and u.team != team:
+		var uid := u.get_instance_id()
+		if hit_units != null and hit_units.has(uid):
+			return
+		if hit_units != null:
+			hit_units[uid] = true
 		_apply_damage_safely(u, dmg)
 		_flash_hit(M, u)
 

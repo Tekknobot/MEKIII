@@ -26,7 +26,7 @@ class_name HumanTwo
 @export var stim_duration_turns := 1
 @export var stim_move_bonus := 2
 @export var stim_damage_bonus := 1
-@export var stim_cooldown_turns := 3
+@export var stim_cooldown_turns := 0
 @export var stim_attack_damage_bonus := 1
 @export var stim_shader: Shader = preload("res://shaders/stim_jacked.gdshader")
 

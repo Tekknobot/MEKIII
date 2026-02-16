@@ -30,7 +30,7 @@ class_name M3
 @export var artillery_damage := 5
 @export var artillery_aoe_radius := 2  # Manhattan distance
 @export var artillery_friendly_fire := true
-@export var artillery_cooldown := 4
+@export var artillery_cooldown := 0
 
 @export var artillery_arc_height := 80.0
 @export var artillery_travel_time := 0.6
@@ -50,7 +50,7 @@ class_name M3
 @export var laser_range := 8
 @export var laser_damage := 4
 @export var laser_friendly_fire := false
-@export var laser_cooldown := 5
+@export var laser_cooldown := 0
 
 @export var laser_beam_color := Color.CYAN
 @export var laser_beam_width := 12.0

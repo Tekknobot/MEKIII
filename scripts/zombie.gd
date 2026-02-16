@@ -27,12 +27,12 @@ func _ready() -> void:
 	if rs == null:
 		rs = get_node_or_null("/root/RunStateNode") as RunState  # fallback if your autoload is named this
 
-	var base_hp := 10
+	var base_hp := 12
 	var bonus_hp := 0
 
 	if rs != null:
 		# +0..+4 hp depending on mission difficulty
-		bonus_hp = int(round(rs.mission_difficulty * 15.0))
+		bonus_hp = int(round(rs.mission_difficulty * 6.0))
 
 	max_hp = max(max_hp, base_hp + bonus_hp)
 	hp = clamp(hp, 0, max_hp)
