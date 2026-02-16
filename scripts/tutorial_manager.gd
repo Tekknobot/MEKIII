@@ -540,7 +540,9 @@ func _roll_3_upgrades() -> Array:
 		var t: Texture2D = thumb.call("COBRUH A.I.")
 		pool.append_array([
 			{"id": &"cobruh_hp_plus_2",  "title": "OBSIDIAN CORE",      "desc": "+2 Max HP for Cobruh A.I.", "thumb": t},
-			{"id": &"cobruh_dmg_plus_1", "title": "VENOM CIRCUITS",     "desc": "+1 Damage for Cobruh A.I.", "thumb": t},
+			{"id": &"carbot_move_plus_1", "title": "GEARBOX TUNE",     "desc": "+1 Move for CarBot.",   "thumb": t},
+			
+			{"id": &"carbot_drive_move_plus_1", "title": "OVERDRIVE",     "desc": "+1 Drive distance per auto action.", "thumb": t},
 		])
 
 	# ROLLERBOT

@@ -491,7 +491,9 @@ func apply_upgrades_to_unit(u: Node) -> void:
 		# COBRUH A.I.
 		"COBRUH A.I.":
 			hp += 2 * get_upgrade_count(&"cobruh_hp_plus_2")
-			dmg += get_upgrade_count(&"cobruh_dmg_plus_1")
+			dmg += get_upgrade_count(&"cobruh_dmg_plus_1")			
+			if "drive_move_points" in u:
+				u.drive_move_points += get_upgrade_count(&"carbot_drive_move_plus_1")
 
 		# MARV
 		"MARV":

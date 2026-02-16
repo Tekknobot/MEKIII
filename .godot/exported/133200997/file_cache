@@ -42,12 +42,12 @@ res://scenes/tutorial_toast.tscn::46f002530979557a41c97d158ab42c5f::1771285722::
 res://scenes/unit_card.tscn::efe8a5af75a6238e5e4821342c27675c::1771285722::res://.godot/exported/133200997/export-ab0a47df1992afe423300a64120afcec-unit_card.scn
 res://scenes/zombie.tscn::a1608728cb60c47c6dc3de21ea99fb17::1771285722::res://.godot/exported/133200997/export-eae6add4c928fd8479be83ea3330e8af-zombie.scn
 res://scenes/blood_particles.tscn::43f367c7e9da57fa1ca5d47b31380e5e::1771285722::res://.godot/exported/133200997/export-9cdc63a70dedde1f91406507bc2660d5-blood_particles.scn
-res://scenes/units/allies/car.tscn::af663074e24f35d7f91b9b8b713c8d91::1771285722::res://.godot/exported/133200997/export-5804310c677688368c0bbb74b9902513-car.scn
+res://scenes/units/allies/car.tscn::af663074e24f35d7f91b9b8b713c8d91::1771272548::res://.godot/exported/133200997/export-5804310c677688368c0bbb74b9902513-car.scn
 res://scenes/units/allies/S1.tscn::996c3b7de96749b861ce95b2ab7ad038::1771285722::res://.godot/exported/133200997/export-242e762862a6f922d109975bce114042-S1.scn
 res://scenes/units/allies/R3.tscn::bea52e43c474cb7251cc8de30a611c18::1771285722::res://.godot/exported/133200997/export-a8ee700cac0080fe54117a669f08db56-R3.scn
 res://scenes/units/allies/R4.tscn::6380aed0e7d50f52206027b3205563c2::1771285722::res://.godot/exported/133200997/export-9c38a7fca24f8992bf3b533df7f4fca8-R4.scn
 res://scenes/units/allies/M3.tscn::93d2a5c1c2f53ba2e227c25f267c345c::1771285722::res://.godot/exported/133200997/export-d68cb722b4a87285bbc8fde365eaaa00-M3.scn
-res://scenes/units/allies/roller.tscn::1dbb9237a9ee627f21b7a51243173b4f::1771272029::res://.godot/exported/133200997/export-140cf3b6db281a823b5a936b8bfa48be-roller.scn
+res://scenes/units/allies/roller.tscn::1dbb9237a9ee627f21b7a51243173b4f::1771272224::res://.godot/exported/133200997/export-140cf3b6db281a823b5a936b8bfa48be-roller.scn
 res://scenes/threat_tile.tscn::730051698f6825afbe8f9970acc44157::1771285722::res://.godot/exported/133200997/export-1a11ecf2e6915453d3033e1249688f99-threat_tile.scn
 res://scenes/radioactive_zombie.tscn::5053a38931351e5e35f5e0e33898b0f3::1771285722::res://.godot/exported/133200997/export-00b0e1b2f071a84ed083812544399095-radioactive_zombie.scn
 res://scenes/radioactive_tile.tscn::865b8bd72739e34300798cf1d0196716::1771285722::res://.godot/exported/133200997/export-4c4e3f39aa2b349816cc6891f839d19c-radioactive_tile.scn

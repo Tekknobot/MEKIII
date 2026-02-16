@@ -19,3 +19,4 @@ res://scripts/tutorial_manager.gd
 res://scenes/units/allies/M2.tscn
 res://scripts/RunState.gd
 res://scenes/units/allies/roller.tscn
+res://scenes/units/allies/car.tscn
