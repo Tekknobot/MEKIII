@@ -353,6 +353,14 @@ func _roll_3_upgrades() -> Array:
 			{"id": &"soldier_move_plus_1",  "title": "SPRINT TRAINING", "desc": "+1 Move for Soldier.",          "thumb": t},
 			{"id": &"soldier_range_plus_1", "title": "MARKSMAN KIT",   "desc": "+1 Attack Range for Soldier.",  "thumb": t},
 			{"id": &"soldier_dmg_plus_1",   "title": "HOLLOW POINTS",  "desc": "+1 Damage for Soldier.",        "thumb": t},
+			
+			{"id": &"soldier_hellfire_range_plus_1",      "title": "LONG FUSE",      "desc": "+1 Range for Hellfire.",              "thumb": t},
+			{"id": &"soldier_hellfire_damage_plus_1",     "title": "HOTTER TNT",     "desc": "+1 Hellfire bonus damage.",           "thumb": t},
+
+			{"id": &"soldier_suppress_range_plus_1",      "title": "PINNING FIRE",   "desc": "+1 Range for Suppress.",              "thumb": t},
+			{"id": &"soldier_suppress_damage_plus_1",     "title": "HARD ROUNDS",    "desc": "+1 Suppress bonus damage.",           "thumb": t},
+			{"id": &"soldier_suppress_duration_plus_1",   "title": "STAY DOWN",      "desc": "+1 turn Suppress duration.",           "thumb": t},
+			{"id": &"soldier_suppress_penalty_plus_1",    "title": "HEAVY PRESSURE", "desc": "+1 Suppress move penalty.",             "thumb": t},
 		])
 
 	# MERCENARY
@@ -362,6 +370,14 @@ func _roll_3_upgrades() -> Array:
 			{"id": &"merc_move_plus_1",  "title": "QUICK CONTRACT",      "desc": "+1 Move for Mercenary.",          "thumb": t},
 			{"id": &"merc_range_plus_1", "title": "WIDE SWEEP", 		 "desc": "+1 Blade Range for Mercenary.",   "thumb": t},
 			{"id": &"merc_dmg_plus_1",   "title": "OVERCHARGED SLASH",  "desc": "+1 Damage for Mercenary.",        "thumb": t},
+
+			{"id": &"merc_blade_range_plus_1",        "title": "LONGER EDGE",   "desc": "+1 Blade range.",                     "thumb": t},
+			{"id": &"merc_blade_damage_plus_1",       "title": "VICIOUS CUT",   "desc": "+1 Blade bonus damage.",              "thumb": t},
+			{"id": &"merc_cleave_damage_plus_1",      "title": "WIDER CLEAVE",  "desc": "+1 Cleave bonus damage.",             "thumb": t},
+
+			{"id": &"merc_stim_duration_plus_1",      "title": "BURN LONGER",   "desc": "+1 turn Stimpack duration.",          "thumb": t},
+			{"id": &"merc_stim_move_plus_1",          "title": "HYPER STEP",    "desc": "+1 Move bonus while Stimmed.",         "thumb": t},
+			{"id": &"merc_stim_damage_plus_1",        "title": "KILL MODE",     "desc": "+1 Damage bonus while Stimmed.",       "thumb": t},
 		])
 
 	# ROBODOG
@@ -389,6 +405,16 @@ func _roll_3_upgrades() -> Array:
 			{"id": &"blade_hp_plus_1",   "title": "CARBON PLATING", "desc": "+1 Max HP for Bladeguard.", "thumb": t},
 			{"id": &"blade_move_plus_1", "title": "SERVO JOINTS",   "desc": "+1 Move for Bladeguard.",   "thumb": t},
 			{"id": &"blade_dmg_plus_1",  "title": "MONO EDGE",      "desc": "+1 Damage for Bladeguard.", "thumb": t},
+			
+			# SUNDER
+			{"id": &"blade_sunder_range_plus_1",   "title": "LONGER SWEEP", "desc": "+1 Range for Sunder.",        "thumb": t},
+			{"id": &"blade_sunder_dmg_plus_1",     "title": "DEEPER CUT",   "desc": "+1 Sunder damage.",           "thumb": t},
+			{"id": &"blade_sunder_step_delay_dn",  "title": "RAPID SLASH",  "desc": "Sunder strikes faster.",      "thumb": t},
+
+			# SLAM
+			{"id": &"blade_slam_range_plus_1",     "title": "REACH SLAM",   "desc": "+1 Slam range.",              "thumb": t},
+			{"id": &"blade_slam_radius_plus_1",    "title": "WIDER RIPPLE", "desc": "+1 Slam ripple radius.",       "thumb": t},
+			{"id": &"blade_slam_dmg_plus_1",       "title": "HEAVIER HIT",  "desc": "+1 Slam direct damage.",       "thumb": t},
 		])
 
 	# PANTHERBOT
@@ -397,6 +423,11 @@ func _roll_3_upgrades() -> Array:
 		pool.append_array([
 			{"id": &"panther_move_plus_1", "title": "PREDATOR LEGS", "desc": "+1 Move for Pantherbot.",  "thumb": t},
 			{"id": &"panther_dmg_plus_1",  "title": "RAZOR CLAWS",   "desc": "+1 Damage for Pantherbot.","thumb": t},
+			
+			{"id": &"panther_pounce_range_plus_1",     "title": "LONG POUNCE",     "desc": "+1 Pounce range for Pantherbot.",      "thumb": t},
+			{"id": &"panther_pounce_damage_plus_1",    "title": "BRUTAL POUNCE",   "desc": "+1 Pounce damage for Pantherbot.",     "thumb": t},
+			{"id": &"panther_pounce_knockback_plus_1", "title": "HEAVY LUNGE",     "desc": "+1 Pounce knockback for Pantherbot.",  "thumb": t},
+						
 		])
 
 	# KANNON
@@ -405,6 +436,9 @@ func _roll_3_upgrades() -> Array:
 		pool.append_array([
 			{"id": &"kannon_range_plus_1", "title": "EXTENDED BARREL",    "desc": "+1 Range for Kannon.",  "thumb": t},
 			{"id": &"kannon_dmg_plus_1",   "title": "HIGH-IMPACT SHELLS", "desc": "+1 Damage for Kannon.", "thumb": t},
+			
+			{"id": &"kannon_cannon_damage_plus_1",     "title": "OVERCHARGED CORE","desc": "+1 Cannon damage for Kannon.",        "thumb": t},	
+			{"id": &"kannon_cannon_range_plus_1", "title": "TARGETING ARRAY", "desc": "+1 Cannon range for Kannon.", "thumb": t},				
 		])
 
 	# SKIMMER
@@ -413,6 +447,9 @@ func _roll_3_upgrades() -> Array:
 		pool.append_array([
 			{"id": &"skimmer_move_plus_1", "title": "VECTOR THRUST", "desc": "+1 Move for Skimmer.",   "thumb": t},
 			{"id": &"skimmer_dmg_plus_1",  "title": "SEISMIC COILS", "desc": "+1 Damage for Skimmer.", "thumb": t},
+			
+			{"id": &"skimmer_quake_range_plus_1",        "title": "DEEP SCAN",      "desc": "+1 Quake range for Skimmer.",         "thumb": t},
+			{"id": &"skimmer_quake_damage_plus_1",       "title": "FAULTLINE",      "desc": "+1 Quake damage for Skimmer.",        "thumb": t},		
 		])
 
 	# ARACHNOBOT
@@ -422,6 +459,12 @@ func _roll_3_upgrades() -> Array:
 			{"id": &"arachno_hp_plus_1",    "title": "CHITIN PLATING",   "desc": "+1 Max HP for Arachnobot.",      "thumb": t},
 			{"id": &"arachno_move_plus_1",  "title": "SKITTER SERVOS",   "desc": "+1 Move for Arachnobot.",        "thumb": t},
 			{"id": &"arachno_dmg_plus_1",   "title": "NOVA CAPACITORS",  "desc": "+1 Damage for Arachnobot.",      "thumb": t},
+
+			{"id": &"arachno_nova_range_plus_1",        "title": "STAR SIGHT",     "desc": "+1 Nova range for Arachnobot.",        "thumb": t},
+			{"id": &"arachno_nova_damage_plus_1",       "title": "HOTTER CORE",    "desc": "+1 Nova damage for Arachnobot.",       "thumb": t},
+
+			{"id": &"arachno_web_range_plus_1",         "title": "LONG WEB",       "desc": "+1 Web range for Arachnobot.",          "thumb": t},
+			{"id": &"arachno_web_damage_plus_1",        "title": "RAZOR SILK",     "desc": "+1 Web damage for Arachnobot.",         "thumb": t},		
 		])
 
 	if has_unit.call("SCANNERZ"):
@@ -503,8 +546,8 @@ func _roll_3_upgrades() -> Array:
 	# ROLLERBOT
 	# NOTE: key is whatever display_name becomes after strip+upper.
 	# If your display_name is "Rollerbot" then the key is "ROLLERBOT"
-	if has_unit.call("ROLLERBOT"):
-		var t: Texture2D = thumb.call("ROLLERBOT")
+	if has_unit.call("ROLLERBOT A.I."):
+		var t: Texture2D = thumb.call("ROLLERBOT A.I.")
 		pool.append_array([
 			{"id": &"rollerbot_hp_plus_2",   "title": "DENSE PLATING",    "desc": "+2 Max HP for Rollerbot.", "thumb": t},
 			{"id": &"rollerbot_roll_plus_1", "title": "SPIKE DRUM",       "desc": "+1 Roll distance for Rollerbot.", "thumb": t},

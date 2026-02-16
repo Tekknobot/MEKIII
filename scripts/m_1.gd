@@ -165,7 +165,7 @@ func perform_sunder(M: MapController, target_cell: Vector2i) -> void:
 
 		_play_attack_anim_once()
 		_spawn_explosion(M, c)
-		_damage_enemy_on_cell(M, c, sunder_damage + attack_damage)
+		_damage_enemy_on_cell(M, c, sunder_damage)
 
 		await _wait_attack_anim()
 
@@ -330,9 +330,9 @@ func _slam_bump_cell_async(M: MapController, c: Vector2i, dist: int, hit_cache: 
 					pass
 				else:
 					hit_cache[uid2] = true
-					_apply_damage_safely(u, slam_damage + attack_damage)
+					_apply_damage_safely(u, slam_damage)
 			else:
-				_apply_damage_safely(u, slam_damage + attack_damage)
+				_apply_damage_safely(u, slam_damage)
 			if M.has_method("_flash_unit_white"):
 				M.call("_flash_unit_white", u, 0.10)
 			elif M.has_method("flash_unit_white"):
@@ -620,6 +620,6 @@ func _play_slam_ground_hit() -> void:
 
 func get_hud_extras() -> Dictionary:
 	return {
-		"Sunder Damage": str(sunder_damage + attack_damage),
-		"Slam Damage": str(slam_damage + attack_damage),
+		"Sunder Damage": str(sunder_damage),
+		"Slam Damage": str(slam_damage),
 	}

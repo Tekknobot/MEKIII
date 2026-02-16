@@ -346,92 +346,164 @@ func apply_upgrades_to_unit(u: Node) -> void:
 	# -------------------------
 	match key:
 
-		# 1) Soldier
+		# SOLDIER
 		"SOLDIER":
 			mv += get_upgrade_count(&"soldier_move_plus_1")
 			rng += get_upgrade_count(&"soldier_range_plus_1")
 			dmg += get_upgrade_count(&"soldier_dmg_plus_1")
 
-		# 2) Mercenary
+			if "hellfire_range" in u:
+				u.hellfire_range += get_upgrade_count(&"soldier_hellfire_range_plus_1")
+			if "hellfire_bonus_damage" in u:
+				u.hellfire_bonus_damage += get_upgrade_count(&"soldier_hellfire_damage_plus_1")
+
+			if "suppress_range" in u:
+				u.suppress_range += get_upgrade_count(&"soldier_suppress_range_plus_1")
+			if "suppress_bonus_damage" in u:
+				u.suppress_bonus_damage += get_upgrade_count(&"soldier_suppress_damage_plus_1")
+			if "suppress_duration" in u:
+				u.suppress_duration += get_upgrade_count(&"soldier_suppress_duration_plus_1")
+			if "suppress_move_penalty" in u:
+				u.suppress_move_penalty += get_upgrade_count(&"soldier_suppress_penalty_plus_1")
+
+		# MERCENARY
 		"MERCENARY":
 			mv += get_upgrade_count(&"merc_move_plus_1")
 			rng += get_upgrade_count(&"merc_range_plus_1")
 			dmg += get_upgrade_count(&"merc_dmg_plus_1")
 
-		# 3) Robodog
+			if "blade_range" in u:
+				u.blade_range += get_upgrade_count(&"merc_blade_range_plus_1")
+			if "blade_bonus_damage" in u:
+				u.blade_bonus_damage += get_upgrade_count(&"merc_blade_damage_plus_1")
+			if "cleave_bonus_damage" in u:
+				u.cleave_bonus_damage += get_upgrade_count(&"merc_cleave_damage_plus_1")
+
+			if "stim_duration" in u:
+				u.stim_duration += get_upgrade_count(&"merc_stim_duration_plus_1")
+			if "stim_move_bonus" in u:
+				u.stim_move_bonus += get_upgrade_count(&"merc_stim_move_plus_1")
+			if "stim_damage_bonus" in u:
+				u.stim_damage_bonus += get_upgrade_count(&"merc_stim_damage_plus_1")
+
+		# ROBODOG
 		"ROBODOG":
 			hp += 2 * get_upgrade_count(&"dog_hp_plus_2")
 			mv += get_upgrade_count(&"dog_move_plus_1")
 			dmg += get_upgrade_count(&"dog_dmg_plus_1")
 
-		# 4) Battleangel
+		# BATTLEANGEL
 		"BATTLEANGEL":
 			hp += get_upgrade_count(&"angel_hp_plus_1")
 			mv += get_upgrade_count(&"angel_move_plus_1")
 			dmg += get_upgrade_count(&"angel_dmg_plus_1")
 
-		# 5) Bladeguard
+		# BLADEGUARD
 		"BLADEGUARD":
 			hp += get_upgrade_count(&"blade_hp_plus_1")
 			mv += get_upgrade_count(&"blade_move_plus_1")
 			dmg += get_upgrade_count(&"blade_dmg_plus_1")
 
-		# 6) Pantherbot
+			if "sunder_range" in u:
+				u.sunder_range += get_upgrade_count(&"blade_sunder_range_plus_1")
+			if "sunder_damage" in u:
+				u.sunder_damage += get_upgrade_count(&"blade_sunder_dmg_plus_1")
+			if "sunder_step_delay" in u:
+				u.sunder_step_delay -= get_upgrade_count(&"blade_sunder_step_delay_dn")
+
+			if "slam_range" in u:
+				u.slam_range += get_upgrade_count(&"blade_slam_range_plus_1")
+			if "slam_radius" in u:
+				u.slam_radius += get_upgrade_count(&"blade_slam_radius_plus_1")
+			if "slam_damage" in u:
+				u.slam_damage += get_upgrade_count(&"blade_slam_dmg_plus_1")
+
+		# PANTHERBOT
 		"PANTHERBOT":
 			mv += get_upgrade_count(&"panther_move_plus_1")
 			dmg += get_upgrade_count(&"panther_dmg_plus_1")
 
-		# 7) Kannon
+			if "pounce_range" in u:
+				u.pounce_range += get_upgrade_count(&"panther_pounce_range_plus_1")
+			if "pounce_damage" in u:
+				u.pounce_damage += get_upgrade_count(&"panther_pounce_damage_plus_1")
+			if "pounce_knockback" in u:
+				u.pounce_knockback += get_upgrade_count(&"panther_pounce_knockback_plus_1")
+
+		# KANNON
 		"KANNON":
 			rng += get_upgrade_count(&"kannon_range_plus_1")
 			dmg += get_upgrade_count(&"kannon_dmg_plus_1")
 
-		# 8) Skimmer
+			if "cannon_damage" in u:
+				u.cannon_damage += get_upgrade_count(&"kannon_cannon_damage_plus_1")
+			if "cannon_range" in u:
+				u.cannon_range += get_upgrade_count(&"kannon_cannon_range_plus_1")
+
+		# SKIMMER
 		"SKIMMER":
 			mv += get_upgrade_count(&"skimmer_move_plus_1")
 			dmg += get_upgrade_count(&"skimmer_dmg_plus_1")
 
-		# 9) Destroyer A.I.
+			if "quake_range" in u:
+				u.quake_range += get_upgrade_count(&"skimmer_quake_range_plus_1")
+			if "quake_damage" in u:
+				u.quake_damage += get_upgrade_count(&"skimmer_quake_damage_plus_1")
+
+		# DESTROYER A.I. (FIXED)
 		"DESTROYER A.I.":
-			hp += get_upgrade_count(&"destroyer_hp_plus_2")
+			hp += 2 * get_upgrade_count(&"destroyer_hp_plus_2")
 			dmg += get_upgrade_count(&"destroyer_dmg_plus_1")
 
-		# 10) Arachnobot
+		# ARACHNOBOT
 		"ARACHNOBOT":
 			hp += get_upgrade_count(&"arachno_hp_plus_1")
 			mv += get_upgrade_count(&"arachno_move_plus_1")
 			dmg += get_upgrade_count(&"arachno_dmg_plus_1")
 
-		# 11) Scannerz
+			if "nova_range" in u:
+				u.nova_range += get_upgrade_count(&"arachno_nova_range_plus_1")
+			if "nova_damage" in u:
+				u.nova_damage += get_upgrade_count(&"arachno_nova_damage_plus_1")
+			if "web_range" in u:
+				u.web_range += get_upgrade_count(&"arachno_web_range_plus_1")
+			if "web_damage" in u:
+				u.web_damage += get_upgrade_count(&"arachno_web_damage_plus_1")
+
+		# SCANNERZ
 		"SCANNERZ":
 			hp += get_upgrade_count(&"scannerz_hp_plus_1")
 			mv += get_upgrade_count(&"scannerz_move_plus_1")
 			dmg += get_upgrade_count(&"scannerz_dmg_plus_1")
-			# NOTE: these are special-specific range upgrades.
-			# They DO NOT affect attack_range unless you explicitly wire them into the unit's special range logic.
-			# Example: u.set_meta("laser_grid_range_bonus", count) etc.
 
-		# 12) Edward
+		# EDWARD
 		"EDWARD":
 			hp += get_upgrade_count(&"edward_hp_plus_1")
 			mv += get_upgrade_count(&"edward_move_plus_1")
 			dmg += get_upgrade_count(&"edward_dmg_plus_1")
-			# NOTE: your edward special range upgrades are still placeholders (<special1>/<special2>)
-			# so nothing else can be applied until you pick the real ids.
 
-		# 13) Decimator
+		# DECIMATOR
 		"DECIMATOR":
 			hp += 2 * get_upgrade_count(&"decimator_hp_plus_2")
 			mv += get_upgrade_count(&"decimator_move_plus_1")
 			dmg += get_upgrade_count(&"decimator_dmg_plus_1")
-			# NOTE: barrage/railgun range upgrades also need unit wiring (special range logic),
-			# they are not generic attack_range.
-			# e.g. u.set_meta("barrage_range_bonus", count), u.set_meta("railgun_range_bonus", count)
 
-		# 14) Cobruh A.I.
+		# COBRUH A.I.
 		"COBRUH A.I.":
 			hp += 2 * get_upgrade_count(&"cobruh_hp_plus_2")
 			dmg += get_upgrade_count(&"cobruh_dmg_plus_1")
+
+		# MARV
+		"MARV":
+			hp += 2 * get_upgrade_count(&"marv_hp_plus_2")
+			mv += get_upgrade_count(&"marv_move_plus_1")
+			dmg += get_upgrade_count(&"marv_dmg_plus_1")
+
+		# ROLLERBOT
+		"ROLLERBOT A.I.":
+			hp += 2 * get_upgrade_count(&"rollerbot_hp_plus_2")
+			if "roll_distance" in u:
+				u.roll_distance += get_upgrade_count(&"rollerbot_roll_plus_1")
 
 	# --- write back ---
 	if "max_hp" in u:
