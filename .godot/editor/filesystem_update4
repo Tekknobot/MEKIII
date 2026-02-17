@@ -26,3 +26,4 @@ res://scripts/car.gd
 res://scripts/map_controller.gd
 res://scenes/squad_deploy_screen.tscn
 res://scripts/squad_deploy_screen.gd
+res://scripts/end_game_panel_runtime.gd

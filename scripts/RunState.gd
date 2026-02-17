@@ -85,6 +85,12 @@ var achievement_stats: Dictionary = {}
 
 var squad_entries: Array = [] # each: {"path": String, "quirks": Array[StringName]}
 
+# -------------------------
+# Post-mission quirk UI payload (NEW)
+# -------------------------
+# Array of { "unit_id": String, "quirk_id": StringName }
+var last_awarded_quirks: Array[Dictionary] = []
+
 # 20 badges mapped to your pilot_icons/icon_01..icon_20
 const ACHIEVEMENT_DEFS: Array[Dictionary] = [
 	# 01-03: kill ladders
@@ -259,6 +265,9 @@ func _roll_starting_quirks(rng: RandomNumberGenerator) -> Array[StringName]:
 	return out
 
 func award_post_mission_quirks(evaced_unit_ids: Array[String]) -> void:
+	# UI payload for EndGamePanelRuntime
+	last_awarded_quirks.clear()
+
 	if evaced_unit_ids.is_empty():
 		return
 
@@ -283,6 +292,12 @@ func award_post_mission_quirks(evaced_unit_ids: Array[String]) -> void:
 					e["quirks"] = qs
 					roster_units[i] = e
 					changed = true
+
+					# ✅ record for end panel
+					last_awarded_quirks.append({
+						"unit_id": uid,
+						"quirk_id": qnew
+					})
 			break
 
 	if changed:
