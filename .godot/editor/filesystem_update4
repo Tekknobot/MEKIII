@@ -36,3 +36,4 @@ res://scripts/ice_zombie.gd
 res://scripts/fire_zombie.gd
 res://scripts/radioactive_zombie.gd
 res://scripts/r_3.gd
+res://scripts/fail_surge_controller.gd

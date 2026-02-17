@@ -26,6 +26,12 @@ class_name TurnManager
 
 var infestation_hud: InfestationHUD = null
 var _game_over_triggered: bool = false
+@export var fail_surge_enabled: bool = true
+
+var _fail_surge: FailSurgeController = null
+var _pending_loss_msg: String = ""
+var _pending_loss_mode: int = 0
+
 # (No import needed in Godot; class_name InfestationHUD will resolve)
 
 var loss_checks_enabled: bool = false
@@ -230,6 +236,16 @@ func _choose_cells(cands: Array[Vector2i], count: int) -> Array[Vector2i]:
 
 func _ready() -> void:
 	end_panel = EndGamePanelRuntime.new()
+
+	# --- FAIL SURGE CONTROLLER (plays before loss panel) ---
+	_fail_surge = FailSurgeController.new()
+	add_child(_fail_surge)
+
+	var cam := (M.camera if (M != null and "camera" in M) else null)
+	_fail_surge.setup(M, cam)
+
+	if not _fail_surge.finished.is_connected(_on_fail_surge_finished):
+		_fail_surge.finished.connect(_on_fail_surge_finished)
 
 	# -------------------------------------------------
 	# Reuse HUD fonts for Mission Failed panel
@@ -1845,29 +1861,55 @@ func game_over(msg: String) -> void:
 	_update_special_buttons()
 	_set_hud_visible(false)
 
-	if end_panel != null and is_instance_valid(end_panel):
-		end_panel.show_loss(msg)
+	# --- If enabled, play surge first, then show loss panel ---
+	if fail_surge_enabled and _fail_surge != null and is_instance_valid(_fail_surge):
+		_pending_loss_msg = msg
+		_pending_loss_mode = int(_loss_mode)
+		_fail_surge.play()
+		return
 
-		if end_panel.continue_button != null:
-			if _loss_mode == LossMode.RESTART_MISSION:
-				end_panel.continue_button.text = "RETRY"
-			else:
-				end_panel.continue_button.text = "MAIN MENU"
-			end_panel.continue_button.disabled = false
+	# Fallback: show immediately (old behavior)
+	_show_loss_panel(msg)
 
-		end_panel._picked = true
+func _on_fail_surge_finished() -> void:
+	if _pending_loss_msg == "":
+		return
 
-		# Disconnect old (prevents stacking)
-		if end_panel.continue_pressed.is_connected(_on_game_over_main_menu):
-			end_panel.continue_pressed.disconnect(_on_game_over_main_menu)
-		if end_panel.continue_pressed.is_connected(_on_game_over_retry):
-			end_panel.continue_pressed.disconnect(_on_game_over_retry)
+	# Restore the loss mode we had when we triggered game_over
+	_loss_mode = _pending_loss_mode
 
-		# Connect correct
+	var msg := _pending_loss_msg
+	_pending_loss_msg = ""
+	_pending_loss_mode = 0
+
+	_show_loss_panel(msg)
+
+func _show_loss_panel(msg: String) -> void:
+	if end_panel == null or not is_instance_valid(end_panel):
+		return
+
+	end_panel.show_loss(msg)
+
+	if end_panel.continue_button != null:
 		if _loss_mode == LossMode.RESTART_MISSION:
-			end_panel.continue_pressed.connect(_on_game_over_retry)
+			end_panel.continue_button.text = "RETRY"
 		else:
-			end_panel.continue_pressed.connect(_on_game_over_main_menu)
+			end_panel.continue_button.text = "MAIN MENU"
+		end_panel.continue_button.disabled = false
+
+	end_panel._picked = true
+
+	# Disconnect old (prevents stacking)
+	if end_panel.continue_pressed.is_connected(_on_game_over_main_menu):
+		end_panel.continue_pressed.disconnect(_on_game_over_main_menu)
+	if end_panel.continue_pressed.is_connected(_on_game_over_retry):
+		end_panel.continue_pressed.disconnect(_on_game_over_retry)
+
+	# Connect correct
+	if _loss_mode == LossMode.RESTART_MISSION:
+		end_panel.continue_pressed.connect(_on_game_over_retry)
+	else:
+		end_panel.continue_pressed.connect(_on_game_over_main_menu)
 
 func _on_game_over_retry() -> void:
 	var tree := get_tree()

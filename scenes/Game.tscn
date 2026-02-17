@@ -1,4 +1,4 @@
-[gd_scene load_steps=107 format=3 uid="uid://bmtwqbsx674eo"]
+[gd_scene load_steps=108 format=3 uid="uid://bmtwqbsx674eo"]
 
 [ext_resource type="Script" uid="uid://bn08mhcoceqg" path="res://scripts/game.gd" id="1_400sg"]
 [ext_resource type="Texture2D" uid="uid://by1nnygq8fbib" path="res://sprites/Terrain/dirt.png" id="6_mcffj"]
@@ -76,6 +76,7 @@
 [ext_resource type="AudioStream" uid="uid://c7b174hb043ra" path="res://audio/SFX/floppy_click.wav" id="59_lktnb"]
 [ext_resource type="PackedScene" uid="uid://fwmvcj5rwlnv" path="res://scenes/threat_tile.tscn" id="64_8fcgb"]
 [ext_resource type="AudioStream" uid="uid://b4lp2xohi5ktg" path="res://audio/SFX/robo_bark.wav" id="66_p3r3h"]
+[ext_resource type="AudioStream" uid="uid://dg6i58j3chf0p" path="res://audio/Zombie/zombie_massacre_vocal_attack_short_02.wav" id="67_wgpx8"]
 
 [sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_g4kob"]
 texture = ExtResource("11_2rd6h")
@@ -398,7 +399,6 @@ script = ExtResource("24_jai3c")
 map_controller_path = NodePath("../MapController")
 end_turn_button_path = NodePath("../UI/EndTurnButton")
 menu_button_path = NodePath("../UI/MenuButton")
-zombie_limit = 48
 infestation_title_font = ExtResource("52_px4p2")
 infestation_body_font = ExtResource("53_x0rj3")
 infestation_button_font = ExtResource("32_1gdd5")
@@ -488,7 +488,8 @@ sfx_streams = {
 "unit_death": ExtResource("41_ho5ir"),
 "unit_hurt": ExtResource("40_27c7x"),
 "volley_fire": ExtResource("44_rm8d8"),
-"web_shoot": ExtResource("58_d6agh")
+"web_shoot": ExtResource("58_d6agh"),
+"zombie_growl": ExtResource("67_wgpx8")
 }
 tnt_unit_splash_damage = 1
 bubble_ui_root_path = NodePath("../UI/Bubbles")
