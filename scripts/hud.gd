@@ -4,6 +4,16 @@ class_name HUD
 @export var unit_card_path: NodePath = NodePath("UnitCard")
 @export var map_controller_group := "MapController"
 
+# -------------------------
+# Portrait quirk tiers (A) + shader anim (B)
+# -------------------------
+@export var quirtier_folder: String = "res://sprites/Portraits/QuirkTiers"
+@export var use_portrait_quirk_tiers: bool = true
+@export var use_portrait_quirk_shader: bool = true
+
+# Optional: assign in Inspector, or we’ll create it at runtime
+@export var portrait_quirk_shader: Shader = null
+
 @export var quirk_pill_font: Font
 @export var quirk_pill_font_size: int = 14
 
@@ -66,6 +76,7 @@ func _ready() -> void:
 		M.connect("selection_changed", Callable(self, "_on_selection_changed"))
 		
 	_apply_tooltip_theme()	
+	_ensure_portrait_shader()
 
 func _apply_tooltip_theme() -> void:
 	if _unit_card == null:
@@ -261,7 +272,15 @@ func _refresh() -> void:
 		_unit_card.visible = false
 		return
 
-	_portrait.texture = _unit.get_portrait_texture()
+	var qc := _unit_quirk_count(_unit)
+
+	# Option A: swap portrait texture based on quirk tiers
+	_portrait.texture = _portrait_texture_for_tier(_unit, qc)
+
+	# Option B: shader animation intensity scales with quirk count
+	_ensure_portrait_shader()
+	_set_portrait_quirk_intensity(qc)
+
 	_name.text = _unit.get_display_name()
 
 	# HP
@@ -378,3 +397,116 @@ func _unbind_unit_quirk_signal(u: Unit) -> void:
 func _on_unit_quirk_triggered(quirk_id: StringName, label: String, color: Color) -> void:
 	hud_pulse_quirk(quirk_id, label, color)
 	_world_float_text(label, color)
+
+func _unit_quirk_count(u: Unit) -> int:
+	if u == null or not is_instance_valid(u):
+		return 0
+	if u.has_meta(&"quirks"):
+		var qs: Array = u.get_meta(&"quirks", [])
+		return clampi(qs.size(), 0, 3)
+	return 0
+
+
+func _portrait_path_for_tier(base_tex: Texture2D, qcount: int) -> String:
+	# We assume your tier files are named like: dog_port_q0.png ... dog_port_q3.png
+	# and stored in quirtier_folder.
+	if base_tex == null:
+		return ""
+
+	var rp := base_tex.resource_path
+	if rp == "":
+		return ""
+
+	var stem := rp.get_file().get_basename()  # e.g. "dog_port"
+	var p := "%s/%s_q%d.png" % [quirtier_folder, stem, clampi(qcount, 0, 3)]
+	return p
+
+
+func _portrait_texture_for_tier(u: Unit, qcount: int) -> Texture2D:
+	var base := u.get_portrait_texture()
+	if not use_portrait_quirk_tiers:
+		return base
+
+	var p := _portrait_path_for_tier(base, qcount)
+	if p != "" and ResourceLoader.exists(p):
+		return load(p)
+
+	# fallback: if file not found, just use base
+	return base
+
+
+func _ensure_portrait_shader() -> void:
+	if not use_portrait_quirk_shader:
+		_portrait.material = null
+		return
+
+	# If already set to a ShaderMaterial, keep it
+	if _portrait.material is ShaderMaterial:
+		return
+
+	# Use provided shader if assigned, otherwise create a default one
+	var sh := portrait_quirk_shader
+	if sh == null:
+		sh = Shader.new()
+		sh.code = """
+		
+shader_type canvas_item;
+
+uniform float quirk_intensity : hint_range(0.0,1.0) = 0.0;
+
+void fragment() {
+	vec2 uv = UV;
+
+	// =========================
+	// GLITCH OFFSET
+	// =========================
+	float glitch_tick = step(0.96, fract(sin(TIME*7.0)*43758.5));
+	float glitch_shift = glitch_tick * 0.02 * quirk_intensity;
+	uv.x += glitch_shift;
+
+	// =========================
+	// CHROMATIC SPLIT (pixel safe)
+	// =========================
+	vec2 offset = vec2(0.003 * quirk_intensity, 0.0);
+
+	float r = texture(TEXTURE, uv + offset).r;
+	float g = texture(TEXTURE, uv).g;
+	float b = texture(TEXTURE, uv - offset).b;
+
+	vec4 col = vec4(r, g, b, texture(TEXTURE, uv).a);
+
+	// =========================
+	// SCANLINES (stronger)
+	// =========================
+	float scan = sin((uv.y + TIME*3.0) * 160.0);
+	col.rgb -= scan * 0.08 * quirk_intensity;
+
+	// =========================
+	// PULSE BRIGHTNESS
+	// =========================
+	float pulse = sin(TIME*5.0) * 0.08 * quirk_intensity;
+	col.rgb += pulse;
+
+	// =========================
+	// ANOMALY GREEN EMISSION
+	// =========================
+	col.rgb += vec3(0.0, 0.9, 0.45) * 0.25 * quirk_intensity;
+
+	COLOR = col;
+}
+
+"""
+		portrait_quirk_shader = sh
+
+	var mat := ShaderMaterial.new()
+	mat.shader = sh
+	_portrait.material = mat
+
+
+func _set_portrait_quirk_intensity(qcount: int) -> void:
+	if not use_portrait_quirk_shader:
+		return
+	var mat := _portrait.material as ShaderMaterial
+	if mat == null:
+		return
+	mat.set_shader_parameter("quirk_intensity", float(clampi(qcount, 0, 3)) / 3.0)

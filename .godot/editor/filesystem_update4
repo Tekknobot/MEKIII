@@ -28,3 +28,4 @@ res://scenes/squad_deploy_screen.tscn
 res://scripts/squad_deploy_screen.gd
 res://scripts/end_game_panel_runtime.gd
 res://scripts/unit.gd
+res://scripts/hud.gd

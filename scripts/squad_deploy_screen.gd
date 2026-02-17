@@ -4,6 +4,15 @@ extends Control
 @export var game_scene: PackedScene
 @export var title_scene_path: String = "res://scenes/title_screen.tscn"
 
+# -------------------------
+# Portrait quirk tiers (A) + shader anim (B)
+# -------------------------
+@export var portrait_tier_folder: String = "res://sprites/Portraits/QuirkTiers"
+@export var use_portrait_quirk_tiers: bool = true
+@export var use_portrait_quirk_shader: bool = true
+@export var portrait_quirk_shader: Shader = null
+
+
 # -------------------------------------------------------
 # Badge UI styling
 # -------------------------------------------------------
@@ -436,6 +445,10 @@ func _rebuild_roster_ui() -> void:
 		if card.has_method("set_data"):
 			card.call("set_data", data)
 
+		# ✅ Option B: shader anim intensity based on quirks
+		var qc := _quirk_count_from_data(data)
+		_apply_portrait_shader_to_card(card, qc)
+
 		var locked := bool(data.get("locked", false))
 		var ui_id := str(data.get("id", ""))
 
@@ -539,12 +552,16 @@ func _rebuild_squad_ui() -> void:
 
 			if card.has_method("set_data"):
 				card.call("set_data", d)
+
+				# ✅ ADD THIS BLOCK RIGHT HERE (after set_data)
+				var qc := _quirk_count_from_data(d)  # 0..3
+				_apply_portrait_shader_to_card(card, qc)
+
 			if card.has_method("set_selected"):
 				card.call("set_selected", true)
 
 			if card is BaseButton:
 				var b := card as BaseButton
-				# ✅ capture-safe: stores i at connect-time
 				b.pressed.connect(Callable(self, "_on_squad_slot_pressed").bind(i))
 		else:
 			var empty := unit_card_scene.instantiate()
@@ -648,6 +665,10 @@ func _build_roster_async() -> void:
 		data["owned_id"] = owned_id        # ✅ REAL RunState roster_units id
 		data["path"] = p
 		data["quirks"] = e.get("quirks", [])
+
+		# ✅ Option A: swap portrait to tiered version based on quirk count
+		var qc := _quirk_count_from_data(data)
+		data["portrait"] = _tier_texture_from_portrait(data.get("portrait", null), qc)
 
 		_apply_quirks_to_card_data(data)
 
@@ -930,3 +951,105 @@ func _on_squad_slot_pressed(slot_i: int) -> void:
 		return
 	_selected.remove_at(slot_i)
 	_refresh_all()
+
+func _quirk_count_from_data(d: Dictionary) -> int:
+	var qs: Array = d.get("quirks", [])
+	return clampi(qs.size(), 0, 3)
+
+
+func _tier_texture_from_portrait(base_tex: Texture2D, qcount: int) -> Texture2D:
+	if not use_portrait_quirk_tiers:
+		return base_tex
+	if base_tex == null:
+		return null
+
+	var rp := base_tex.resource_path
+	if rp == "":
+		return base_tex
+
+	var stem := rp.get_file().get_basename() # "dog_port"
+	var path := "%s/%s_q%d.png" % [portrait_tier_folder, stem, clampi(qcount, 0, 3)]
+	if ResourceLoader.exists(path):
+		return load(path)
+
+	return base_tex
+
+
+func _ensure_portrait_shader() -> Shader:
+	if portrait_quirk_shader != null:
+		return portrait_quirk_shader
+
+	var sh := Shader.new()
+	sh.code = """
+		
+shader_type canvas_item;
+
+uniform float quirk_intensity : hint_range(0.0,1.0) = 0.0;
+
+void fragment() {
+	vec2 uv = UV;
+
+	// =========================
+	// GLITCH OFFSET
+	// =========================
+	float glitch_tick = step(0.96, fract(sin(TIME*7.0)*43758.5));
+	float glitch_shift = glitch_tick * 0.02 * quirk_intensity;
+	uv.x += glitch_shift;
+
+	// =========================
+	// CHROMATIC SPLIT (pixel safe)
+	// =========================
+	vec2 offset = vec2(0.003 * quirk_intensity, 0.0);
+
+	float r = texture(TEXTURE, uv + offset).r;
+	float g = texture(TEXTURE, uv).g;
+	float b = texture(TEXTURE, uv - offset).b;
+
+	vec4 col = vec4(r, g, b, texture(TEXTURE, uv).a);
+
+	// =========================
+	// SCANLINES (stronger)
+	// =========================
+	float scan = sin((uv.y + TIME*3.0) * 160.0);
+	col.rgb -= scan * 0.08 * quirk_intensity;
+
+	// =========================
+	// PULSE BRIGHTNESS
+	// =========================
+	float pulse = sin(TIME*5.0) * 0.08 * quirk_intensity;
+	col.rgb += pulse;
+
+	// =========================
+	// ANOMALY GREEN EMISSION
+	// =========================
+	col.rgb += vec3(0.0, 0.9, 0.45) * 0.25 * quirk_intensity;
+
+	COLOR = col;
+}
+
+"""
+	portrait_quirk_shader = sh
+	return sh
+
+
+func _apply_portrait_shader_to_card(card: Node, qcount: int) -> void:
+	if not use_portrait_quirk_shader:
+		return
+	if card == null or not is_instance_valid(card):
+		return
+
+	# Try the same portrait node path you use in HUD’s UnitCard
+	var tr := card.get_node_or_null("Margin/Row/PortraitFrame/Portrait") as TextureRect
+	if tr == null:
+		# fallback if your UnitCard layout differs
+		tr = card.get_node_or_null("Portrait") as TextureRect
+	if tr == null:
+		return
+
+	var mat := tr.material as ShaderMaterial
+	if mat == null:
+		mat = ShaderMaterial.new()
+		mat.shader = _ensure_portrait_shader()
+		tr.material = mat
+
+	mat.set_shader_parameter("quirk_intensity", float(clampi(qcount, 0, 3)) / 3.0)
