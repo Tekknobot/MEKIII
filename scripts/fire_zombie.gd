@@ -133,6 +133,19 @@ func _mark_burning(M: Node, c: Vector2i, turns: int) -> void:
 # Static tick: damage allies standing on burning tiles,
 # then decrement & expire. Call this at phase start.
 # ---------------------------------------------------------
+static func _round_stamp_from_map(M: Node) -> int:
+	# best-effort: uses MapController.TM.round_index if present
+	var stamp := 0
+	var tm = M.get("TM") if M != null and M.has_method("get") else null
+	if tm != null and is_instance_valid(tm) and ("round_index" in tm):
+		stamp = int(tm.round_index)
+	return stamp
+
+static func _pulse_quirk(u: Unit, qid: StringName) -> void:
+	# HUD listens to quirk_triggered and you already removed floating text there
+	if u != null and is_instance_valid(u) and u.has_signal("quirk_triggered"):
+		u.emit_signal("quirk_triggered", qid, "", Color.WHITE)
+
 static func fire_tiles_tick(M: Node) -> void:
 	if M == null or not is_instance_valid(M):
 		return
@@ -145,13 +158,9 @@ static func fire_tiles_tick(M: Node) -> void:
 	if not (tiles is Dictionary):
 		return
 
-	# Round stamp for "once per turn" logic
-	var stamp := 0
-	var tm = M.get("TM") if M.has_method("get") else null
-	if tm != null and is_instance_valid(tm) and ("round_index" in tm):
-		stamp = int(tm.round_index)
+	var stamp := _round_stamp_from_map(M)
 
-	# 1) Damage allies standing on burning tiles (with quirk checks)
+	# 1) Damage allies standing on burning tiles
 	if M.has_method("get_all_units"):
 		for u in M.call("get_all_units"):
 			if u == null or not is_instance_valid(u):
@@ -164,27 +173,49 @@ static func fire_tiles_tick(M: Node) -> void:
 				continue
 
 			# -------------------------
-			# QUIRKS: tile fire immunity
+			# QUIRKS: FIRE tile handling
 			# -------------------------
-			# Hazard Nullifier: ignore FIRE tile damage
+
+			# ANOM: ignore fire tile damage
 			if _u_has_quirk(u, &"hazard_nullifier"):
-				if u.has_signal("quirk_triggered"):
-					u.emit_signal("quirk_triggered", &"hazard_nullifier", "", Color.WHITE)
+				_pulse_quirk(u, &"hazard_nullifier")
 				continue
 
-			# Fireproof Coating: first FIRE tile damage each round is 0
+			# First fire tile damage each round is 0
 			if _u_has_quirk(u, &"fireproof_coating"):
 				var last_stamp := int(u.get_meta(&"q_fireproof_stamp", -999))
 				if last_stamp != stamp:
 					u.set_meta(&"q_fireproof_stamp", stamp)
 					u.set_meta(&"q_fireproof_used", false)
 
-				var used := bool(u.get_meta(&"q_fireproof_used", false))
-				if not used:
+				if not bool(u.get_meta(&"q_fireproof_used", false)):
 					u.set_meta(&"q_fireproof_used", true)
-					if u.has_signal("quirk_triggered"):
-						u.emit_signal("quirk_triggered", &"fireproof_coating", "", Color.WHITE)
+					_pulse_quirk(u, &"fireproof_coating")
 					continue
+
+			# If we got here, FIRE damage is actually happening this tick
+			# Thermal Vents: when fire damages you, clear chilled + +1 dmg next turn
+			if _u_has_quirk(u, &"thermal_vents"):
+				if int(u.get_meta(&"chilled_turns", 0)) > 0:
+					u.set_meta(&"chilled_turns", 0)
+
+				var st := int(u.get_meta(&"stim_turns", 0))
+				var cur := int(u.get_meta(&"stim_damage_bonus", 0))
+				u.set_meta(&"stim_turns", max(st, 1))
+				u.set_meta(&"stim_damage_bonus", cur + 1)
+
+				_pulse_quirk(u, &"thermal_vents")
+
+			# ANOM: Melt Systems — fire clears chilled + heal 1 (still takes damage unless you want otherwise)
+			if _u_has_quirk(u, &"melt_systems"):
+				if int(u.get_meta(&"chilled_turns", 0)) > 0:
+					u.set_meta(&"chilled_turns", 0)
+
+				# Heal 1 (up to max)
+				if "hp" in u and "max_hp" in u:
+					u.hp = clampi(int(u.hp) + 1, 0, int(u.max_hp))
+
+				_pulse_quirk(u, &"melt_systems")
 
 			# Apply fire tile damage
 			if M.has_method("_flash_unit_white"):
@@ -198,7 +229,7 @@ static func fire_tiles_tick(M: Node) -> void:
 			else:
 				u.hp = max(0, u.hp - dmg)
 
-	# 2) Decrement & expire
+	# 2) Decrement & expire tiles
 	var to_erase: Array[Vector2i] = []
 	for c in tiles.keys():
 		tiles[c] = int(tiles[c]) - 1

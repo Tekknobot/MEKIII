@@ -142,6 +142,17 @@ func _mark_contaminated(M: Node, c: Vector2i, turns: int) -> void:
 # Static helper you can call from TurnManager each round
 # Decrements contamination and damages allies on contaminated tiles
 # ---------------------------------------------------------
+static func _round_stamp_from_map(M: Node) -> int:
+	var stamp := 0
+	var tm = M.get("TM") if M != null and M.has_method("get") else null
+	if tm != null and is_instance_valid(tm) and ("round_index" in tm):
+		stamp = int(tm.round_index)
+	return stamp
+
+static func _pulse_quirk(u: Unit, qid: StringName) -> void:
+	if u != null and is_instance_valid(u) and u.has_signal("quirk_triggered"):
+		u.emit_signal("quirk_triggered", qid, "", Color.WHITE)
+
 static func contam_tick(M: Node) -> void:
 	if M == null or not is_instance_valid(M):
 		return
@@ -154,7 +165,9 @@ static func contam_tick(M: Node) -> void:
 	if not (contam is Dictionary):
 		return
 
-	# 1) Damage allies standing on contaminated tiles (with quirk checks)
+	var stamp := _round_stamp_from_map(M)
+
+	# 1) Damage allies standing on contaminated tiles
 	if M.has_method("get_all_units"):
 		for u in M.call("get_all_units"):
 			if u == null or not is_instance_valid(u):
@@ -167,21 +180,37 @@ static func contam_tick(M: Node) -> void:
 				continue
 
 			# -------------------------
-			# QUIRKS: tile radiation immunity
+			# QUIRKS: RAD tile handling
 			# -------------------------
-			# Hazard Nullifier: ignore RAD contam tile damage
+
+			# Rad Overdrive: first time you are on rad contam each round => +2 Move next turn
+			# (Triggers even if damage is scrubbed/nullified)
+			if _u_has_quirk(u, &"rad_overdrive"):
+				var last := int(u.get_meta(&"q_rad_overdrive_stamp", -999))
+				if last != stamp:
+					u.set_meta(&"q_rad_overdrive_stamp", stamp)
+					u.set_meta(&"q_rad_overdrive_used", false)
+
+				if not bool(u.get_meta(&"q_rad_overdrive_used", false)):
+					u.set_meta(&"q_rad_overdrive_used", true)
+
+					# Uses your "quirk move bonus" meta (the one you patched into Unit.get_move_range)
+					u.set_meta(&"q_move_turns", 1)
+					u.set_meta(&"q_move_bonus", 2)
+
+					_pulse_quirk(u, &"rad_overdrive")
+
+			# ANOM: ignore rad tile damage
 			if _u_has_quirk(u, &"hazard_nullifier"):
-				if u.has_signal("quirk_triggered"):
-					u.emit_signal("quirk_triggered", &"hazard_nullifier", "", Color.WHITE)
+				_pulse_quirk(u, &"hazard_nullifier")
 				continue
 
-			# Rad Scrubber: ignore RAD contam tile damage
+			# Rad Scrubber: ignore rad tile damage
 			if _u_has_quirk(u, &"rad_scrubber"):
-				if u.has_signal("quirk_triggered"):
-					u.emit_signal("quirk_triggered", &"rad_scrubber", "", Color.WHITE)
+				_pulse_quirk(u, &"rad_scrubber")
 				continue
 
-			# Apply rad contam tile damage
+			# Apply rad tile damage
 			if M.has_method("_flash_unit_white"):
 				M.call("_flash_unit_white", u, 0.10)
 
@@ -199,12 +228,10 @@ static func contam_tick(M: Node) -> void:
 		contam[c] = int(contam[c]) - 1
 		if int(contam[c]) <= 0:
 			to_erase.append(c)
-
 	for c in to_erase:
 		contam.erase(c)
 
 	M.set_meta(key, contam)
 
-	# 3) Refresh visuals
 	if M.has_method("_rad_refresh_visuals"):
 		M.call("_rad_refresh_visuals")
