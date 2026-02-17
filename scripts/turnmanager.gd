@@ -1591,6 +1591,7 @@ func _on_sunder_pressed() -> void:
 func _tick_buffs_enemy_phase_start() -> void:
 	var changed := false
 
+
 	for u in M.get_all_units():
 		if u == null or not is_instance_valid(u):
 			continue
@@ -1598,6 +1599,21 @@ func _tick_buffs_enemy_phase_start() -> void:
 		# tick elite special cooldowns
 		if u is EliteMech:
 			(u as EliteMech).tick_cooldowns()
+
+		# -------------------------
+		# QUIRK temp move bonus tick
+		# -------------------------
+		if u.has_meta(&"q_move_turns"):
+			var qt := int(u.get_meta(&"q_move_turns", 0))
+			if qt > 0:
+				qt -= 1
+				u.set_meta(&"q_move_turns", qt)
+				changed = true
+			if qt <= 0:
+				u.set_meta(&"q_move_turns", 0)
+				u.set_meta(&"q_move_bonus", 0)
+				changed = true
+		
 			
 		# Stim ticks down on ENEMY phase start
 		if u.has_meta("stim_turns"):

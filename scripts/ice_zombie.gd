@@ -86,19 +86,58 @@ func _apply_chill_aura(M: Node) -> void:
 				M.call("_refresh_chill_visuals_for_unit", u)
 
 
+func _u_has_quirk(u: Unit, qid: StringName) -> bool:
+	if u == null or not is_instance_valid(u):
+		return false
+	if not u.has_meta(&"quirks"):
+		return false
+	var qs: Array = u.get_meta(&"quirks", [])
+	for v in qs:
+		if StringName(str(v)) == qid:
+			return true
+	return false
+
 func _apply_chill(u: Unit, turns: int) -> void:
 	# Store a simple debuff in metadata.
 	# Your movement/turn code should read this and reduce move_range accordingly.
+
+	if u == null or not is_instance_valid(u):
+		return
+
 	var cur := int(u.get_meta(&"chilled_turns", 0))
-	u.set_meta(&"chilled_turns", max(cur, turns))
+
+	# apply base duration (but never reduce an existing stronger chill)
+	var applied = max(cur, turns)
+
+	# --------------------------
+	# QUIRKS: chill reactions
+	# --------------------------
+	# Cryo Insulation: reduce incoming chilled by 1 (min 0)
+	if _u_has_quirk(u, &"cryo_insulation"):
+		# only reduce if we are actually applying/increasing chill
+		if applied > cur:
+			applied = max(0, applied - 1)
+
+	# write back
+	u.set_meta(&"chilled_turns", applied)
 
 	# ✅ Achievement: Get Chilled (first time only)
-	if cur <= 0 and u.team == Unit.Team.ALLY:
+	if cur <= 0 and applied > 0 and u.team == Unit.Team.ALLY:
 		var rs := get_node_or_null("/root/RunStateNode")
 		if rs == null:
 			rs = get_node_or_null("/root/RunState")
 		if rs != null and rs.has_method("unlock_achievement"):
 			rs.unlock_achievement("ice_cold")
+
+	# Iceblood: if chill was applied/increased, +1 damage next turn
+	if applied > cur and applied > 0 and _u_has_quirk(u, &"iceblood"):
+		u.set_meta(&"stim_turns", 1)
+		u.set_meta(&"stim_damage_bonus", 1)
+
+	# Refresh visuals immediately (so you see it)
+	var M := get_tree().get_first_node_in_group("MapController")
+	if M != null and M.has_method("_refresh_chill_visuals_for_unit"):
+		M.call("_refresh_chill_visuals_for_unit", u)
 			
 func _mark_ice_tile(M: Node, c: Vector2i, turns: int) -> void:
 	# MapController meta: cell -> remaining turns

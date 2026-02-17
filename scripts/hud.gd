@@ -25,6 +25,48 @@ class_name HUD
 @export var quirk_pill_pad_x: int = 10
 @export var quirk_pill_pad_y: int = 5
 
+const TAG_COLORS := {
+	"MOVE": Color(0.45, 1.0, 0.55),
+	"ATK":  Color(1.0, 0.55, 0.25),
+	"DEF":  Color(0.45, 0.85, 1.0),
+	"HAZ":  Color(0.55, 1.0, 0.45),
+	"RISK": Color(1.0, 0.30, 0.30),
+	"ANOM": Color(0.75, 0.55, 1.0),
+	"TEAM": Color(0.65, 1.0, 0.85),
+	"KILL": Color(1.0, 0.35, 0.35),
+}
+
+func _quirk_desc_to_bbcode(desc: String) -> String:
+	# expects desc like: "HAZ ATK When FIRE damages you..."
+	desc = desc.strip_edges()
+	if desc == "":
+		return ""
+
+	var words := desc.split(" ", false)
+	if words.is_empty():
+		return desc
+
+	var i := 0
+	var out := ""
+
+	# color up to 2 leading tag words
+	for _k in range(2):
+		if i >= words.size():
+			break
+		var tag := words[i].to_upper()
+		if TAG_COLORS.has(tag):
+			var hex = TAG_COLORS[tag].to_html()
+			out += "[color=%s][b]%s[/b][/color] " % [hex, tag]
+			i += 1
+		else:
+			break
+
+	if i < words.size():
+		out += " ".join(words.slice(i, words.size()))
+
+	return out
+
+
 # ✅ Tooltip style (non-black, “your style”)
 @export var tooltip_bg_color: Color = Color("0B1F24")
 @export var tooltip_border_color: Color = Color("3CFFB2")
@@ -111,11 +153,120 @@ func _apply_tooltip_theme() -> void:
 
 	_unit_card.theme = t
 
+class QuirkPill extends PanelContainer:
+	var tooltip_title: String = ""
+	var tooltip_desc: String = ""
+	var tooltip_font: Font = null
+	var tooltip_font_size: int = 14
+	var tooltip_text_color: Color = Color("DFFFEF")
 
-func _make_quirk_pill(text: String, quirk_color: Color, tooltip: String) -> Control:
-	var pill := PanelContainer.new()
+	# Provide tag colors from HUD (we'll pass them in)
+	var tag_colors: Dictionary = {}
+
+	func _make_custom_tooltip(_for_text: String) -> Object:
+		var panel := PanelContainer.new()
+		panel.set_anchors_and_offsets_preset(Control.PRESET_TOP_LEFT)
+		panel.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+		panel.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
+		panel.custom_minimum_size = Vector2(320, 0) # <- gives it a sane width so it doesn't look "tiny"
+
+		# Style directly (no theme-variation surprises)
+		var sb := StyleBoxFlat.new()
+		sb.bg_color = Color("0B1F24")
+		# no border here (the tooltip popup already frames it)
+		sb.border_color = Color(0, 0, 0, 0)
+		sb.set_border_width_all(0)
+		sb.set_corner_radius_all(8) # keep subtle rounding
+		sb.content_margin_left = 10
+		sb.content_margin_right = 10
+		sb.content_margin_top = 8
+		sb.content_margin_bottom = 8
+		panel.add_theme_stylebox_override("panel", sb)
+
+		var v := VBoxContainer.new()
+		v.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+		v.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
+		v.add_theme_constant_override("separation", 6)
+		panel.add_child(v)
+
+		# --- Title label ---
+		var title_lbl := Label.new()
+		title_lbl.text = tooltip_title
+		title_lbl.autowrap_mode = TextServer.AUTOWRAP_OFF
+		title_lbl.modulate = tooltip_text_color
+		title_lbl.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+
+		if tooltip_font != null:
+			title_lbl.add_theme_font_override("font", tooltip_font)
+			title_lbl.add_theme_font_size_override("font_size", tooltip_font_size)
+
+		# Make title feel bold-ish without requiring a bold font
+		title_lbl.add_theme_color_override("font_outline_color", Color.BLACK)
+		title_lbl.add_theme_constant_override("outline_size", 1)
+
+		v.add_child(title_lbl)
+
+		# --- Desc row: [colored tags] + rest ---
+		var h := HBoxContainer.new()
+		h.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		h.add_theme_constant_override("separation", 6)
+		v.add_child(h)
+
+		# Parse up to 2 tag words at start
+		var desc := tooltip_desc.strip_edges()
+		var words := desc.split(" ", false)
+		var i := 0
+		for _k in range(2):
+			if i >= words.size():
+				break
+			var tag := words[i].to_upper()
+			if tag_colors.has(tag):
+				var tag_lbl := Label.new()
+				tag_lbl.text = tag
+				tag_lbl.modulate = tag_colors[tag]
+				tag_lbl.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+				if tooltip_font != null:
+					tag_lbl.add_theme_font_override("font", tooltip_font)
+					tag_lbl.add_theme_font_size_override("font_size", tooltip_font_size)
+				h.add_child(tag_lbl)
+				i += 1
+			else:
+				break
+
+		# Rest of description
+		var rest := ""
+		if i < words.size():
+			rest = " ".join(words.slice(i, words.size()))
+
+		var desc_lbl := Label.new()
+		desc_lbl.text = rest
+		desc_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		desc_lbl.modulate = tooltip_text_color
+		desc_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		desc_lbl.custom_minimum_size.x = 260
+
+		if tooltip_font != null:
+			desc_lbl.add_theme_font_override("font", tooltip_font)
+			desc_lbl.add_theme_font_size_override("font_size", tooltip_font_size)
+
+		h.add_child(desc_lbl)
+
+		panel.reset_size()
+		return panel
+
+func _make_quirk_pill(title_text: String, quirk_color: Color, tip_title: String, tip_desc: String) -> Control:
+	var pill := QuirkPill.new()
 	pill.mouse_filter = Control.MOUSE_FILTER_STOP
-	pill.tooltip_text = tooltip
+
+	# MUST be non-empty so Godot requests the custom tooltip
+	pill.tooltip_text = "x"
+
+	pill.tooltip_title = tip_title
+	pill.tooltip_desc = tip_desc
+	pill.tooltip_font = quirk_pill_font
+	pill.tooltip_font_size = quirk_pill_font_size
+	pill.tooltip_text_color = tooltip_text_color
+	pill.tag_colors = TAG_COLORS
 
 	var sb := StyleBoxFlat.new()
 	sb.bg_color = quirk_color * quirk_pill_bg_mul
@@ -129,11 +280,11 @@ func _make_quirk_pill(text: String, quirk_color: Color, tooltip: String) -> Cont
 	sb.content_margin_right = quirk_pill_pad_x
 	sb.content_margin_top = quirk_pill_pad_y
 	sb.content_margin_bottom = quirk_pill_pad_y
-
 	pill.add_theme_stylebox_override("panel", sb)
 
+	# ✅ pill shows NAME ONLY
 	var lbl := Label.new()
-	lbl.text = text
+	lbl.text = title_text
 	lbl.modulate = quirk_pill_text_color
 	lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
@@ -143,7 +294,6 @@ func _make_quirk_pill(text: String, quirk_color: Color, tooltip: String) -> Cont
 		lbl.add_theme_font_size_override("font_size", quirk_pill_font_size)
 
 	pill.add_child(lbl)
-	
 	return pill
 
 func set_unit(u: Unit) -> void:
@@ -231,12 +381,16 @@ func _render_extras(u):
 				var desc := str(d.get("desc", ""))
 
 				var col := QuirkDB.get_color(id)
-				var tip := "%s\n%s" % [title, desc]
 
-				var pill := _make_quirk_pill(title, col, tip)
+				# pill shows colored tag + short text (desc)
+				var pill_text := _quirk_desc_to_bbcode(desc)
+
+				# tooltip still shows title + full desc
+				var pill := _make_quirk_pill(title, col, title, desc)
+				
 				flow.add_child(pill)
 				_quirk_pill_by_id[id] = pill
-		
+
 			row.add_child(key_lbl)
 			row.add_child(flow)
 			extras_box.add_child(row)
@@ -293,6 +447,9 @@ func _refresh() -> void:
 	_move_val.text  = str(_unit.get_move_range())
 	_range_val.text = str(_unit.attack_range)
 	_dmg_val.text   = str(_unit.get_attack_damage())
+	
+	_pulse_if_buff_active(_unit)
+
 
 func _on_unit_died(_u: Unit) -> void:
 	set_unit(null)
@@ -393,10 +550,27 @@ func _unbind_unit_quirk_signal(u: Unit) -> void:
 	if u.has_signal("quirk_triggered") and u.is_connected("quirk_triggered", cb):
 		u.disconnect("quirk_triggered", cb)
 
-
 func _on_unit_quirk_triggered(quirk_id: StringName, label: String, color: Color) -> void:
-	hud_pulse_quirk(quirk_id, label, color)
-	_world_float_text(label, color)
+	# ✅ pill pulse only — no floating text
+	hud_pulse_quirk(quirk_id)
+
+var _last_pulse_stamp: int = -999
+
+func _pulse_if_buff_active(u: Unit) -> void:
+	if u == null or not is_instance_valid(u):
+		return
+
+	# throttle: pulse at most every 0.35s
+	var stamp := int(Time.get_ticks_msec() / 350)
+	if stamp == _last_pulse_stamp:
+		return
+
+	# Iceblood: stim damage buff active
+	var st := int(u.get_meta(&"stim_turns", 0))
+	var bonus := int(u.get_meta(&"stim_damage_bonus", 0))
+	if st > 0 and bonus > 0:
+		_last_pulse_stamp = stamp
+		hud_pulse_quirk(&"iceblood")
 
 func _unit_quirk_count(u: Unit) -> int:
 	if u == null or not is_instance_valid(u):

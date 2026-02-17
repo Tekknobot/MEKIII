@@ -38,10 +38,21 @@ func _ready() -> void:
 	if ci != null:
 		ci.modulate = ci.modulate.lerp(Color(1.0, 0.55, 0.15, 1.0), fire_glow_strength)
 
+static func _u_has_quirk(u: Unit, qid: StringName) -> bool:
+	if u == null or not is_instance_valid(u):
+		return false
+	if not u.has_meta(&"quirks"):
+		return false
+	var want := String(qid)
+	var qs: Array = u.get_meta(&"quirks", [])
+	for v in qs:
+		if String(v) == want:
+			return true
+	return false
+
 # ---------------------------------------------------------
 # Hooks you call from TurnManager / MapController
 # ---------------------------------------------------------
-
 # Call once per enemy phase (recommended: start of enemy phase)
 func fire_tick(M: Node) -> void:
 	if not _fire_active:
@@ -134,7 +145,13 @@ static func fire_tiles_tick(M: Node) -> void:
 	if not (tiles is Dictionary):
 		return
 
-	# 1) Damage allies standing on burning tiles
+	# Round stamp for "once per turn" logic
+	var stamp := 0
+	var tm = M.get("TM") if M.has_method("get") else null
+	if tm != null and is_instance_valid(tm) and ("round_index" in tm):
+		stamp = int(tm.round_index)
+
+	# 1) Damage allies standing on burning tiles (with quirk checks)
 	if M.has_method("get_all_units"):
 		for u in M.call("get_all_units"):
 			if u == null or not is_instance_valid(u):
@@ -143,17 +160,43 @@ static func fire_tiles_tick(M: Node) -> void:
 				continue
 			if u.team != Unit.Team.ALLY:
 				continue
-			if tiles.has(u.cell):
-				if M.has_method("_flash_unit_white"):
-					M.call("_flash_unit_white", u, 0.10)
+			if not tiles.has(u.cell):
+				continue
 
-				var dmg := 1
-				if u.has_method("apply_damage"):
-					u.call("apply_damage", dmg)
-				elif u.has_method("take_damage"):
-					u.call("take_damage", dmg)
-				else:
-					u.hp = max(0, u.hp - dmg)
+			# -------------------------
+			# QUIRKS: tile fire immunity
+			# -------------------------
+			# Hazard Nullifier: ignore FIRE tile damage
+			if _u_has_quirk(u, &"hazard_nullifier"):
+				if u.has_signal("quirk_triggered"):
+					u.emit_signal("quirk_triggered", &"hazard_nullifier", "", Color.WHITE)
+				continue
+
+			# Fireproof Coating: first FIRE tile damage each round is 0
+			if _u_has_quirk(u, &"fireproof_coating"):
+				var last_stamp := int(u.get_meta(&"q_fireproof_stamp", -999))
+				if last_stamp != stamp:
+					u.set_meta(&"q_fireproof_stamp", stamp)
+					u.set_meta(&"q_fireproof_used", false)
+
+				var used := bool(u.get_meta(&"q_fireproof_used", false))
+				if not used:
+					u.set_meta(&"q_fireproof_used", true)
+					if u.has_signal("quirk_triggered"):
+						u.emit_signal("quirk_triggered", &"fireproof_coating", "", Color.WHITE)
+					continue
+
+			# Apply fire tile damage
+			if M.has_method("_flash_unit_white"):
+				M.call("_flash_unit_white", u, 0.10)
+
+			var dmg := 1
+			if u.has_method("apply_damage"):
+				u.call("apply_damage", dmg)
+			elif u.has_method("take_damage"):
+				u.call("take_damage", dmg)
+			else:
+				u.hp = max(0, u.hp - dmg)
 
 	# 2) Decrement & expire
 	var to_erase: Array[Vector2i] = []

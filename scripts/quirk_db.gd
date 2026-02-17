@@ -2,7 +2,7 @@
 extends Object
 class_name QuirkDB
 
-# "Genetic roll system, but in-universe for ZombieMECHA.
+# "Roll system, but in-universe for ZombieMECHA.
 # We call them "Quirks" (chassis quirks / pilot quirks / hardware quirks).
 #
 # Data-driven: add new quirks by appending to QUIRK_DEFS.
@@ -10,51 +10,124 @@ class_name QuirkDB
 
 const MAX_QUIRKS_PER_UNIT := 3
 
+# Tag language (fast read, bracketless):
+# MOVE ATK DEF KILL TEAM HAZ RISK ANOM
+# Put tags at the start of desc. The UI can color the first word (and optionally 2nd).
 const QUIRK_DEFS: Array[Dictionary] = [
+	# -------------------------
+	# Your existing quirks (kept, just tagged)
+	# -------------------------
 	{
 		"id": &"reinforced_frame",
 		"title": "Reinforced Frame",
-		"desc": "+1 Max HP. Heavier plating on first hit.",
+		"desc": "DEF +1 Max HP. Heavier plating on first hit.",
 		"effects": {"max_hp": 1}
 	},
 	{
 		"id": &"overclocked_servos",
 		"title": "Overclocked Servos",
-		"desc": "+1 Move. -1 Max HP (fragile actuators).",
+		"desc": "MOVE RISK +1 Move. -1 Max HP (fragile actuators).",
 		"effects": {"move_range": 1, "max_hp": -1}
 	},
 	{
 		"id": &"precision_optics",
 		"title": "Precision Optics",
-		"desc": "+1 Attack Range.",
+		"desc": "ATK +1 Attack Range.",
 		"effects": {"attack_range": 1}
 	},
 	{
 		"id": &"hot_load",
 		"title": "Hot Load",
-		"desc": "+1 Damage. +1 Move (assault configuration).",
+		"desc": "ATK MOVE +1 Damage. +1 Move (assault configuration).",
 		"effects": {"attack_damage": 1, "move_range": 1}
 	},
 	{
 		"id": &"leaky_hydraulics",
 		"title": "Leaky Hydraulics",
-		"desc": "+1 Damage. Pressure bleed increases strike force.",
+		"desc": "ATK +1 Damage. Pressure bleed increases strike force.",
 		"effects": {"attack_damage": 1}
 	},
 	{
 		"id": &"thin_armor",
 		"title": "Thin Armor",
-		"desc": "+1 Move. Reduced plating improves agility.",
+		"desc": "MOVE +1 Move. Reduced plating improves agility.",
 		"effects": {"move_range": 1}
 	},
 	{
 		"id": &"sentinel_rig",
 		"title": "Sentinel Rig",
-		"desc": "+2 Max HP.",
+		"desc": "DEF +2 Max HP.",
 		"effects": {"max_hp": 2}
 	},
-]
 
+	# ==================================================
+	# TILE HAZARD QUIRKS (these match your current systems)
+	# Fire tiles: _try_fire_on_enter
+	# Rad contam: _try_radiation_contam_on_enter (meta: "rad_contam")
+	# Ice tiles:  _try_ice_on_enter (meta: "ice_tiles", unit meta: "chilled_turns")
+	# ==================================================
+
+	{
+		"id": &"fireproof_coating",
+		"title": "Fireproof Coating",
+		"desc": "HAZ First FIRE tile you step on each turn deals 0 damage.",
+		"effects": {},
+		"color": "#ffb36a"
+	},
+	{
+		"id": &"thermal_vents",
+		"title": "Thermal Vents",
+		"desc": "HAZ ATK When FIRE damages you: clear CHILLED and gain +1 damage next turn.",
+		"effects": {},
+		"color": "#ffb36a"
+	},
+	{
+		"id": &"rad_scrubber",
+		"title": "Rad Scrubber",
+		"desc": "HAZ Radiation contam tiles deal 0 damage to you.",
+		"effects": {},
+		"color": "#7dff7a"
+	},
+	{
+		"id": &"rad_overdrive",
+		"title": "Rad Overdrive",
+		"desc": "HAZ MOVE When you step on radiation contam: gain +2 Move next turn.",
+		"effects": {},
+		"color": "#7dff7a"
+	},
+	{
+		"id": &"cryo_insulation",
+		"title": "Cryo Insulation",
+		"desc": "HAZ DEF Reduce incoming CHILLED duration by 1 (min 0).",
+		"effects": {},
+		"color": "#9aa7ff"
+	},
+	{
+		"id": &"iceblood",
+		"title": "Iceblood",
+		"desc": "HAZ ATK If CHILLED is applied to you: gain +1 damage next turn.",
+		"effects": {},
+		"color": "#9aa7ff"
+	},
+
+	# -------------------------
+	# Anomaly hazards (rare)
+	# -------------------------
+	{
+		"id": &"hazard_nullifier",
+		"title": "Hazard Nullifier",
+		"desc": "ANOM HAZ You take 0 damage from FIRE + radiation contam tiles.",
+		"effects": {},
+		"color": "#b06cff"
+	},
+	{
+		"id": &"melt_systems",
+		"title": "Melt Systems",
+		"desc": "ANOM HAZ FIRE clears ALL CHILLED and heals 1 (up to max).",
+		"effects": {},
+		"color": "#b06cff"
+	},
+]
 
 static func has_def(id: StringName) -> bool:
 	for d in QUIRK_DEFS:
@@ -150,6 +223,7 @@ static func apply_to_unit(u: Node, quirks: Array) -> void:
 	# Clamp current HP after max HP changes
 	if "hp" in u and "max_hp" in u:
 		u.hp = clamp(int(u.hp), 0, int(u.max_hp))
+
 
 static func get_color(id: StringName) -> Color:
 	var d := get_def(id)

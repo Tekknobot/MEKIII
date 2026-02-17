@@ -3617,6 +3617,50 @@ func _push_unit_to_cell(u: Unit, to_cell: Vector2i) -> void:
 
 	await tw.finished
 
+# ==================================================
+# QUIRKS: tile hazard helpers (MapController-side)
+# ==================================================
+func _u_has_quirk(u: Unit, qid: StringName) -> bool:
+	if u == null or not is_instance_valid(u):
+		return false
+	if not u.has_meta(&"quirks"):
+		return false
+
+	var want := String(qid)
+	var qs: Array = u.get_meta(&"quirks", [])
+	for v in qs:
+		if String(v) == want:
+			return true
+	return false
+
+
+func _turn_stamp() -> int:
+	# Used for "first time per turn" triggers
+	if TM == null:
+		return 0
+	var r := int(TM.round_index) if ("round_index" in TM) else 0
+	var p := int(TM.phase) if ("phase" in TM) else 0
+	return r * 10 + p
+
+func _quirk_once_per_turn(u: Unit, key: StringName) -> bool:
+	if u == null or not is_instance_valid(u):
+		return false
+	var k := StringName("q_turn_" + String(key))
+	var stamp := _turn_stamp()
+	var prev := int(u.get_meta(k, -999)) if u.has_meta(k) else -999
+	if prev == stamp:
+		return false
+	u.set_meta(k, stamp)
+	return true
+
+
+func _pulse_quirk(u: Unit, qid: StringName) -> void:
+	# HUD already listens for quirk_triggered; you've disabled float text there.
+	if u == null or not is_instance_valid(u):
+		return
+	if u.has_signal("quirk_triggered"):
+		u.emit_signal("quirk_triggered", qid, "", QuirkDB.get_color(qid))
+
 func _try_radiation_contam_on_enter(u: Unit) -> void:
 	if u == null or not is_instance_valid(u):
 		return
@@ -3632,11 +3676,21 @@ func _try_radiation_contam_on_enter(u: Unit) -> void:
 	if not contam.has(u.cell):
 		return
 
-	# Use damage value if you stored one; otherwise 1
-	var dmg := 1
-	# Optional: allow MapController export later: @export var rad_contam_damage_global := 1
+	# DEBUG: prove this function is running + show quirks
+	# (remove later)
+	print("RAD ENTER: ", u.name, " quirks=", u.get_meta(&"quirks", []))
 
-	# FX consistency
+	# Quirks that negate rad damage
+	if _u_has_quirk(u, &"hazard_nullifier") or _u_has_quirk(u, &"rad_scrubber"):
+		print("RAD NEGATED by quirk")
+		if u.has_signal("quirk_triggered"):
+			if _u_has_quirk(u, &"hazard_nullifier"):
+				u.emit_signal("quirk_triggered", &"hazard_nullifier", "", Color.WHITE)
+			else:
+				u.emit_signal("quirk_triggered", &"rad_scrubber", "", Color.WHITE)
+		return
+
+	var dmg := 1
 	if has_method("_flash_unit_white"):
 		_flash_unit_white(u, 0.10)
 
@@ -6983,8 +7037,35 @@ func _try_fire_on_enter(u: Unit) -> void:
 	if not tiles.has(u.cell):
 		return
 
-	var dmg := 1 # matches FireZombie.fire_tile_damage; keep global for now
+	# DEBUG
+	print("FIRE ENTER: ", u.name, " quirks=", u.get_meta(&"quirks", []))
 
+	# Hazard Nullifier: ignore fire damage
+	if _u_has_quirk(u, &"hazard_nullifier"):
+		print("FIRE NEGATED by hazard_nullifier")
+		if u.has_signal("quirk_triggered"):
+			u.emit_signal("quirk_triggered", &"hazard_nullifier", "", Color.WHITE)
+		return
+
+	# Fireproof: first fire damage each round negated
+	if _u_has_quirk(u, &"fireproof_coating"):
+		var stamp := 0
+		if TM != null and is_instance_valid(TM) and ("round_index" in TM):
+			stamp = int(TM.round_index)
+
+		var last := int(u.get_meta(&"q_fireproof_stamp", -999))
+		if last != stamp:
+			u.set_meta(&"q_fireproof_stamp", stamp)
+			u.set_meta(&"q_fireproof_used", false)
+
+		if not bool(u.get_meta(&"q_fireproof_used", false)):
+			u.set_meta(&"q_fireproof_used", true)
+			print("FIRE NEGATED by fireproof_coating")
+			if u.has_signal("quirk_triggered"):
+				u.emit_signal("quirk_triggered", &"fireproof_coating", "", Color.WHITE)
+			return
+
+	var dmg := 1
 	if has_method("_flash_unit_white"):
 		_flash_unit_white(u, 0.10)
 
@@ -7014,24 +7095,37 @@ func _try_ice_on_enter(u: Unit, chill_turns: int = 1) -> void:
 	if not tiles.has(u.cell):
 		return
 
-	# ✅ Apply/refresh chilled debuff
+	# Current chilled
 	var cur := int(u.get_meta(&"chilled_turns", 0))
-	u.set_meta(&"chilled_turns", max(cur, chill_turns))
+
+	# Base apply
+	var applied = max(cur, chill_turns)
+
+	# --------------------------
+	# QUIRKS: ICE / CHILL handling
+	# --------------------------
+	# Cryo Insulation: reduce duration by 1 (min 0)
+	if _u_has_quirk(u, &"cryo_insulation"):
+		applied = max(0, applied - 1)
+
+	u.set_meta(&"chilled_turns", applied)
 
 	# Achievement: got chilled (first time only)
-	if cur <= 0:
+	# (only count it if we actually ended up chilled)
+	if cur <= 0 and applied > 0:
 		_ach_unlock(&"ice_cold")
-	
-	# ✅ Visual indicator while chilled
+
+	# Iceblood: if chill actually applied, +1 damage next turn
+	if applied > 0 and _u_has_quirk(u, &"iceblood"):
+		u.set_meta(&"stim_turns", 1)
+		u.set_meta(&"stim_damage_bonus", 1)
+
+	# Visual indicator while chilled (or remove if chilled = 0)
 	_refresh_chill_visuals_for_unit(u)
-	
+
 	# Optional feedback
 	if has_method("_flash_unit_white"):
 		_flash_unit_white(u, 0.08)
-
-	# Optional: small SFX hook if you have one
-	# if has_method("_sfx"):
-	#     _sfx(&"ice_step", 1.0, randf_range(0.95, 1.05), _cell_world(u.cell))
 
 # ---------------------------------------------------------
 # Chill visual helpers

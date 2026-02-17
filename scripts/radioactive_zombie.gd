@@ -38,6 +38,18 @@ func _ready() -> void:
 	if ci != null:
 		ci.modulate = ci.modulate.lerp(Color(0.4, 1.0, 0.6, 1.0), rad_glow_strength)
 
+static func _u_has_quirk(u: Unit, qid: StringName) -> bool:
+	if u == null or not is_instance_valid(u):
+		return false
+	if not u.has_meta(&"quirks"):
+		return false
+	var want := String(qid)
+	var qs: Array = u.get_meta(&"quirks", [])
+	for v in qs:
+		if String(v) == want:
+			return true
+	return false
+
 # ---------------------------------------------------------
 # Hooks you call from TurnManager / MapController
 # ---------------------------------------------------------
@@ -142,9 +154,7 @@ static func contam_tick(M: Node) -> void:
 	if not (contam is Dictionary):
 		return
 
-	# -------------------------------------------------
-	# 1) Damage allies standing on contaminated tiles
-	# -------------------------------------------------
+	# 1) Damage allies standing on contaminated tiles (with quirk checks)
 	if M.has_method("get_all_units"):
 		for u in M.call("get_all_units"):
 			if u == null or not is_instance_valid(u):
@@ -153,21 +163,37 @@ static func contam_tick(M: Node) -> void:
 				continue
 			if u.team != Unit.Team.ALLY:
 				continue
-			if contam.has(u.cell):
-				if M.has_method("_flash_unit_white"):
-					M.call("_flash_unit_white", u, 0.10)
+			if not contam.has(u.cell):
+				continue
 
-				var dmg := 1
-				if u.has_method("apply_damage"):
-					u.call("apply_damage", dmg)
-				elif u.has_method("take_damage"):
-					u.call("take_damage", dmg)
-				else:
-					u.hp = max(0, u.hp - dmg)
+			# -------------------------
+			# QUIRKS: tile radiation immunity
+			# -------------------------
+			# Hazard Nullifier: ignore RAD contam tile damage
+			if _u_has_quirk(u, &"hazard_nullifier"):
+				if u.has_signal("quirk_triggered"):
+					u.emit_signal("quirk_triggered", &"hazard_nullifier", "", Color.WHITE)
+				continue
 
-	# -------------------------------------------------
+			# Rad Scrubber: ignore RAD contam tile damage
+			if _u_has_quirk(u, &"rad_scrubber"):
+				if u.has_signal("quirk_triggered"):
+					u.emit_signal("quirk_triggered", &"rad_scrubber", "", Color.WHITE)
+				continue
+
+			# Apply rad contam tile damage
+			if M.has_method("_flash_unit_white"):
+				M.call("_flash_unit_white", u, 0.10)
+
+			var dmg := 1
+			if u.has_method("apply_damage"):
+				u.call("apply_damage", dmg)
+			elif u.has_method("take_damage"):
+				u.call("take_damage", dmg)
+			else:
+				u.hp = max(0, u.hp - dmg)
+
 	# 2) Decrement timers + erase expired
-	# -------------------------------------------------
 	var to_erase: Array[Vector2i] = []
 	for c in contam.keys():
 		contam[c] = int(contam[c]) - 1
@@ -179,8 +205,6 @@ static func contam_tick(M: Node) -> void:
 
 	M.set_meta(key, contam)
 
-	# -------------------------------------------------
 	# 3) Refresh visuals
-	# -------------------------------------------------
 	if M.has_method("_rad_refresh_visuals"):
 		M.call("_rad_refresh_visuals")

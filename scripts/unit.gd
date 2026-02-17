@@ -323,13 +323,19 @@ func _play_sfx(cue: StringName) -> void:
 	M.call("_sfx", cue, 1.0, randf_range(0.95, 1.05), global_position)
 
 func get_move_range() -> int:
-	var r := move_range
+	var r := int(move_range)
 
-	# Stim bonus
+	# -------------------------
+	# QUIRK temp move bonus
+	# -------------------------
+	if has_meta(&"q_move_turns") and int(get_meta(&"q_move_turns", 0)) > 0:
+		r += int(get_meta(&"q_move_bonus", 0))
+
+	# Stim bonus (your existing system)
 	if has_meta(&"stim_turns") and int(get_meta(&"stim_turns", 0)) > 0:
 		r += int(get_meta(&"stim_move_bonus", 0))
 
-	# Chill penalty (default to 1 if not set)
+	# Chill penalty
 	var chilled := int(get_meta(&"chilled_turns", 0))
 	if chilled > 0:
 		var pen := int(get_meta(&"chill_move_penalty", chill_move_penalty))

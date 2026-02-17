@@ -30,3 +30,8 @@ res://scripts/end_game_panel_runtime.gd
 res://scripts/unit.gd
 res://scripts/hud.gd
 res://scripts/quirk_db.gd
+res://scripts/turnmanager.gd
+res://scripts/quirk_tag.gd
+res://scripts/ice_zombie.gd
+res://scripts/fire_zombie.gd
+res://scripts/radioactive_zombie.gd
