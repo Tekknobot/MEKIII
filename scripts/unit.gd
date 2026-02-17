@@ -76,14 +76,10 @@ func on_moved(steps_taken: int, max_steps: int) -> void:
 	if _has_quirk(&"overclocked_servos") and steps_taken >= max_steps:
 		_emit_quirk(&"overclocked_servos", "BOOST")
 
-	# ---------------------------------
 	# LEAKY HYDRAULICS (movement penalty)
-	# ---------------------------------
 	if _has_quirk(&"leaky_hydraulics") and steps_taken > 0:
 		_emit_quirk(&"leaky_hydraulics", "LEAK")
-
-		# self-damage from moving
-		hp = max(hp - 1, 1)
+		# (no HP loss)
 
 func on_attack_fired(target: Unit) -> void:
 	if target == null or not is_instance_valid(target):
