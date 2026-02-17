@@ -2225,6 +2225,10 @@ func _do_attack(attacker: Unit, defender: Unit) -> void:
 	_flash_unit_white(defender, attack_flash_time)
 	_jitter_unit(defender, 3.0, 6, attack_flash_time)
 	var dmg := attacker.get_attack_damage() if attacker.has_method("get_attack_damage") else attacker.attack_damage
+
+	if defender != null and is_instance_valid(defender) and attacker != null and is_instance_valid(attacker):
+		defender.set_meta(&"last_attacker_id", attacker.get_instance_id())
+
 	defender.take_damage(dmg)
 
 	_sfx(&"attack_hit", sfx_volume_world, randf_range(0.95, 1.05), defender.global_position)
@@ -5716,6 +5720,13 @@ func on_unit_died(u: Unit, killer: Unit = null) -> void:
 	if u == null:
 		return
 
+	# ✅ recover killer from meta if missing
+	if killer == null and u != null and is_instance_valid(u) and u.has_meta(&"last_attacker_id"):
+		var aid := int(u.get_meta(&"last_attacker_id", 0))
+		var aobj := instance_from_id(aid)
+		if aobj != null and is_instance_valid(aobj) and (aobj is Unit):
+			killer = aobj as Unit
+
 	# Quirk hook: on-kill (PUNCH etc)
 	if killer != null and is_instance_valid(killer) and killer.has_method("on_kill"):
 		killer.on_kill(u)
@@ -7302,14 +7313,25 @@ func _quirks_on_player_phase_start() -> void:
 
 func _quirks_on_kill(killer: Unit, victim: Unit) -> void:
 	if killer == null or not is_instance_valid(killer):
+		print("KILL QUIRK: no killer")
 		return
 	if killer.team != Unit.Team.ALLY:
+		print("KILL QUIRK: killer not ally")
 		return
 
-	# KILL: heal 1 on kill (once per turn)
+	print("KILL QUIRK: killer hp=", killer.hp, "/", killer.max_hp)
+
 	if _u_has_quirk(killer, &"kill_siphon"):
+		print("KILL QUIRK: killer has kill_siphon")
 		if _quirk_once_per_turn(killer, &"kill_siphon"):
+			print("KILL QUIRK: once-per-turn OK, healing now")
 			_quirk_heal(killer, &"kill_siphon", 1)
+			print("KILL QUIRK: killer hp AFTER=", killer.hp, "/", killer.max_hp)
+		else:
+			print("KILL QUIRK: blocked by once-per-turn")
+	else:
+		print("KILL QUIRK: killer does NOT have kill_siphon")
+
 
 func _quirks_on_damage_taken(u: Unit, dmg: int) -> void:
 	# Use this for "Last-Stand Patch" (first time you hit 1 HP)

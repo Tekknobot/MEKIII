@@ -502,6 +502,9 @@ func _on_loss_restart_pressed() -> void:
 func start_player_phase() -> void:
 	M.reset_turn_flags_for_allies()
 
+	if M != null and M.has_method("_quirk_new_turn_reset"):
+		M.call("_quirk_new_turn_reset")
+
 	# ✅ QUIRKS: start-of-player-phase triggers (heals, etc.)
 	if M != null and M.has_method("_quirks_on_player_phase_start"):
 		M.call("_quirks_on_player_phase_start")
