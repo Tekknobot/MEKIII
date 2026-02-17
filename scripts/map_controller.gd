@@ -1029,6 +1029,13 @@ func spawn_units() -> void:
 		if u == null:
 			continue
 
+		# ✅ Bulletproof: if the def forgot to provide "path", fall back to the PackedScene's resource_path
+		if (not u.has_meta("scene_path")) or str(u.get_meta("scene_path")) == "":
+			if scene_path == "" and scene != null and scene.resource_path != "":
+				scene_path = scene.resource_path
+			if scene_path != "":
+				u.set_meta("scene_path", scene_path)
+
 		if scene_path != "":
 			u.set_meta("scene_path", scene_path)
 		if unit_id != "":
@@ -5343,12 +5350,14 @@ func _spawn_recruited_ally_fadein(spawn_cell: Vector2i) -> void:
 		rs2.call("recruit_spawned_pending", scene.resource_path)
 
 	var u := scene.instantiate() as Unit
-	if scene != null and scene.resource_path != "":
-		u.set_meta("scene_path", scene.resource_path)
-	
 	if u == null:
 		push_warning("Recruit: ally scene root must extend Unit.")
 		return
+
+	# ✅ ALWAYS stamp the PackedScene path onto the instance (this is what evac/unlock uses)
+	var sp := scene.resource_path
+	if sp != "":
+		u.set_meta("scene_path", sp)
 
 	units_root.add_child(u)
 	_wire_unit_signals(u)
@@ -5366,11 +5375,10 @@ func _spawn_recruited_ally_fadein(spawn_cell: Vector2i) -> void:
 	# -------------------------------------------------------
 	var target_world := _cell_world(spawn_cell)
 
-	# If bomber scene isn’t assigned, hard-fallback to instant placement
 	if bomber_scene == null:
 		u.set_cell(spawn_cell, terrain)
 		_set_unit_depth_from_world(u, u.global_position)
-		_say(u, "Recruited!")
+		_say(u, "Recruit incoming!")
 		_apply_turn_indicators_all_allies()
 		if TM != null:
 			if TM.has_method("on_units_spawned"):
