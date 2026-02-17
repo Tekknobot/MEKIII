@@ -110,6 +110,31 @@ const QUIRK_DEFS: Array[Dictionary] = [
 		"color": "#9aa7ff"
 	},
 
+	# ==================================================
+	# HEALING / REPAIR QUIRKS
+	# ==================================================
+	{
+		"id": &"nanite_self_repair",
+		"title": "Nanite Self-Repair",
+		"desc": "TEAM Heal 1 at the start of your player phase if damaged.",
+		"effects": {},
+		"color": "#6affc8"
+	},
+	{
+		"id": &"kill_siphon",
+		"title": "Kill Siphon",
+		"desc": "KILL Heal 1 when you kill an enemy (once per turn).",
+		"effects": {},
+		"color": "#ffd36a"
+	},
+	{
+		"id": &"last_stand_patch",
+		"title": "Last-Stand Patch",
+		"desc": "RISK The first time you drop to 1 HP in a mission, heal 1 immediately.",
+		"effects": {},
+		"color": "#ff6a9a"
+	},
+
 	# -------------------------
 	# Anomaly hazards (rare)
 	# -------------------------
@@ -235,3 +260,9 @@ static func get_color(id: StringName) -> Color:
 	# ✅ fallback: stable hashed color per id (still “unique per quirk”)
 	var h = abs(hash(String(id))) % 360
 	return Color.from_hsv(float(h) / 360.0, 0.55, 0.95)
+
+static func pulse_applied(u: Node, qid: StringName, label: String = "APPLIED") -> void:
+	if u == null or not is_instance_valid(u):
+		return
+	if u.has_signal("quirk_triggered"):
+		u.emit_signal("quirk_triggered", qid, label, get_color(qid))

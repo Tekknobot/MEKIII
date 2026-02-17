@@ -5720,6 +5720,9 @@ func on_unit_died(u: Unit, killer: Unit = null) -> void:
 	if killer != null and is_instance_valid(killer) and killer.has_method("on_kill"):
 		killer.on_kill(u)
 
+	# ✅ QUIRKS (MapController-side): heal / triggers that don't require per-unit scripts
+	_quirks_on_kill(killer, u)
+
 	# -------------------------
 	# ENEMY death (your existing behavior)
 	# -------------------------
@@ -7267,3 +7270,62 @@ func sfx_play(player: AudioStreamPlayer, stream: AudioStream, vol_db := 0.0, pit
 	player.volume_db = vol_db
 	player.pitch_scale = pitch
 	player.play()
+
+func _heal_unit(u: Unit, amt: int) -> bool:
+	if u == null or not is_instance_valid(u):
+		return false
+	if amt <= 0:
+		return false
+	if not ("hp" in u) or not ("max_hp" in u):
+		return false
+	var before := int(u.hp)
+	var after := clampi(before + amt, 0, int(u.max_hp))
+	u.hp = after
+	return after != before
+
+func _quirk_heal(u: Unit, qid: StringName, amt: int, label: String = "") -> void:
+	if _heal_unit(u, amt):
+		_pulse_quirk(u, qid)
+
+func _quirks_on_player_phase_start() -> void:
+	# Called by TurnManager.start_player_phase()
+	for u in get_all_units():
+		if u == null or not is_instance_valid(u):
+			continue
+		if u.team != Unit.Team.ALLY:
+			continue
+
+		# TEAM: heal 1 if damaged
+		if _u_has_quirk(u, &"nanite_self_repair"):
+			if ("hp" in u) and ("max_hp" in u) and int(u.hp) < int(u.max_hp):
+				_quirk_heal(u, &"nanite_self_repair", 1)
+
+func _quirks_on_kill(killer: Unit, victim: Unit) -> void:
+	if killer == null or not is_instance_valid(killer):
+		return
+	if killer.team != Unit.Team.ALLY:
+		return
+
+	# KILL: heal 1 on kill (once per turn)
+	if _u_has_quirk(killer, &"kill_siphon"):
+		if _quirk_once_per_turn(killer, &"kill_siphon"):
+			_quirk_heal(killer, &"kill_siphon", 1)
+
+func _quirks_on_damage_taken(u: Unit, dmg: int) -> void:
+	# Use this for "Last-Stand Patch" (first time you hit 1 HP)
+	if u == null or not is_instance_valid(u):
+		return
+	if u.team != Unit.Team.ALLY:
+		return
+	if dmg <= 0:
+		return
+	if not ("hp" in u) or not ("max_hp" in u):
+		return
+
+	if _u_has_quirk(u, &"last_stand_patch"):
+		# only once per mission
+		if bool(u.get_meta(&"q_last_stand_used", false)):
+			return
+		if int(u.hp) == 1:
+			u.set_meta(&"q_last_stand_used", true)
+			_quirk_heal(u, &"last_stand_patch", 1)

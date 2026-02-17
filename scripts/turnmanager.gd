@@ -501,7 +501,11 @@ func _on_loss_restart_pressed() -> void:
 # -----------------------
 func start_player_phase() -> void:
 	M.reset_turn_flags_for_allies()
-	
+
+	# ✅ QUIRKS: start-of-player-phase triggers (heals, etc.)
+	if M != null and M.has_method("_quirks_on_player_phase_start"):
+		M.call("_quirks_on_player_phase_start")
+			
 	_reset_first_hit_armor_flags()  # ✅ RESET HERE
 	
 	phase = Phase.PLAYER
