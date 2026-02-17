@@ -22,3 +22,4 @@ res://scenes/units/allies/roller.tscn
 res://scenes/units/allies/car.tscn
 res://scenes/elite_mech.tscn
 res://scenes/Game.tscn
+res://scripts/car.gd

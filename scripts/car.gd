@@ -220,10 +220,11 @@ func _crush_enemy_if_present(M: MapController, at_cell: Vector2i) -> void:
 func auto_drive_action(M: MapController) -> void:
 	if _driving:
 		return
+	if _dying or _death_started or hp <= 0:
+		return
 	if M == null or not is_instance_valid(M) or M.grid == null:
 		return
 
-	# pick path (list of cells) to drive this action
 	var path: Array[Vector2i] = _pick_drive_path(M)
 	if path.is_empty():
 		_set_motor_mode_idle()
@@ -234,27 +235,38 @@ func auto_drive_action(M: MapController) -> void:
 
 	if car_sfx != null:
 		car_sfx.set_engine(true)
-		car_sfx.set_rpm01(0.65) # cruising RPM
+		car_sfx.set_rpm01(0.65)
 
 	_pending_steps = path.size()
+
 	for i in range(path.size()):
+		# ✅ stop immediately if we died mid-drive (mine/fire/etc.)
+		if _dying or _death_started or hp <= 0 or self == null or not is_instance_valid(self):
+			break
+
 		var next_cell := path[i]
 		await _drive_step(M, next_cell)
 
-	# done
+	# ✅ If we died during drive, DO NOT play idle / emit finished.
+	if _dying or _death_started or hp <= 0 or self == null or not is_instance_valid(self):
+		_driving = false
+		if car_sfx != null:
+			car_sfx.set_engine(false)
+		return
+
+	# done (alive)
 	_driving = false
-	
+
 	if car_sfx != null:
 		car_sfx.set_rpm01(0.15)
 		car_sfx.set_engine(false)
-	
+
 	_set_motor_mode_idle()
 
 	if M != null and is_instance_valid(M):
 		M._set_unit_attacked(self, true)
 
 	emit_signal("drive_finished")
-
 
 # ------------------------------------------------------------
 # One step of driving: animate direction, move, crush if enemy
@@ -503,11 +515,16 @@ func warp_to_cell(M: MapController) -> void:
 	_update_layer_from_cell()
 
 func _set_motor_mode_idle() -> void:
+	# ✅ never stomp death anim with idle
+	if _dying or _death_started or hp <= 0:
+		_vibe_amp = 0.0
+		_vibe_hz = 0.0
+		return
+
 	_vibe_amp = idle_vibe_amp_px
 	_vibe_hz = idle_vibe_hz
 	if _anim != null and anim_idle != StringName():
-		_anim.play(anim_idle)	
-
+		_anim.play(anim_idle)
 
 func _set_motor_mode_driving() -> void:
 	_vibe_amp = drive_vibe_amp_px

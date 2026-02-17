@@ -21,7 +21,7 @@ res://scenes/cursor.tscn::b2a032078e12eab854e2433557dc4afb::1771285722::res://.g
 res://scenes/enemy_move_tile.tscn::7b5c97e80d7b188c1243293f03d00d5e::1771285722::res://.godot/exported/133200997/export-dfe38ac246494c2c1bf12dcee8a2e31f-enemy_move_tile.scn
 res://scenes/explosion.tscn::594c539d18aa9e13c08c25e7c164006f::1771285722::res://.godot/exported/133200997/export-19462905a0f3b4b39165a3350317f22c-explosion.scn
 res://scenes/floppy.tscn::487b2e3687aeb4fe0d18fe854079eba4::1771285722::res://.godot/exported/133200997/export-30cf651d32c90559d467de235678fa77-floppy.scn
-res://scenes/Game.tscn::2e3378b3d7d32b2febbec3e2a4678d92::1771285722::res://.godot/exported/133200997/export-ff8ceb9b2bd5b48777d3d52e811276ab-Game.scn
+res://scenes/Game.tscn::2e3378b3d7d32b2febbec3e2a4678d92::1771288075::res://.godot/exported/133200997/export-ff8ceb9b2bd5b48777d3d52e811276ab-Game.scn
 res://scenes/HUD.tscn::9f24a5eb27ebecd108116ed17808969e::1771285722::res://.godot/exported/133200997/export-2ea9781d6f9f7562c1d276c7fdd0b0ab-HUD.scn
 res://scenes/landmine.tscn::d27aba146113c508d79a61ee34a14a7b::1771285722::res://.godot/exported/133200997/export-398207af1f2555f9ff54bd28af3b9f17-landmine.scn
 res://scenes/laser_drop.tscn::a6e46f52108c1e6939ef4252f0a5bc92::1771285722::res://.godot/exported/133200997/export-2acb5049d4a8c5a67824282ef25bfbf9-laser_drop.scn
@@ -30,7 +30,7 @@ res://scenes/medkit_drop.tscn::6a19bc32316ed22b74d1c859508f52fd::1771285722::res
 res://scenes/move_tile.tscn::e4b1b17ebf704761165db36ad19e519a::1771285722::res://.godot/exported/133200997/export-dab062f6c8270317377563b715e1a0c5-move_tile.scn
 res://scenes/overworld.tscn::3bc474ed2551263e6a61042967387c4d::1771285722::res://.godot/exported/133200997/export-da8a30b31f4988d0c9e34b55162e0e36-overworld.scn
 res://scenes/overworld_radar.tscn::c8ef69c8face4ccdf9ff122fb5436cdf::1771285722::res://.godot/exported/133200997/export-79bf76aff716981269c26640f65af5de-overworld_radar.scn
-res://scenes/elite_mech.tscn::cc9c2b909386f52eeea8ccd5ab47cddf::1771285722::res://.godot/exported/133200997/export-7fafda5111f703b1afafd6a2a78a49fe-elite_mech.scn
+res://scenes/elite_mech.tscn::09b5a0585be06eb15c24e2423ef71898::1771272708::res://.godot/exported/133200997/export-7fafda5111f703b1afafd6a2a78a49fe-elite_mech.scn
 res://scenes/titan.tscn::677aaea011c505eed646cbffab006e05::1771285722::res://.godot/exported/133200997/export-c800a78c2b47d5c3851f4544ce8ff83e-titan.scn
 res://scenes/weakpoint.tscn::2a0ea380d76c34d239f852cc46de9a87::1771285722::res://.godot/exported/133200997/export-9d9b52a349ab5b3359f553075f6c2d82-weakpoint.scn
 res://scenes/round_end_ui.tscn::5e488a2aa584cc493ca9cc24d9c15329::1771285722::res://.godot/exported/133200997/export-620b0d0d4d1f00cf0c1b2753ab67e856-round_end_ui.scn
@@ -42,7 +42,7 @@ res://scenes/tutorial_toast.tscn::46f002530979557a41c97d158ab42c5f::1771285722::
 res://scenes/unit_card.tscn::efe8a5af75a6238e5e4821342c27675c::1771285722::res://.godot/exported/133200997/export-ab0a47df1992afe423300a64120afcec-unit_card.scn
 res://scenes/zombie.tscn::a1608728cb60c47c6dc3de21ea99fb17::1771285722::res://.godot/exported/133200997/export-eae6add4c928fd8479be83ea3330e8af-zombie.scn
 res://scenes/blood_particles.tscn::43f367c7e9da57fa1ca5d47b31380e5e::1771285722::res://.godot/exported/133200997/export-9cdc63a70dedde1f91406507bc2660d5-blood_particles.scn
-res://scenes/units/allies/car.tscn::af663074e24f35d7f91b9b8b713c8d91::1771272548::res://.godot/exported/133200997/export-5804310c677688368c0bbb74b9902513-car.scn
+res://scenes/units/allies/car.tscn::af663074e24f35d7f91b9b8b713c8d91::1771272650::res://.godot/exported/133200997/export-5804310c677688368c0bbb74b9902513-car.scn
 res://scenes/units/allies/S1.tscn::996c3b7de96749b861ce95b2ab7ad038::1771285722::res://.godot/exported/133200997/export-242e762862a6f922d109975bce114042-S1.scn
 res://scenes/units/allies/R3.tscn::bea52e43c474cb7251cc8de30a611c18::1771285722::res://.godot/exported/133200997/export-a8ee700cac0080fe54117a669f08db56-R3.scn
 res://scenes/units/allies/R4.tscn::6380aed0e7d50f52206027b3205563c2::1771285722::res://.godot/exported/133200997/export-9c38a7fca24f8992bf3b533df7f4fca8-R4.scn
