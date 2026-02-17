@@ -29,3 +29,4 @@ res://scripts/squad_deploy_screen.gd
 res://scripts/end_game_panel_runtime.gd
 res://scripts/unit.gd
 res://scripts/hud.gd
+res://scripts/quirk_db.gd

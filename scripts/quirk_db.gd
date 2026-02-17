@@ -2,8 +2,8 @@
 extends Object
 class_name QuirkDB
 
-# "Mewgenics-like" genetic roll system, but in-universe for ZombieMECHA.
-# We call them "Quirks" (chassis quirks / pilot quirks / hardware quirks), not mutations.
+# "Genetic roll system, but in-universe for ZombieMECHA.
+# We call them "Quirks" (chassis quirks / pilot quirks / hardware quirks).
 #
 # Data-driven: add new quirks by appending to QUIRK_DEFS.
 # Effects are intentionally simple (+/- stats, + overwatch range, + special cooldown tweaks).
@@ -32,20 +32,20 @@ const QUIRK_DEFS: Array[Dictionary] = [
 	{
 		"id": &"hot_load",
 		"title": "Hot Load",
-		"desc": "+1 Damage. +1 Move (reckless).",
+		"desc": "+1 Damage. +1 Move (assault configuration).",
 		"effects": {"attack_damage": 1, "move_range": 1}
 	},
 	{
 		"id": &"leaky_hydraulics",
 		"title": "Leaky Hydraulics",
-		"desc": "-1 Move. Sluggish response.",
-		"effects": {"move_range": -1}
+		"desc": "+1 Damage. Pressure bleed increases strike force.",
+		"effects": {"attack_damage": 1}
 	},
 	{
 		"id": &"thin_armor",
 		"title": "Thin Armor",
-		"desc": "-1 Max HP."	,
-		"effects": {"max_hp": -1}
+		"desc": "+1 Move. Reduced plating improves agility.",
+		"effects": {"move_range": 1}
 	},
 	{
 		"id": &"sentinel_rig",
