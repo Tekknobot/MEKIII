@@ -1851,6 +1851,58 @@ func _perform_special(u: Unit, id: String, target_cell: Vector2i) -> void:
 	elif id == "laser_sweep" and u.has_method("perform_laser_sweep"):
 		await u.call("perform_laser_sweep", self, target_cell)
 
+	# -------------------------
+	# Achievement stats: special usage (central hook)
+	# -------------------------
+	match id:
+		"hellfire":
+			_ach_stat(&"hellfire_used", 1)
+		"blade":
+			_ach_stat(&"blade_used", 1)
+		"mines":
+			_ach_stat(&"mines_placed", 1)
+		"overwatch":
+			_ach_stat(&"overwatch_activated", 1) # <-- fixes your overwatch badge
+		"suppress":
+			_ach_stat(&"suppress_used", 1)
+		"stim":
+			_ach_stat(&"stim_used", 1)
+		"sunder":
+			_ach_stat(&"sunder_used", 1)
+		"pounce":
+			_ach_stat(&"pounce_used", 1)
+		"volley":
+			_ach_stat(&"volley_used", 1)
+		"cannon":
+			_ach_stat(&"cannon_used", 1)
+		"quake":
+			_ach_stat(&"quake_used", 1)
+		"nova":
+			_ach_stat(&"nova_used", 1)
+		"web":
+			_ach_stat(&"web_used", 1)
+		"slam":
+			_ach_stat(&"slam_used", 1)
+		"laser_grid":
+			_ach_stat(&"laser_grid_used", 1)
+		"overcharge":
+			_ach_stat(&"overcharge_used", 1)
+		"barrage":
+			_ach_stat(&"barrage_used", 1)
+		"railgun":
+			_ach_stat(&"railgun_used", 1)
+		"malfunction":
+			_ach_stat(&"malfunction_used", 1)
+		"storm":
+			_ach_stat(&"storm_used", 1)
+		"artillery_strike":
+			_ach_stat(&"artillery_strike_used", 1)
+		"laser_sweep":
+			_ach_stat(&"laser_sweep_used", 1)
+		_:
+			pass
+
+
 	# ✅ Always release lock, even if the unit died during the special
 	if u != null and is_instance_valid(u):
 		u.set_meta(&"special_lock", false)
@@ -3816,8 +3868,8 @@ func activate_special(id: String) -> void:
 
 		await _perform_special(u, id, u.cell) # dummy cell
 
-		# Achievement: used overwatch
-		_ach_unlock(&"overwatch")
+		# Achievement stat: overwatch activated
+		_ach_stat(&"overwatch_activated", 1)
 
 		if _unit_has_attacked(u):
 			aim_mode = AimMode.MOVE
@@ -4003,8 +4055,8 @@ func _trigger_mine_if_present(u: Unit) -> void:
 	_sfx(&"mine_trigger", sfx_volume_world, 1.0, _cell_world(c))
 	spawn_explosion_at_cell(c)
 
-	# Achievement: mine detonated (enemy stepped on it)
-	_ach_unlock(&"mine_trigger")
+	# Achievement stat: mine detonated (enemy stepped on it)
+	_ach_stat(&"mines_detonated", 1)
 
 	var dmg := int(data.get("damage", 2))
 

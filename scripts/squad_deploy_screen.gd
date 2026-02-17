@@ -236,8 +236,8 @@ func _refresh_achievements_ui() -> void:
 	if not rs.has_method("get_all_achievement_defs"):
 		return
 	var defs: Array = rs.call("get_all_achievement_defs")
-	const LIMIT := 10
-	defs = defs.slice(0, min(LIMIT, defs.size()))
+	# ✅ show all icons you have (20)
+	# (no slicing)
 
 	for d in defs:
 		if not (d is Dictionary):
@@ -345,13 +345,38 @@ func _badge_hint(id: String) -> String:
 		"overwatch":
 			return "Use an Overwatch special."
 		"mine_trigger":
-			return "Lure an enemy onto a mine."
+			return "Detonate a mine on an enemy."
 		"demolition":
 			return "Reduce a structure to 0 HP."
 		"weakpoint":
 			return "Destroy a boss weakpoint."
 		"ice_cold":
 			return "Get Chilled."
+
+		# -------------------------
+		# Badge 11-20 (special usage)
+		# -------------------------
+		"badge_11":
+			return "Use Hellfire."
+		"badge_12":
+			return "Use Blade."
+		"badge_13":
+			return "Place mines."
+		"badge_14":
+			return "Use Suppress."
+		"badge_15":
+			return "Use Stim."
+		"badge_16":
+			return "Use Sunder."
+		"badge_17":
+			return "Use Cannon."
+		"badge_18":
+			return "Use Quake."
+		"badge_19":
+			return "Use Overcharge."
+		"badge_20":
+			return "Defeat a boss."
+
 		_:
 			return "Keep playing."
 

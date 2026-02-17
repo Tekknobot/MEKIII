@@ -87,27 +87,40 @@ var squad_entries: Array = [] # each: {"path": String, "quirks": Array[StringNam
 
 # 20 badges mapped to your pilot_icons/icon_01..icon_20
 const ACHIEVEMENT_DEFS: Array[Dictionary] = [
-	{"id":"first_blood", "title":"First Blood", "desc":"Kill a zombie.", "icon":"res://sprites/Icons/pilot_icons/icon_01.png", "stat":"zombies_killed", "min":1},
-	{"id":"body_count_25", "title":"Body Count", "desc":"Kill 25 zombies (total).", "icon":"res://sprites/Icons/pilot_icons/icon_02.png", "stat":"zombies_killed", "min":25},
-	{"id":"body_count_100", "title":"Exterminator", "desc":"Kill 100 zombies (total).", "icon":"res://sprites/Icons/pilot_icons/icon_03.png", "stat":"zombies_killed", "min":100},
-	{"id":"beacon_online", "title":"Beacon Online", "desc":"Fully power the beacon.", "icon":"res://sprites/Icons/pilot_icons/icon_04.png"},
-	{"id":"first_floppy", "title":"Data Runner", "desc":"Collect a floppy disk.", "icon":"res://sprites/Icons/pilot_icons/icon_05.png", "stat":"floppies_collected", "min":1},
-	{"id":"overwatch", "title":"Eyes Up", "desc":"Activate Overwatch.", "icon":"res://sprites/Icons/pilot_icons/icon_06.png", "stat":"overwatch_activated", "min":1},
-	{"id":"mine_trigger", "title":"Boom Patrol", "desc":"Trigger a mine on an enemy.", "icon":"res://sprites/Icons/pilot_icons/icon_07.png", "stat":"mines_detonated", "min":1},
-	{"id":"demolition", "title":"Demolition", "desc":"Destroy a structure.", "icon":"res://sprites/Icons/pilot_icons/icon_08.png", "stat":"structures_destroyed", "min":1},
-	{"id":"weakpoint", "title":"Weakpoint Hunter", "desc":"Destroy a boss weakpoint.", "icon":"res://sprites/Icons/pilot_icons/icon_09.png", "stat":"weakpoints_destroyed", "min":1},
-	{"id":"ice_cold", "title":"Cold Feet", "desc":"Get Chilled (player).", "icon":"res://sprites/Icons/pilot_icons/icon_10.png"},
-	{"id":"badge_11", "title":"Badge 11", "desc":"(Hook me up to a trigger later)", "icon":"res://sprites/Icons/pilot_icons/icon_11.png"},
-	{"id":"badge_12", "title":"Badge 12", "desc":"(Hook me up to a trigger later)", "icon":"res://sprites/Icons/pilot_icons/icon_12.png"},
-	{"id":"badge_13", "title":"Badge 13", "desc":"(Hook me up to a trigger later)", "icon":"res://sprites/Icons/pilot_icons/icon_13.png"},
-	{"id":"badge_14", "title":"Badge 14", "desc":"(Hook me up to a trigger later)", "icon":"res://sprites/Icons/pilot_icons/icon_14.png"},
-	{"id":"badge_15", "title":"Badge 15", "desc":"(Hook me up to a trigger later)", "icon":"res://sprites/Icons/pilot_icons/icon_15.png"},
-	{"id":"badge_16", "title":"Badge 16", "desc":"(Hook me up to a trigger later)", "icon":"res://sprites/Icons/pilot_icons/icon_16.png"},
-	{"id":"badge_17", "title":"Badge 17", "desc":"(Hook me up to a trigger later)", "icon":"res://sprites/Icons/pilot_icons/icon_17.png"},
-	{"id":"badge_18", "title":"Badge 18", "desc":"(Hook me up to a trigger later)", "icon":"res://sprites/Icons/pilot_icons/icon_18.png"},
-	{"id":"badge_19", "title":"Badge 19", "desc":"(Hook me up to a trigger later)", "icon":"res://sprites/Icons/pilot_icons/icon_19.png"},
-	{"id":"badge_20", "title":"Badge 20", "desc":"(Hook me up to a trigger later)", "icon":"res://sprites/Icons/pilot_icons/icon_20.png"},
+	# 01-03: kill ladders
+	{"id":"first_blood",     "title":"First Blood",      "desc":"Kill a zombie.",                 "icon":"res://sprites/Icons/pilot_icons/icon_01.png", "stat":"zombies_killed", "min":1},
+	{"id":"body_count_25",   "title":"Body Count",       "desc":"Kill 25 zombies (total).",       "icon":"res://sprites/Icons/pilot_icons/icon_02.png", "stat":"zombies_killed", "min":25},
+	{"id":"body_count_100",  "title":"Exterminator",     "desc":"Kill 100 zombies (total).",      "icon":"res://sprites/Icons/pilot_icons/icon_03.png", "stat":"zombies_killed", "min":100},
+
+	# 04: beacon
+	{"id":"beacon_online",   "title":"Beacon Online",    "desc":"Fully power the beacon.",        "icon":"res://sprites/Icons/pilot_icons/icon_04.png"},
+
+	# 05: floppy
+	{"id":"first_floppy",    "title":"Data Runner",      "desc":"Collect a floppy disk.",         "icon":"res://sprites/Icons/pilot_icons/icon_05.png", "stat":"floppies_collected", "min":1},
+
+	# 06-07: your broken ones (now stat-based)
+	{"id":"overwatch",       "title":"Eyes Up",          "desc":"Activate Overwatch.",            "icon":"res://sprites/Icons/pilot_icons/icon_06.png", "stat":"overwatch_activated", "min":1},
+	{"id":"mine_trigger",    "title":"Boom Patrol",      "desc":"Detonate a mine on an enemy.",    "icon":"res://sprites/Icons/pilot_icons/icon_07.png", "stat":"mines_detonated", "min":1},
+
+	# 08-10: core “things happen” achievements
+	{"id":"demolition",      "title":"Demolition",       "desc":"Destroy a structure.",           "icon":"res://sprites/Icons/pilot_icons/icon_08.png", "stat":"structures_destroyed", "min":1},
+	{"id":"weakpoint",       "title":"Weakpoint Hunter", "desc":"Destroy a boss weakpoint.",       "icon":"res://sprites/Icons/pilot_icons/icon_09.png", "stat":"weakpoints_destroyed", "min":1},
+	{"id":"ice_cold",        "title":"Cold Feet",        "desc":"Get Chilled (player).",          "icon":"res://sprites/Icons/pilot_icons/icon_10.png", "stat":"player_chilled", "min":1},
+
+	# 11-20: all filled with useful, easy-to-trigger stats
+	{"id":"badge_11",        "title":"Backline BBQ",     "desc":"Use Hellfire 5 times.",           "icon":"res://sprites/Icons/pilot_icons/icon_11.png", "stat":"hellfire_used", "min":5},
+	{"id":"badge_12",        "title":"Knife Work",       "desc":"Use Blade 5 times.",              "icon":"res://sprites/Icons/pilot_icons/icon_12.png", "stat":"blade_used", "min":5},
+	{"id":"badge_13",        "title":"Field Engineer",   "desc":"Place 10 mines.",                 "icon":"res://sprites/Icons/pilot_icons/icon_13.png", "stat":"mines_placed", "min":10},
+	{"id":"badge_14",        "title":"Suppressive Fire", "desc":"Use Suppress 5 times.",           "icon":"res://sprites/Icons/pilot_icons/icon_14.png", "stat":"suppress_used", "min":5},
+	{"id":"badge_15",        "title":"Juiced",           "desc":"Use Stim 5 times.",               "icon":"res://sprites/Icons/pilot_icons/icon_15.png", "stat":"stim_used", "min":5},
+
+	{"id":"badge_16",        "title":"Linebreaker",      "desc":"Use Sunder 5 times.",             "icon":"res://sprites/Icons/pilot_icons/icon_16.png", "stat":"sunder_used", "min":5},
+	{"id":"badge_17",        "title":"Heavy Metal",      "desc":"Use Cannon 5 times.",             "icon":"res://sprites/Icons/pilot_icons/icon_17.png", "stat":"cannon_used", "min":5},
+	{"id":"badge_18",        "title":"Shockwave",        "desc":"Use Quake 5 times.",              "icon":"res://sprites/Icons/pilot_icons/icon_18.png", "stat":"quake_used", "min":5},
+	{"id":"badge_19",        "title":"Overclocked",      "desc":"Use Overcharge 3 times.",          "icon":"res://sprites/Icons/pilot_icons/icon_19.png", "stat":"overcharge_used", "min":3},
+	{"id":"badge_20",        "title":"Boss Slayer",      "desc":"Defeat a boss.",                   "icon":"res://sprites/Icons/pilot_icons/icon_20.png", "stat":"bosses_defeated", "min":1},
 ]
+
 
 func has_save() -> bool:
 	return FileAccess.file_exists(SAVE_PATH)
