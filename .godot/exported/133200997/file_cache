@@ -21,7 +21,7 @@ res://scenes/cursor.tscn::b2a032078e12eab854e2433557dc4afb::1771285722::res://.g
 res://scenes/enemy_move_tile.tscn::7b5c97e80d7b188c1243293f03d00d5e::1771285722::res://.godot/exported/133200997/export-dfe38ac246494c2c1bf12dcee8a2e31f-enemy_move_tile.scn
 res://scenes/explosion.tscn::594c539d18aa9e13c08c25e7c164006f::1771285722::res://.godot/exported/133200997/export-19462905a0f3b4b39165a3350317f22c-explosion.scn
 res://scenes/floppy.tscn::487b2e3687aeb4fe0d18fe854079eba4::1771285722::res://.godot/exported/133200997/export-30cf651d32c90559d467de235678fa77-floppy.scn
-res://scenes/Game.tscn::2e3378b3d7d32b2febbec3e2a4678d92::1771294508::res://.godot/exported/133200997/export-ff8ceb9b2bd5b48777d3d52e811276ab-Game.scn
+res://scenes/Game.tscn::c12279e25474ce75b01782c29415f587::1771358520::res://.godot/exported/133200997/export-ff8ceb9b2bd5b48777d3d52e811276ab-Game.scn
 res://scenes/HUD.tscn::9f24a5eb27ebecd108116ed17808969e::1771285722::res://.godot/exported/133200997/export-2ea9781d6f9f7562c1d276c7fdd0b0ab-HUD.scn
 res://scenes/landmine.tscn::d27aba146113c508d79a61ee34a14a7b::1771285722::res://.godot/exported/133200997/export-398207af1f2555f9ff54bd28af3b9f17-landmine.scn
 res://scenes/laser_drop.tscn::a6e46f52108c1e6939ef4252f0a5bc92::1771285722::res://.godot/exported/133200997/export-2acb5049d4a8c5a67824282ef25bfbf9-laser_drop.scn
@@ -34,7 +34,7 @@ res://scenes/elite_mech.tscn::09b5a0585be06eb15c24e2423ef71898::1771272708::res:
 res://scenes/titan.tscn::677aaea011c505eed646cbffab006e05::1771285722::res://.godot/exported/133200997/export-c800a78c2b47d5c3851f4544ce8ff83e-titan.scn
 res://scenes/weakpoint.tscn::2a0ea380d76c34d239f852cc46de9a87::1771285722::res://.godot/exported/133200997/export-9d9b52a349ab5b3359f553075f6c2d82-weakpoint.scn
 res://scenes/round_end_ui.tscn::5e488a2aa584cc493ca9cc24d9c15329::1771285722::res://.godot/exported/133200997/export-620b0d0d4d1f00cf0c1b2753ab67e856-round_end_ui.scn
-res://scenes/squad_deploy_screen.tscn::a37425d95a2f16d20b0b771f465bfe6d::1771321257::res://.godot/exported/133200997/export-67e608a257cdab65d4181addadb9c825-squad_deploy_screen.scn
+res://scenes/squad_deploy_screen.tscn::a37425d95a2f16d20b0b771f465bfe6d::1771357101::res://.godot/exported/133200997/export-67e608a257cdab65d4181addadb9c825-squad_deploy_screen.scn
 res://scenes/StarNight.tscn::67bc6e972e75eedc5fde63ddeda3a583::1771285722::res://.godot/exported/133200997/export-8ba7cb06005b1919209f5f2002cc8408-StarNight.scn
 res://scenes/title_screen.tscn::221a19d8a2d025bcadbf855ff6565dc5::1771285722::res://.godot/exported/133200997/export-c315eff7b5f8a8ce1d6c4c72650ddc19-title_screen.scn
 res://scenes/tnt.tscn::907790d46a6c6725120e6177dd5a7dc3::1771285722::res://.godot/exported/133200997/export-0cb138642eec2dd5c3a79a44286e5755-tnt.scn
