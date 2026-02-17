@@ -408,13 +408,7 @@ func apply_upgrades_to_unit(u: Node) -> void:
 				u.sunder_range += get_upgrade_count(&"blade_sunder_range_plus_1")
 			if "sunder_damage" in u:
 				u.sunder_damage += get_upgrade_count(&"blade_sunder_dmg_plus_1")
-			if "sunder_step_delay" in u:
-				u.sunder_step_delay -= get_upgrade_count(&"blade_sunder_step_delay_dn")
 
-			if "slam_range" in u:
-				u.slam_range += get_upgrade_count(&"blade_slam_range_plus_1")
-			if "slam_radius" in u:
-				u.slam_radius += get_upgrade_count(&"blade_slam_radius_plus_1")
 			if "slam_damage" in u:
 				u.slam_damage += get_upgrade_count(&"blade_slam_dmg_plus_1")
 

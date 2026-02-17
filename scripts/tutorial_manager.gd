@@ -409,11 +409,8 @@ func _roll_3_upgrades() -> Array:
 			# SUNDER
 			{"id": &"blade_sunder_range_plus_1",   "title": "LONGER SWEEP", "desc": "+1 Range for Sunder.",        "thumb": t},
 			{"id": &"blade_sunder_dmg_plus_1",     "title": "DEEPER CUT",   "desc": "+1 Sunder damage.",           "thumb": t},
-			{"id": &"blade_sunder_step_delay_dn",  "title": "RAPID SLASH",  "desc": "Sunder strikes faster.",      "thumb": t},
 
 			# SLAM
-			{"id": &"blade_slam_range_plus_1",     "title": "REACH SLAM",   "desc": "+1 Slam range.",              "thumb": t},
-			{"id": &"blade_slam_radius_plus_1",    "title": "WIDER RIPPLE", "desc": "+1 Slam ripple radius.",       "thumb": t},
 			{"id": &"blade_slam_dmg_plus_1",       "title": "HEAVIER HIT",  "desc": "+1 Slam direct damage.",       "thumb": t},
 		])
 
