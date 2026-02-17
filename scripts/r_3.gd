@@ -634,7 +634,6 @@ func _alive() -> bool:
 func get_hud_extras() -> Dictionary:
 	return {
 		"Barrage Range": str(barrage_range),
-		"Barrage Missiles": str(barrage_max_missiles),
 		"Barrage Damage": str(barrage_damage + attack_damage),
 		"Railgun Range": str(railgun_range),
 		"Railgun Damage": str(railgun_damage + attack_damage),
