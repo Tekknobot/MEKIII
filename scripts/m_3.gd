@@ -227,7 +227,7 @@ func _spawn_explosion_visual(M: MapController, at_cell: Vector2i) -> void:
 func perform_laser_sweep(M: MapController, target_cell: Vector2i) -> void:
 	if M == null:
 		return
-	if _dying:
+	if _dying or hp <= 0:
 		return
 
 	var id_key := "laser_sweep"
@@ -257,8 +257,14 @@ func perform_laser_sweep(M: MapController, target_cell: Vector2i) -> void:
 		return
 
 	for u in chain:
+
+		# ❗ abort entire chain if this unit died mid ability
+		if _dying or not is_instance_valid(self) or hp <= 0:
+			break
+
 		if u == null or not is_instance_valid(u) or u.hp <= 0:
 			continue
+
 		await _sky_laser_strike(M, u.cell)
 
 	_play_idle_anim()
@@ -324,6 +330,8 @@ func _find_nearest_enemy_within(M: MapController, from_cell: Vector2i, r: int, u
 func _sky_laser_strike(M: MapController, at_cell: Vector2i) -> void:
 	if M == null or not is_instance_valid(M):
 		return
+	if M.terrain == null or not is_instance_valid(M.terrain):
+		return
 
 	# ---------------------------------------------------------
 	# Positions
@@ -360,7 +368,7 @@ func _sky_laser_strike(M: MapController, at_cell: Vector2i) -> void:
 		# 0 at ends, 1 near middle
 		var mid = 1.0 - abs(2.0 * t - 1.0)
 
-		# jaggedness (stronger mid-beam)
+		# jaggedness (stronger mid-beam) (currently 0, keep structure)
 		p += Vector2(
 			randf_range(0.0, 0.0),
 			randf_range(0.0, 0.0)
@@ -372,6 +380,10 @@ func _sky_laser_strike(M: MapController, at_cell: Vector2i) -> void:
 	# Create multiple beam strands
 	# ---------------------------------------------------------
 	var beams: Array[Line2D] = []
+
+	# Hard lifetime for beams so they ALWAYS disappear even if this coroutine is interrupted
+	var hard_lifetime := 0.05 + sky_beam_fade_time + 0.35
+
 	for s in range(strand_count):
 		var beam := Line2D.new()
 		beam.width = sky_beam_width
@@ -387,8 +399,13 @@ func _sky_laser_strike(M: MapController, at_cell: Vector2i) -> void:
 
 		for p in main_pts:
 			beam.add_point(p + off)
-			
-		M._sfx("sat_laser")	
+
+		# ✅ SFX once per strand
+		M._sfx("sat_laser")
+
+		# ✅ Absolute failsafe: free beam after hard lifetime (survives M3 death)
+		var t_kill := M.get_tree().create_timer(hard_lifetime)
+		t_kill.timeout.connect(Callable(beam, "queue_free"))
 
 	# ---------------------------------------------------------
 	# Spawn pixel particle bursts at each segment point
@@ -427,15 +444,14 @@ func _sky_laser_strike(M: MapController, at_cell: Vector2i) -> void:
 		# tighter cone so it reads like "side spray"
 		p.spread = 35.0
 
-
 		M.add_child(p)
 		p.emitting = true
 
-		# ✅ Fade pixels out over lifetime
-		var tp := create_tween()
+		# ✅ Fade pixels out over lifetime (tween owned by MapController, not M3)
+		var tp := M.create_tween()
 		tp.tween_property(p, "modulate:a", 0.0, p.lifetime)
-		
-		p.finished.connect(p.queue_free)
+
+		p.finished.connect(Callable(p, "queue_free"))
 
 	# Extra impact burst
 	var p2 := CPUParticles2D.new()
@@ -458,7 +474,7 @@ func _sky_laser_strike(M: MapController, at_cell: Vector2i) -> void:
 	p2.color = sky_beam_color
 	M.add_child(p2)
 	p2.emitting = true
-	p2.finished.connect(p2.queue_free)
+	p2.finished.connect(Callable(p2, "queue_free"))
 
 	await get_tree().create_timer(0.05).timeout
 
@@ -483,23 +499,21 @@ func _sky_laser_strike(M: MapController, at_cell: Vector2i) -> void:
 		_apply_damage_safely(M, u, sky_strike_damage, u.cell)
 
 	# ---------------------------------------------------------
-	# Fade out all beam strands + free
+	# Fade out all beam strands
+	# NOTE: fade tween is owned by MapController (survives M3 death)
+	# Cleanup is already guaranteed by timers above.
 	# ---------------------------------------------------------
-	var tw := create_tween()
+	var tw := M.create_tween()
 	for beam in beams:
 		if beam == null or not is_instance_valid(beam):
 			continue
-		var c0: Color = beam.default_color
-		var c1: Color = c0
+		var c1 := beam.default_color
 		c1.a = 0.0
 		tw.tween_property(beam, "default_color", c1, sky_beam_fade_time)
 
+	# No await needed for correctness anymore, but it’s nice for pacing if the coroutine continues.
 	await tw.finished
-
-	for beam in beams:
-		if beam != null and is_instance_valid(beam):
-			beam.queue_free()
-
+		
 # -------------------------
 # Visual Effects
 # -------------------------

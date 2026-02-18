@@ -4,7 +4,7 @@ class_name FailSurgeController
 
 signal finished
 
-@export var surge_distance_px: float = 16.0
+@export var surge_distance_px: float = 32.0
 @export var surge_duration: float = 5.0
 @export var settle_duration: float = 0.25
 
@@ -13,7 +13,7 @@ signal finished
 
 @export var camera_shake: bool = true
 @export var camera_shake_strength: float = 2.5
-@export var camera_shake_duration: float = 5.0
+@export var camera_shake_duration: float = 1.0
 
 @export var play_enemy_move_anim: bool = true
 @export var enemy_move_anim: StringName = &"move" # change to &"walk" or &"run" if your units use that
