@@ -2309,6 +2309,7 @@ func _titan_apply_strike(cell: Vector2i) -> void:
 		if u == null or not is_instance_valid(u) or u.hp <= 0:
 			continue
 		if u.cell == cell:
+			await get_tree().create_timer(0.10).timeout
 			u.take_damage(titan_strike_damage)
 
 func _titan_overwatch_enemy_phase() -> void:
@@ -2399,7 +2400,7 @@ func _titan_overwatch_enemy_phase() -> void:
 	# Impact (damage)
 	# -------------------
 	for c in cells:
-		_titan_apply_strike(c)
+		await _titan_apply_strike(c)
 
 	if M != null and M.has_method("_sfx"):
 		M.call("_sfx", titan_sfx_explode, 1.0, 1.0, Vector2.ZERO)

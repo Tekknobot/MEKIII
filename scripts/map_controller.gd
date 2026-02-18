@@ -2229,6 +2229,15 @@ func _do_attack(attacker: Unit, defender: Unit) -> void:
 	if defender != null and is_instance_valid(defender) and attacker != null and is_instance_valid(attacker):
 		defender.set_meta(&"last_attacker_id", attacker.get_instance_id())
 
+	# impact pause (micro hitstop feel)
+	await _safe_wait(0.08) # 0.05 light, 0.08-0.12 mechs
+	
+	# re-check after the delay (defender could have died/freed)
+	if defender == null or not is_instance_valid(defender):
+		return
+	if attacker == null or not is_instance_valid(attacker):
+		return	
+
 	defender.take_damage(dmg)
 
 	_sfx(&"attack_hit", sfx_volume_world, randf_range(0.95, 1.05), defender.global_position)
@@ -2273,6 +2282,37 @@ func _safe_wait(seconds: float) -> bool:
 		return false
 	await t.create_timer(seconds).timeout
 	return true
+
+# ---------------------------------------------------------
+# Delayed damage helper (for "impact pause" / readability)
+# Safe to call with call_deferred from non-async code.
+# ---------------------------------------------------------
+func apply_damage_delayed(u: Node, dmg: int, delay: float = 0.08, flash_time: float = 0.10) -> void:
+	if dmg <= 0:
+		return
+	if u == null or not is_instance_valid(u):
+		return
+
+	# optional: immediate "contact" feedback
+	if has_method("_flash_unit_white"):
+		call("_flash_unit_white", u, flash_time)
+
+	# tiny impact pause
+	await _safe_wait(delay)
+
+	# re-check (unit could have died / been freed during the delay)
+	if u == null or not is_instance_valid(u):
+		return
+	if ("hp" in u) and int(u.hp) <= 0:
+		return
+
+	# prefer your usual damage pipeline
+	if u.has_method("apply_damage"):
+		u.call("apply_damage", dmg)
+	elif u.has_method("take_damage"):
+		u.call("take_damage", dmg)
+	elif "hp" in u:
+		u.hp = max(0, int(u.hp) - dmg)
 
 # --------------------------
 # Overlay helpers
@@ -4121,8 +4161,9 @@ func _trigger_mine_if_present(u: Unit) -> void:
 	_flash_unit_white(u, max(attack_flash_time, 0.12))
 	_jitter_unit(u, 3.5, 6, 0.14)
 
+	await _safe_wait(0.06)
 	u.take_damage(dmg)
-
+	
 	# ✅ If the mine killed it, remove from board + ensure the node disappears
 	if u != null and is_instance_valid(u) and u.hp <= 0:
 		_cleanup_dead_at(c) # free the cell immediately
@@ -4312,8 +4353,10 @@ func _apply_splash_damage(center: Vector2i, radius: int, dmg: int, hit_cache = n
 
 			_flash_unit_white(u, max(attack_flash_time, 0.12))
 			_jitter_unit(u, 2.5, 5, 0.10)
-			u.take_damage(dmg)
 
+			await _safe_wait(0.06) #spalsh delay
+			u.take_damage(dmg)
+			
 			if u != null and is_instance_valid(u) and u.hp <= 0:
 				await _play_death_and_wait(u)
 				_remove_unit_from_board_at_cell(c)

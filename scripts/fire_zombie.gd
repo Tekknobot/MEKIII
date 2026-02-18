@@ -99,7 +99,16 @@ func _apply_aura_damage(M: Node) -> void:
 func _deal_damage_safely(M: Node, u: Unit, dmg: int) -> void:
 	if dmg <= 0:
 		return
+	if M == null or not is_instance_valid(M):
+		return
 
+	# ✅ Preferred: MapController handles the delay + flash safely
+	if M.has_method("apply_damage_delayed"):
+		# call_deferred so this works even though this function isn't async
+		M.call_deferred("apply_damage_delayed", u, dmg, 0.06, 0.10)
+		return
+
+	# Fallback: old immediate behavior
 	if M.has_method("_flash_unit_white"):
 		M.call("_flash_unit_white", u, 0.10)
 
