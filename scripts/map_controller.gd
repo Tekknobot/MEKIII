@@ -687,7 +687,7 @@ func spawn_units() -> void:
 	_secured_count = 0
 
 	recruit_round_stamp += 1
-	_randomize_beacon_cell()
+	# beacon is picked later once we know ally cluster_center
 
 	# ---------------------------------------------------
 	# Safe RunState + safe property reads (Godot4-proof)
@@ -912,6 +912,7 @@ func spawn_units() -> void:
 	# 2) Pick ally cluster center + choose ally cells
 	# ---------------------------------------------------
 	var cluster_center: Vector2i = valid_cells.pick_random()
+	_randomize_beacon_cell(cluster_center)
 
 	valid_cells.sort_custom(func(a: Vector2i, b: Vector2i) -> bool:
 		var da = abs(a.x - cluster_center.x) + abs(a.y - cluster_center.y)
@@ -6300,7 +6301,7 @@ func reset_beacon_state() -> void:
 	_update_beacon_marker()  # will stop pulsing because beacon_ready=false
 	_init_floppy_kill_curve()
 
-func _pick_random_walkable_beacon_cell() -> Vector2i:
+func _pick_random_walkable_beacon_cell(anchor: Vector2i) -> Vector2i:
 	if grid == null:
 		return Vector2i(-1, -1)
 
@@ -6309,42 +6310,151 @@ func _pick_random_walkable_beacon_cell() -> Vector2i:
 	if game_ref != null and "structure_blocked" in game_ref:
 		structure_blocked = game_ref.structure_blocked
 
+	# Road/path cells from Game (terrain cells covered by roads)
+	var road_blocked: Dictionary = {}
+	if game_ref != null and "road_blocked" in game_ref:
+		road_blocked = game_ref.road_blocked
+
+	# If we don't have roads, fall back to old behavior
+	var use_roads := not road_blocked.is_empty()
+
+	# ---------------------------------------------------------
+	# Reachability set: same walkable component as anchor
+	# ---------------------------------------------------------
+	var reachable: Dictionary = {}
+	if anchor.x >= 0 and _is_walkable(anchor):
+		# You already have this helper in MapController
+		reachable = _flood_fill_walkable(anchor)
+	else:
+		# fallback: allow everything walkable
+		reachable = {}
+
+	# ---------------------------------------------------------
+	# Helper: count road neighbors (dead-end test)
+	# ---------------------------------------------------------
+	var road_dirs := [Vector2i(1,0), Vector2i(-1,0), Vector2i(0,1), Vector2i(0,-1)]
+	var road_degree := func(c: Vector2i) -> int:
+		var d := 0
+		for off in road_dirs:
+			var n = c + off
+			if road_blocked.has(n):
+				d += 1
+		return d
+
+	# ---------------------------------------------------------
+	# Build candidates
+	# ---------------------------------------------------------
 	var w := int(grid.w)
 	var h := int(grid.h)
 	if w <= 0 or h <= 0:
 		return Vector2i(-1, -1)
 
 	var candidates: Array[Vector2i] = []
-	for x in range(w):
-		for y in range(h):
-			var c := Vector2i(x, y)
+
+	if use_roads:
+		# Only pick from road cells, reachable, not dead ends
+		for c_any in road_blocked.keys():
+			var c := c_any as Vector2i
+
+			# must be in bounds + walkable
+			if c.x < 0 or c.x >= w or c.y < 0 or c.y >= h:
+				continue
 			if not _is_walkable(c):
 				continue
+
+			# must be reachable from ally anchor (same component)
+			if not reachable.is_empty() and not reachable.has(c):
+				continue
+
+			# must not overlap blocked stuff
 			if structure_blocked.has(c):
 				continue
-			if units_by_cell.has(c): # don't place beacon under units
+			if units_by_cell.has(c):
 				continue
-			if mines_by_cell.has(c): # optional: don't overlap mines
+			if mines_by_cell.has(c):
 				continue
+
+			# ✅ no dead ends (degree >= 2)
+			if road_degree.call(c) < 2:
+				continue
+
 			candidates.append(c)
+
+	else:
+		# fallback: old walkable-anywhere behavior
+		for x in range(w):
+			for y in range(h):
+				var c := Vector2i(x, y)
+				if not _is_walkable(c):
+					continue
+				if not reachable.is_empty() and not reachable.has(c):
+					continue
+				if structure_blocked.has(c):
+					continue
+				if units_by_cell.has(c):
+					continue
+				if mines_by_cell.has(c):
+					continue
+				candidates.append(c)
 
 	if candidates.is_empty():
 		return Vector2i(-1, -1)
 
 	return candidates.pick_random()
 
+# ---------------------------------------------------------
+# Flood fill walkable cells starting from an anchor.
+# Returns Dictionary used as a Set for fast lookup.
+# ---------------------------------------------------------
+func _flood_fill_walkable(start: Vector2i) -> Dictionary:
+	var visited: Dictionary = {}
 
-func _randomize_beacon_cell() -> void:
-	var c := _pick_random_walkable_beacon_cell()
+	if grid == null:
+		return visited
+
+	if not _is_walkable(start):
+		return visited
+
+	var queue: Array[Vector2i] = [start]
+	visited[start] = true
+
+	var dirs := [
+		Vector2i(1, 0),
+		Vector2i(-1, 0),
+		Vector2i(0, 1),
+		Vector2i(0, -1)
+	]
+
+	while not queue.is_empty():
+		var c: Vector2i = queue.pop_front()
+
+		for d in dirs:
+			var n = c + d
+
+			if visited.has(n):
+				continue
+
+			if grid != null and grid.has_method("in_bounds") and not grid.in_bounds(n):
+				continue
+
+			if not _is_walkable(n):
+				continue
+
+			visited[n] = true
+			queue.append(n)
+
+	return visited
+
+func _randomize_beacon_cell(anchor: Vector2i = Vector2i(-1, -1)) -> void:
+	var c := _pick_random_walkable_beacon_cell(anchor)
 	if c.x < 0:
 		return
 
 	beacon_cell = c
 	emit_signal("tutorial_event", &"beacon_cell_set", {"cell": beacon_cell})
-	
-	# keep marker in sync
-	_clear_beacon_marker()     # ensures old marker is removed if any
-	_ensure_beacon_marker()    # spawns marker at new beacon_cell (and pulses if ready)
+
+	_clear_beacon_marker()
+	_ensure_beacon_marker()
 
 func apply_run_upgrades() -> void:
 	var counts: Dictionary = {}
