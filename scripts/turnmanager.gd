@@ -2633,9 +2633,12 @@ func _event_beat(sec: float) -> void:
 func _run_event_cinematic_sequence() -> void:
 	if M == null:
 		return
-	
+
+	# ✅ run-context for emergent variants (depth/pressure/losses/hazard from RunState)
+	var ctx := _snapshot_run_context()
+
 	await get_tree().create_timer(5).timeout
-	
+
 	# -------- pacing knobs (TUNE THESE) --------
 	var beat_short := 0.65
 	var beat_med   := 0.95
@@ -2656,73 +2659,85 @@ func _run_event_cinematic_sequence() -> void:
 	if allies.is_empty():
 		return
 
-	# Pick speakers
+	# Pick speakers (keep your stable order, but we’ll assign “roles”)
 	var a0: Unit = allies[0]
 	var a1: Unit = allies[1] if allies.size() > 1 else a0
 	var a2: Unit = allies[2] if allies.size() > 2 else a0
 
+	# Roles for “emergent” voice:
+	# leader = a0, tech = a1, rookie = a2 (stable, no extra metadata required)
+	var leader: Unit = a0
+	var tech: Unit = a1
+	var rookie: Unit = a2
+
 	# -------------------------------------------------------
 	# 1) LONG MOVEMENT FIRST: run toward the TOP of the map
 	# -------------------------------------------------------
-	# pick a "top lane" target y (keep a little padding)
 	var top_y := 1
-
-	# decide how many steps to try (big run)
-	# This is intentionally a lot; steps that fail will just do nothing if _cinematic_step blocks.
 	var steps := 2
 
-	# Move them in a staggered "column" feel: a0 then a1 then a2, repeat
 	for i in range(steps):
-		await _cinematic_step(a0, Vector2i(0, -1))
+		await _cinematic_step(leader, Vector2i(0, -1))
 		await _event_beat(run_step_beat)
 
-		await _cinematic_step(a1, Vector2i(0, -1))
+		await _cinematic_step(tech, Vector2i(0, -1))
 		await _event_beat(run_step_beat)
 
-		await _cinematic_step(a2, Vector2i(0, -1))
+		await _cinematic_step(rookie, Vector2i(0, -1))
 		await _event_beat(run_step_beat)
 
-		# little breath pauses mid-run so it reads as "distance"
+		# these won't trigger with steps=2, but keep them harmless if you raise steps later
 		if i == 2:
 			await _event_beat(0.35)
 		if i == 5:
 			await _event_beat(0.45)
 
-		# optional: stop early if lead unit reached top band
-		if a0 != null and is_instance_valid(a0) and a0.cell.y <= top_y:
+		if leader != null and is_instance_valid(leader) and leader.cell.y <= top_y:
 			break
 
-	# small settle pause at destination
 	await _event_beat(0.60)
 
-# -------------------
-	# 2) Dialogue beats
 	# -------------------
-	await M._say(a0, "...do you feel that vibration?")
+	# 2) Dialogue beats (EMERGENT)
+	# -------------------
+	# Requires: EVENT_LINES + _event_pick_line() + _snapshot_run_context()
+	await M._say(leader, _event_pick_line(&"titan_intro", ctx))
 	await _event_beat(beat_med)
-	await M._say(a1, "Yeah. Not thunder.")
+
+	await M._say(tech, _event_pick_line(&"titan_confirm", ctx))
 	await _event_beat(beat_short)
-	await M._say(a2, "Something big is moving out there.")
+
+	await M._say(rookie, _event_pick_line(&"titan_foreboding", ctx))
 	await _event_beat(beat_long)
-	# --- Cinematic movement (your original) ---
-	await _cinematic_step(a0, Vector2i(1, 0))
+
+	# --- Cinematic movement (keep yours) ---
+	await _cinematic_step(leader, Vector2i(1, 0))
 	await _event_beat(0.25)
-	await _cinematic_step(a1, Vector2i(1, 0))
+
+	await _cinematic_step(tech, Vector2i(1, 0))
 	await _event_beat(0.35)
-	await M._say(a0, "Keep it tight... and your eyes up.")
+
+	# leader line can also vary based on depth/losses if you add variants later
+	await M._say(leader, _event_pick_line(&"titan_hold_tight", ctx))
 	await _event_beat(beat_med)
-	await M._say(a1, "That silhouette... a giant mecha?")
+
+	await M._say(tech, _event_pick_line(&"titan_reveal", ctx))
 	await _event_beat(beat_long)
-	await M._say(a2, "We are not equipped for that.")
+
+	await M._say(rookie, _event_pick_line(&"titan_not_equipped", ctx))
 	await _event_beat(beat_med)
+
 	# Step back like they're backing off
-	await _cinematic_step(a0, Vector2i(-1, 0))
+	await _cinematic_step(leader, Vector2i(-1, 0))
 	await _event_beat(0.25)
-	await _cinematic_step(a1, Vector2i(-1, 0))
+
+	await _cinematic_step(tech, Vector2i(-1, 0))
 	await _event_beat(0.35)
-	await M._say(a0, "No fight. Get ready to leave now.")
+
+	await M._say(leader, _event_pick_line(&"titan_decision", ctx))
 	await _event_beat(beat_med)
-	await M._say(a2, "Bomber, get us out of here!")
+
+	await M._say(rookie, _event_pick_line(&"titan_bomber", ctx))
 	await _event_beat(beat_long)
 
 func _cinematic_step(u: Unit, _delta_unused: Vector2i = Vector2i.ZERO) -> void:
@@ -2848,3 +2863,146 @@ func _reset_first_hit_armor_flags() -> void:
 			u._armor_used_this_turn = false
 		elif u.has_method("on_new_turn"):
 			u.call("on_new_turn")
+
+func _snapshot_run_context() -> Dictionary:
+	var ctx := {
+		"depth": 0,
+		"last_pressure": 0.0,
+		"last_hazard": "",
+		"recent_losses": 0
+	}
+
+	var rs := get_tree().root.get_node_or_null("RunStateNode")
+	if rs == null:
+		rs = get_tree().root.get_node_or_null("RunState")
+	if rs == null:
+		return ctx
+
+	if "overworld_cleared" in rs:
+		ctx.depth = int(rs.overworld_cleared.size())
+
+	if "last_mission_max_pressure" in rs:
+		ctx.last_pressure = float(rs.last_mission_max_pressure)
+
+	if "last_mission_dominant_hazard" in rs:
+		ctx.last_hazard = str(rs.last_mission_dominant_hazard)
+
+	if "last_mission_losses" in rs:
+		ctx.recent_losses = int(rs.last_mission_losses)
+
+	return ctx
+
+const EVENT_LINES := {
+	&"titan_intro": {
+		"default": [
+			"...do you feel that vibration?",
+			"Something is moving out there.",
+			"Hold up. Feel that?"
+		],
+		"high_pressure": [
+			"We just escaped a swarm and now THIS?",
+			"Pressure never stopped and neither did that sound.",
+			"We are not clear yet. Something is coming."
+		],
+		"losses": [
+			"We already lost hardware today.",
+			"We are thinner than we should be.",
+			"After what we lost, this is not good."
+		]
+	},
+
+	&"titan_confirm": {
+		"default": [
+			"Yeah. Not thunder.",
+			"No. That is metal.",
+			"That is a machine step."
+		]
+	},
+
+	&"titan_foreboding": {
+		"default": [
+			"Something big is moving out there.",
+			"I can feel it through the ground.",
+			"That weight is not natural."
+		]
+	},
+
+	&"titan_hold_tight": {
+		"default": [
+			"Keep it tight and stay alert.",
+			"Stay sharp. Eyes up.",
+			"Close formation. Watch everything."
+		]
+	},
+
+	&"titan_reveal": {
+		"default": [
+			"That silhouette… a giant mecha?",
+			"That is not a building.",
+			"That is a walker. Huge."
+		],
+		"deep_run": [
+			"We are too deep for coincidences.",
+			"This far out, of course we find this.",
+			"We crossed the safe line long ago."
+		]
+	},
+
+	&"titan_not_equipped": {
+		"default": [
+			"We are not equipped for that.",
+			"We do not have the firepower.",
+			"That is beyond our capacity."
+		]
+	},
+
+	&"titan_decision": {
+		"default": [
+			"No fight. We leave.",
+			"Back off. Evacs now.",
+			"Disengage. We are done here."
+		]
+	},
+
+	&"titan_bomber": {
+		"default": [
+			"Bomber, get us out of here.",
+			"Extraction. Immediate.",
+			"Call the Bomber. Now."
+		]
+	}
+}
+
+func _event_pick_line(key: StringName, ctx: Dictionary) -> String:
+	if not EVENT_LINES.has(key):
+		return ""
+
+	var pack: Dictionary = EVENT_LINES[key]
+	var variant := "default"
+
+	var pressure := float(ctx.get("last_pressure", 0.0))
+	var hazard := str(ctx.get("last_hazard", ""))
+	var depth := int(ctx.get("depth", 0))
+	var losses := int(ctx.get("recent_losses", 0))
+
+	# Priority order
+	if losses >= 1 and pack.has("losses"):
+		variant = "losses"
+	elif hazard != "" and pack.has(hazard):
+		variant = hazard
+	elif pressure >= 0.75 and pack.has("high_pressure"):
+		variant = "high_pressure"
+	elif depth >= 4 and pack.has("deep_run"):
+		variant = "deep_run"
+	else:
+		variant = "default"
+
+	var arr: Array = pack.get(variant, [])
+	if arr.is_empty():
+		arr = pack.get("default", [])
+	if arr.is_empty():
+		return ""
+
+	arr = arr.duplicate()
+	arr.shuffle()
+	return str(arr[0])
