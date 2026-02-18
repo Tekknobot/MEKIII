@@ -4326,7 +4326,6 @@ func _trigger_structure_explosion(center: Vector2i) -> void:
 	# Also damage structures in radius (including center)
 	_apply_structure_splash_damage(center, structure_splash_radius, structure_hit_damage)
 
-
 func _apply_splash_damage(center: Vector2i, radius: int, dmg: int, hit_cache = null) -> void:
 	if dmg <= 0:
 		return
@@ -4334,12 +4333,14 @@ func _apply_splash_damage(center: Vector2i, radius: int, dmg: int, hit_cache = n
 	for dx in range(-radius, radius + 1):
 		for dy in range(-radius, radius + 1):
 			var c := center + Vector2i(dx, dy)
+
 			# Manhattan splash
 			if abs(dx) + abs(dy) > radius:
 				continue
 			if grid != null and grid.has_method("in_bounds") and not grid.in_bounds(c):
 				continue
 
+			# ✅ fetch unit for THIS cell
 			var u := unit_at_cell(c)
 			if u == null or not is_instance_valid(u):
 				continue
@@ -4354,15 +4355,38 @@ func _apply_splash_damage(center: Vector2i, radius: int, dmg: int, hit_cache = n
 			_flash_unit_white(u, max(attack_flash_time, 0.12))
 			_jitter_unit(u, 2.5, 5, 0.10)
 
-			await _safe_wait(0.06) #spalsh delay
+			await _safe_wait(0.06) # splash delay
+
+			# ---------------------------------------------------------
+			# ✅ CRITICAL: re-check after await (unit may have been freed)
+			# ---------------------------------------------------------
+			if u == null or not is_instance_valid(u):
+				continue
+
+			# (Optional but safer): ensure the unit is still the unit at this cell
+			# If explosions / death cleanup removed it, don't apply damage.
+			var u_now := unit_at_cell(c)
+			if u_now == null or not is_instance_valid(u_now):
+				continue
+			if u_now != u:
+				# cell changed occupant during the delay; decide policy:
+				# usually: don't "transfer" splash to a new unit.
+				continue
+
 			u.take_damage(dmg)
-			
-			if u != null and is_instance_valid(u) and u.hp <= 0:
+
+			# ---------------------------------------------------------
+			# ✅ after damage, re-check again (take_damage may queue_free)
+			# ---------------------------------------------------------
+			if u == null or not is_instance_valid(u):
+				_cleanup_dead_at(c)
+				continue
+
+			if u.hp <= 0:
 				await _play_death_and_wait(u)
 				_remove_unit_from_board_at_cell(c)
 			else:
 				_cleanup_dead_at(c)
-
 
 func _apply_structure_splash_damage(center: Vector2i, radius: int, dmg: int) -> void:
 	if dmg <= 0:

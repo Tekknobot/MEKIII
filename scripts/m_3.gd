@@ -382,7 +382,7 @@ func _sky_laser_strike(M: MapController, at_cell: Vector2i) -> void:
 	var beams: Array[Line2D] = []
 
 	# Hard lifetime for beams so they ALWAYS disappear even if this coroutine is interrupted
-	var hard_lifetime := 0.05 + sky_beam_fade_time + 0.35
+	var hard_lifetime := 1.25 + sky_beam_fade_time
 
 	for s in range(strand_count):
 		var beam := Line2D.new()
@@ -504,15 +504,19 @@ func _sky_laser_strike(M: MapController, at_cell: Vector2i) -> void:
 	# Cleanup is already guaranteed by timers above.
 	# ---------------------------------------------------------
 	var tw := M.create_tween()
+	var tweened := false
+
 	for beam in beams:
 		if beam == null or not is_instance_valid(beam):
 			continue
 		var c1 := beam.default_color
 		c1.a = 0.0
 		tw.tween_property(beam, "default_color", c1, sky_beam_fade_time)
+		tweened = true
 
-	# No await needed for correctness anymore, but it’s nice for pacing if the coroutine continues.
-	await tw.finished
+	# ✅ Only await if we actually tweened something
+	if tweened:
+		await tw.finished
 		
 # -------------------------
 # Visual Effects
