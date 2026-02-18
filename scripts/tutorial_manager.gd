@@ -360,8 +360,6 @@ func _roll_3_upgrades() -> Array:
 
 			{"id": &"soldier_suppress_range_plus_1",      "title": "PINNING FIRE",   "desc": "+1 Range for Suppress.",              "thumb": t},
 			{"id": &"soldier_suppress_damage_plus_1",     "title": "HARD ROUNDS",    "desc": "+1 Suppress bonus damage.",           "thumb": t},
-			{"id": &"soldier_suppress_duration_plus_1",   "title": "STAY DOWN",      "desc": "+1 turn Suppress duration.",           "thumb": t},
-			{"id": &"soldier_suppress_penalty_plus_1",    "title": "HEAVY PRESSURE", "desc": "+1 Suppress move penalty.",             "thumb": t},
 		])
 
 	# MERCENARY
@@ -374,11 +372,6 @@ func _roll_3_upgrades() -> Array:
 
 			{"id": &"merc_blade_range_plus_1",        "title": "LONGER EDGE",   "desc": "+1 Blade range.",                     "thumb": t},
 			{"id": &"merc_blade_damage_plus_1",       "title": "VICIOUS CUT",   "desc": "+1 Blade bonus damage.",              "thumb": t},
-			{"id": &"merc_cleave_damage_plus_1",      "title": "WIDER CLEAVE",  "desc": "+1 Cleave bonus damage.",             "thumb": t},
-
-			{"id": &"merc_stim_duration_plus_1",      "title": "BURN LONGER",   "desc": "+1 turn Stimpack duration.",          "thumb": t},
-			{"id": &"merc_stim_move_plus_1",          "title": "HYPER STEP",    "desc": "+1 Move bonus while Stimmed.",         "thumb": t},
-			{"id": &"merc_stim_damage_plus_1",        "title": "KILL MODE",     "desc": "+1 Damage bonus while Stimmed.",       "thumb": t},
 		])
 
 	# ROBODOG
