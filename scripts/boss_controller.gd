@@ -87,6 +87,12 @@ var _suppress_base_modulate: Color = Color(1,1,1,1)
 
 var _boss_base_modulate: Color
 
+@export var dmg_bonus_per_phase: int = 1     # phase 1:+0, phase 2:+1, phase 3:+2 (by default)
+@export var dmg_bonus_per_turn: int = 1      # +1 each boss turn (set 0 to disable)
+@export var dmg_bonus_max: int = 999         # clamp if you want
+
+var boss_turn_index: int = 0
+
 func _ready() -> void:
 	var t := _get_flash_target()
 	if t != null:
@@ -385,6 +391,8 @@ func on_weakpoint_destroyed(part_id: StringName, boss_damage: int) -> void:
 	if parts_alive.has(part_id):
 		parts_alive[part_id] = false
 
+	_update_phase_from_parts()
+
 	_flash_boss(0.12)
 	_apply_boss_damage(boss_damage)
 
@@ -402,7 +410,7 @@ func on_weakpoint_destroyed(part_id: StringName, boss_damage: int) -> void:
 func _apply_boss_damage(amount: int) -> void:
 	var dmg = max(0, amount)
 	boss_hp = max(0, boss_hp - dmg)
-	_update_phase()
+	#_update_phase()
 
 	if boss_hp <= 0:
 		_clear_intents()
@@ -449,7 +457,7 @@ func resolve_planned_attacks_async() -> void:
 	# -------------------------
 	for a in planned_attacks:
 		var core_cells: Array = a.get("cells", [])
-		var dmg: int = int(a.get("dmg", 1))
+		var dmg: int = int(a.get("dmg", 1)) + _global_damage_bonus()
 
 		# VFX only on core intent tiles
 		for cc in core_cells:
@@ -563,6 +571,8 @@ func _flash_structures_hit_at_cell(c: Vector2i, dur := 0.12) -> void:
 # Plan + telegraph
 # -------------------------
 func _plan_next_turn() -> void:
+	boss_turn_index += 1
+
 	if M == null:
 		return
 
@@ -616,6 +626,10 @@ func _clear_intents() -> void:
 		M.boss_clear_intents()
 	planned_attacks.clear()
 
+func _global_damage_bonus() -> int:
+	var phase_bonus = max(0, (phase - 1) * dmg_bonus_per_phase)
+	var turn_bonus = max(0, (boss_turn_index - 1) * dmg_bonus_per_turn)
+	return clampi(phase_bonus + turn_bonus, 0, dmg_bonus_max)
 
 # -----------------------------------------
 # Patterns (return Dictionary {cells:Array[Vector2i], dmg:int})
@@ -1055,3 +1069,20 @@ func apply_suppress_to_weakpoints(turns: int) -> void:
 			if u.has_meta("suppress_turns"):
 				cur = int(u.get_meta("suppress_turns"))
 			u.set_meta("suppress_turns", max(cur, turns))
+
+func _update_phase_from_parts() -> void:
+	var destroyed := 0
+	for k in parts_alive.keys():
+		if bool(parts_alive[k]) == false:
+			destroyed += 1
+
+	# 4 parts total:
+	# destroyed 0-1 => phase 1
+	# destroyed 2   => phase 2
+	# destroyed 3   => phase 3
+	if destroyed >= 3:
+		phase = 3
+	elif destroyed >= 2:
+		phase = 2
+	else:
+		phase = 1

@@ -985,7 +985,13 @@ func spawn_units() -> void:
 		_spawn_elite_mech_in_zone(enemy_zone_cells, structure_blocked, reserved_ally)
 
 	# ---------------------------------------------------
-	# 4) Allies AFTER (bomber drop)
+	# 4) Weakpoints LAST (boss mission only)
+	# ---------------------------------------------------
+	if is_boss_mission:
+		_spawn_weakpoints_last(structure_blocked, reserved_boss, reserved_ally, enemy_zone_cells)
+
+	# ---------------------------------------------------
+	# 5) Allies AFTER (bomber drop)
 	# ---------------------------------------------------
 	var drop_center_cell := chosen_cells[0]
 	var drop_center_world := _cell_world(drop_center_cell)
@@ -1083,12 +1089,6 @@ func spawn_units() -> void:
 			u.set_cell(cell_i, terrain)
 			_set_unit_depth_from_world(u, u.global_position)
 
-	# ---------------------------------------------------
-	# 5) Weakpoints LAST (boss mission only)
-	# ---------------------------------------------------
-	if is_boss_mission:
-		_spawn_weakpoints_last(structure_blocked, reserved_boss, reserved_ally)
-
 	if bomber != null and is_instance_valid(bomber):
 		_sfx(bomber_sfx_out, sfx_volume_world, 1.0, bomber.global_position)
 		await _tween_node_global_pos(
@@ -1185,7 +1185,7 @@ func _pick_component_for_allies(valid_cells: Array[Vector2i], need: int, prefer_
 
 	return comps[0]["cells"] if comps.size() > 0 else []
 
-func _spawn_weakpoints_last(structure_blocked: Dictionary, reserved_boss: Dictionary, reserved_ally: Dictionary) -> void:
+func _spawn_weakpoints_last(structure_blocked: Dictionary, reserved_boss: Dictionary, reserved_ally: Dictionary, enemy_zone_cells: Array[Vector2i]) -> void:
 	# Only if boss controller exists and has a spawn API
 	if game_ref == null:
 		return
@@ -1218,6 +1218,15 @@ func _spawn_weakpoints_last(structure_blocked: Dictionary, reserved_boss: Dictio
 
 	# --- Build candidate cells: boss-reserved band minus occupied ---
 	var candidates: Array[Vector2i] = []
+	
+	candidates = candidates.filter(func(c: Vector2i) -> bool:
+		if reserved_ally.has(c): return false
+		if reserved_boss.has(c): return false
+		if structure_blocked.has(c): return false
+		if units_by_cell.has(c): return false # ✅ hard occupancy check
+		return _is_walkable(c)
+	)
+		
 	for c in reserved_boss.keys():
 		# bounds + walkable check (depends on your rules; keep if you want weakpoints on non-walkable tiles)
 		if grid != null and grid.has_method("in_bounds") and not grid.in_bounds(c):
