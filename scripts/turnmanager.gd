@@ -2208,7 +2208,6 @@ func _on_boss_defeated() -> void:
 		var unlocked_now: Array = rs.call("finalize_recruits_after_evac", evaced)
 		print("Finalized unlocks (evac): ", unlocked_now)
 
-
 func _get_vision(u: Unit) -> int:
 	if u != null and is_instance_valid(u) and u.has_meta("vision"):
 		return int(u.get_meta("vision"))

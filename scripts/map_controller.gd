@@ -2532,6 +2532,42 @@ func _draw_special_range(u: Unit, special: String) -> void:
 	var slam_depth := 5
 	var slam_layers_inward := 4
 
+	# -------------------------------------------------
+	# ✅ SUNDER PREVIEW: draw rays in 4 dirs to EDGE
+	# Clickable cells = first r steps
+	# Preview-only cells = beyond r until blocked/edge
+	# -------------------------------------------------
+	if id == "sunder":
+		_ensure_overlay_subroots()
+		if overlay_tiles_root == null:
+			return
+
+		var dirs := [Vector2i(1,0), Vector2i(-1,0), Vector2i(0,1), Vector2i(0,-1)]
+		var seen: Dictionary = {}
+
+		for dir in dirs:
+			var step := 1
+			var c = origin + dir
+
+			while (grid == null or (grid.has_method("in_bounds") and grid.in_bounds(c))) and (not structure_blocked.has(c)):
+				# draw tile once
+				if not seen.has(c):
+					seen[c] = true
+					var t := attack_tile_scene.instantiate() as Node2D
+					overlay_tiles_root.add_child(t)
+					t.global_position = terrain.to_global(terrain.map_to_local(c))
+					t.z_as_relative = false
+					t.z_index = 0 + (c.x + c.y)
+
+				# clickable only within range
+				if step <= r:
+					valid_special_cells[c] = true
+
+				step += 1
+				c += dir
+
+		return
+
 	for dx in range(-r, r + 1):
 		for dy in range(-r, r + 1):
 			var c := origin + Vector2i(dx, dy)
@@ -4240,7 +4276,7 @@ func spawn_explosion_at_cell(cell: Vector2i) -> void:
 	var world_pos := terrain.to_global(terrain.map_to_local(cell))
 	world_pos += Vector2(0, explosion_y_offset_px)
 	fx.global_position = world_pos
-	_sfx(&"explosion_small", sfx_volume_world, randf_range(0.95, 1.05), world_pos)
+	_sfx(&"explosion_small", sfx_volume_world * 0.4, randf_range(0.95, 1.05), world_pos)
 	
 	# Depth using grid-space (recomputed after offset)
 	var local := terrain.to_local(world_pos)

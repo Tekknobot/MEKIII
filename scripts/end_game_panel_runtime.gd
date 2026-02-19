@@ -29,6 +29,9 @@ var root: Control
 var title_label: Label
 var body_label: RichTextLabel
 
+# Upgrade cards container (so we can hide it completely on campaign win / loss)
+var upgrades_col: VBoxContainer
+
 var upgrade_buttons: Array[Button] = []
 var upgrade_descs: Array[Label] = []
 var upgrade_thumbs: Array[TextureRect] = []
@@ -40,6 +43,11 @@ var restart_button: Button
 var quirk_block: VBoxContainer
 var quirk_title: Label
 var quirk_flow: HFlowContainer
+
+# Campaign victory roster UI
+var roster_block: VBoxContainer
+var roster_title: Label
+var roster_flow: HFlowContainer
 
 var _shown_upgrades: Array = []   # Array[Dictionary] {id,title,desc,unit_name?,thumb?}
 
@@ -104,6 +112,9 @@ func _apply_font_to_button(btn: Button, f: Font, size: int) -> void:
 func refresh_fonts() -> void:
 	_apply_font_to_label(title_label, title_font, title_font_size)
 	_apply_font_to_rich(body_label, body_font, body_font_size)
+
+	if roster_title != null:
+		_apply_font_to_label(roster_title, title_font, body_font_size)
 
 	for b in upgrade_buttons:
 		_apply_font_to_button(b, button_font, button_font_size)
@@ -220,8 +231,31 @@ func _build_ui() -> void:
 	quirk_flow.add_theme_constant_override("v_separation", 8)
 	quirk_block.add_child(quirk_flow)
 
+	# -------------------------
+	# Campaign Victory: Roster Grid (hidden unless campaign complete)
+	# -------------------------
+	roster_block = VBoxContainer.new()
+	roster_block.name = "RosterBlock"
+	roster_block.visible = false
+	roster_block.add_theme_constant_override("separation", 8)
+	v.add_child(roster_block)
+
+	roster_title = Label.new()
+	roster_title.text = "ROSTER"
+	roster_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	roster_title.modulate = Color(0.75, 1.0, 0.85, 0.95)
+	roster_block.add_child(roster_title)
+
+	roster_flow = HFlowContainer.new()
+	roster_flow.name = "RosterFlow"
+	roster_flow.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	roster_flow.alignment = FlowContainer.ALIGNMENT_CENTER
+	roster_flow.add_theme_constant_override("h_separation", 10)
+	roster_flow.add_theme_constant_override("v_separation", 10)
+	roster_block.add_child(roster_flow)
+
 	# Upgrades column (ONE COLUMN)
-	var upgrades_col := VBoxContainer.new()
+	upgrades_col = VBoxContainer.new()
 	upgrades_col.name = "Upgrades"
 	upgrades_col.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	upgrades_col.add_theme_constant_override("separation", 10)
@@ -349,6 +383,8 @@ func show_win(rounds_survived: int, upgrades: Array, is_event: bool = false) -> 
 			body_label.text = "Satellite sweep confirmed.\nRounds survived: %d\n\nChoose ONE upgrade:" % rounds_survived
 
 	_apply_quirk_awards_ui()
+	if roster_block != null:
+		roster_block.visible = false
 	_apply_upgrade_ui()
 	show_panel()
 
@@ -431,6 +467,8 @@ func show_event_success(title_text: String, body_text: String, button_text: Stri
 		body_label.text = "[center]%s[/center]" % body_text
 
 	# Hide/clear upgrade UI if your panel has it
+	if roster_block != null:
+		roster_block.visible = false
 	_apply_upgrade_ui()
 
 	show_panel()
@@ -450,6 +488,8 @@ func show_loss(msg: String, button_text: String = "MAIN MENU") -> void:
 		body_label.text = msg
 
 	_apply_upgrade_ui()
+	if roster_block != null:
+		roster_block.visible = false
 	show_panel()
 
 func show_campaign_victory(stats: Dictionary, button_text: String = "RETURN TO SQUAD DEPLOY") -> void:
@@ -473,13 +513,31 @@ func show_campaign_victory(stats: Dictionary, button_text: String = "RETURN TO S
 	if body_label != null:
 		body_label.text = "Sector stabilized.\n\nMissions cleared: %d\nRounds survived: %d\nMechs lost: %d\nSurvivors: %d" % [missions, rounds, mechs_lost, survivors]
 
-	_apply_upgrade_ui() # with empty upgrades, this hides the upgrade cards
+	# Hide upgrade cards entirely + show roster portraits
+	_apply_upgrade_ui() # ensures upgrades_col hidden (no dead buttons)
+	_apply_campaign_roster_ui()
 	show_panel()
 
 # -------------------------
 # Internals
 # -------------------------
 func _apply_upgrade_ui() -> void:
+	# If no upgrades to pick, hide the entire upgrades column (no dead buttons taking space)
+	if upgrades_col != null:
+		upgrades_col.visible = (_shown_upgrades.size() > 0)
+	if _shown_upgrades.is_empty():
+		# Also clear any lingering textures/text
+		for i in range(3):
+			if i < upgrade_buttons.size():
+				upgrade_buttons[i].disabled = true
+				upgrade_buttons[i].text = ""
+			if i < upgrade_descs.size():
+				upgrade_descs[i].text = ""
+			if i < upgrade_thumbs.size() and upgrade_thumbs[i] != null:
+				upgrade_thumbs[i].texture = null
+				upgrade_thumbs[i].visible = false
+		return
+
 	for i in range(3):
 		if _shown_upgrades.size() > i:
 			var up: Dictionary = _shown_upgrades[i]
@@ -526,7 +584,7 @@ func _apply_upgrade_ui() -> void:
 				upgrade_thumbs[i].visible = (tex != null)
 		else:
 			upgrade_buttons[i].disabled = true
-			upgrade_buttons[i].text = "NONE"
+			upgrade_buttons[i].text = ""
 			upgrade_descs[i].text = ""
 
 			if i < upgrade_thumbs.size() and upgrade_thumbs[i] != null:
@@ -661,6 +719,133 @@ func _thumb_from_runstate(unit_display_name: String) -> Texture2D:
 			return t
 
 	return null
+
+
+func _apply_campaign_roster_ui() -> void:
+	if roster_block == null or roster_flow == null:
+		return
+
+	# Clear previous
+	for ch in roster_flow.get_children():
+		ch.queue_free()
+
+	var rs := get_tree().root.get_node_or_null("RunStateNode")
+	if rs == null:
+		rs = get_tree().root.get_node_or_null("RunState")
+	if rs == null:
+		roster_block.visible = false
+		return
+
+	# Determine "newly unlocked" set (paths OR ids)
+	var new_set: Dictionary = {}
+	if ("last_unlocked_roster" in rs) and (rs.last_unlocked_roster is Array):
+		for x in rs.last_unlocked_roster:
+			new_set[str(x)] = true
+
+	# Build roster entries (prefer roster_units if you have it)
+	var entries: Array[Dictionary] = []
+	if ("roster_units" in rs) and (rs.roster_units is Array):
+		for e_any in rs.roster_units:
+			if not (e_any is Dictionary):
+				continue
+			var e: Dictionary = e_any
+			var p := str(e.get("path", ""))
+			var uid := str(e.get("id", ""))
+			if p == "" or not ResourceLoader.exists(p):
+				continue
+			var tex := _thumb_from_scene_path(p)
+			var is_new := new_set.has(p) or (uid != "" and new_set.has(uid))
+			entries.append({"path": p, "id": uid, "thumb": tex, "is_new": is_new})
+	else:
+		# Fallback: use squad_scene_paths as "current roster"
+		if ("squad_scene_paths" in rs) and (rs.squad_scene_paths is Array):
+			for p_any in rs.squad_scene_paths:
+				var p := str(p_any)
+				if p == "" or not ResourceLoader.exists(p):
+					continue
+				var tex := _thumb_from_scene_path(p)
+				var is_new := new_set.has(p)
+				entries.append({"path": p, "id": "", "thumb": tex, "is_new": is_new})
+
+	# If you unlocked paths that aren't in roster_units yet, append them so they're visible
+	for k in new_set.keys():
+		var key := str(k)
+		if ResourceLoader.exists(key):
+			var already := false
+			for e in entries:
+				if str(e.get("path","")) == key:
+					already = true
+					break
+			if not already:
+				entries.append({"path": key, "id": "", "thumb": _thumb_from_scene_path(key), "is_new": true})
+
+	# Build UI chips
+	entries.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
+		return str(a.get("path","")) < str(b.get("path",""))
+	)
+
+	for e in entries:
+		var chip := _make_roster_portrait_chip(e.get("thumb", null), bool(e.get("is_new", false)))
+		roster_flow.add_child(chip)
+
+	roster_block.visible = true
+
+
+func _thumb_from_scene_path(scene_path: String) -> Texture2D:
+	if scene_path == "" or not ResourceLoader.exists(scene_path):
+		return null
+	var res := load(scene_path)
+	if not (res is PackedScene):
+		return null
+	var inst := (res as PackedScene).instantiate()
+	if inst == null:
+		return null
+
+	# Prefer portrait_tex, then thumbnail
+	var tex: Texture2D = null
+	if ("portrait_tex" in inst):
+		var t = inst.get("portrait_tex")
+		if t is Texture2D:
+			tex = t
+	if tex == null and ("thumbnail" in inst):
+		var t2 = inst.get("thumbnail")
+		if t2 is Texture2D:
+			tex = t2
+
+	inst.queue_free()
+	return tex
+
+
+func _make_roster_portrait_chip(tex: Texture2D, is_new: bool) -> Control:
+	var panel := PanelContainer.new()
+	panel.custom_minimum_size = Vector2(72, 72)
+
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Color(0, 0, 0, 0.18)
+	sb.border_width_left = 2
+	sb.border_width_top = 2
+	sb.border_width_right = 2
+	sb.border_width_bottom = 2
+	sb.set_corner_radius_all(10)
+	sb.border_color = (Color(0.24, 1.0, 0.65, 0.95) if is_new else Color(1, 1, 1, 0.18))
+	panel.add_theme_stylebox_override("panel", sb)
+
+	var m := MarginContainer.new()
+	m.add_theme_constant_override("margin_left", 6)
+	m.add_theme_constant_override("margin_right", 6)
+	m.add_theme_constant_override("margin_top", 6)
+	m.add_theme_constant_override("margin_bottom", 6)
+	panel.add_child(m)
+
+	var tr := TextureRect.new()
+	tr.custom_minimum_size = Vector2(60, 60)
+	tr.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	tr.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	tr.texture = tex
+	tr.modulate = Color(1, 1, 1, 0.98)
+	m.add_child(tr)
+
+	return panel
 
 func show_panel() -> void:
 	visible = true
