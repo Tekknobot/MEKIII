@@ -69,17 +69,17 @@ func _show_step() -> void:
 	match step:
 		Step.INTRO_SELECT:
 			_toast(
-				"Click an ally to select them.\n\nTip: Left-click selects. Right-click arms attack mode.",
+				"Click an ally to select them.\n\nLeft-click selects. Right-click arms attack mode.",
 				"FIELD OPS"
 			)
 		Step.INTRO_MOVE:
 			_toast(
-				"Move your selected ally.\n\nTip: Click a green tile to move.",
+				"Move your selected ally.\n\nClick a green tile to move.",
 				"FIELD OPS"
 			)
 		Step.INTRO_ATTACK:
 			_toast(
-				"Attack a zombie.\n\nTip: Right-click to arm ATTACK, then left-click a zombie. Rapid click for multi-damage",
+				"Attack a zombie.\n\nATTACK automatically arms after move. If zombie isn't in range end turn.\nRapid click for multi-damage",
 				"FIELD OPS"
 			)
 		Step.FIRST_KILL:
@@ -177,11 +177,11 @@ func _on_tutorial_event(id: StringName, payload: Dictionary) -> void:
 		"attack_mode_armed":
 			# don't auto-advance, just reinforce if they're stuck
 			if step == Step.INTRO_ATTACK:
-				_hint_once(&"hint_attack_armed", "Attack mode auto armed.\n\nLeft-click again to dis-arm.")
+				_hint_once(&"hint_attack_armed", "Attack mode auto armed.\n\nLeft-click again to dis-arm.\nIf zombie isn't in range end turn.")
 
 		"attack_mode_disarmed":
 			if step == Step.INTRO_ATTACK:
-				_hint_once(&"hint_attack_disarmed", "Attack mode armed.\n\nNow left-click a zombie in range.")
+				_hint_once(&"hint_attack_disarmed", "Attack mode armed.\n\nNow left-click a zombie in range.\nIf zombie isn't in range end turn.")
 
 		"ally_attacked":
 			if step == Step.INTRO_ATTACK:
