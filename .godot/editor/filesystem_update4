@@ -21,3 +21,5 @@ res://scripts/RunState.gd
 res://scripts/turnmanager.gd
 res://scripts/overworld_radar.gd
 res://scenes/lunatic.tscn
+res://scenes/units/allies/car.tscn
+res://scripts/hud.gd

@@ -7,7 +7,7 @@ class_name HUD
 # -------------------------
 # Portrait quirk tiers (A) + shader anim (B)
 # -------------------------
-@export var quirtier_folder: String = "res://sprites/Portraits/QuirkTiers"
+@export var quirktier_folder: String = "res://sprites/Portraits/QuirkTiers"
 @export var use_portrait_quirk_tiers: bool = true
 @export var use_portrait_quirk_shader: bool = true
 
@@ -606,7 +606,7 @@ func _portrait_path_for_tier(base_tex: Texture2D, qcount: int) -> String:
 		return ""
 
 	var stem := rp.get_file().get_basename()  # e.g. "dog_port"
-	var p := "%s/%s_q%d.png" % [quirtier_folder, stem, clampi(qcount, 0, 3)]
+	var p := "%s/%s_q%d.png" % [quirktier_folder, stem, clampi(qcount, 0, 3)]
 	return p
 
 
