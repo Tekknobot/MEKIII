@@ -104,8 +104,8 @@ func _show_step() -> void:
 			)
 		Step.YOU_WIN:
 			_toast(
-				"Zombies cleared!\nYou WIN!",
-				"FIELD OPS"
+				" ",
+				" "
 			)		
 		Step.DONE:
 			_hide_toast()
