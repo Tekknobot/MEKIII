@@ -305,7 +305,7 @@ func award_post_mission_quirks(evaced_unit_ids: Array[String]) -> void:
 
 			var qs: Array = e.get("quirks", [])
 
-			if qs.size() < QuirkDB.MAX_QUIRKS_PER_UNIT and rng.randf() < 0.25:
+			if qs.size() < QuirkDB.MAX_QUIRKS_PER_UNIT and rng.randf() < 1.0:
 				var qnew := QuirkDB.roll_random_quirk(rng, qs)
 				if qnew != &"":
 					qs.append(qnew)

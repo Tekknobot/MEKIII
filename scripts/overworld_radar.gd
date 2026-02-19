@@ -322,6 +322,9 @@ func _cheat_clear_path_to_nearest_elite() -> void:
 		if rs != null and ("overworld_cleared" in rs):
 			rs.overworld_cleared[str(id)] = true
 
+		# ✅ simulate rewards for each cleared node
+		_cheat_simulate_rewards_for_node(id)
+
 	# Jump current selection onto the elite node (leave it uncleared so it can launch)
 	current_node_id = elite_target
 	hovered_node_id = -1
@@ -369,6 +372,9 @@ func _cheat_clear_path_to_nearest_event() -> void:
 		nodes[id].cleared = true
 		if rs != null and ("overworld_cleared" in rs):
 			rs.overworld_cleared[str(id)] = true
+
+		# ✅ simulate rewards for each cleared node
+		_cheat_simulate_rewards_for_node(id)
 
 	# Jump current selection onto the event node (leave it uncleared so it can launch)
 	current_node_id = event_target
@@ -490,6 +496,9 @@ func _cheat_clear_path_to_nearest_boss() -> void:
 		if rs != null and ("overworld_cleared" in rs):
 			rs.overworld_cleared[str(id)] = true
 
+		# ✅ simulate rewards for each cleared node
+		_cheat_simulate_rewards_for_node(id)
+			
 	# Jump current selection onto the boss node (leave it uncleared so it can launch)
 	current_node_id = boss_target
 	hovered_node_id = -1
@@ -1463,6 +1472,9 @@ func _cheat_clear_path_to_nearest_supply() -> void:
 		if rs != null and ("overworld_cleared" in rs):
 			rs.overworld_cleared[str(id)] = true
 
+		# ✅ simulate rewards for each cleared node
+		_cheat_simulate_rewards_for_node(id)
+	
 	# Jump onto the supply node (leave it uncleared so it can be clicked)
 	current_node_id = supply_target
 	hovered_node_id = -1
@@ -1674,3 +1686,88 @@ func _get_array_prop(obj: Object, key: StringName) -> Array:
 			return m
 
 	return []
+
+# -----------------------------------------
+# CHEAT REWARD SIMULATION
+# -----------------------------------------
+const CHEAT_UPGRADE_POOL: Array[StringName] = [
+	&"all_hp_plus_1",
+	&"all_move_plus_1",
+	&"all_dmg_plus_1",
+]
+
+func _cheat_apply_random_upgrade(rs: Node, count: int = 1) -> void:
+	if rs == null:
+		return
+
+	# Prefer RunState.add_upgrade() if present
+	var has_add := rs.has_method("add_upgrade")
+
+	for i in range(max(0, count)):
+		if CHEAT_UPGRADE_POOL.is_empty():
+			return
+		var pick := CHEAT_UPGRADE_POOL[rng.randi_range(0, CHEAT_UPGRADE_POOL.size() - 1)]
+
+		if has_add:
+			rs.call("add_upgrade", pick)
+		else:
+			# fallback: mutate dict directly
+			if not ("run_upgrade_counts" in rs):
+				return
+			var d: Dictionary = rs.run_upgrade_counts
+			d[pick] = int(d.get(pick, 0)) + 1
+			rs.run_upgrade_counts = d
+
+func _cheat_award_quirks_to_current_squad(rs: Node) -> void:
+	if rs == null:
+		return
+	if not rs.has_method("award_post_mission_quirks"):
+		return
+
+	# Your quirk award expects evac'd roster unit IDs.
+	# In overworld, use the currently selected squad IDs.
+	var ids: Array[String] = []
+	if ("squad_unit_ids" in rs) and (rs.squad_unit_ids is Array):
+		for v in rs.squad_unit_ids:
+			ids.append(str(v))
+
+	# If you’re still on legacy squad paths (no unit IDs), quirks can’t be assigned reliably.
+	# (Quirks live on roster_units by id.)
+	if ids.is_empty():
+		return
+
+	rs.call("award_post_mission_quirks", ids)
+
+func _cheat_simulate_rewards_for_node(node_id: int) -> void:
+	if node_id < 0 or node_id >= nodes.size():
+		return
+
+	var rs := _rs()
+	if rs == null:
+		return
+
+	var t := nodes[node_id].ntype
+
+	# Apply upgrades based on node type
+	match t:
+		NodeType.EVENT, NodeType.SUPPLY:
+			_cheat_apply_random_upgrade(rs, 1) # upgrades only
+
+		NodeType.COMBAT:
+			_cheat_apply_random_upgrade(rs, 1)
+			_cheat_award_quirks_to_current_squad(rs)
+
+		NodeType.ELITE:
+			_cheat_apply_random_upgrade(rs, 2)
+			_cheat_award_quirks_to_current_squad(rs)
+
+		NodeType.BOSS:
+			_cheat_apply_random_upgrade(rs, 3)
+			_cheat_award_quirks_to_current_squad(rs)
+
+		_:
+			pass
+
+	# Persist so squad deploy reflects it immediately
+	if rs.has_method("save_to_disk"):
+		rs.call("save_to_disk")
