@@ -1782,6 +1782,8 @@ func _perform_special(u: Unit, id: String, target_cell: Vector2i) -> void:
 	# ✅ Prevent queue_free() from stalling this await chain
 	u.set_meta(&"special_lock", true)
 	u.set_meta(&"pending_free", false)
+	
+	var caster_cell := u.cell
 
 	# -------------------------
 	# Execute special
@@ -1851,6 +1853,19 @@ func _perform_special(u: Unit, id: String, target_cell: Vector2i) -> void:
 
 	elif id == "laser_sweep" and u.has_method("perform_laser_sweep"):
 		await u.call("perform_laser_sweep", self, target_cell)
+
+	# ---------------------------------------------------------
+	# ✅ If the caster died during the special (hazards, etc.),
+	# force board cleanup + free now that the await is done.
+	# Prevents "0 HP unit stuck visible".
+	# ---------------------------------------------------------
+	if u != null and is_instance_valid(u):
+		caster_cell = u.cell
+
+	if u != null and is_instance_valid(u) and u.hp <= 0:
+		_cleanup_dead_at(caster_cell)      # removes occupancy from units_by_cell
+		await _play_death_and_wait(u)      # safe wait (bounded)
+		_remove_unit_from_board(u)         # queue_free safely
 
 	# -------------------------
 	# Achievement stats: special usage (central hook)
