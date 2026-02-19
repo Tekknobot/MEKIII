@@ -1016,6 +1016,16 @@ func spawn_units() -> void:
 			unit_id = str(def.get("id", ""))
 			scene_path = str(def.get("path", ""))
 			quirks = def.get("quirks", [])
+
+			# ---------------------------------------------------------
+			# ✅ CRITICAL: Always pull the LATEST quirks from RunState
+			# (post-mission awards update roster_units, not squad_entries)
+			# ---------------------------------------------------------
+			if unit_id != "" and rs != null and rs.has_method("get_roster_unit"):
+				var re: Dictionary = rs.call("get_roster_unit", unit_id)
+				if not re.is_empty():
+					quirks = (re.get("quirks", quirks) as Array).duplicate(true)
+					print("spawn uid=", unit_id, " quirks=", quirks)
 		else:
 			if i >= ally_scenes.size():
 				continue
@@ -5862,16 +5872,17 @@ func on_unit_died(u: Unit, killer: Unit = null) -> void:
 				var idx = min(floppy_drop_index, curve.size() - 1)
 				floppy_kills_left = int(round(float(curve[idx]) * mult))
 
-		var part_id = u.get_meta("boss_part_id", null)
-		if part_id != null:
-			# Achievement: boss part down
+		var part_id_any = u.get_meta("boss_part_id", null)
+		if part_id_any != null:
 			_ach_unlock(&"weakpoint")
 
-			var dmg := int(u.get_meta("boss_damage_on_destroy", 3))
+			var part_id: StringName = StringName(str(part_id_any)) # ✅ force stable key type
+			var dmg: int = int(u.get_meta("boss_damage_on_destroy", 3))
+
 			var tm := get_tree().root.get_node_or_null("TurnManager")
 			if tm != null and tm.boss != null and is_instance_valid(tm.boss):
 				tm.boss.on_weakpoint_destroyed(part_id, dmg)
-
+			
 		return
 
 	# -------------------------
@@ -6091,8 +6102,26 @@ func _run_satellite_sweep_async() -> void:
 	await satellite_sweep()
 	emit_signal("tutorial_event", &"satellite_sweep_finished", {})
 
+	# ✅ BOSS CLEAR REWARD (if this mission is a boss node)
+	var rs := _rs()
+	if rs != null and ("mission_node_type" in rs) and rs.mission_node_type == &"boss":
+		# avoid double-reward if something already marked it cleared
+		var nid := int(rs.overworld_current_node_id) if ("overworld_current_node_id" in rs) else -1
+		var already := false
+		if ("overworld_cleared" in rs) and nid != -1:
+			already = bool(rs.overworld_cleared.has(str(nid)))
+
+		if not already and rs.has_method("unlock_more_roster"):
+			var n := int(rs.unlock_per_campaign_clear) if ("unlock_per_campaign_clear" in rs) else 2
+			var newly = rs.unlock_more_roster(n)
+			rs.set("last_unlocked_roster", newly)
+			if rs.has_method("save_to_disk"):
+				rs.save_to_disk()
+			print("Boss clear unlocks (beacon path): ", newly)
+
 	await _extract_allies_with_bomber()
 	emit_signal("tutorial_event", &"extraction_finished", {})
+
 
 func _extract_allies_with_bomber() -> void:
 	if not evac_enabled:

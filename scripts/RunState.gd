@@ -19,6 +19,12 @@ var mission_node_id: int = -1
 var overworld_cleared: Dictionary = {} # node_id -> true
 var overworld_current_node: int = -1
 
+var boss_node_ids: Array[int] = []        # all boss nodes in this campaign
+var final_boss_node_id: int = -1          # which one ends the campaign
+var campaign_cleared: bool = false
+var true_clear: bool = false
+
+
 # -------------------------
 # Upgrades (existing)
 # -------------------------
@@ -136,6 +142,9 @@ func clear() -> void:
 	run_upgrades.clear()
 	run_upgrade_counts.clear()
 	squad_scene_paths.clear()
+	squad_unit_ids.clear()      # ✅ important: don't reuse prior run's ids
+	squad_entries.clear()       # ✅ important: kill fallback cache
+	last_awarded_quirks.clear() # ✅ optional: keeps UI clean
 	pending_recruit_paths.clear()
 
 	# Don't wipe roster unlock progression
@@ -163,6 +172,7 @@ func set_squad(paths: Array[String]) -> void:
 	squad_scene_paths = paths.duplicate()
 	# Back-compat: if caller sets paths directly, clear id-based squad.
 	squad_unit_ids.clear()
+	squad_entries.clear() # ✅ prevent stale entries from hijacking get_squad_defs()
 
 func set_squad_units(ids: Array[String]) -> void:
 	squad_unit_ids = ids.duplicate()
@@ -179,6 +189,7 @@ func has_squad() -> bool:
 func clear_squad() -> void:
 	squad_scene_paths.clear()
 	squad_unit_ids.clear()
+	squad_entries.clear() # ✅ prevent stale carryover
 
 func get_roster_unit(uid: String) -> Dictionary:
 	uid = str(uid)
@@ -240,19 +251,28 @@ func get_squad_packed_scenes() -> Array[PackedScene]:
 	return out
 
 func _make_unit_id(rng: RandomNumberGenerator) -> String:
-	# Not cryptographically unique; just stable enough for a roguelite save.
-	var a := int(Time.get_unix_time_from_system())
+	# Unique enough for saves: microsecond clock + RNG
+	var a := int(Time.get_ticks_usec())  # microseconds since engine start
 	var b := rng.randi()
-	return "%08x%08x" % [a, b]
+	return "%08x%08x" % [a & 0xffffffff, b & 0xffffffff]
 
 func _add_owned_unit(path: String, quirks: Array[StringName]) -> String:
 	path = str(path)
 	if path == "" or not ResourceLoader.exists(path):
 		return ""
+
 	var rng := RandomNumberGenerator.new()
-	rng.seed = int(Time.get_unix_time_from_system())
+	rng.randomize() # ✅ do NOT seed with seconds
+
 	var uid := _make_unit_id(rng)
-	roster_units.append({"id": uid, "path": path, "quirks": quirks.duplicate()})
+
+	# ✅ ultra-safety: avoid collisions (should be rare, but cheap)
+	var tries := 0
+	while tries < 8 and not get_roster_unit(uid).is_empty():
+		uid = _make_unit_id(rng)
+		tries += 1
+
+	roster_units.append({"id": uid, "path": path, "quirks": quirks.duplicate(true)})
 	return uid
 
 func _roll_starting_quirks(rng: RandomNumberGenerator) -> Array[StringName]:
@@ -641,6 +661,11 @@ func to_save_dict() -> Dictionary:
 		"achievements_unlocked": achievements_unlocked.keys(),
 		"achievement_stats": achievement_stats.duplicate(true),
 
+		"boss_node_ids": boss_node_ids.duplicate(),
+		"final_boss_node_id": final_boss_node_id,
+		"campaign_cleared": campaign_cleared,
+		"true_clear": true_clear,
+
 	}
 
 func load_from_save_dict(d: Dictionary) -> void:
@@ -712,6 +737,14 @@ func load_from_save_dict(d: Dictionary) -> void:
 	last_supply_units_evaced = int(d.get("last_supply_units_evaced", 0))
 	last_supply_reward_tier = int(d.get("last_supply_reward_tier", 0))
 	last_supply_failed_reason = str(d.get("last_supply_failed_reason", ""))
+
+	boss_node_ids.clear()
+	for v in d.get("boss_node_ids", []):
+		boss_node_ids.append(int(v))
+
+	final_boss_node_id = int(d.get("final_boss_node_id", -1))
+	campaign_cleared = bool(d.get("campaign_cleared", false))
+	true_clear = bool(d.get("true_clear", false))
 
 	# Achievements
 	achievements_unlocked.clear()
@@ -1097,3 +1130,12 @@ func set_squad_entries(entries: Array) -> void:
 	squad_unit_ids.clear()
 
 	save_to_disk()
+
+func set_boss_nodes(ids: Array, final_id: int) -> void:
+	boss_node_ids.clear()
+	for v in ids:
+		boss_node_ids.append(int(v))
+	final_boss_node_id = int(final_id)
+
+func is_final_boss_node(node_id: int) -> bool:
+	return final_boss_node_id != -1 and node_id == final_boss_node_id

@@ -171,13 +171,13 @@ func _on_tutorial_event(id: StringName, payload: Dictionary) -> void:
 		"ally_moved":
 			if step == Step.INTRO_MOVE:
 				_advance(Step.INTRO_ATTACK)
-				#await M._extract_allies_with_bomber()
-				#M.emit_signal("tutorial_event", &"extraction_finished", {})
 
 		"attack_mode_armed":
 			# don't auto-advance, just reinforce if they're stuck
 			if step == Step.INTRO_ATTACK:
 				_hint_once(&"hint_attack_armed", "Attack mode auto armed.\n\nLeft-click again to dis-arm.\nIf zombie isn't in range end turn.")
+				await M._extract_allies_with_bomber()
+				M.emit_signal("tutorial_event", &"extraction_finished", {})				
 
 		"attack_mode_disarmed":
 			if step == Step.INTRO_ATTACK:

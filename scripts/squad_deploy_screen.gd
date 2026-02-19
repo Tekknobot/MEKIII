@@ -129,13 +129,30 @@ func _on_start() -> void:
 				if hash != -1:
 					owned_id = owned_id.substr(0, hash)
 
+			# ---------------------------------------------------------
+			# ✅ CRITICAL FIX:
+			# If owned_id is actually a PATH (fresh runs / legacy roster),
+			# convert it into a real owned unit in RunState.roster_units.
+			# ---------------------------------------------------------
+			var qs_in: Array = d.get("quirks", [])
+			var qs: Array[StringName] = []
+			for q in qs_in:
+				qs.append(StringName(str(q)))
+
+			if owned_id.begins_with("res://"):
+				if rs != null and rs.has_method("_add_owned_unit"):
+					var new_uid := str(rs.call("_add_owned_unit", p, qs))
+					if new_uid != "":
+						owned_id = new_uid
+
 			owned_ids.append(owned_id)
 
 			defs.append({
 				"id": owned_id,
 				"path": p,
-				"quirks": d.get("quirks", []).duplicate(true),
+				"quirks": qs.duplicate(true),
 			})
+
 
 		# ✅ Primary: store owned ids so RunState can recover quirks reliably
 		if rs.has_method("set_squad_units"):

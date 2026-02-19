@@ -624,6 +624,30 @@ func _generate_world() -> void:
 
 	current_node_id = start_id
 
+	# ---------------------------------------------------------
+	# REGISTER BOSS NODES WITH RUNSTATE (after types are assigned)
+	# ---------------------------------------------------------
+	var rs := get_tree().root.get_node_or_null("RunStateNode")
+	if rs == null:
+		rs = get_tree().root.get_node_or_null("RunState")
+
+	if rs != null:
+		var boss_ids: Array[int] = []
+
+		for nd in nodes:
+			if not alive[nd.id]:
+				continue
+			if nd.ntype == NodeType.BOSS:
+				boss_ids.append(nd.id)
+
+		# choose final boss = the farthest boss on the route
+		var final_boss_id := boss_id
+		if boss_ids.size() > 0:
+			final_boss_id = boss_ids[boss_ids.size() - 1]
+
+		if rs.has_method("set_boss_nodes"):
+			rs.call("set_boss_nodes", boss_ids, final_boss_id)
+
 func _carve_voids_connected() -> void:
 	var n: int = grid_size * grid_size
 	var target_remove: int = int(round(float(n) * remove_ratio))

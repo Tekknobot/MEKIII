@@ -2014,7 +2014,7 @@ func _on_campaign_victory_continue() -> void:
 		# ✅ Start a new campaign BUT keep unlocked roster
 		# (Requires the reset_run() replacement I gave you: it must NOT clear roster_scene_paths)
 		if rs.has_method("reset_run"):
-			rs.reset_run()
+			rs.reset_run(false) # ✅ NEW RUN, keep roster unlocks + quirks
 
 		# persist
 		if rs.has_method("save_to_disk"):
@@ -2134,14 +2134,31 @@ func _on_boss_defeated() -> void:
 	if tms.size() > 0 and tms[0].has_method("_hide_mission_hud"):
 		tms[0]._hide_mission_hud()
 
-	# --- CAMPAIGN VICTORY SCREEN ---
+	# --- BOSS CLEAR: decide whether this ends the campaign ---
 	if rs == null:
 		rs = get_tree().root.get_node_or_null("RunState")
 
+	var node_id := -1
+	var is_final := false
+
+	if rs != null:
+		if "overworld_current_node_id" in rs:
+			node_id = int(rs.overworld_current_node_id)
+
+		# ✅ final boss test (new RunState method)
+		if rs.has_method("is_final_boss_node"):
+			is_final = bool(rs.call("is_final_boss_node", node_id))
+
+	# If NOT final boss: return to overworld normally (don’t end campaign)
+	if not is_final:
+		# optional: show a small “BOSS DOWN” banner somewhere later; but keep loop going
+		emit_signal("tutorial_event", &"extraction_finished", {})
+		return
+
+	# FINAL boss: show your existing campaign victory screen
 	var missions_cleared := 0
 	var mechs_lost := 0
 	var survivors := 0
-
 	if rs != null:
 		if "overworld_cleared" in rs:
 			missions_cleared = int(rs.overworld_cleared.size())
@@ -2153,7 +2170,6 @@ func _on_boss_defeated() -> void:
 	var rounds := int(round_index) if ("round_index" in self) else 0
 
 	if end_panel != null and is_instance_valid(end_panel):
-		# show a dedicated campaign victory screen (no upgrade pick)
 		if end_panel.has_method("show_campaign_victory"):
 			end_panel.call("show_campaign_victory", {
 				"missions_cleared": missions_cleared,
@@ -2162,22 +2178,18 @@ func _on_boss_defeated() -> void:
 				"survivors": survivors,
 			}, "RETURN TO SQUAD DEPLOY")
 		else:
-			# fallback if you forgot to add the method
-			end_panel.show_loss("CAMPAIGN COMPLETE", "RETURN TO OVERWORLD")
+			end_panel.show_loss("CAMPAIGN COMPLETE", "RETURN TO SQUAD DEPLOY")
 
-		# IMPORTANT: ensure loss handlers are not still wired
+		# wire the correct continue handler
 		if end_panel.continue_pressed.is_connected(_on_game_over_retry):
 			end_panel.continue_pressed.disconnect(_on_game_over_retry)
 		if end_panel.continue_pressed.is_connected(_on_game_over_main_menu):
 			end_panel.continue_pressed.disconnect(_on_game_over_main_menu)
 
-		# Connect campaign handler (avoid stacking)
 		if end_panel.continue_pressed.is_connected(_on_campaign_victory_continue):
 			end_panel.continue_pressed.disconnect(_on_campaign_victory_continue)
 		end_panel.continue_pressed.connect(_on_campaign_victory_continue)
-
 	else:
-		# absolute fallback: just return
 		get_tree().change_scene_to_file("res://scenes/squad_deploy_screen.tscn")
 
 	var evaced: Array[String] = []
