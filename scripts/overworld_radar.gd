@@ -1,6 +1,7 @@
 extends Node2D
 class_name OverworldRadar
 
+@export var no_cheats: bool = false
 @export var label_font: Font
 @export var label_font_size: int = 12
 @export var label_alpha: float = 0.20
@@ -115,8 +116,6 @@ var _hud_row: HBoxContainer = null
 @export var boss_min_difficulty: float = 0.70 # only place bosses late in the route
 @export var boss_min_bfs_gap: int = 2         # keep bosses from clustering
 
-@export var cheat_event_key_enabled := true
-
 const LINEAR_ROUTE := [
 	NodeType.START,
 	NodeType.COMBAT,
@@ -216,6 +215,10 @@ func _unhandled_input(event: InputEvent) -> void:
 		elif event.keycode == KEY_S:
 			_cheat_clear_path_to_nearest_supply()
 			get_viewport().set_input_as_handled()
+		elif event.keycode == KEY_V:
+			_cheat_clear_path_to_nearest_event()
+			get_viewport().set_input_as_handled()
+							
 
 func _rs() -> Node:
 	var rs := get_tree().root.get_node_or_null("RunStateNode")
@@ -242,13 +245,6 @@ func _process(delta: float) -> void:
 	queue_redraw()
 
 func _input(event: InputEvent) -> void:
-	if not cheat_event_key_enabled:
-		return
-
-	if event is InputEventKey and event.pressed and not event.echo:
-		if event.keycode == KEY_V:
-			_cheat_clear_path_to_nearest_event()
-				
 	if event is InputEventMouseMotion:
 		var hit := _pick_node(get_global_mouse_position())
 		hovered_node_id = hit if _can_click_node(hit) else -1
@@ -290,6 +286,9 @@ func _input(event: InputEvent) -> void:
 				return
 
 func _cheat_clear_path_to_nearest_elite() -> void:
+	if no_cheats:
+		return
+		
 	if current_node_id < 0 or current_node_id >= nodes.size():
 		return
 
@@ -341,6 +340,9 @@ func _cheat_clear_path_to_nearest_elite() -> void:
 		_refresh_squad_hud()
 
 func _cheat_clear_path_to_nearest_event() -> void:
+	if no_cheats:
+		return
+	
 	if current_node_id < 0 or current_node_id >= nodes.size():
 		return
 
@@ -458,6 +460,9 @@ func _bfs_to_nearest_elite(src: int) -> Dictionary:
 	return {"elite": -1, "parent": parent}
 				
 func _cheat_clear_path_to_nearest_boss() -> void:
+	if no_cheats:
+		return
+		
 	if current_node_id < 0 or current_node_id >= nodes.size():
 		return
 
@@ -1441,6 +1446,9 @@ func _debug_counts() -> void:
 		" | elites total=", elites_total, " uncleared=", elites_uncleared)
 
 func _cheat_clear_path_to_nearest_supply() -> void:
+	if no_cheats:
+		return
+		
 	if current_node_id < 0 or current_node_id >= nodes.size():
 		return
 

@@ -47,7 +47,10 @@ var quirk_flow: HFlowContainer
 # Campaign victory roster UI
 var roster_block: VBoxContainer
 var roster_title: Label
-var roster_flow: HFlowContainer
+
+# ✅ now grids (4x4)
+var unlock_grid: GridContainer
+var roster_grid: GridContainer
 
 var _shown_upgrades: Array = []   # Array[Dictionary] {id,title,desc,unit_name?,thumb?}
 
@@ -214,6 +217,55 @@ func _build_ui() -> void:
 	quirk_title.text = "NEW QUIRK ACQUIRED"
 	quirk_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 
+	# -------------------------
+	# Campaign Victory Roster Block
+	# -------------------------
+	roster_block = VBoxContainer.new()
+	roster_block.name = "RosterBlock"
+	roster_block.visible = false
+	roster_block.add_theme_constant_override("separation", 8)
+	v.add_child(roster_block)
+
+	# NEW UNLOCKS title
+	var unlock_title := Label.new()
+	unlock_title.name = "UnlockTitle"
+	unlock_title.text = "NEW UNLOCKS"
+	unlock_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	unlock_title.modulate = Color(1, 0.85, 0.25)
+	unlock_title.visible = false
+	roster_block.add_child(unlock_title)
+
+	# ✅ centered 4x4 unlock grid
+	var unlock_center := CenterContainer.new()
+	unlock_center.name = "UnlockCenter"
+	unlock_center.visible = false
+	roster_block.add_child(unlock_center)
+
+	unlock_grid = GridContainer.new()
+	unlock_grid.name = "UnlockFlow"
+	unlock_grid.columns = 4
+	unlock_grid.add_theme_constant_override("h_separation", 6)
+	unlock_grid.add_theme_constant_override("v_separation", 6)
+	unlock_center.add_child(unlock_grid)
+
+	# roster title
+	roster_title = Label.new()
+	roster_title.text = "ACTIVE ROSTER"
+	roster_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	roster_block.add_child(roster_title)
+
+	# ✅ centered 4x4 roster grid
+	var roster_center := CenterContainer.new()
+	roster_center.name = "RosterCenter"
+	roster_block.add_child(roster_center)
+
+	roster_grid = GridContainer.new()
+	roster_grid.name = "RosterFlow"
+	roster_grid.columns = 4
+	roster_grid.add_theme_constant_override("h_separation", 6)
+	roster_grid.add_theme_constant_override("v_separation", 6)
+	roster_center.add_child(roster_grid)
+
 	# use the same title font as the panel header
 	if title_font != null:
 		quirk_title.add_theme_font_override("font", title_font)
@@ -230,29 +282,6 @@ func _build_ui() -> void:
 	quirk_flow.add_theme_constant_override("h_separation", 8)
 	quirk_flow.add_theme_constant_override("v_separation", 8)
 	quirk_block.add_child(quirk_flow)
-
-	# -------------------------
-	# Campaign Victory: Roster Grid (hidden unless campaign complete)
-	# -------------------------
-	roster_block = VBoxContainer.new()
-	roster_block.name = "RosterBlock"
-	roster_block.visible = false
-	roster_block.add_theme_constant_override("separation", 8)
-	v.add_child(roster_block)
-
-	roster_title = Label.new()
-	roster_title.text = "ROSTER"
-	roster_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	roster_title.modulate = Color(0.75, 1.0, 0.85, 0.95)
-	roster_block.add_child(roster_title)
-
-	roster_flow = HFlowContainer.new()
-	roster_flow.name = "RosterFlow"
-	roster_flow.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	roster_flow.alignment = FlowContainer.ALIGNMENT_CENTER
-	roster_flow.add_theme_constant_override("h_separation", 10)
-	roster_flow.add_theme_constant_override("v_separation", 10)
-	roster_block.add_child(roster_flow)
 
 	# Upgrades column (ONE COLUMN)
 	upgrades_col = VBoxContainer.new()
@@ -343,7 +372,7 @@ func _build_ui() -> void:
 	continue_button.name = "Continue"
 	continue_button.text = "Continue"
 	continue_button.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	continue_button.custom_minimum_size.x = 140  # optional: nicer button width	
+	continue_button.custom_minimum_size.x = 140
 	continue_button.disabled = true
 	continue_button.pressed.connect(func():
 		if not _picked:
@@ -371,10 +400,7 @@ func show_win(rounds_survived: int, upgrades: Array, is_event: bool = false) -> 
 		continue_button.disabled = true
 
 	if title_label != null:
-		if is_event:
-			title_label.text = "EVENT COMPLETE"
-		else:
-			title_label.text = "MISSION COMPLETE"
+		title_label.text = ("EVENT COMPLETE" if is_event else "MISSION COMPLETE")
 
 	if body_label != null:
 		if is_event:
@@ -392,7 +418,6 @@ func _apply_quirk_awards_ui() -> void:
 	if quirk_block == null or quirk_flow == null:
 		return
 
-	# Clear previous pills
 	for ch in quirk_flow.get_children():
 		ch.queue_free()
 
@@ -445,14 +470,12 @@ func _apply_quirk_awards_ui() -> void:
 		var pill := _make_quirk_pill(title, col, tip)
 		quirk_flow.add_child(pill)
 
-		# tiny “pop” animation for cue
 		pill.scale = Vector2(0.9, 0.9)
 		var tw := create_tween()
 		tw.tween_property(pill, "scale", Vector2(1.08, 1.08), 0.10).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 		tw.tween_property(pill, "scale", Vector2(1.0, 1.0), 0.12).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
 
 func show_event_success(title_text: String, body_text: String, button_text: String = "EVAC") -> void:
-	# Event success has no upgrades (or keep them if you want)
 	_shown_upgrades = []
 	_picked = true
 	_picked_upgrade = &""
@@ -466,11 +489,9 @@ func show_event_success(title_text: String, body_text: String, button_text: Stri
 	if body_label != null:
 		body_label.text = "[center]%s[/center]" % body_text
 
-	# Hide/clear upgrade UI if your panel has it
 	if roster_block != null:
 		roster_block.visible = false
 	_apply_upgrade_ui()
-
 	show_panel()
 
 func show_loss(msg: String, button_text: String = "MAIN MENU") -> void:
@@ -493,7 +514,6 @@ func show_loss(msg: String, button_text: String = "MAIN MENU") -> void:
 	show_panel()
 
 func show_campaign_victory(stats: Dictionary, button_text: String = "RETURN TO SQUAD DEPLOY") -> void:
-	# No upgrade pick on campaign end
 	_shown_upgrades = []
 	_picked = true
 	_picked_upgrade = &""
@@ -513,8 +533,7 @@ func show_campaign_victory(stats: Dictionary, button_text: String = "RETURN TO S
 	if body_label != null:
 		body_label.text = "Sector stabilized.\n\nMissions cleared: %d\nRounds survived: %d\nMechs lost: %d\nSurvivors: %d" % [missions, rounds, mechs_lost, survivors]
 
-	# Hide upgrade cards entirely + show roster portraits
-	_apply_upgrade_ui() # ensures upgrades_col hidden (no dead buttons)
+	_apply_upgrade_ui()
 	_apply_campaign_roster_ui()
 	show_panel()
 
@@ -522,11 +541,9 @@ func show_campaign_victory(stats: Dictionary, button_text: String = "RETURN TO S
 # Internals
 # -------------------------
 func _apply_upgrade_ui() -> void:
-	# If no upgrades to pick, hide the entire upgrades column (no dead buttons taking space)
 	if upgrades_col != null:
 		upgrades_col.visible = (_shown_upgrades.size() > 0)
 	if _shown_upgrades.is_empty():
-		# Also clear any lingering textures/text
 		for i in range(3):
 			if i < upgrade_buttons.size():
 				upgrade_buttons[i].disabled = true
@@ -548,13 +565,11 @@ func _apply_upgrade_ui() -> void:
 
 			var tex: Texture2D = up.get("thumb", null)
 
-			# Global upgrade icon
 			if tex == null:
 				var sid := String(up.get("id", &""))
 				if sid.begins_with("all_"):
 					tex = global_upgrade_thumb
 
-			# Unit class fallback
 			if tex == null:
 				var unit_class := str(up.get("unit_class", ""))
 				if unit_class != "":
@@ -562,22 +577,13 @@ func _apply_upgrade_ui() -> void:
 					if tex == null:
 						tex = _thumb_from_unit_scene_by_class(unit_class)
 
-			# Unit display-name fallback
 			if tex == null:
 				var unit_name := str(up.get("unit_name", ""))
 				if unit_name != "":
 					tex = _thumb_from_runstate(unit_name)
 
-			# Final fallback LAST
 			if tex == null:
 				tex = fallback_thumb
-
-			print("[UPGRADE THUMB] i=", i,
-				" id=", String(up.get("id",&"")),
-				" title=", str(up.get("title","")),
-				" unit_class=", str(up.get("unit_class","")),
-				" unit_name=", str(up.get("unit_name","")),
-				" tex=", tex)
 
 			if i < upgrade_thumbs.size() and upgrade_thumbs[i] != null:
 				upgrade_thumbs[i].texture = tex
@@ -598,18 +604,13 @@ func _thumb_from_runstate_by_class(unit_class: String) -> Texture2D:
 	if rs == null:
 		return null
 
-	# If you add this method to RunState later, this will use it.
 	if rs.has_method("get_unit_thumb_by_class"):
 		var t = rs.call("get_unit_thumb_by_class", unit_class)
 		if t is Texture2D:
 			return t
-
 	return null
 
-
 func _thumb_from_unit_scene_by_class(unit_class: String) -> Texture2D:
-	# Fallback: find the squad unit scene whose script class_name matches unit_class,
-	# instantiate it, and read its exported 'thumbnail' Texture2D.
 	var rs := get_tree().root.get_node_or_null("RunState")
 	if rs == null:
 		rs = get_tree().root.get_node_or_null("RunStateNode")
@@ -628,21 +629,18 @@ func _thumb_from_unit_scene_by_class(unit_class: String) -> Texture2D:
 
 		var cls := _find_script_global_class_in_tree(inst)
 		var tex := _find_thumbnail_in_tree(inst)
-
 		inst.queue_free()
 
 		if cls == unit_class and tex is Texture2D:
 			return tex
-
 	return null
-
 
 func _find_script_global_class_in_tree(n: Node) -> String:
 	if n == null:
 		return ""
 	var sc = n.get_script()
 	if sc != null and sc is Script:
-		var gn := (sc as Script).get_global_name() # Godot 4
+		var gn := (sc as Script).get_global_name()
 		if gn != null and str(gn) != "":
 			return str(gn)
 
@@ -652,12 +650,10 @@ func _find_script_global_class_in_tree(n: Node) -> String:
 			return got
 	return ""
 
-
 func _find_thumbnail_in_tree(n: Node) -> Texture2D:
 	if n == null:
 		return null
 
-	# expects your unit has: @export var thumbnail: Texture2D
 	if "thumbnail" in n:
 		var t = n.get("thumbnail")
 		if t is Texture2D:
@@ -667,7 +663,6 @@ func _find_thumbnail_in_tree(n: Node) -> Texture2D:
 		var got := _find_thumbnail_in_tree(ch)
 		if got != null:
 			return got
-
 	return null
 
 func _pick_upgrade(i: int) -> void:
@@ -679,14 +674,12 @@ func _pick_upgrade(i: int) -> void:
 	if id == &"":
 		return
 
-	# lock after pick
 	for b in upgrade_buttons:
 		b.disabled = true
 
 	_picked = true
 	_picked_upgrade = id
 
-	# ✅ safe RunState call (supports either RunState or RunStateNode)
 	var rs := get_tree().root.get_node_or_null("RunState")
 	if rs == null:
 		rs = get_tree().root.get_node_or_null("RunStateNode")
@@ -694,17 +687,13 @@ func _pick_upgrade(i: int) -> void:
 	if rs != null:
 		if rs.has_method("add_upgrade"):
 			rs.call("add_upgrade", id)
-
-		# ✅ SAVE RIGHT AFTER PICK
 		if rs.has_method("save_to_disk"):
 			rs.call("save_to_disk")
 
-	# allow continue now
 	if continue_button != null:
 		continue_button.disabled = false
 
 	emit_signal("upgrade_selected", id)
-
 
 func _thumb_from_runstate(unit_display_name: String) -> Texture2D:
 	var rs := get_tree().root.get_node_or_null("RunState")
@@ -717,17 +706,30 @@ func _thumb_from_runstate(unit_display_name: String) -> Texture2D:
 		var t = rs.call("get_unit_thumb_by_display_name", unit_display_name)
 		if t is Texture2D:
 			return t
-
 	return null
 
-
 func _apply_campaign_roster_ui() -> void:
-	if roster_block == null or roster_flow == null:
+	if roster_block == null:
+		return
+
+	var unlock_title := roster_block.get_node_or_null("UnlockTitle") as Label
+	var unlock_center := roster_block.get_node_or_null("UnlockCenter") as CenterContainer
+	var unlock_flow := roster_block.get_node_or_null("UnlockFlow") as GridContainer
+
+	var roster_center := roster_block.get_node_or_null("RosterCenter") as CenterContainer
+	if roster_grid == null:
+		roster_grid = roster_block.get_node_or_null("RosterFlow") as GridContainer
+
+	if roster_grid == null:
+		roster_block.visible = false
 		return
 
 	# Clear previous
-	for ch in roster_flow.get_children():
+	for ch in roster_grid.get_children():
 		ch.queue_free()
+	if unlock_flow != null:
+		for ch in unlock_flow.get_children():
+			ch.queue_free()
 
 	var rs := get_tree().root.get_node_or_null("RunStateNode")
 	if rs == null:
@@ -736,60 +738,75 @@ func _apply_campaign_roster_ui() -> void:
 		roster_block.visible = false
 		return
 
-	# Determine "newly unlocked" set (paths OR ids)
-	var new_set: Dictionary = {}
+	# -------------------------
+	# NEW UNLOCKS (separate)
+	# -------------------------
+	var unlocked_paths: Array[String] = []
 	if ("last_unlocked_roster" in rs) and (rs.last_unlocked_roster is Array):
 		for x in rs.last_unlocked_roster:
-			new_set[str(x)] = true
+			var s := str(x)
+			if s != "" and ResourceLoader.exists(s):
+				unlocked_paths.append(s)
 
-	# Build roster entries (prefer roster_units if you have it)
-	var entries: Array[Dictionary] = []
+	var has_unlocks := (unlocked_paths.size() > 0)
+	if unlock_title != null:
+		unlock_title.visible = has_unlocks
+	if unlock_center != null:
+		unlock_center.visible = has_unlocks
+
+	if unlock_flow != null and has_unlocks:
+		for p in unlocked_paths:
+			var tex := _thumb_from_scene_path(p)
+			var chip := _make_roster_portrait_chip(tex, true) # highlight border
+			unlock_flow.add_child(chip)
+			_start_new_unlock_pulse(chip) # ✅ reliable pulse
+
+	# -------------------------
+	# ACTIVE ROSTER (full list)
+	# -------------------------
+	if roster_center != null:
+		roster_center.visible = true
+
+	var roster_paths: Array[String] = []
+
 	if ("roster_units" in rs) and (rs.roster_units is Array):
 		for e_any in rs.roster_units:
 			if not (e_any is Dictionary):
 				continue
-			var e: Dictionary = e_any
-			var p := str(e.get("path", ""))
-			var uid := str(e.get("id", ""))
-			if p == "" or not ResourceLoader.exists(p):
-				continue
-			var tex := _thumb_from_scene_path(p)
-			var is_new := new_set.has(p) or (uid != "" and new_set.has(uid))
-			entries.append({"path": p, "id": uid, "thumb": tex, "is_new": is_new})
-	else:
-		# Fallback: use squad_scene_paths as "current roster"
-		if ("squad_scene_paths" in rs) and (rs.squad_scene_paths is Array):
-			for p_any in rs.squad_scene_paths:
-				var p := str(p_any)
-				if p == "" or not ResourceLoader.exists(p):
-					continue
-				var tex := _thumb_from_scene_path(p)
-				var is_new := new_set.has(p)
-				entries.append({"path": p, "id": "", "thumb": tex, "is_new": is_new})
+			var p := str((e_any as Dictionary).get("path", ""))
+			if p != "" and ResourceLoader.exists(p):
+				roster_paths.append(p)
+	elif ("squad_scene_paths" in rs) and (rs.squad_scene_paths is Array):
+		for p_any in rs.squad_scene_paths:
+			var p2 := str(p_any)
+			if p2 != "" and ResourceLoader.exists(p2):
+				roster_paths.append(p2)
 
-	# If you unlocked paths that aren't in roster_units yet, append them so they're visible
-	for k in new_set.keys():
-		var key := str(k)
-		if ResourceLoader.exists(key):
-			var already := false
-			for e in entries:
-				if str(e.get("path","")) == key:
-					already = true
-					break
-			if not already:
-				entries.append({"path": key, "id": "", "thumb": _thumb_from_scene_path(key), "is_new": true})
-
-	# Build UI chips
-	entries.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
-		return str(a.get("path","")) < str(b.get("path",""))
-	)
-
-	for e in entries:
-		var chip := _make_roster_portrait_chip(e.get("thumb", null), bool(e.get("is_new", false)))
-		roster_flow.add_child(chip)
+	for p3 in roster_paths:
+		var tex3 := _thumb_from_scene_path(p3)
+		var chip3 := _make_roster_portrait_chip(tex3, false)
+		roster_grid.add_child(chip3)
 
 	roster_block.visible = true
 
+func _start_new_unlock_pulse(chip: Control) -> void:
+	if chip == null or not is_instance_valid(chip):
+		return
+
+	# ✅ wait 1 frame so it's definitely inside tree + laid out
+	await get_tree().process_frame
+	if chip == null or not is_instance_valid(chip):
+		return
+
+	chip.scale = Vector2.ONE
+	chip.modulate = Color(1, 1, 1, 1)
+
+	var tw := create_tween()
+	tw.set_loops()
+	tw.tween_property(chip, "scale", Vector2(1.08, 1.08), 0.35).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
+	tw.parallel().tween_property(chip, "modulate", Color(1, 1, 1, 0.78), 0.35).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
+	tw.tween_property(chip, "scale", Vector2(1.0, 1.0), 0.35).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN)
+	tw.parallel().tween_property(chip, "modulate", Color(1, 1, 1, 1.0), 0.35).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN)
 
 func _thumb_from_scene_path(scene_path: String) -> Texture2D:
 	if scene_path == "" or not ResourceLoader.exists(scene_path):
@@ -801,7 +818,6 @@ func _thumb_from_scene_path(scene_path: String) -> Texture2D:
 	if inst == null:
 		return null
 
-	# Prefer portrait_tex, then thumbnail
 	var tex: Texture2D = null
 	if ("portrait_tex" in inst):
 		var t = inst.get("portrait_tex")
@@ -815,7 +831,6 @@ func _thumb_from_scene_path(scene_path: String) -> Texture2D:
 	inst.queue_free()
 	return tex
 
-
 func _make_roster_portrait_chip(tex: Texture2D, is_new: bool) -> Control:
 	var panel := PanelContainer.new()
 	panel.custom_minimum_size = Vector2(72, 72)
@@ -827,15 +842,21 @@ func _make_roster_portrait_chip(tex: Texture2D, is_new: bool) -> Control:
 	sb.border_width_right = 2
 	sb.border_width_bottom = 2
 	sb.set_corner_radius_all(10)
-	sb.border_color = (Color(0.24, 1.0, 0.65, 0.95) if is_new else Color(1, 1, 1, 0.18))
+
+	sb.border_color = (Color(1.0, 0.85, 0.20, 1.0) if is_new else Color(1, 1, 1, 0.18))
 	panel.add_theme_stylebox_override("panel", sb)
+
+	var stack := Control.new()
+	stack.custom_minimum_size = Vector2(72, 72)
+	panel.add_child(stack)
 
 	var m := MarginContainer.new()
 	m.add_theme_constant_override("margin_left", 6)
 	m.add_theme_constant_override("margin_right", 6)
 	m.add_theme_constant_override("margin_top", 6)
 	m.add_theme_constant_override("margin_bottom", 6)
-	panel.add_child(m)
+	m.set_anchors_preset(Control.PRESET_FULL_RECT)
+	stack.add_child(m)
 
 	var tr := TextureRect.new()
 	tr.custom_minimum_size = Vector2(60, 60)
@@ -844,6 +865,34 @@ func _make_roster_portrait_chip(tex: Texture2D, is_new: bool) -> Control:
 	tr.texture = tex
 	tr.modulate = Color(1, 1, 1, 0.98)
 	m.add_child(tr)
+
+	if is_new:
+		var badge := Label.new()
+		badge.text = "NEW"
+		badge.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		badge.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		badge.add_theme_color_override("font_color", Color(0,0,0,1))
+
+		if button_font != null:
+			badge.add_theme_font_override("font", button_font)
+		badge.add_theme_font_size_override("font_size", 14)
+
+		var badge_bg := PanelContainer.new()
+		var bsb := StyleBoxFlat.new()
+		bsb.bg_color = Color(1.0, 0.85, 0.20, 1.0)
+		bsb.border_color = Color(1.0, 1.0, 1.0, 0.35)
+		bsb.border_width_left = 1
+		bsb.border_width_top = 1
+		bsb.border_width_right = 1
+		bsb.border_width_bottom = 1
+		bsb.set_corner_radius_all(6)
+		badge_bg.add_theme_stylebox_override("panel", bsb)
+
+		badge_bg.add_child(badge)
+		stack.add_child(badge_bg)
+
+		badge_bg.position = Vector2(4, 4)
+		badge_bg.custom_minimum_size = Vector2(36, 20)
 
 	return panel
 
@@ -880,7 +929,6 @@ func set_panel_title(t: String) -> void:
 		title_label.text = t
 
 func _sync_quirk_style_from_hud_if_possible() -> void:
-	# HUD adds itself to group "HUD" in your project
 	var hud := get_tree().get_first_node_in_group("HUD")
 	if hud == null or not is_instance_valid(hud):
 		return
@@ -893,7 +941,6 @@ func _sync_quirk_style_from_hud_if_possible() -> void:
 	if ("quirk_pill_pad_x" in hud): quirk_pill_pad_x = hud.quirk_pill_pad_x
 	if ("quirk_pill_pad_y" in hud): quirk_pill_pad_y = hud.quirk_pill_pad_y
 
-	# Tooltip style too
 	if ("tooltip_bg_color" in hud): tooltip_bg_color = hud.tooltip_bg_color
 	if ("tooltip_border_color" in hud): tooltip_border_color = hud.tooltip_border_color
 	if ("tooltip_text_color" in hud): tooltip_text_color = hud.tooltip_text_color
@@ -901,7 +948,6 @@ func _sync_quirk_style_from_hud_if_possible() -> void:
 	if ("tooltip_corner_radius" in hud): tooltip_corner_radius = hud.tooltip_corner_radius
 	if ("tooltip_pad_x" in hud): tooltip_pad_x = hud.tooltip_pad_x
 	if ("tooltip_pad_y" in hud): tooltip_pad_y = hud.tooltip_pad_y
-
 
 func _apply_tooltip_theme_to_root() -> void:
 	if root == null:
@@ -913,7 +959,6 @@ func _apply_tooltip_theme_to_root() -> void:
 
 	var t := base.duplicate()
 
-	# Tooltip font = panel body font by default
 	if body_font != null:
 		t.set_font("font", "TooltipLabel", body_font)
 		t.set_font_size("font_size", "TooltipLabel", body_font_size)
@@ -935,7 +980,6 @@ func _apply_tooltip_theme_to_root() -> void:
 	t.set_color("font_color", "TooltipLabel", tooltip_text_color)
 
 	root.theme = t
-
 
 func _make_quirk_pill(text: String, quirk_color: Color, tooltip: String) -> Control:
 	var pill := PanelContainer.new()
@@ -966,7 +1010,6 @@ func _make_quirk_pill(text: String, quirk_color: Color, tooltip: String) -> Cont
 	var font_to_use: Font = quirk_pill_font
 	var font_size_to_use: int = quirk_pill_font_size
 
-	# fallback to panel fonts
 	if font_to_use == null:
 		if body_font != null:
 			font_to_use = body_font
@@ -984,7 +1027,6 @@ func _make_quirk_pill(text: String, quirk_color: Color, tooltip: String) -> Cont
 	return pill
 
 func _unit_display_name_from_id(rs: Node, uid: String) -> String:
-	# Try roster_units entries first (best source)
 	if "roster_units" in rs:
 		for e in rs.roster_units:
 			if not (e is Dictionary):
@@ -992,12 +1034,10 @@ func _unit_display_name_from_id(rs: Node, uid: String) -> String:
 			if str(e.get("id", "")) != uid:
 				continue
 
-			# If you stored display_name directly, use it
 			var dn := str(e.get("display_name", ""))
 			if dn != "":
 				return dn
 
-			# Otherwise, instantiate the unit scene and read display_name
 			var p := str(e.get("path", ""))
 			if p != "" and ResourceLoader.exists(p):
 				var packed := load(p)
@@ -1012,6 +1052,19 @@ func _unit_display_name_from_id(rs: Node, uid: String) -> String:
 						inst.queue_free()
 					if name2 != "":
 						return name2
-
-	# Fallback
 	return uid
+
+func _make_portrait(tex: Texture2D, highlight := false) -> TextureRect:
+	var r := TextureRect.new()
+	r.texture = tex
+	r.custom_minimum_size = Vector2(64, 64)
+	r.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	r.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+
+	if highlight:
+		r.modulate = Color(1,1,1,1)
+		r.add_theme_constant_override("outline_size", 3)
+	else:
+		r.modulate = Color(1,1,1,0.9)
+
+	return r

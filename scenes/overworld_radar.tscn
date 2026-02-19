@@ -6,6 +6,7 @@
 
 [node name="OverworldRadar" type="Node2D"]
 script = ExtResource("1_cn00k")
+no_cheats = true
 label_font = ExtResource("2_hcx2u")
 label_font_size = 16
 grid_size = 6

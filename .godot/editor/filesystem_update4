@@ -25,3 +25,5 @@ res://scenes/units/allies/car.tscn
 res://scripts/hud.gd
 res://scripts/boss_controller.gd
 res://scripts/end_game_panel_runtime.gd
+res://scenes/units/allies/M1.tscn
+res://scenes/overworld_radar.tscn

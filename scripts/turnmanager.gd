@@ -2977,7 +2977,7 @@ const EVENT_LINES := {
 
 	&"titan_reveal": {
 		"default": [
-			"That silhouette… a giant mecha?",
+			"That silhouette... a giant mecha?",
 			"That is not a building.",
 			"That is a walker. Huge."
 		],
