@@ -14,10 +14,10 @@ body_path = NodePath("Panel/Margin/VBox/Body")
 custom_minimum_size = Vector2(240, 120)
 layout_mode = 3
 anchors_preset = 0
-offset_left = 22.0
-offset_top = 23.0
-offset_right = 262.0
-offset_bottom = 143.0
+offset_left = 19.0
+offset_top = 116.0
+offset_right = 259.0
+offset_bottom = 236.0
 mouse_filter = 1
 
 [node name="Margin" type="MarginContainer" parent="Panel"]

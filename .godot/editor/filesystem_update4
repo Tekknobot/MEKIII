@@ -39,3 +39,4 @@ res://scripts/r_3.gd
 res://scripts/fail_surge_controller.gd
 res://scripts/m_3.gd
 res://scenes/HUD.tscn
+res://scenes/tutorial_toast.tscn
