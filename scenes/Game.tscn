@@ -1,4 +1,4 @@
-[gd_scene load_steps=108 format=3 uid="uid://bmtwqbsx674eo"]
+[gd_scene load_steps=109 format=3 uid="uid://bmtwqbsx674eo"]
 
 [ext_resource type="Script" uid="uid://bn08mhcoceqg" path="res://scripts/game.gd" id="1_400sg"]
 [ext_resource type="Texture2D" uid="uid://by1nnygq8fbib" path="res://sprites/Terrain/dirt.png" id="6_mcffj"]
@@ -77,6 +77,7 @@
 [ext_resource type="PackedScene" uid="uid://fwmvcj5rwlnv" path="res://scenes/threat_tile.tscn" id="64_8fcgb"]
 [ext_resource type="AudioStream" uid="uid://b4lp2xohi5ktg" path="res://audio/SFX/robo_bark.wav" id="66_p3r3h"]
 [ext_resource type="AudioStream" uid="uid://dg6i58j3chf0p" path="res://audio/Zombie/zombie_massacre_vocal_attack_short_02.wav" id="67_wgpx8"]
+[ext_resource type="Shader" uid="uid://bqph8xr48cnu8" path="res://shaders/outline_1px.gdshader" id="73_cf8r5"]
 
 [sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_g4kob"]
 texture = ExtResource("11_2rd6h")
@@ -513,6 +514,7 @@ drop_land_pop_time = 0.18
 evac_pickup_time = 0.02
 evac_lift_px = 10.0
 threat_tile_scene = ExtResource("64_8fcgb")
+enemy_outline_shader = ExtResource("73_cf8r5")
 
 [node name="FloatLayer" type="CanvasLayer" parent="MapController"]
 

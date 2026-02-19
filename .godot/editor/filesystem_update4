@@ -27,3 +27,8 @@ res://scripts/boss_controller.gd
 res://scripts/end_game_panel_runtime.gd
 res://scenes/units/allies/M1.tscn
 res://scenes/overworld_radar.tscn
+res://scenes/radioactive_zombie.tscn
+res://scripts/zombie.gd
+res://scenes/zombie.tscn
+res://scenes/fire_zombie.tscn
+res://scenes/ice_zombie.tscn

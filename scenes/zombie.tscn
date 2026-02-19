@@ -202,6 +202,11 @@ sprite_frames = SubResource("SpriteFrames_0pyg8")
 animation = &"attack"
 autoplay = "idle"
 
+[node name="Outline" type="AnimatedSprite2D" parent="."]
+sprite_frames = SubResource("SpriteFrames_0pyg8")
+animation = &"attack"
+autoplay = "idle"
+
 [node name="HPLabel" type="Label" parent="."]
 offset_top = -50.0
 offset_right = 40.0

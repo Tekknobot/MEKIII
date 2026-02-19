@@ -363,6 +363,20 @@ var overlay_threat_tiles_root: Node2D = null
 
 var _enemy_pulse_tweens: Dictionary = {} # instance_id -> Tween
 
+# -----------------------------------------
+# Enemy outline threat (runtime material)
+# -----------------------------------------
+@export var enemy_outline_shader: Shader                 # assign your shader here in Inspector
+@export var enemy_outline_color: Color = Color(1.0, 0.2, 0.2, 1.0)
+
+@export var enemy_outline_pulse: bool = true
+@export var enemy_outline_pulse_speed: float = 4.0
+@export var enemy_outline_pulse_min: float = 1.0
+@export var enemy_outline_pulse_max: float = 1.0
+
+# instance_id -> {"mat":ShaderMaterial, "t":float, "sprite":CanvasItem, "orig_mat":Material}
+var _enemy_outline_state: Dictionary = {}
+
 # -------------------------
 # Boss intent overlay
 # -------------------------
@@ -7065,9 +7079,11 @@ func _draw_zombie_threat_overlay() -> void:
 		# ✅ Start/keep pulsing this zombie red
 		var zid := z.get_instance_id()
 		engaged_ids[zid] = true
-		if has_method("_start_enemy_red_pulse"):
-			_start_enemy_red_pulse(z) # looping tween; no-op if already pulsing
-
+		#if has_method("_start_enemy_red_pulse"):
+		#	_start_enemy_red_pulse(z) # looping tween; no-op if already pulsing
+			
+		_start_enemy_threat_outline(z)
+			
 		# 1) Compute reachable move cells (same rules as _draw_move_range)
 		var reachable: Array[Vector2i] = []
 		reachable.append(origin)
@@ -7108,11 +7124,15 @@ func _draw_zombie_threat_overlay() -> void:
 
 	# ✅ Stop pulsing for zombies that are no longer engaged (player moved away)
 	# Requires: _enemy_pulse_tweens dict and _stop_enemy_red_pulse_by_id(id) helper.
-	if "_enemy_pulse_tweens" in self:
-		for id in _enemy_pulse_tweens.keys():
-			if not engaged_ids.has(id):
-				if has_method("_stop_enemy_red_pulse_by_id"):
-					_stop_enemy_red_pulse_by_id(int(id))
+	#if "_enemy_pulse_tweens" in self:
+	#	for id in _enemy_pulse_tweens.keys():
+	#		if not engaged_ids.has(id):
+	#			if has_method("_stop_enemy_red_pulse_by_id"):
+	#				_stop_enemy_red_pulse_by_id(int(id))
+
+	for id in _enemy_outline_state.keys():
+		if not engaged_ids.has(int(id)):
+			_stop_enemy_threat_outline_by_id(int(id))
 
 	# 3) Draw the union once using your packed scene
 	for c in valid_zombie_threat_cells.keys():
@@ -7127,6 +7147,143 @@ func _draw_zombie_threat_overlay() -> void:
 
 		# Make it subtle
 		t.modulate.a = zombie_threat_alpha
+
+func _enemy_outline_set_enabled(mat: ShaderMaterial, on: bool) -> void:
+	# Your shader has no enable uniform; off = thickness 0
+	mat.set_shader_parameter("thickness_px", (enemy_outline_pulse_min if on else 0.0))
+
+func _enemy_outline_set_color(mat: ShaderMaterial, c: Color) -> void:
+	mat.set_shader_parameter("outline_color", c)
+
+func _enemy_outline_set_width(mat: ShaderMaterial, w: float) -> void:
+	mat.set_shader_parameter("thickness_px", w)
+
+func _start_enemy_threat_outline(z: Node) -> void:
+	if z == null or not is_instance_valid(z):
+		return
+	if enemy_outline_shader == null:
+		return
+
+	var zid := z.get_instance_id()
+	if _enemy_outline_state.has(zid):
+		return
+
+	# Prefer a dedicated Outline sprite if present (keeps ice shader intact)
+	var outline_spr = _find_enemy_outline_sprite(z)
+	var spr = outline_spr if outline_spr != null else _find_enemy_visual_sprite(z)
+	if spr == null:
+		return
+
+	# Save original material only if we're overriding the main visual sprite
+	var orig_mat: Material = null
+	var overriding_main := (outline_spr == null)
+	if overriding_main:
+		orig_mat = spr.material
+
+	# Create outline material (always)
+	var mat := ShaderMaterial.new()
+	mat.shader = enemy_outline_shader
+	_enemy_outline_set_color(mat, enemy_outline_color)
+
+	# start thickness (pulse or fixed)
+	var start_w := enemy_outline_pulse_max if enemy_outline_pulse else enemy_outline_pulse_min
+	_enemy_outline_set_width(mat, start_w)
+
+	# Assign
+	spr.material = mat
+
+	_enemy_outline_state[zid] = {
+		"mat": mat,
+		"t": 0.0,
+		"sprite": spr,
+		"orig_mat": orig_mat,
+		"overriding_main": overriding_main
+	}
+
+func _stop_enemy_threat_outline_by_id(zid: int) -> void:
+	if not _enemy_outline_state.has(zid):
+		return
+
+	var st: Dictionary = _enemy_outline_state[zid]
+	_enemy_outline_state.erase(zid)
+
+	var spr = st.get("sprite", null)
+	if spr == null or not is_instance_valid(spr):
+		return
+
+	var overriding_main := bool(st.get("overriding_main", true))
+
+	if overriding_main:
+		# Restore original material (keeps ice shader etc.)
+		var orig_mat = st.get("orig_mat", null)
+		spr.material = orig_mat
+	else:
+		# Dedicated outline sprite: just turn off by clearing material or thickness 0
+		# (Clearing is simplest)
+		spr.material = null
+
+func _process(delta: float) -> void:
+	if _enemy_outline_state.is_empty():
+		return
+	if not enemy_outline_pulse:
+		return
+
+	for id in _enemy_outline_state.keys():
+		var st: Dictionary = _enemy_outline_state[id]
+		var spr = st.get("sprite", null)
+		var mat = st.get("mat", null)
+
+		if spr == null or not is_instance_valid(spr) or not (mat is ShaderMaterial):
+			_stop_enemy_threat_outline_by_id(int(id))
+			continue
+
+		st["t"] = float(st.get("t", 0.0)) + delta
+		_enemy_outline_state[id] = st
+
+		var t := float(st["t"])
+		var s := 0.5 + 0.5 * sin(t * enemy_outline_pulse_speed)
+		var w := lerpf(enemy_outline_pulse_min, enemy_outline_pulse_max, s)
+
+		var sm := mat as ShaderMaterial
+		sm.set_shader_parameter("outline_color", enemy_outline_color)
+		sm.set_shader_parameter("thickness_px", w)
+
+func _find_enemy_outline_sprite(z: Node) -> CanvasItem:
+	# If you add an Outline node in enemies that already have ice shaders,
+	# this will use it instead of clobbering the ice material.
+	var n := z.get_node_or_null("Outline")
+	if n is CanvasItem:
+		return n as CanvasItem
+	# common nested case: Visual/Outline
+	n = z.get_node_or_null("Visual/Outline")
+	if n is CanvasItem:
+		return n as CanvasItem
+	return null
+
+
+func _find_enemy_visual_sprite(z: Node) -> CanvasItem:
+	# Try common names first
+	var n := z.get_node_or_null("Sprite2D")
+	if n is CanvasItem: return n as CanvasItem
+	n = z.get_node_or_null("AnimatedSprite2D")
+	if n is CanvasItem: return n as CanvasItem
+
+	# Shallow search
+	for ch in z.get_children():
+		if ch is Sprite2D: return ch as CanvasItem
+		if ch is AnimatedSprite2D: return ch as CanvasItem
+
+	# Deep search fallback
+	return _find_canvas_item_recursive(z)
+
+func _find_canvas_item_recursive(n: Node) -> CanvasItem:
+	for ch in n.get_children():
+		if ch is Sprite2D: return ch as CanvasItem
+		if ch is AnimatedSprite2D: return ch as CanvasItem
+		var got := _find_canvas_item_recursive(ch)
+		if got != null:
+			return got
+	return null
 
 func stop_all_enemy_red_pulse() -> void:
 	for id in _enemy_pulse_tweens.keys():

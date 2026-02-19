@@ -13,9 +13,25 @@ var _suppress_active := false
 
 signal death_anim_finished
 
+@onready var visual := $AnimatedSprite2D as AnimatedSprite2D
+@onready var outline := $Outline as AnimatedSprite2D
+
+@export var threat_outline_shader: Shader
+@export var threat_outline_color: Color = Color(1.0, 0.2, 0.2, 1.0)
+@export var threat_outline_width: float = 1.0
+
 func _ready() -> void:
 	set_meta("portrait_tex", preload("res://sprites/Portraits/zombie_port.png"))
 	set_meta("display_name", "Zombie")
+
+	if outline != null:
+		outline.z_index = visual.z_index - 1
+		_sync_outline_now()
+
+	# keep synced as animation/frame changes
+	if visual != null:
+		visual.frame_changed.connect(_sync_outline_now)
+		visual.animation_changed.connect(_sync_outline_now)
 
 	footprint_size = Vector2i(1, 1)
 	move_range = 3
@@ -46,7 +62,30 @@ func _ready() -> void:
 	else:
 		_suppress_base_modulate = Color(1,1,1,1)
 
+	if outline != null and visual != null:
+		outline.z_index = visual.z_index - 1
+		outline.visible = true
+		outline.modulate = Color(1,1,1,1)
+
+		# ✅ Ensure Outline has the shader material
+		if threat_outline_shader != null:
+			var sm := ShaderMaterial.new()
+			sm.shader = threat_outline_shader
+			sm.set_shader_parameter("outline_color", threat_outline_color)
+			sm.set_shader_parameter("thickness_px", threat_outline_width)
+			outline.material = sm
+
+		_sync_outline_now()
+
+	if visual != null:
+		visual.frame_changed.connect(_sync_outline_now)
+		visual.animation_changed.connect(_sync_outline_now)
+
+
 func _process(delta: float) -> void:
+	# if you flip sprites or change scale/rotation dynamically
+	_sync_outline_transform()
+		
 	# Only twitch while suppressed
 	var turns := 0
 	if has_meta("suppress_turns"):
@@ -64,6 +103,33 @@ func _process(delta: float) -> void:
 	# keep the “base” position updated when NOT suppressed (so movement doesn't fight the twitch)
 	if not _suppress_active:
 		_suppress_base_pos = global_position
+
+func _sync_outline_now() -> void:
+	if visual == null or outline == null:
+		return
+
+	# keep frames + state in sync
+	outline.sprite_frames = visual.sprite_frames
+	outline.animation = visual.animation
+	outline.frame = visual.frame
+	outline.frame_progress = visual.frame_progress
+	outline.flip_h = visual.flip_h
+	outline.flip_v = visual.flip_v
+	outline.speed_scale = visual.speed_scale
+
+	# Godot 4: no 'playing' property
+	if visual.is_playing():
+		outline.play(visual.animation)
+	else:
+		outline.stop()
+
+func _sync_outline_transform() -> void:
+	if visual == null or outline == null:
+		return
+	outline.global_position = visual.global_position
+	outline.global_rotation = visual.global_rotation
+	outline.global_scale = visual.global_scale
+
 
 func _start_suppress_twitch() -> void:
 	_stop_suppress_twitch() # safety

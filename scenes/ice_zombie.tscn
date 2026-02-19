@@ -249,6 +249,14 @@ frame = 8
 frame_progress = 1.0
 script = ExtResource("42_igh6m")
 
+[node name="Outline" type="AnimatedSprite2D" parent="."]
+material = SubResource("ShaderMaterial_igh6m")
+sprite_frames = SubResource("SpriteFrames_0pyg8")
+animation = &"attack"
+autoplay = "idle"
+frame = 8
+frame_progress = 1.0
+
 [node name="IceEmitter" type="GPUParticles2D" parent="."]
 visible = false
 position = Vector2(0, -22)
