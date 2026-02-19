@@ -1883,6 +1883,12 @@ func game_over(msg: String) -> void:
 	_update_special_buttons()
 	_set_hud_visible(false)
 
+	var h := get_tree().get_first_node_in_group("HUD")
+	if h != null:
+		var toast := h.get_node_or_null("TutorialToast")
+		if toast != null:
+			toast.visible = false
+			
 	# --- If enabled, play surge first, then show loss panel ---
 	if fail_surge_enabled and _fail_surge != null and is_instance_valid(_fail_surge):
 		_pending_loss_msg = msg

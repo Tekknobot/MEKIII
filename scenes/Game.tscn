@@ -528,7 +528,7 @@ offset_bottom = 40.0
 script = ExtResource("49_0wf52")
 map_controller_path = NodePath("../MapController")
 turn_manager_path = NodePath("../TurnManager")
-toast_path = NodePath("../UI/TutorialToast")
+toast_path = NodePath("../UI/HUD/TutorialToast")
 end_game_panel_path = NodePath("../UI/EndGamePanelRuntime")
 
 [node name="UI" type="CanvasLayer" parent="."]
@@ -544,8 +544,6 @@ grow_vertical = 2
 mouse_filter = 1
 color = Color(0, 0, 0, 1)
 
-[node name="TutorialToast" parent="UI" instance=ExtResource("50_3pold")]
-
 [node name="EndGamePanelRuntime" type="CanvasLayer" parent="UI"]
 script = ExtResource("51_3ugab")
 title_font = ExtResource("52_px4p2")
@@ -556,7 +554,9 @@ body_font_size = 16
 button_font_size = 16
 desc_font = ExtResource("53_x0rj3")
 
-[node name="HUD" parent="UI" instance=ExtResource("55_kg1ax")]
+[node name="HUD" parent="UI" groups=["HUD"] instance=ExtResource("55_kg1ax")]
+
+[node name="TutorialToast" parent="UI/HUD" instance=ExtResource("50_3pold")]
 
 [node name="ViewportShader" type="ColorRect" parent="UI"]
 material = SubResource("ShaderMaterial_ochta")
