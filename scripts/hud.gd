@@ -36,36 +36,15 @@ const TAG_COLORS := {
 	"KILL": Color(1.0, 0.35, 0.35),
 }
 
-func _quirk_desc_to_bbcode(desc: String) -> String:
-	# expects desc like: "HAZ ATK When FIRE damages you..."
-	desc = desc.strip_edges()
-	if desc == "":
-		return ""
+# ---------------------------------------------------------
+# TURN BANNER (phase clarity)
+# ---------------------------------------------------------
+var _turn_banner: PanelContainer = null
+var _turn_banner_label: Label = null
+var _turn_banner_tw: Tween = null
 
-	var words := desc.split(" ", false)
-	if words.is_empty():
-		return desc
-
-	var i := 0
-	var out := ""
-
-	# color up to 2 leading tag words
-	for _k in range(2):
-		if i >= words.size():
-			break
-		var tag := words[i].to_upper()
-		if TAG_COLORS.has(tag):
-			var hex = TAG_COLORS[tag].to_html()
-			out += "[color=%s][b]%s[/b][/color] " % [hex, tag]
-			i += 1
-		else:
-			break
-
-	if i < words.size():
-		out += " ".join(words.slice(i, words.size()))
-
-	return out
-
+@export var banner_font: Font
+@export var banner_font_size := 32
 
 # ✅ Tooltip style (non-black, “your style”)
 @export var tooltip_bg_color: Color = Color("0B1F24")
@@ -95,6 +74,8 @@ var extras_box: VBoxContainer
 var _quirk_cb: Callable
 
 func _ready() -> void:
+	add_to_group("HUD")
+	
 	_unit_card = get_node_or_null(unit_card_path) as Control
 	if _unit_card == null:
 		push_warning("HUD: UnitCard not found.")
@@ -119,6 +100,39 @@ func _ready() -> void:
 		
 	_apply_tooltip_theme()	
 	_ensure_portrait_shader()
+	
+	_create_turn_banner()
+
+
+func _quirk_desc_to_bbcode(desc: String) -> String:
+	# expects desc like: "HAZ ATK When FIRE damages you..."
+	desc = desc.strip_edges()
+	if desc == "":
+		return ""
+
+	var words := desc.split(" ", false)
+	if words.is_empty():
+		return desc
+
+	var i := 0
+	var out := ""
+
+	# color up to 2 leading tag words
+	for _k in range(2):
+		if i >= words.size():
+			break
+		var tag := words[i].to_upper()
+		if TAG_COLORS.has(tag):
+			var hex = TAG_COLORS[tag].to_html()
+			out += "[color=%s][b]%s[/b][/color] " % [hex, tag]
+			i += 1
+		else:
+			break
+
+	if i < words.size():
+		out += " ".join(words.slice(i, words.size()))
+
+	return out
 
 func _apply_tooltip_theme() -> void:
 	if _unit_card == null:
@@ -684,3 +698,124 @@ func _set_portrait_quirk_intensity(qcount: int) -> void:
 	if mat == null:
 		return
 	mat.set_shader_parameter("quirk_intensity", float(clampi(qcount, 0, 3)) / 3.0)
+
+# =========================================================
+# TURN BANNER
+# =========================================================
+func _create_turn_banner() -> void:
+	if _turn_banner != null and is_instance_valid(_turn_banner):
+		return
+
+	_turn_banner = PanelContainer.new()
+	_turn_banner.name = "TurnBanner"
+	
+	_turn_banner.anchor_left = 0.5
+	_turn_banner.anchor_right = 0.5
+	_turn_banner.anchor_top = 0
+	_turn_banner.anchor_bottom = 0
+	_turn_banner.offset_left = -200
+	_turn_banner.offset_right = 200
+	_turn_banner.offset_top = 20
+	_turn_banner.offset_bottom = 84
+
+	_turn_banner.offset_left = 0
+	_turn_banner.offset_right = 0
+	_turn_banner.offset_top = 18
+	_turn_banner.offset_bottom = 18 + 64
+	_turn_banner.visible = false
+	_turn_banner.mouse_filter = Control.MOUSE_FILTER_IGNORE
+
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Color(0, 0, 0, 0.70)
+	sb.border_color = Color(1, 1, 1, 0.10)
+	sb.set_border_width_all(2)
+	sb.set_corner_radius_all(12)
+	sb.content_margin_left = 16
+	sb.content_margin_right = 16
+	sb.content_margin_top = 10
+	sb.content_margin_bottom = 10
+	_turn_banner.add_theme_stylebox_override("panel", sb)
+
+	var label := Label.new()
+	label.name = "Label"
+	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	label.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	label.text = ""
+	label.modulate = Color(1, 1, 1, 1)
+
+	if banner_font != null:
+		label.add_theme_font_override("font", banner_font)
+		label.add_theme_font_size_override("font_size", banner_font_size)
+
+	_turn_banner.add_child(label)
+	_turn_banner_label = label
+
+	add_child(_turn_banner)
+
+
+func show_turn_banner(text: String, kind: String = "") -> void:
+	_create_turn_banner()
+	if _turn_banner == null or not is_instance_valid(_turn_banner):
+		return
+
+	# stop previous animation cleanly
+	if _turn_banner_tw != null and is_instance_valid(_turn_banner_tw):
+		_turn_banner_tw.kill()
+	_turn_banner_tw = null
+
+	# color language by kind (optional)
+	var accent := Color(0.35, 1.00, 0.55) # default neon green
+	if kind == "enemy":
+		accent = Color(1.00, 0.35, 0.35)
+	elif kind == "hazard":
+		accent = Color(0.55, 1.00, 0.45)
+	elif kind == "boss":
+		accent = Color(0.95, 0.85, 0.20)
+
+	_turn_banner_label.text = text
+
+	# resize banner based on text width
+	await get_tree().process_frame
+
+	var w := _turn_banner_label.get_minimum_size().x + 64
+	_turn_banner.offset_left = -w * 0.5
+	_turn_banner.offset_right = w * 0.5
+
+	_turn_banner_label.add_theme_color_override("font_color", Color(1, 1, 1, 1))
+
+	# tint border slightly
+	var sb := _turn_banner.get_theme_stylebox("panel") as StyleBoxFlat
+	if sb != null:
+		sb.border_color = Color(accent.r, accent.g, accent.b, 0.55)
+
+	# animate in/out
+	_turn_banner.visible = true
+	_turn_banner.modulate = Color(1, 1, 1, 0)
+
+	var start_y := 6.0
+	var mid_y := 18.0
+	_turn_banner.offset_top = start_y
+	_turn_banner.offset_bottom = start_y + 64
+
+	_turn_banner_tw = create_tween()
+	_turn_banner_tw.set_trans(Tween.TRANS_CUBIC)
+	_turn_banner_tw.set_ease(Tween.EASE_OUT)
+
+	# fade/slide in
+	_turn_banner_tw.tween_property(_turn_banner, "modulate:a", 1.0, 0.12)
+	_turn_banner_tw.parallel().tween_property(_turn_banner, "offset_top", mid_y, 0.12)
+	_turn_banner_tw.parallel().tween_property(_turn_banner, "offset_bottom", mid_y + 64, 0.12)
+
+	# hold
+	_turn_banner_tw.tween_interval(0.55)
+
+	# fade out
+	_turn_banner_tw.set_ease(Tween.EASE_IN)
+	_turn_banner_tw.tween_property(_turn_banner, "modulate:a", 0.0, 0.18)
+
+	_turn_banner_tw.finished.connect(func ():
+		if _turn_banner != null and is_instance_valid(_turn_banner):
+			_turn_banner.visible = false
+	)

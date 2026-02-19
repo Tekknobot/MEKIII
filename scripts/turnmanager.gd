@@ -528,6 +528,10 @@ func start_player_phase() -> void:
 	_reset_first_hit_armor_flags()  # ✅ RESET HERE
 	
 	phase = Phase.PLAYER
+	var h := _hud()
+	if h != null:
+		h.show_turn_banner("PLAYER TURN", "player")
+
 	_moved.clear()
 	_attacked.clear()
 
@@ -541,6 +545,10 @@ func start_player_phase() -> void:
 
 func start_enemy_phase() -> void:
 	phase = Phase.ENEMY
+	var h := _hud()
+	if h != null:
+		h.show_turn_banner("ENEMY TURN", "enemy")
+
 	M.reset_turn_flags_for_enemies()
 	
 	_reset_first_hit_armor_flags()  # ✅ RESET HERE
@@ -3007,3 +3015,7 @@ func _event_pick_line(key: StringName, ctx: Dictionary) -> String:
 	arr = arr.duplicate()
 	arr.shuffle()
 	return str(arr[0])
+
+func _hud() -> HUD:
+	var n := get_tree().get_first_node_in_group("HUD")
+	return n as HUD
