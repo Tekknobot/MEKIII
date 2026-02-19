@@ -821,15 +821,29 @@ func _run_enemy_turns() -> void:
 	if enemies.is_empty() or allies.is_empty():
 		return
 
+	var will_act: Array[Unit] = []
 	for z in enemies:
 		if z == null or not is_instance_valid(z) or z.hp <= 0:
 			continue
+		if _enemy_can_see_any_ally(z, allies):
+			will_act.append(z)
 
-		# Enemy acts only if IT can see an ally
-		if not _enemy_can_see_any_ally(z, allies):
+	if will_act.is_empty():
+		return
+
+	var h := _hud()
+	var total := will_act.size()
+	var i := 0
+
+	for z in will_act:
+		if z == null or not is_instance_valid(z) or z.hp <= 0:
 			continue
-
+		i += 1
+		if h != null:
+			h.show_turn_banner("ENEMY %d / %d" % [i, total], "enemy")
+			
 		await _enemy_take_turn(z)
+
 
 func _enemy_in_ally_vision(z: Unit, allies: Array[Unit]) -> bool:
 	var zc := z.cell
