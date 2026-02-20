@@ -44,7 +44,6 @@ texture = ExtResource("1_tile")
 
 [node name="SnowEmitter" type="GPUParticles2D" parent="."]
 position = Vector2(0, -38)
-amount = 16
 lifetime = 0.65
 preprocess = 1.2
 randomness = 1.0

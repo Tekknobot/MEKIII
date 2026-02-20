@@ -391,6 +391,13 @@ func _apply_weather_tiles() -> void:
 	if overlays_root == null or not is_instance_valid(overlays_root):
 		overlays_root = self
 
+	var is_web := OS.has_feature("web")
+	if is_web:
+		# reduce density hard (or disable)
+		rain_density *= 0.15
+		snow_density *= 0.15
+		fog_density *= 0.20
+
 	match weather:
 		Weather.RAIN:
 			_spawn_weather_scene_on_grid(rain_tile_scene, rain_density, rain_on_water)
