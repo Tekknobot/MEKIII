@@ -1,0 +1,27 @@
+[gd_scene load_steps=4 format=3 uid="uid://cw2dxve4i76n8"]
+
+[sub_resource type="Gradient" id="Gradient_itxmm"]
+offsets = PackedFloat32Array(0, 0.4964539, 1)
+colors = PackedColorArray(1, 0.5978129, 0, 1, 1, 0, 0, 1, 0.06469653, 0.06469653, 0.06469653, 1)
+
+[sub_resource type="GradientTexture1D" id="GradientTexture1D_8a3xf"]
+gradient = SubResource("Gradient_itxmm")
+
+[sub_resource type="ParticleProcessMaterial" id="ParticleProcessMaterial_81muj"]
+particle_flag_disable_z = true
+emission_shape = 3
+emission_box_extents = Vector3(8, 8, 1)
+direction = Vector3(0, -1, 0)
+spread = 20.0
+flatness = 1.0
+initial_velocity_min = 8.0
+initial_velocity_max = 16.0
+gravity = Vector3(0, 1, 0)
+color = Color(1.2211751, 0.9765097, 0.59763867, 1)
+color_ramp = SubResource("GradientTexture1D_8a3xf")
+
+[node name="FireEmitter" type="GPUParticles2D"]
+amount = 16
+lifetime = 2.0
+preprocess = 1.5
+process_material = SubResource("ParticleProcessMaterial_81muj")

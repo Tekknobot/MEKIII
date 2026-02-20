@@ -1,0 +1,37 @@
+[gd_scene load_steps=5 format=3 uid="uid://w4cia1866i3t"]
+
+[ext_resource type="Texture2D" uid="uid://del82i3840oyo" path="res://sprites/Terrain/hazard/1x1_fire.png" id="1_tile"]
+
+[sub_resource type="Shader" id="Shader_wet"]
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_wet"]
+render_priority = 0
+shader = SubResource("Shader_wet")
+
+[sub_resource type="ParticleProcessMaterial" id="ParticleProcessMaterial_rain"]
+particle_flag_disable_z = true
+emission_shape_scale = Vector3(16, 16, 1)
+emission_shape = 3
+emission_box_extents = Vector3(1, 1, 1)
+direction = Vector3(0, 1, 0)
+spread = 6.0
+initial_velocity_min = 120.0
+initial_velocity_max = 170.0
+gravity = Vector3(0, 250, 0)
+scale_min = 0.5
+scale_max = 0.7
+color = Color(0.7, 0.85, 1, 0.6)
+
+[node name="RainTile" type="Node2D"]
+
+[node name="Tile" type="Sprite2D" parent="."]
+visible = false
+material = SubResource("ShaderMaterial_wet")
+texture = ExtResource("1_tile")
+
+[node name="RainEmitter" type="GPUParticles2D" parent="."]
+position = Vector2(0, -39)
+lifetime = 0.09999999999999999
+preprocess = 1.0
+randomness = 1.0
+process_material = SubResource("ParticleProcessMaterial_rain")

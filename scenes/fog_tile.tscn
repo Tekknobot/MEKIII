@@ -1,0 +1,64 @@
+[gd_scene load_steps=7 format=3 uid="uid://ide8kf2h613i"]
+
+[ext_resource type="Texture2D" uid="uid://d27pl0et5acx1" path="res://sprites/Textures/fog_gradient.png" id="1_fog"]
+
+[sub_resource type="Shader" id="Shader_fog"]
+code = "shader_type canvas_item;
+uniform float pulse_speed = 0.55;
+uniform float pulse_strength = 0.10;
+uniform vec4 fog_tint : source_color = vec4(0.65, 0.85, 1.0, 1.0);
+void fragment() {
+	vec4 tex = texture(TEXTURE, UV);
+	float p = (sin(TIME * pulse_speed) * 0.5 + 0.5);
+	float a = tex.a * (0.55 + p * pulse_strength);
+	vec3 rgb = tex.rgb * (0.85 + p * 0.10);
+	rgb = mix(rgb, fog_tint.rgb, 0.25);
+	COLOR = vec4(rgb, a);
+}
+"
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_fog"]
+shader = SubResource("Shader_fog")
+shader_parameter/pulse_speed = 0.55
+shader_parameter/pulse_strength = 0.1
+shader_parameter/fog_tint = Color(0.65, 0.85, 1, 1)
+
+[sub_resource type="Gradient" id="Gradient_fog"]
+offsets = PackedFloat32Array(0, 0.55, 1)
+colors = PackedColorArray(0.7, 0.9, 1, 0, 0.7, 0.9, 1, 0.35, 0.7, 0.9, 1, 0)
+
+[sub_resource type="GradientTexture1D" id="GradientTexture1D_fog"]
+gradient = SubResource("Gradient_fog")
+
+[sub_resource type="ParticleProcessMaterial" id="ParticleProcessMaterial_fog"]
+particle_flag_disable_z = true
+emission_shape = 3
+emission_box_extents = Vector3(16, 10, 1)
+spread = 180.0
+flatness = 1.0
+initial_velocity_min = 3.0
+initial_velocity_max = 8.0
+gravity = Vector3(0, 0, 0)
+scale_min = 0.6
+scale_max = 1.25
+color = Color(1, 1, 1, 0.60784316)
+color_ramp = SubResource("GradientTexture1D_fog")
+
+[node name="FogTile" type="Node2D"]
+
+[node name="FogSprite" type="Sprite2D" parent="."]
+modulate = Color(0.75, 0.9, 1, 0.55)
+z_as_relative = false
+material = SubResource("ShaderMaterial_fog")
+position = Vector2(0, -16)
+texture = ExtResource("1_fog")
+
+[node name="FogMist" type="GPUParticles2D" parent="."]
+z_index = 1
+z_as_relative = false
+position = Vector2(0, -15)
+amount = 14
+lifetime = 2.2
+preprocess = 1.4
+randomness = 1.0
+process_material = SubResource("ParticleProcessMaterial_fog")

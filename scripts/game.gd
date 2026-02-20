@@ -110,6 +110,25 @@ var _start_max_zombies := 0
 
 var _unique_buffer_blocked: Dictionary = {} # Vector2i -> true
 
+enum Weather { CLEAR, RAIN, SNOW, FOG }
+
+@export var weather: Weather = Weather.CLEAR
+@export var randomize_weather_each_generation := true
+
+@export var rain_tile_scene: PackedScene
+@export_range(0.0, 1.0, 0.05) var rain_density := 1.0
+@export var rain_on_water := true
+
+@export var snow_tile_scene: PackedScene
+@export_range(0.0, 1.0, 0.05) var snow_density := 1.0
+@export var snow_on_water := true
+
+@export var fog_tile_scene: PackedScene
+@export_range(0.0, 1.0, 0.05) var fog_density := 1.0
+@export var fog_on_water := true
+
+var _weather_nodes: Array[Node] = []
+
 func add_upgrade(id: StringName) -> void:
 	RunStateNode.add_upgrade(id)
 
@@ -164,6 +183,8 @@ func _start_mission() -> void:
 	if randomize_season_each_generation:
 		season = SEASONS[rng.randi_range(0, SEASONS.size() - 1)]
 
+	_pick_weather_for_generation()
+
 	if grid == null:
 		grid = GridData.new()
 	grid.setup(map_width, map_height, T_DIRT)
@@ -177,6 +198,46 @@ func _start_mission() -> void:
 
 	if turn_manager != null and is_instance_valid(turn_manager):
 		turn_manager.on_units_spawned()
+
+func _pick_weather_for_generation() -> void:
+	if not randomize_weather_each_generation:
+		return
+
+	var r := rng.randf()
+
+	match season:
+		Season.GRASS:
+			# 20% fog, 35% rain, else clear
+			if r < 0.20: weather = Weather.FOG
+			elif r < 0.55: weather = Weather.RAIN
+			else: weather = Weather.CLEAR
+
+		Season.DIRT:
+			# 15% fog, 25% rain, else clear
+			if r < 0.15: weather = Weather.FOG
+			elif r < 0.40: weather = Weather.RAIN
+			else: weather = Weather.CLEAR
+
+		Season.SANDSTONE:
+			# 10% fog (dust haze), 10% rain (rare), else clear
+			if r < 0.10: weather = Weather.FOG
+			elif r < 0.20: weather = Weather.RAIN
+			else: weather = Weather.CLEAR
+
+		Season.SNOW:
+			# 15% fog (whiteout haze), 65% snow, else clear
+			if r < 0.15: weather = Weather.FOG
+			elif r < 0.80: weather = Weather.SNOW
+			else: weather = Weather.CLEAR
+
+		Season.ICE:
+			# 25% fog, 35% snow, else clear
+			if r < 0.25: weather = Weather.FOG
+			elif r < 0.60: weather = Weather.SNOW
+			else: weather = Weather.CLEAR
+
+		_:
+			weather = Weather.CLEAR
 
 func _fade_alpha() -> float:
 	if _fade_rect == null or not is_instance_valid(_fade_rect):
@@ -221,8 +282,11 @@ func regenerate_map() -> void:
 	if randomize_season_each_generation:
 		season = SEASONS[rng.randi_range(0, SEASONS.size() - 1)]
 
+	_pick_weather_for_generation()
+
 	if grid == null:
 		grid = GridData.new()
+
 	grid.setup(map_width, map_height, T_DIRT)
 
 	generate_map()
@@ -309,6 +373,65 @@ func generate_map() -> void:
 
 	# 5) Paint final terrain
 	_paint_terrain()
+	_apply_weather_tiles()
+
+func _clear_weather_tiles() -> void:
+	for n in _weather_nodes:
+		if n != null and is_instance_valid(n):
+			n.queue_free()
+	_weather_nodes.clear()
+
+	for n in get_tree().get_nodes_in_group("WeatherTiles"):
+		if n != null and is_instance_valid(n):
+			n.queue_free()
+
+func _apply_weather_tiles() -> void:
+	_clear_weather_tiles()
+
+	if overlays_root == null or not is_instance_valid(overlays_root):
+		overlays_root = self
+
+	match weather:
+		Weather.RAIN:
+			_spawn_weather_scene_on_grid(rain_tile_scene, rain_density, rain_on_water)
+		Weather.SNOW:
+			_spawn_weather_scene_on_grid(snow_tile_scene, snow_density, snow_on_water)
+		Weather.FOG:
+			_spawn_weather_scene_on_grid(fog_tile_scene, fog_density, fog_on_water)			
+		_:
+			pass
+
+func _spawn_weather_scene_on_grid(scene: PackedScene, density: float, allow_on_water: bool) -> void:
+	if scene == null:
+		push_warning("Weather: missing scene PackedScene.")
+		return
+	if terrain == null or not is_instance_valid(terrain):
+		push_warning("Weather: terrain TileMap missing.")
+		return
+
+	for x in range(map_width):
+		for y in range(map_height):
+			var c := Vector2i(x, y)
+
+			if density < 0.999 and rng.randf() > density:
+				continue
+
+			if not allow_on_water and grid != null and grid.in_bounds(c) and grid.terrain[x][y] == T_WATER:
+				continue
+
+			var inst := scene.instantiate()
+			var n2 := inst as Node2D
+			if n2 == null:
+				continue
+
+			n2.add_to_group("WeatherTiles")
+			overlays_root.add_child(n2)
+
+			n2.global_position = terrain.to_global(terrain.map_to_local(c))
+			n2.z_as_relative = false
+			n2.z_index = 50
+
+			_weather_nodes.append(n2)
 
 func _paint_terrain() -> void:
 	terrain.clear()

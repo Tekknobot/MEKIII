@@ -1,0 +1,51 @@
+[gd_scene load_steps=5 format=3 uid="uid://cwspl0fjm48ex"]
+
+[ext_resource type="Texture2D" uid="uid://del82i3840oyo" path="res://sprites/Terrain/hazard/1x1_fire.png" id="1_tile"]
+
+[sub_resource type="Shader" id="Shader_frost"]
+code = "shader_type canvas_item;
+uniform vec4 frost_tint : source_color = vec4(0.75, 0.9, 1.0, 1.0);
+uniform float sparkle_speed = 1.1;
+uniform float sparkle_strength = 0.07;
+void fragment() {
+	vec4 tex = texture(TEXTURE, UV);
+	float band = sin((UV.y * 12.0) + TIME * sparkle_speed) * sparkle_strength;
+	float spark = max(0.0, band);
+	COLOR = tex * vec4(0.92, 0.96, 1.0, 1.0) + frost_tint * spark;
+}
+"
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_frost"]
+shader = SubResource("Shader_frost")
+shader_parameter/frost_tint = Color(0.75, 0.9, 1, 1)
+shader_parameter/sparkle_speed = 1.1
+shader_parameter/sparkle_strength = 0.07
+
+[sub_resource type="ParticleProcessMaterial" id="ParticleProcessMaterial_snow"]
+particle_flag_disable_z = true
+emission_shape = 3
+emission_box_extents = Vector3(16, 16, 1)
+direction = Vector3(0, 1, 0)
+spread = 35.0
+flatness = 1.0
+initial_velocity_min = 18.0
+initial_velocity_max = 34.0
+gravity = Vector3(10, 35, 0)
+scale_min = 0.35
+scale_max = 0.75
+color = Color(0.85, 0.92, 1, 0.65)
+
+[node name="SnowTile" type="Node2D"]
+
+[node name="Tile" type="Sprite2D" parent="."]
+visible = false
+material = SubResource("ShaderMaterial_frost")
+texture = ExtResource("1_tile")
+
+[node name="SnowEmitter" type="GPUParticles2D" parent="."]
+position = Vector2(0, -38)
+amount = 16
+lifetime = 0.65
+preprocess = 1.2
+randomness = 1.0
+process_material = SubResource("ParticleProcessMaterial_snow")

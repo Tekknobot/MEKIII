@@ -1,9 +1,10 @@
-[gd_scene load_steps=10 format=3 uid="uid://blg5m6wyqpk30"]
+[gd_scene load_steps=8 format=3 uid="uid://blg5m6wyqpk30"]
 
 [ext_resource type="Texture2D" uid="uid://bbg3458x06rys" path="res://sprites/Tiles_UI/mek3/1x1_beacon4.png" id="1_itxmm"]
 [ext_resource type="Texture2D" uid="uid://dm6paajj4vro2" path="res://sprites/Textures/radioactive_gradient.png" id="2_81muj"]
 [ext_resource type="Shader" uid="uid://du5bm4nydssr8" path="res://shaders/fire_overlay.gdshader" id="2_h2d4l"]
 [ext_resource type="Texture2D" uid="uid://del82i3840oyo" path="res://sprites/Terrain/hazard/1x1_fire.png" id="2_rsl0o"]
+[ext_resource type="PackedScene" uid="uid://cw2dxve4i76n8" path="res://scenes/fire_emitter.tscn" id="5_h2d4l"]
 
 [sub_resource type="SpriteFrames" id="SpriteFrames_r47l1"]
 animations = [{
@@ -27,26 +28,6 @@ shader_parameter/rise_speed = 0.0
 shader_parameter/flicker_speed = 10.0
 shader_parameter/ember_chance = 0.015
 shader_parameter/ember_boost = 0.75
-
-[sub_resource type="Gradient" id="Gradient_itxmm"]
-offsets = PackedFloat32Array(0, 0.4964539, 1)
-colors = PackedColorArray(1, 0.5978129, 0, 1, 1, 0, 0, 1, 0.06469653, 0.06469653, 0.06469653, 1)
-
-[sub_resource type="GradientTexture1D" id="GradientTexture1D_8a3xf"]
-gradient = SubResource("Gradient_itxmm")
-
-[sub_resource type="ParticleProcessMaterial" id="ParticleProcessMaterial_81muj"]
-particle_flag_disable_z = true
-emission_shape = 3
-emission_box_extents = Vector3(8, 8, 1)
-direction = Vector3(0, -1, 0)
-spread = 20.0
-flatness = 1.0
-initial_velocity_min = 8.0
-initial_velocity_max = 16.0
-gravity = Vector3(0, 1, 0)
-color = Color(1.2211751, 0.9765097, 0.59763867, 1)
-color_ramp = SubResource("GradientTexture1D_8a3xf")
 
 [node name="FireTile" type="Node2D"]
 
@@ -78,9 +59,5 @@ initial_velocity_min = 2.0
 initial_velocity_max = 2.0
 color = Color(0, 1, 0, 1)
 
-[node name="FireEmitter" type="GPUParticles2D" parent="."]
+[node name="FireEmitter" parent="." instance=ExtResource("5_h2d4l")]
 position = Vector2(0, -9)
-amount = 16
-lifetime = 2.0
-preprocess = 1.5
-process_material = SubResource("ParticleProcessMaterial_81muj")

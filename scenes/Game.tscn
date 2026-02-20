@@ -1,12 +1,15 @@
-[gd_scene load_steps=109 format=3 uid="uid://bmtwqbsx674eo"]
+[gd_scene load_steps=112 format=3 uid="uid://bmtwqbsx674eo"]
 
 [ext_resource type="Script" uid="uid://bn08mhcoceqg" path="res://scripts/game.gd" id="1_400sg"]
+[ext_resource type="PackedScene" uid="uid://w4cia1866i3t" path="res://scenes/rain_tile.tscn" id="6_ltxvx"]
 [ext_resource type="Texture2D" uid="uid://by1nnygq8fbib" path="res://sprites/Terrain/dirt.png" id="6_mcffj"]
 [ext_resource type="Texture2D" uid="uid://bvs7gpxakq282" path="res://sprites/Terrain/sandstone.png" id="7_2rd6h"]
 [ext_resource type="PackedScene" uid="uid://g6gfrpvyugsa" path="res://scenes/cursor.tscn" id="7_bneo8"]
 [ext_resource type="Texture2D" uid="uid://d3dw1g0jasso3" path="res://sprites/Tiles_UI/mek3/1x1_move.png" id="7_g4kob"]
+[ext_resource type="PackedScene" uid="uid://cwspl0fjm48ex" path="res://scenes/snow_tile.tscn" id="7_pf47n"]
 [ext_resource type="Texture2D" uid="uid://dqnyvmrsprmvf" path="res://sprites/Terrain/grass_snow.png" id="8_7ua8r"]
 [ext_resource type="Script" uid="uid://82k2eidbwyo3" path="res://scripts/camera.gd" id="8_400sg"]
+[ext_resource type="PackedScene" uid="uid://ide8kf2h613i" path="res://scenes/fog_tile.tscn" id="8_nj61y"]
 [ext_resource type="Texture2D" uid="uid://bo43jxw78vpg7" path="res://sprites/Tiles_UI/mek3/2x2_move.png" id="8_qy1jj"]
 [ext_resource type="Texture2D" uid="uid://usc687xtdcac" path="res://sprites/Terrain/grass_default.png" id="9_r7sob"]
 [ext_resource type="Texture2D" uid="uid://bsdcosxsddrot" path="res://sprites/Terrain/ice.png" id="10_y5y3l"]
@@ -309,6 +312,9 @@ building_count = 12
 unique_building_scenes = Array[PackedScene]([ExtResource("23_evnk2"), ExtResource("24_ca228"), ExtResource("22_ho5ir")])
 drops_root_path = NodePath("Pickups")
 tutorial_manager_path = NodePath("TutorialManager")
+rain_tile_scene = ExtResource("6_ltxvx")
+snow_tile_scene = ExtResource("7_pf47n")
+fog_tile_scene = ExtResource("8_nj61y")
 
 [node name="StarryNight" parent="." instance=ExtResource("20_sv1m6")]
 z_index = -4096
