@@ -70,6 +70,7 @@ var _dmg_val: Label
 var _unit: Unit = null
 
 var extras_box: VBoxContainer
+var quirks_dock: VBoxContainer
 
 var _quirk_cb: Callable
 
@@ -82,15 +83,16 @@ func _ready() -> void:
 		return
 
 	_portrait = _unit_card.get_node("Margin/Row/PortraitFrame/Portrait") as TextureRect
-	_name     = _unit_card.get_node("Margin/Row/Right/Name") as Label
-	_hp_label = _unit_card.get_node("Margin/Row/Right/Bars/HPLabel") as Label
-	_hp_bar   = _unit_card.get_node("Margin/Row/Right/Bars/HPBar") as ProgressBar
+	_name     = _unit_card.get_node("Margin/Row/Right/LeftInfo/Name") as Label
+	_hp_label = _unit_card.get_node("Margin/Row/Right/LeftInfo/Bars/HPLabel") as Label
+	_hp_bar   = _unit_card.get_node("Margin/Row/Right/LeftInfo/Bars/HPBar") as ProgressBar
 
-	_move_val  = _unit_card.get_node("Margin/Row/Right/StatsGrid/MoveVal") as Label
-	_range_val = _unit_card.get_node("Margin/Row/Right/StatsGrid/RangeVal") as Label
-	_dmg_val   = _unit_card.get_node("Margin/Row/Right/StatsGrid/DmgVal") as Label
+	_move_val  = _unit_card.get_node("Margin/Row/Right/LeftInfo/StatsGrid/MoveVal") as Label
+	_range_val = _unit_card.get_node("Margin/Row/Right/LeftInfo/StatsGrid/RangeVal") as Label
+	_dmg_val   = _unit_card.get_node("Margin/Row/Right/LeftInfo/StatsGrid/DmgVal") as Label
 
-	extras_box = _unit_card.get_node("Margin/Row/Right/ExtrasBox") as VBoxContainer
+	extras_box = _unit_card.get_node("Margin/Row/Right/LeftInfo/ExtrasBox") as VBoxContainer
+	quirks_dock = _unit_card.get_node("Margin/Row/Right/QuirksDock") as VBoxContainer
 
 	_unit_card.visible = false
 
@@ -332,7 +334,6 @@ func set_unit(u: Unit) -> void:
 	_render_extras(u)
 	_refresh()
 
-
 func _render_extras(u):
 	_quirk_pill_by_id.clear()
 
@@ -340,6 +341,8 @@ func _render_extras(u):
 		return
 
 	for ch in extras_box.get_children():
+		ch.queue_free()
+	for ch in quirks_dock.get_children():
 		ch.queue_free()
 
 	if u == null:
@@ -370,20 +373,9 @@ func _render_extras(u):
 		if str(k) == "__QUIRK_PILLS__":
 			var qs: Array = extras[k]
 
-			var row := HBoxContainer.new()
-			row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-
-			var key_lbl := Label.new()
-			key_lbl.text = "Quirks"
-			key_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-			key_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
-			key_lbl.modulate.a = 0.85
-
-			var flow := HFlowContainer.new()
-			flow.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-			flow.alignment = FlowContainer.ALIGNMENT_END
-			flow.add_theme_constant_override("h_separation", 6)
-			flow.add_theme_constant_override("v_separation", 6)
+			# Put quirks on the RIGHT dock
+			quirks_dock.size_flags_horizontal = Control.SIZE_SHRINK_END
+			quirks_dock.add_theme_constant_override("separation", 6)
 
 			for q in qs:
 				var id := StringName(str(q))
@@ -393,21 +385,16 @@ func _render_extras(u):
 
 				var title := str(d.get("title", String(id)))
 				var desc := str(d.get("desc", ""))
-
 				var col := QuirkDB.get_color(id)
 
-				# pill shows colored tag + short text (desc)
-				var pill_text := _quirk_desc_to_bbcode(desc)
-
-				# tooltip still shows title + full desc
 				var pill := _make_quirk_pill(title, col, title, desc)
-				
-				flow.add_child(pill)
+
+				# Optional: make pills a bit slimmer so the dock is narrow
+				pill.custom_minimum_size.x = 0
+
+				quirks_dock.add_child(pill)
 				_quirk_pill_by_id[id] = pill
 
-			row.add_child(key_lbl)
-			row.add_child(flow)
-			extras_box.add_child(row)
 			continue
 
 		# Normal extras (unchanged)

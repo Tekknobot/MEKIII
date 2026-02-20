@@ -19,3 +19,6 @@ res://scenes/Game.tscn
 res://scripts/game.gd
 res://scenes/snow_tile.tscn
 res://scenes/fog_tile.tscn
+res://scenes/HUD.tscn
+res://scripts/quirk_db.gd
+res://scripts/hud.gd
