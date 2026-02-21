@@ -71,6 +71,15 @@ var _lan_magic: String = "ZMCOOP"
 var _auto_join_in_progress: bool = false
 
 # ------------------------------------------------------------
+# Snapshot request gating (prevents client crash / infinite loop)
+# ------------------------------------------------------------
+var _requested_snapshot: bool = false
+var _snapshot_task_running: bool = false
+
+# Prevent double-start spam / races
+var _connecting: bool = false
+
+# ------------------------------------------------------------
 # Lifecycle
 # ------------------------------------------------------------
 func _ready() -> void:
@@ -114,7 +123,11 @@ func get_host_lan_ip() -> String:
 	for ip in addrs:
 		if ip.find(":") != -1:
 			continue
-		if ip.begins_with("192.168.") or ip.begins_with("10.") or ip.begins_with("172.16.") or ip.begins_with("172.17.") or ip.begins_with("172.18.") or ip.begins_with("172.19.") or ip.begins_with("172.20.") or ip.begins_with("172.21.") or ip.begins_with("172.22.") or ip.begins_with("172.23.") or ip.begins_with("172.24.") or ip.begins_with("172.25.") or ip.begins_with("172.26.") or ip.begins_with("172.27.") or ip.begins_with("172.28.") or ip.begins_with("172.29.") or ip.begins_with("172.30.") or ip.begins_with("172.31."):
+		if ip.begins_with("192.168.") or ip.begins_with("10.") \
+		or ip.begins_with("172.16.") or ip.begins_with("172.17.") or ip.begins_with("172.18.") or ip.begins_with("172.19.") \
+		or ip.begins_with("172.20.") or ip.begins_with("172.21.") or ip.begins_with("172.22.") or ip.begins_with("172.23.") \
+		or ip.begins_with("172.24.") or ip.begins_with("172.25.") or ip.begins_with("172.26.") or ip.begins_with("172.27.") \
+		or ip.begins_with("172.28.") or ip.begins_with("172.29.") or ip.begins_with("172.30.") or ip.begins_with("172.31."):
 			return ip
 
 	# Fallback: first IPv4
@@ -158,6 +171,7 @@ func start_host(port := 8910) -> bool:
 	coop_enabled = true
 	is_host = true
 	host_port = port
+	_connecting = false
 
 	shared_seed = int(Time.get_ticks_msec())
 	print("COOP(HOST): shared_seed=", shared_seed)
@@ -174,6 +188,9 @@ func start_host(port := 8910) -> bool:
 	_auto_join_in_progress = false
 	_lan_broadcast_timer = 0.0
 
+	_requested_snapshot = false
+	_snapshot_task_running = false
+
 	print("COOP(HOST): invite_url=", get_invite_url())
 	_set_conn_state(ConnState.HOSTING, "Hosting on %s" % get_invite_url())
 
@@ -184,9 +201,14 @@ func start_host(port := 8910) -> bool:
 	print("COOP(HOST): start_host OK. peers=", multiplayer.get_peers(), " unique_id=", multiplayer.get_unique_id())
 	return true
 
-
 func start_client(url: String) -> bool:
 	print("COOP(CLIENT): start_client url=", url)
+
+	# ✅ prevent double-click / double-start races
+	if _connecting:
+		print("COOP(CLIENT): start_client ignored (already connecting)")
+		return false
+	_connecting = true
 
 	stop()
 
@@ -195,6 +217,7 @@ func start_client(url: String) -> bool:
 	print("COOP(CLIENT): create_client err=", err)
 
 	if err != OK:
+		_connecting = false
 		push_warning("COOP: failed to connect (err=%s) url=%s" % [err, url])
 		_set_conn_state(ConnState.FAILED, "Connect failed (err=%s)" % [err])
 		_auto_join_in_progress = false
@@ -213,6 +236,9 @@ func start_client(url: String) -> bool:
 	picks_by_peer.clear()
 	ready_by_peer.clear()
 
+	_requested_snapshot = false
+	_snapshot_task_running = false
+
 	_set_conn_state(ConnState.CONNECTING, "Connecting to %s" % url)
 
 	emit_signal("coop_enabled_changed", true)
@@ -224,9 +250,16 @@ func start_client(url: String) -> bool:
 	print("COOP(CLIENT): start_client OK. unique_id=", multiplayer.get_unique_id())
 	return true
 
-
 func stop() -> void:
 	print("COOP: stop() called. had_peer=", (multiplayer != null and multiplayer.has_multiplayer_peer()))
+
+	# ✅ stop any “wait for snapshot” coroutine from doing work after teardown
+	_requested_snapshot = false
+	_snapshot_task_running = false
+	_connecting = false
+
+	# ✅ disconnect signals (prevents duplicate callbacks after reconnect)
+	_unbind_signals()
 
 	if multiplayer != null and multiplayer.has_multiplayer_peer():
 		multiplayer.multiplayer_peer = null
@@ -255,7 +288,7 @@ func stop() -> void:
 	emit_signal("ready_state_changed")
 
 	print("COOP: stopped. coop_enabled=", coop_enabled, " is_host=", is_host, " client_peer_id=", client_peer_id)
-	
+
 # ------------------------------------------------------------
 # Multiplayer signals
 # ------------------------------------------------------------
@@ -274,41 +307,57 @@ func _bind_signals() -> void:
 	if not multiplayer.server_disconnected.is_connected(_on_server_disconnected):
 		multiplayer.server_disconnected.connect(_on_server_disconnected)
 
-func _on_connected_to_server() -> void:
-	print("COOP(CLIENT): connected_to_server fired")
-	print("COOP(CLIENT): unique_id=", multiplayer.get_unique_id())
+func _unbind_signals() -> void:
+	if multiplayer == null:
+		return
 
-	_set_conn_state(ConnState.CONNECTED, "Connected")
-
-	# client asks host for session state
-	if multiplayer != null:
-		print("COOP(CLIENT): requesting session state from host")
-		_rpc_request_session_state.rpc_id(1)
+	if multiplayer.peer_connected.is_connected(_on_peer_connected):
+		multiplayer.peer_connected.disconnect(_on_peer_connected)
+	if multiplayer.peer_disconnected.is_connected(_on_peer_disconnected):
+		multiplayer.peer_disconnected.disconnect(_on_peer_disconnected)
+	if multiplayer.connected_to_server.is_connected(_on_connected_to_server):
+		multiplayer.connected_to_server.disconnect(_on_connected_to_server)
+	if multiplayer.connection_failed.is_connected(_on_connection_failed):
+		multiplayer.connection_failed.disconnect(_on_connection_failed)
+	if multiplayer.server_disconnected.is_connected(_on_server_disconnected):
+		multiplayer.server_disconnected.disconnect(_on_server_disconnected)
 
 func _on_connection_failed() -> void:
 	print("COOP(CLIENT): connection_failed fired")
+	_connecting = false
 	push_warning("COOP: connection failed")
 
 	_set_conn_state(ConnState.FAILED, "Connection failed")
 	stop()
-	
+
 func _on_server_disconnected() -> void:
+	_connecting = false
 	push_warning("COOP: disconnected")
 	_set_conn_state(ConnState.FAILED, "Disconnected")
 	stop()
+
+func _on_connected_to_server() -> void:
+	print("COOP(CLIENT): connected_to_server fired")
+	_connecting = false
+
+	# ✅ request session state immediately (your existing state sync)
+	print("COOP(CLIENT): requesting session state from host")
+	_rpc_request_session_state.rpc_id(host_peer_id)
 
 func _on_peer_connected(id: int) -> void:
 	print("COOP: peer_connected id=", id, " is_host=", is_host)
 
 	if is_host:
 		client_peer_id = id
-
+		# if Game exists, push snapshot immediately too
+		var game := get_tree().get_first_node_in_group("Game")
+		if game != null and game.has_method("_send_snapshot_to_peer"):
+			game.call("_send_snapshot_to_peer", id)
+			
 		if not picks_by_peer.has(id):
 			picks_by_peer[id] = []
-
 		if not ready_by_peer.has(id):
 			ready_by_peer[id] = false
-
 		if not ready_by_peer.has(host_peer_id):
 			ready_by_peer[host_peer_id] = false
 
@@ -317,7 +366,7 @@ func _on_peer_connected(id: int) -> void:
 
 	emit_signal("peer_list_changed")
 	emit_signal("ready_state_changed")
-	
+
 func _on_peer_disconnected(id: int) -> void:
 	print("COOP: peer_disconnected id=", id, " is_host=", is_host)
 
@@ -327,13 +376,69 @@ func _on_peer_disconnected(id: int) -> void:
 
 	if picks_by_peer.has(id):
 		picks_by_peer.erase(id)
-
 	if ready_by_peer.has(id):
 		ready_by_peer.erase(id)
 
 	emit_signal("peer_list_changed")
 	emit_signal("squad_picks_changed")
 	emit_signal("ready_state_changed")
+
+# ------------------------------------------------------------
+# Snapshot request (CLIENT) - safe + bounded
+# ------------------------------------------------------------
+func _request_snapshot_when_game_ready() -> void:
+	# Don’t block the main thread; bounded retries (prevents infinite call_deferred loops).
+	_call_request_snapshot_async()
+
+func _call_request_snapshot_async() -> void:
+	# Fire-and-forget coroutine pattern (Godot allows awaits inside this function).
+	_request_snapshot_async()
+
+func _find_game_instance() -> Node:
+	# Prefer a group if you add it in game.gd: add_to_group("Game")
+	var g := get_tree().get_first_node_in_group("GameMap")
+	if g != null:
+		return g
+	# Fallback: current scene
+	return get_tree().current_scene
+
+	var net := get_tree().root.get_node_or_null("Network") as NetworkManager
+	if net != null and net.is_coop() and not net.is_host:
+		net.request_snapshot_now()
+
+func _request_snapshot_async() -> void:
+	# Wait up to ~60 frames (~1 sec at 60fps) for Game to exist + have the RPC method.
+	var tries := 60
+	while tries > 0:
+		tries -= 1
+
+		# Stop trying if we’re no longer connected/active
+		if not is_coop() or is_host:
+			_snapshot_task_running = false
+			return
+
+		if multiplayer == null or multiplayer.multiplayer_peer == null:
+			await get_tree().process_frame
+			continue
+
+		# Unique id is 0 for a moment right after connect; wait until it becomes real
+		if multiplayer.get_unique_id() == 0:
+			await get_tree().process_frame
+			continue
+
+		var game_instance := _find_game_instance()
+		if game_instance != null and game_instance.has_method("_rpc_request_snapshot") and not _requested_snapshot:
+			_requested_snapshot = true
+			print("COOP(CLIENT): requesting snapshot now")
+			_rpc_request_snapshot.rpc_id(host_peer_id)
+			_snapshot_task_running = false
+			return
+
+		await get_tree().process_frame
+
+	# Give up quietly (prevents hard crash / infinite loop)
+	print("COOP(CLIENT): snapshot request skipped (Game not ready in time)")
+	_snapshot_task_running = false
 
 # ------------------------------------------------------------
 # Session state sync
@@ -344,7 +449,7 @@ func _rpc_request_session_state() -> void:
 		return
 	var target := multiplayer.get_remote_sender_id()
 	_rpc_receive_session_state.rpc_id(target, shared_seed, mission_seed, picked_season, picked_weather)
-	
+
 @rpc("any_peer", "reliable")
 func _rpc_receive_session_state(seed: int, mseed: int, season: int, weather: int) -> void:
 	shared_seed = seed
@@ -394,7 +499,6 @@ func are_both_picks_ready(per_player := 2) -> bool:
 	if not is_coop():
 		return false
 
-	# Find "the other peer" reliably (works on host and client)
 	var other_id := -1
 	if multiplayer != null and multiplayer.has_multiplayer_peer():
 		var peers := multiplayer.get_peers()
@@ -500,9 +604,54 @@ func _lan_poll_for_hosts_and_autojoin() -> void:
 		return
 
 	# Already connected / connecting?
-	if is_coop() or _auto_join_in_progress:
+	if is_coop() or _auto_join_in_progress or _connecting:
 		return
 
 	_auto_join_in_progress = true
 	var url := "ws://%s:%d" % [from_ip, port]
 	start_client(url)
+
+func request_snapshot_now() -> void:
+	if not is_coop() or is_host:
+		return
+	if multiplayer == null or multiplayer.multiplayer_peer == null:
+		return
+	if multiplayer.get_unique_id() == 0:
+		return
+
+	_requested_snapshot = false
+	if not _snapshot_task_running:
+		_snapshot_task_running = true
+		_request_snapshot_when_game_ready()
+
+@rpc("any_peer", "reliable")
+func _rpc_request_snapshot() -> void:
+	# Host only
+	if not is_host:
+		return
+
+	var to_id := multiplayer.get_remote_sender_id()
+
+	# Find the host's Game node (must exist to build snapshot)
+	var game := get_tree().current_scene
+	if game == null or not game.has_method("_build_snapshot"):
+		game = get_tree().get_first_node_in_group("Game")
+	if game == null or not game.has_method("_build_snapshot"):
+		print("COOP(HOST): snapshot requested but Game not ready")
+		return
+
+	var snap = game.call("_build_snapshot")
+	_rpc_receive_snapshot.rpc_id(to_id, snap)
+
+
+@rpc("any_peer", "reliable")
+func _rpc_receive_snapshot(snap: Dictionary) -> void:
+	# Client receives snapshot and applies it locally
+	var game := get_tree().current_scene
+	if game == null or not game.has_method("_apply_snapshot"):
+		game = get_tree().get_first_node_in_group("Game")
+	if game == null or not game.has_method("_apply_snapshot"):
+		print("COOP(CLIENT): got snapshot but Game not ready yet")
+		return
+
+	game.call("_apply_snapshot", snap)

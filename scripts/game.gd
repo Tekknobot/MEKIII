@@ -262,6 +262,8 @@ func clear_upgrades() -> void:
 	RunStateNode.clear()
 
 func _ready() -> void:
+	add_to_group("Game") # helps NetworkManager find this node if you ever need it
+
 	_fade_rect = get_node_or_null(fade_rect_path) as ColorRect
 	if _fade_rect != null:
 		_fade_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -271,6 +273,15 @@ func _ready() -> void:
 		_fade_rect.color = c
 
 	_start_mission()
+
+	# ✅ COOP CLIENT: if we returned early, immediately request snapshot now that Game exists
+	if _is_coop() and not _is_host():
+		var nm := get_tree().root.get_node_or_null("Network")
+		if nm != null and nm.has_method("request_snapshot_now"):
+			print("GAME(CLIENT): requesting snapshot via Network")
+			nm.call("request_snapshot_now")
+		else:
+			print("GAME(CLIENT): Network missing request_snapshot_now()")
 
 	await get_tree().process_frame
 	await _fade_to(0.0, fade_in_time)	
@@ -1159,11 +1170,20 @@ func _apply_snapshot(snap: Dictionary) -> void:
 	# -------------------------
 	# 4) Structures
 	# -------------------------
-	if structures_root == null:
-		structures_root = self
-	for ch in structures_root.get_children():
-		ch.queue_free()
+	if structures_root == null or not is_instance_valid(structures_root):
+		structures_root = get_node_or_null("Structures") as Node2D
 
+	# if still missing, create a dedicated container so we NEVER clear the whole Game scene
+	if structures_root == null:
+		structures_root = Node2D.new()
+		structures_root.name = "Structures"
+		add_child(structures_root)
+
+	# clear only structures
+	for ch in structures_root.get_children():
+		if ch != null and is_instance_valid(ch):
+			ch.queue_free()
+			
 	var structs: Array = snap.get("structures", [])
 	for d in structs:
 		var sp := str(d.get("scene", ""))
@@ -1198,10 +1218,26 @@ func _apply_snapshot(snap: Dictionary) -> void:
 	# Boss visual (client)
 	# -------------------------
 	var boss_present := bool(snap.get("boss_present", false))
-	var boss := _find_boss_controller()
-	if boss != null:
-		boss.visible = bool(snap.get("boss_present", false))
-		if boss.visible and boss.has_method("bind_map_client"):
+
+	# Find an existing boss by group (your BossController script adds itself to "BossController")
+	var boss := get_tree().get_first_node_in_group("BossController") as Node2D
+
+	# ✅ If boss should be present but doesn't exist yet, instantiate it under TurnManager
+	if boss_present and (boss == null or not is_instance_valid(boss)):
+		if turn_manager != null and is_instance_valid(turn_manager):
+			if "boss_controller_scene" in turn_manager and turn_manager.boss_controller_scene != null:
+				var inst := turn_manager.boss_controller_scene.instantiate()
+				var b2 := inst as Node2D
+				if b2 != null:
+					turn_manager.add_child(b2)
+					# optional: behind grid
+					b2.z_index = -1000
+					boss = b2
+
+	# Now show/hide + bind map (client-safe, does NOT spawn weakpoints)
+	if boss != null and is_instance_valid(boss):
+		boss.visible = boss_present
+		if boss_present and boss.has_method("bind_map_client"):
 			boss.call("bind_map_client", map_controller)
 			
 	# -------------------------
@@ -1454,23 +1490,54 @@ func _build_snapshot() -> Dictionary:
 
 	var count_wp := 0
 	for d in snap.get("units", []):
-		if str(d.get("scene_path","")).find("weakpoint") != -1:
+		if str(d.get("scene","")).to_lower().find("weakpoint") != -1:
 			count_wp += 1
 	print("SNAP weakpoints=", count_wp, " total units=", (snap.get("units",[]) as Array).size())
 
 	# boss visual exists?
 	var boss := _find_boss_controller()
-	snap["boss_present"] = (boss != null and boss.visible)
+	snap["boss_present"] = (boss != null) or (count_wp > 0)
+
+	# Count weakpoints in the unit snapshot (NOTE: the key is "scene", not "scene_path")
+	var weakpoints := 0
+	for d in units:
+		var sp := str(d.get("scene", ""))
+		if sp.to_lower().find("weakpoint") != -1:
+			weakpoints += 1
+
+	# ✅ Boss is "present" if:
+	# - BossController exists, OR
+	# - any weakpoints exist (boss mission active)
+	snap["boss_present"] = (boss != null) or (weakpoints > 0)
+
+	print("SNAP weakpoints=", weakpoints, " total units=", units.size())
 
 	return snap
 
 func _find_boss_controller() -> Node:
-	var b := get_node_or_null("BossController")
+	# finds Lunatic anywhere under Game
+	var b := find_child("Lunatic", true, false)
 	if b == null and map_controller != null:
-		b = map_controller.get_node_or_null("BossController")
-	if b == null:
-		b = get_tree().current_scene.get_node_or_null("BossController")
-	# Optional best-practice: put BossController in a group called "BossController"
+		b = map_controller.find_child("Lunatic", true, false)
 	if b == null:
 		b = get_tree().get_first_node_in_group("BossController")
 	return b
+
+@rpc("any_peer", "reliable")
+func _rpc_request_snapshot() -> void:
+	if not _is_host():
+		return
+	var to_id := multiplayer.get_remote_sender_id()
+	_coop_snapshot_seq += 1
+	var snap := _build_snapshot()
+	_rpc_receive_snapshot.rpc_id(to_id, _coop_snapshot_seq, snap)
+	
+func _send_snapshot_to_peer(peer_id: int) -> void:
+	if not _is_coop() or not _is_host():
+		return
+
+	_coop_client_ready = false
+	_coop_snapshot_seq += 1
+
+	var snap := _build_snapshot()
+	_rpc_receive_snapshot.rpc_id(peer_id, _coop_snapshot_seq, snap)

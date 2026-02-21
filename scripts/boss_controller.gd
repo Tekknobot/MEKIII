@@ -95,6 +95,7 @@ var boss_turn_index: int = 0
 
 # Client-safe: binds map + positions boss sprite WITHOUT spawning weakpoints
 func bind_map_client(map_controller: MapController) -> void:
+	visible = true
 	M = map_controller
 	_position_big_sprite()
 	

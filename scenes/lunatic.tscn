@@ -33,7 +33,7 @@ animations = [{
 "speed": 6.0
 }]
 
-[node name="Lunatic" type="Node2D"]
+[node name="Lunatic" type="Node2D" groups=["BossController"]]
 script = ExtResource("1_lbctv")
 boss_max_hp = 9999
 weakpoint_scene = ExtResource("2_l7liq")
