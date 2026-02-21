@@ -22,3 +22,7 @@ res://scenes/fog_tile.tscn
 res://scenes/HUD.tscn
 res://scripts/quirk_db.gd
 res://scripts/hud.gd
+res://scenes/radioactive_zombie.tscn
+res://scripts/map_controller.gd
+res://scenes/zombie.tscn
+res://scripts/turnmanager.gd

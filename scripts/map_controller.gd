@@ -5214,16 +5214,17 @@ func spawn_edge_road_zombie() -> bool:
 	elif scene == radioactive_zombie_scene:
 		z.set_meta("zombie_variant", "radioactive")
 
-	var ci := _get_unit_render_node(z)
-	if ci != null and is_instance_valid(ci):
-		var m := ci.modulate
-		m.a = 0.0
-		ci.modulate = m
+	# ✅ Fade the whole unit (covers ALL child sprites, shadows, outlines, etc.)
+	var m := z.modulate
+	m.a = 0.0
+	z.modulate = m
 
-		var tw := create_tween()
-		tw.set_trans(Tween.TRANS_SINE)
-		tw.set_ease(Tween.EASE_OUT)
-		tw.tween_property(ci, "modulate:a", 1.0, enemy_fade_time)
+	# If your zombie visuals do anything in _ready that might reset modulate,
+	# doing the tween on the unit still wins over time.
+	var tw := z.create_tween()
+	tw.set_trans(Tween.TRANS_SINE)
+	tw.set_ease(Tween.EASE_OUT)
+	tw.tween_property(z, "modulate:a", 1.0, enemy_fade_time)
 
 	return true
 
