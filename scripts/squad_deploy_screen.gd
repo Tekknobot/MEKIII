@@ -36,12 +36,22 @@ extends Control
 const COOP_UNITS_PER_PLAYER := 2
 
 func _net() -> Node:
-	return get_tree().root.get_node_or_null("Network")
-
+	var t := get_tree()
+	if t == null:
+		return null
+	var r := t.get_root()
+	if r == null:
+		return null
+	return r.get_node_or_null("Network")
+	
 func _is_coop() -> bool:
-	var nm := _net()
-	return (nm != null and nm.has_method("is_coop") and nm.call("is_coop"))
+	var n := _net()
+	return (n != null and n.has_method("is_coop") and n.call("is_coop"))
 
+func _is_host() -> bool:
+	var n := _net()
+	return (n != null and ("is_host" in n) and bool(n.is_host))
+	
 @onready var roster_grid: GridContainer = $UI/RosterPanel/ScrollContainer/RosterGrid
 @onready var squad_grid: GridContainer = $UI/SquadPanel/SquadGrid
 @onready var start_button: Button = $UI/SquadPanel/StartButton

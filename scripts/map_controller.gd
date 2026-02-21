@@ -927,6 +927,8 @@ func spawn_units() -> void:
 				continue
 			base_cells.append(c)
 
+	base_cells.sort()
+	
 	if base_cells.is_empty():
 		push_warning("spawn_units: no walkable cells found.")
 		return
@@ -1025,7 +1027,10 @@ func spawn_units() -> void:
 	# ---------------------------------------------------
 	# 2) Pick ally cluster center + choose ally cells
 	# ---------------------------------------------------
-	var cluster_center: Vector2i = valid_cells.pick_random()
+	# ✅ Force deterministic ordering (important for co-op determinism)
+	valid_cells.sort()
+	
+	var cluster_center: Vector2i = valid_cells[randi_range(0, valid_cells.size() - 1)]
 	_randomize_beacon_cell(cluster_center)
 
 	valid_cells.sort_custom(func(a: Vector2i, b: Vector2i) -> bool:
@@ -1467,8 +1472,12 @@ func _spawn_zombies_in_clusters(zone_cells: Array[Vector2i], total: int, reserve
 		return not reserved_ally.has(c)
 	)
 
-	zone_cells.shuffle()
-
+	for i in range(zone_cells.size() - 1, 0, -1):
+		var j := randi_range(0, i)
+		var tmp := zone_cells[i]
+		zone_cells[i] = zone_cells[j]
+		zone_cells[j] = tmp
+		
 	# Build multiple clusters, but keep spawning until we hit TOTAL
 	var remaining := total
 	var max_cluster_size := 4  # tweak: bigger = tighter blobs
@@ -7941,3 +7950,97 @@ func _quirks_on_damage_taken(u: Unit, dmg: int) -> void:
 		if int(u.hp) == 1:
 			u.set_meta(&"q_last_stand_used", true)
 			_quirk_heal(u, &"last_stand_patch", 1)
+
+func build_units_snapshot() -> Array:
+	var out: Array = []
+	var all := get_all_units()
+	for u in all:
+		if u == null or not is_instance_valid(u):
+			continue
+		if u.hp <= 0:
+			continue
+
+		var sp := ""
+		if u.has_meta("scene_path"):
+			sp = str(u.get_meta("scene_path"))
+
+		var cell := Vector2i(-1, -1)
+
+		# ✅ Most of your units already store their cell
+		if "cell" in u:
+			cell = u.cell
+		elif u.has_meta("cell"):
+			cell = u.get_meta("cell")
+
+		var team := int(u.team) if ("team" in u) else 0
+
+		var owner := 1
+		if u.has_meta("owner_peer_id"):
+			owner = int(u.get_meta("owner_peer_id"))
+		elif "owner_peer_id" in u:
+			owner = int(u.owner_peer_id)
+
+		var id := ""
+		if u.has_meta("unit_id"):
+			id = str(u.get_meta("unit_id"))
+		elif "unit_id" in u:
+			id = str(u.unit_id)
+
+		var quirks: Array = []
+		if u.has_meta("quirks"):
+			quirks = u.get_meta("quirks")
+		elif "quirks" in u and (u.quirks is Array):
+			quirks = u.quirks
+
+		if sp != "" and cell.x >= 0:
+			out.append({
+				"scene": sp,
+				"cell": cell,
+				"team": team,
+				"owner_peer_id": owner,
+				"unit_id": id,
+				"quirks": quirks
+			})
+	return out
+
+
+func apply_units_snapshot(units: Array) -> void:
+	# Clear existing
+	for u in get_all_units():
+		if u != null and is_instance_valid(u):
+			u.queue_free()
+
+	units_by_cell.clear()
+
+	# Rebuild
+	for d in units:
+		var sp := str(d.get("scene", ""))
+		if sp == "" or not ResourceLoader.exists(sp):
+			continue
+		var ps := load(sp) as PackedScene
+		if ps == null:
+			continue
+
+		var inst := ps.instantiate()
+		var u := inst as Node2D
+		if u == null:
+			continue
+
+		units_root.add_child(u)
+		u.set_meta("scene_path", sp)
+
+		var cell: Vector2i = d.get("cell", Vector2i(-1, -1))
+		if cell.x < 0:
+			continue
+
+		# position
+		u.global_position = terrain.to_global(terrain.map_to_local(cell))
+
+		# team / owner / ids / quirks
+		if "team" in d and ("team" in u):
+			u.team = int(d["team"])
+		u.set_meta("owner_peer_id", int(d.get("owner_peer_id", 1)))
+		u.set_meta("unit_id", str(d.get("unit_id", "")))
+		u.set_meta("quirks", d.get("quirks", []))
+
+		units_by_cell[cell] = u

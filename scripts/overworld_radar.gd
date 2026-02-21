@@ -270,6 +270,17 @@ func _input(event: InputEvent) -> void:
 			return
 
 		if hit == current_node_id and not nodes[current_node_id].cleared:
+			# ✅ CO-OP: host-authoritative launch
+			if _is_coop():
+				if not _is_host():
+					# client can't launch; wait for host
+					return
+
+				var mseed := _make_mission_seed(hit)
+				_rpc_launch_mission.rpc(hit, nodes[hit].ntype, nodes[hit].difficulty, mseed)
+				return
+
+			# Solo launch (existing behavior)
 			var rs := _rs()
 			if rs != null:
 				rs.mission_node_id = hit
@@ -277,15 +288,27 @@ func _input(event: InputEvent) -> void:
 				rs.mission_node_type = StringName(_type_name(nodes[hit].ntype).to_lower())
 				rs.boss_mode_enabled_next_mission = (nodes[hit].ntype == NodeType.BOSS)
 				rs.overworld_current_node_id = hit
+
+				# ✅ also set a mission seed in solo (keeps combat deterministic too)
+				if "mission_seed" in rs:
+					rs.mission_seed = _make_mission_seed(hit)
+				rs.set_meta(&"mission_seed", _make_mission_seed(hit))
+
 			emit_signal("mission_requested", hit, nodes[hit].ntype, nodes[hit].difficulty)
 			return
-
 		_move_to_node(hit)
 		return
 
 	elif event is InputEventKey and event.pressed:
 		if event.keycode == KEY_ENTER or event.keycode == KEY_KP_ENTER:
 			if current_node_id >= 0 and not nodes[current_node_id].cleared:
+				if _is_coop():
+					if not _is_host():
+						return
+					var mseed := _make_mission_seed(current_node_id)
+					_rpc_launch_mission.rpc(current_node_id, nodes[current_node_id].ntype, nodes[current_node_id].difficulty, mseed)
+					return
+
 				var rs := _rs()
 				if rs != null:
 					rs.mission_node_id = current_node_id
@@ -293,6 +316,10 @@ func _input(event: InputEvent) -> void:
 					rs.mission_node_type = StringName(_type_name(nodes[current_node_id].ntype).to_lower())
 					rs.boss_mode_enabled_next_mission = (nodes[current_node_id].ntype == NodeType.BOSS)
 					rs.overworld_current_node_id = current_node_id
+
+					if "mission_seed" in rs:
+						rs.mission_seed = _make_mission_seed(current_node_id)
+					rs.set_meta(&"mission_seed", _make_mission_seed(current_node_id))
 
 				emit_signal("mission_requested", current_node_id, nodes[current_node_id].ntype, nodes[current_node_id].difficulty)
 				return
@@ -1791,3 +1818,47 @@ func _cheat_simulate_rewards_for_node(node_id: int) -> void:
 	# Persist so squad deploy reflects it immediately
 	if rs.has_method("save_to_disk"):
 		rs.call("save_to_disk")
+
+func _net() -> Node:
+	# Your autoload name is "Network"
+	return get_tree().root.get_node_or_null("Network")
+
+func _is_coop() -> bool:
+	var n := _net()
+	return (n != null and n.has_method("is_coop") and n.call("is_coop"))
+
+func _is_host() -> bool:
+	var n := _net()
+	return (n != null and ("is_host" in n) and bool(n.is_host))
+
+func _make_mission_seed(node_id: int) -> int:
+	# Deterministic seed from shared seed + node id
+	# (No global randi/randf here)
+	var n := _net()
+	var base := 1234567
+	if n != null and ("shared_seed" in n):
+		base = int(n.shared_seed)
+
+	var s := base ^ (node_id * 1103515245) ^ 12345
+	s = abs(s) & 0x7fffffff
+	if s == 0:
+		s = 1
+	return s
+
+@rpc("any_peer", "call_local", "reliable")
+func _rpc_launch_mission(node_id: int, node_type: int, difficulty: float, mseed: int) -> void:
+	var rs := _rs()
+	if rs != null:
+		rs.mission_node_id = node_id
+		rs.mission_difficulty = difficulty
+		rs.mission_node_type = StringName(_type_name(node_type).to_lower())
+		rs.boss_mode_enabled_next_mission = (node_type == NodeType.BOSS)
+		rs.overworld_current_node_id = node_id
+
+		# ✅ CRITICAL: same mission seed on both peers
+		if "mission_seed" in rs:
+			rs.mission_seed = mseed
+		rs.set_meta(&"mission_seed", mseed)
+
+	# Fire existing flow (whatever listens to mission_requested)
+	emit_signal("mission_requested", node_id, node_type, difficulty)

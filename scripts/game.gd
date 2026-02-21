@@ -19,6 +19,50 @@ class_name Game
 @export var biome_index: int = 0
 @export var randomize_biome_each_generation := true
 
+var _coop_snapshot_pending: bool = false
+var _coop_snapshot_seq: int = 0
+var _coop_client_ready: bool = false
+
+func _net() -> Node:
+	var t := get_tree()
+	if t == null:
+		return null
+	var r := t.get_root()
+	if r == null:
+		return null
+	return r.get_node_or_null("Network")
+
+func _is_coop() -> bool:
+	var n := _net()
+	return (n != null and n.has_method("is_coop") and n.call("is_coop"))
+
+func _is_host() -> bool:
+	var n := _net()
+	if n == null:
+		return true
+	if "is_host" in n:
+		return bool(n.is_host)
+	return int(n.call("local_peer_id")) == 1
+
+@rpc("any_peer", "reliable")
+func _rpc_receive_snapshot(seq: int, snap: Dictionary) -> void:
+	# Client receives snapshot and applies it
+	_coop_snapshot_seq = seq
+	_apply_snapshot(snap)
+	_coop_snapshot_pending = false
+
+	# Tell host we are ready to start turn together
+	_rpc_client_ack_ready.rpc_id(1, seq)
+
+@rpc("any_peer", "reliable")
+func _rpc_client_ack_ready(seq: int) -> void:
+	# Host receives ack
+	if not _is_host():
+		return
+	if seq != _coop_snapshot_seq:
+		return
+	_coop_client_ready = true
+		
 func _pick_biome_for_generation() -> void:
 	if biome_sets.is_empty():
 		return
@@ -231,6 +275,11 @@ func _ready() -> void:
 	await _fade_to(0.0, fade_in_time)	
 
 func _start_mission() -> void:
+	if _is_coop() and not _is_host():
+		# ✅ Client does NOT generate anything
+		_coop_snapshot_pending = true
+		return
+			
 	# apply chosen squad + recruit pool from RunState
 	var rs := _rs()
 	if rs != null and rs.has_method("has_squad") and rs.call("has_squad"):
@@ -238,7 +287,6 @@ func _start_mission() -> void:
 			var defs: Array = rs.call("get_squad_defs")
 			if not defs.is_empty():
 				map_controller.ally_defs = defs
-				# Keep inspector list untouched; ally_defs takes priority.
 		else:
 			var chosen: Array[PackedScene] = rs.call("get_squad_packed_scenes")
 			if not chosen.is_empty():
@@ -249,21 +297,63 @@ func _start_mission() -> void:
 
 	# reset mapcontroller run-scoped stuff
 	map_controller._recruits_spawned_at.clear()
-	# IMPORTANT: do NOT call reset_recruit_pool() here if it rebuilds from ally_scenes
-	# (it can wipe the runstate pool). Only shuffle if you want randomness:
 	if map_controller.has_method("shuffle_recruit_pool"):
 		map_controller.shuffle_recruit_pool()
+	map_controller.reset_for_regen()
 
-	map_controller.reset_for_regen() # rename this later if you want; it’s just "reset_for_new_mission"
+	# -------------------------------------------------
+	# CO-OP: make map generation deterministic
+	# Host picks (seed/season/weather), clients mirror.
+	# -------------------------------------------------
+	var nm := get_tree().root.get_node_or_null("Network")
+	var coop = (nm != null and nm.has_method("is_coop") and nm.call("is_coop"))
 
-	# map generation
-	rng.randomize()
-	if randomize_season_each_generation:
-		season = SEASONS[rng.randi_range(0, SEASONS.size() - 1)]
+	if coop:
+		if int(nm.call("local_peer_id")) == 1:
+			# Host decides settings once per mission
+			var mseed := 0
+			if rs != null:
+				mseed = int(rs.mission_seed)
+			if mseed == 0:
+				mseed = int(Time.get_ticks_msec())
+				if rs != null:
+					rs.mission_seed = mseed
 
-	_pick_biome_for_generation()
-	_pick_weather_for_generation()
+			rng.seed = mseed
+			seed(mseed) # ✅ global RNG too
 
+			var chosen_season := season
+			if randomize_season_each_generation:
+				chosen_season = SEASONS[rng.randi_range(0, SEASONS.size() - 1)]
+			season = chosen_season
+
+			_pick_biome_for_generation()
+			_pick_weather_for_generation()
+
+			nm.call("set_mission_settings", mseed, int(SEASONS.find(season)), int(weather))
+		else:
+			# Client waits for host settings
+			if nm.has_signal("mission_settings_ready") and not nm.has_mission_settings:
+				await nm.mission_settings_ready
+
+			rng.seed = int(nm.mission_seed)
+			seed(int(nm.mission_seed)) # ✅ global RNG too
+
+			if int(nm.picked_season) >= 0 and int(nm.picked_season) < SEASONS.size():
+				season = SEASONS[int(nm.picked_season)]
+
+			weather = int(nm.picked_weather)
+
+			_pick_biome_for_generation()
+	else:
+		rng.randomize()
+		seed(int(rng.seed))
+		if randomize_season_each_generation:
+			season = SEASONS[rng.randi_range(0, SEASONS.size() - 1)]
+		_pick_biome_for_generation()
+		_pick_weather_for_generation()
+
+	# build grid + generate
 	if grid == null:
 		grid = GridData.new()
 	grid.setup(map_width, map_height, T_DIRT)
@@ -271,13 +361,28 @@ func _start_mission() -> void:
 	generate_map()
 	spawn_structures()
 
-	# re-setup + spawn
+	# setup + spawn units
 	map_controller.setup(self)
 	map_controller.spawn_units()
 
-	if turn_manager != null and is_instance_valid(turn_manager):
-		turn_manager.on_units_spawned()
+	if _is_coop() and _is_host():
+		_coop_client_ready = false
+		_coop_snapshot_seq += 1
 
+		var snap := _build_snapshot()
+		_rpc_receive_snapshot.rpc_id(_net().client_peer_id, _coop_snapshot_seq, snap)
+
+		# Wait for client ack (so both start together)
+		var timeout := 2.0
+		var t := 0.0
+		while not _coop_client_ready and t < timeout:
+			await get_tree().process_frame
+			t += get_process_delta_time()
+			
+	if turn_manager != null and is_instance_valid(turn_manager):
+		turn_manager.on_units_spawned()	
+
+		
 func _pick_weather_for_generation() -> void:
 	if not randomize_weather_each_generation:
 		return
@@ -374,6 +479,7 @@ func regenerate_map() -> void:
 				if rs != null:
 					rs.mission_seed = mseed
 			rng.seed = mseed
+			seed(mseed) # ✅ makes randf()/randi()/pick_random deterministic across peers
 			var chosen_season := season
 			if randomize_season_each_generation:
 				chosen_season = SEASONS[rng.randi_range(0, SEASONS.size() - 1)]
@@ -385,11 +491,13 @@ func regenerate_map() -> void:
 			if nm.has_signal("mission_settings_ready") and not nm.has_mission_settings:
 				await nm.mission_settings_ready
 			rng.seed = int(nm.mission_seed)
+			seed(int(nm.mission_seed)) # ✅ IMPORTANT
 			if int(nm.picked_season) >= 0 and int(nm.picked_season) < SEASONS.size():
 				season = SEASONS[int(nm.picked_season)]
 			weather = int(nm.picked_weather)
 	else:
 		rng.randomize()
+		seed(int(rng.seed))
 		if randomize_season_each_generation:
 			season = SEASONS[rng.randi_range(0, SEASONS.size() - 1)]
 		_pick_weather_for_generation()
@@ -900,7 +1008,12 @@ func spawn_structures() -> void:
 			if _is_structure_origin_ok(origin, size):
 				candidates.append(origin)
 
-	candidates.shuffle()
+	# Deterministic shuffle using Game.rng (NOT global)
+	for i in range(candidates.size() - 1, 0, -1):
+		var j := rng.randi_range(0, i)
+		var tmp := candidates[i]
+		candidates[i] = candidates[j]
+		candidates[j] = tmp
 
 	building_count = rng.randi_range(6, 12)
 
@@ -968,6 +1081,9 @@ func spawn_structures() -> void:
 		else:
 			b.global_position = terrain.to_global(terrain.map_to_local(origin))
 
+		b.set_meta("scene_path", scene.resource_path)
+		b.set_meta("origin_cell", origin)
+
 		# Block tiles for general structure collision
 		_mark_structure_blocked(origin, size)
 
@@ -977,6 +1093,88 @@ func spawn_structures() -> void:
 			_mark_unique_buffer(origin, size, 1)
 
 		placed += 1
+
+func _apply_snapshot(snap: Dictionary) -> void:
+	# settings
+	var mseed := int(snap.get("mission_seed", 0))
+	season = int(snap.get("season", int(season)))
+	weather = int(snap.get("weather", int(weather)))
+
+	rng.seed = mseed
+	seed(mseed)
+
+	# grid
+	map_width = int(snap.get("w", map_width))
+	map_height = int(snap.get("h", map_height))
+
+	if grid == null:
+		grid = GridData.new()
+	grid.setup(map_width, map_height, T_DIRT)
+
+	var data: PackedInt32Array = snap.get("terrain", PackedInt32Array())
+	var idx := 0
+	for y in range(map_height):
+		for x in range(map_width):
+			if idx < data.size():
+				grid.terrain[x][y] = int(data[idx])
+			idx += 1
+
+	# paint terrain directly (NO generation)
+	_apply_biome_set()
+	_paint_terrain()
+	_apply_weather_tiles()
+
+	# roads
+	_clear_roads()
+	_sync_roads_transform()
+
+	var dl: Array = snap.get("roads_dl", [])
+	var dr: Array = snap.get("roads_dr", [])
+	var xx: Array = snap.get("roads_x", [])
+
+	for c in dl:
+		roads_dl.set_cell(0, c, ROAD_DOWN_LEFT, ROAD_ATLAS, 0)
+	for c in dr:
+		roads_dr.set_cell(0, c, ROAD_DOWN_RIGHT, ROAD_ATLAS, 0)
+	for c in xx:
+		roads_x.set_cell(0, c, ROAD_INTERSECTION, ROAD_ATLAS, 0)
+
+	_rebuild_road_blocked()
+
+	# structures
+	if structures_root == null:
+		structures_root = self
+	for ch in structures_root.get_children():
+		ch.queue_free()
+
+	var structs: Array = snap.get("structures", [])
+	for d in structs:
+		var sp := str(d.get("scene", ""))
+		var origin = d.get("origin", Vector2i(-1, -1))
+		if sp == "" or not ResourceLoader.exists(sp):
+			continue
+		var ps := load(sp) as PackedScene
+		if ps == null:
+			continue
+		var inst := ps.instantiate()
+		var b := inst as Node2D
+		if b == null:
+			continue
+		structures_root.add_child(b)
+		b.set_meta("scene_path", sp)
+		b.set_meta("origin_cell", origin)
+
+		if b.has_method("set_origin"):
+			b.call("set_origin", origin, terrain)
+		else:
+			b.global_position = terrain.to_global(terrain.map_to_local(origin))
+
+	# units
+	map_controller.setup(self)
+	map_controller.apply_units_snapshot(snap.get("units", []))
+
+	if turn_manager != null and is_instance_valid(turn_manager):
+		turn_manager.on_units_spawned()
 		
 func _in_bounds(c: Vector2i) -> bool:
 	return c.x >= 0 and c.y >= 0 and c.x < map_width and c.y < map_height
@@ -1129,3 +1327,60 @@ func _rs() -> Node:
 	if rs != null:
 		return rs
 	return null
+
+func _build_snapshot() -> Dictionary:
+	var snap: Dictionary = {}
+
+	# seeds + settings
+	var rs := _rs()
+	var mseed := 0
+	if rs != null and ("mission_seed" in rs):
+		mseed = int(rs.mission_seed)
+
+	snap["mission_seed"] = mseed
+	snap["season"] = int(season)
+	snap["weather"] = int(weather)
+	snap["w"] = int(map_width)
+	snap["h"] = int(map_height)
+
+	# --- terrain ---
+	var data := PackedInt32Array()
+	data.resize(map_width * map_height)
+	var idx := 0
+	for y in range(map_height):
+		for x in range(map_width):
+			data[idx] = int(grid.terrain[x][y])
+			idx += 1
+	snap["terrain"] = data
+
+	# --- roads ---
+	snap["roads_dl"] = roads_dl.get_used_cells(0) if roads_dl != null else []
+	snap["roads_dr"] = roads_dr.get_used_cells(0) if roads_dr != null else []
+	snap["roads_x"]  = roads_x.get_used_cells(0)  if roads_x  != null else []
+
+	# --- structures ---
+	var structs: Array = []
+	if structures_root != null and is_instance_valid(structures_root):
+		for ch in structures_root.get_children():
+			if ch == null or not is_instance_valid(ch):
+				continue
+			var scene_path := ""
+			if ch.has_meta("scene_path"):
+				scene_path = str(ch.get_meta("scene_path"))
+
+			# We need origin cell to place it
+			var origin := Vector2i(-1, -1)
+			if ch.has_meta("origin_cell"):
+				origin = ch.get_meta("origin_cell")
+
+			if scene_path != "" and origin.x >= 0:
+				structs.append({"scene": scene_path, "origin": origin})
+	snap["structures"] = structs
+
+	# --- units (allies + zombies) ---
+	var units: Array = []
+	if map_controller != null and is_instance_valid(map_controller):
+		units = map_controller.build_units_snapshot()
+	snap["units"] = units
+
+	return snap
