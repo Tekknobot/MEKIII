@@ -46,6 +46,16 @@ func _is_host() -> bool:
 		return bool(n.is_host)
 	return int(n.call("local_peer_id")) == 1
 
+# -------------------------------------------------
+# CO-OP: bomber timing sync (host tells client when to play)
+# -------------------------------------------------
+@rpc("authority", "reliable")
+func _rpc_bomber_start(center_cell: Vector2i) -> void:
+	# Client-only effect, but harmless if called on host
+	if map_controller != null and is_instance_valid(map_controller):
+		if map_controller.has_method("_play_bomber_cosmetic"):
+			map_controller.call_deferred("_play_bomber_cosmetic", center_cell)
+			
 @rpc("any_peer", "reliable")
 func _rpc_receive_snapshot(seq: int, snap: Dictionary) -> void:
 	print("CLIENT: received snapshot seq=%d units=%d terrain_len=%d" % [
@@ -54,6 +64,13 @@ func _rpc_receive_snapshot(seq: int, snap: Dictionary) -> void:
 		(snap.get("terrain", []) as Array).size()
 	])
 	
+	# ✅ IMPORTANT: make sure the screen is visible BEFORE we play bomber / reveal drops
+	if _fade_rect != null and is_instance_valid(_fade_rect):
+		var c := _fade_rect.color
+		c.a = 0.0
+		_fade_rect.color = c
+		_fade_rect.visible = false
+
 	# Client receives snapshot and applies it
 	_coop_snapshot_seq = seq
 	_apply_snapshot(snap)
@@ -269,7 +286,7 @@ func clear_upgrades() -> void:
 	RunStateNode.clear()
 
 func _ready() -> void:
-	add_to_group("Game") # helps NetworkManager find this node if you ever need it
+	add_to_group("GameMap") # helps NetworkManager find this node if you ever need it
 
 	_fade_rect = get_node_or_null(fade_rect_path) as ColorRect
 	if _fade_rect != null:
@@ -281,16 +298,11 @@ func _ready() -> void:
 
 	await _start_mission()
 
-	# ✅ COOP CLIENT: host will push the initial snapshot after finishing spawn_units()
-	if _is_coop() and not _is_host():
-		var timeout := 8.0
-		var t := 0.0
-		while _coop_snapshot_seq == 0 and t < timeout:
-			await get_tree().process_frame
-			t += get_process_delta_time()
-
-	await get_tree().process_frame
-	await _fade_to(0.0, fade_in_time)	
+	# ✅ Host / solo can fade in immediately.
+	# ✅ Coop client must fade in when the first snapshot arrives,
+	#    otherwise bomber + drops happen behind the black fade.
+	if not (_is_coop() and not _is_host()):
+		await _fade_to(0.0, fade_in_time)	
 
 func _start_mission() -> void:
 	if _is_coop() and not _is_host():
@@ -389,7 +401,7 @@ func _start_mission() -> void:
 	# ✅ CO-OP: host spawns + snapshots; client waits for snapshot
 	if _is_coop() and not _is_host():
 		# Wait until the host snapshot arrives (rpc sets _coop_snapshot_seq)
-		var timeout := 5.0
+		var timeout := 0.1
 		var t := 0.0
 		while _coop_snapshot_seq == 0 and t < timeout:
 			await get_tree().process_frame
@@ -1287,16 +1299,16 @@ func _apply_snapshot(snap: Dictionary) -> void:
 	# -------------------------
 	# 8) Bomber cosmetic AFTER (non-blocking)
 	# -------------------------
+
 	var dc: Vector2i = snap.get("drop_center_cell", Vector2i.ZERO)
 
+	# ✅ Bomber is now started by host via _rpc_bomber_start().
+	# Snapshot only stores the center; don't re-trigger cinematic here.
+	_last_drop_center = dc
+	
 	# ✅ Always reveal pending units; bomber cosmetic is optional
 	if map_controller.has_method("_reveal_pending_drop_units"):
 		map_controller.call_deferred("_reveal_pending_drop_units")
-
-	# Play bomber only when drop center changes (visual only)
-	if dc != Vector2i.ZERO and dc != _last_drop_center and map_controller.has_method("_play_bomber_cosmetic"):
-		_last_drop_center = dc
-		map_controller.call_deferred("_play_bomber_cosmetic", dc)
 
 	# -------------------------
 	# 9) TurnManager last

@@ -1116,6 +1116,16 @@ func spawn_units() -> void:
 	# ---------------------------------------------------
 	var drop_center_cell := chosen_cells[0]
 	set_meta("drop_center_cell", drop_center_cell)
+
+	# ✅ CO-OP: tell client to start bomber NOW (so it matches host)
+	if game_ref != null and is_instance_valid(game_ref):
+		if game_ref.has_method("_is_coop") and game_ref.has_method("_is_host"):
+			if bool(game_ref.call("_is_coop")) and bool(game_ref.call("_is_host")):
+				var nm := get_tree().root.get_node_or_null("Network")
+				if nm != null:
+					var cid := int(nm.client_peer_id)
+					if cid > 1:
+						game_ref._rpc_bomber_start.rpc_id(cid, drop_center_cell)
 	
 	var drop_center_world := _cell_world(drop_center_cell)
 	_sfx(bomber_sfx_in, sfx_volume_world, 1.0, drop_center_world)
