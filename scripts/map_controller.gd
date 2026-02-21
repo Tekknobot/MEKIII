@@ -478,6 +478,8 @@ var _enemy_outline_state: Dictionary = {}
 # -------------------------
 var _boss_intent_tiles: Array[Node] = []
 
+var _bomber_playing := false
+
 func boss_clear_intents() -> void:
 	for n in _boss_intent_tiles:
 		if n != null and is_instance_valid(n):
@@ -1242,6 +1244,10 @@ func spawn_units() -> void:
 	_ensure_beacon_marker()
 
 func _play_bomber_cosmetic(center_cell: Vector2i) -> void:
+	if _bomber_playing:
+		return
+	_bomber_playing = true
+		
 	if terrain == null:
 		return
 	var w := _cell_world(center_cell)
@@ -1259,6 +1265,8 @@ func _play_bomber_cosmetic(center_cell: Vector2i) -> void:
 		bomber_arrive_time
 	)
 
+	_reveal_pending_drop_units()
+
 	_sfx(bomber_sfx_out, sfx_volume_world, 1.0, bomber.global_position)
 	await _tween_node_global_pos(
 		bomber,
@@ -1266,9 +1274,24 @@ func _play_bomber_cosmetic(center_cell: Vector2i) -> void:
 		bomber.global_position + Vector2(0, bomber_y_offscreen),
 		bomber_depart_time
 	)
+
+	_bomber_playing = false
+	if has_signal("bomber_cosmetic_done"):
+		emit_signal("bomber_cosmetic_done")
+			
 	bomber.queue_free()
-	emit_signal("bomber_cosmetic_done")
-	
+
+func _reveal_pending_drop_units() -> void:
+	for u in get_all_units():
+		if u == null or not is_instance_valid(u):
+			continue
+		if u.has_meta("pending_drop_reveal") and bool(u.get_meta("pending_drop_reveal")):
+			u.set_meta("pending_drop_reveal", false)
+
+			# quick fade in
+			var tw := create_tween()
+			tw.tween_property(u, "modulate:a", 1.0, 0.2)
+				
 func _neighbors4(c: Vector2i) -> Array[Vector2i]:
 	return [c + Vector2i(1,0), c + Vector2i(-1,0), c + Vector2i(0,1), c + Vector2i(0,-1)]
 
@@ -8088,6 +8111,11 @@ func apply_units_snapshot(units: Array) -> void:
 			continue
 
 		units_root.add_child(u)
+
+		# CLIENT DEPLOY LOOK: spawn hidden until bomber reveals
+		if get_tree().get_multiplayer().has_multiplayer_peer() and not get_tree().get_multiplayer().is_server():
+			u.modulate.a = 0.0
+			u.set_meta("pending_drop_reveal", true)
 
 		# required for future snapshots
 		u.set_meta("scene_path", sp)

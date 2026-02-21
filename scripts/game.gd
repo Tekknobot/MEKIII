@@ -23,6 +23,7 @@ var _coop_snapshot_pending: bool = false
 var _coop_snapshot_seq: int = 0
 var _coop_client_ready: bool = false
 
+var _last_drop_center: Vector2i = Vector2i.ZERO
 
 func _net() -> Node:
 	var t := get_tree()
@@ -47,6 +48,12 @@ func _is_host() -> bool:
 
 @rpc("any_peer", "reliable")
 func _rpc_receive_snapshot(seq: int, snap: Dictionary) -> void:
+	print("CLIENT: received snapshot seq=%d units=%d terrain_len=%d" % [
+		seq,
+		(snap.get("units", []) as Array).size(),
+		(snap.get("terrain", []) as Array).size()
+	])
+	
 	# Client receives snapshot and applies it
 	_coop_snapshot_seq = seq
 	_apply_snapshot(snap)
@@ -272,16 +279,15 @@ func _ready() -> void:
 		c.a = 1.0
 		_fade_rect.color = c
 
-	_start_mission()
+	await _start_mission()
 
-	# ✅ COOP CLIENT: if we returned early, immediately request snapshot now that Game exists
+	# ✅ COOP CLIENT: host will push the initial snapshot after finishing spawn_units()
 	if _is_coop() and not _is_host():
-		var nm := get_tree().root.get_node_or_null("Network")
-		if nm != null and nm.has_method("request_snapshot_now"):
-			print("GAME(CLIENT): requesting snapshot via Network")
-			nm.call("request_snapshot_now")
-		else:
-			print("GAME(CLIENT): Network missing request_snapshot_now()")
+		var timeout := 8.0
+		var t := 0.0
+		while _coop_snapshot_seq == 0 and t < timeout:
+			await get_tree().process_frame
+			t += get_process_delta_time()
 
 	await get_tree().process_frame
 	await _fade_to(0.0, fade_in_time)	
@@ -379,9 +385,18 @@ func _start_mission() -> void:
 
 	# setup + spawn units
 	map_controller.setup(self)
-	
-	await map_controller.spawn_units() # ✅ IMPORTANT: wait for bomber + ally drop + weakpoint registration
 
+	# ✅ CO-OP: host spawns + snapshots; client waits for snapshot
+	if _is_coop() and not _is_host():
+		# Wait until the host snapshot arrives (rpc sets _coop_snapshot_seq)
+		var timeout := 5.0
+		var t := 0.0
+		while _coop_snapshot_seq == 0 and t < timeout:
+			await get_tree().process_frame
+			t += get_process_delta_time()
+	else:
+		await map_controller.spawn_units()
+		
 	if _is_coop() and _is_host():
 		_coop_client_ready = false
 		_coop_snapshot_seq += 1
@@ -527,11 +542,24 @@ func regenerate_map() -> void:
 	generate_map()
 	spawn_structures()
 
+	# setup + spawn units
 	map_controller.setup(self)
-	await map_controller.spawn_units() # ✅ IMPORTANT: wait for bomber + ally drop + weakpoint registration
 
-	if turn_manager != null and is_instance_valid(turn_manager):
-		turn_manager.on_units_spawned()
+	# ✅ CO-OP: host spawns + snapshots; client waits for snapshot
+	if _is_coop() and not _is_host():
+		# Wait until the host snapshot arrives (rpc sets _coop_snapshot_seq)
+		var timeout := 5.0
+		var t := 0.0
+		while _coop_snapshot_seq == 0 and t < timeout:
+			await get_tree().process_frame
+			t += get_process_delta_time()
+	else:
+		await map_controller.spawn_units()
+		
+	# ✅ Client already gets on_units_spawned() inside _apply_snapshot()
+	if not (_is_coop() and not _is_host()):
+		if turn_manager != null and is_instance_valid(turn_manager):
+			turn_manager.on_units_spawned()
 
 func regenerate_map_faded() -> void:
 	if _regen_in_progress:
@@ -1132,7 +1160,9 @@ func _apply_snapshot(snap: Dictionary) -> void:
 		grid = GridData.new()
 	grid.setup(map_width, map_height, T_DIRT)
 
-	var data: PackedInt32Array = snap.get("terrain", PackedInt32Array())
+	# ✅ Terrain arrives as Array[int] (not PackedInt32Array)
+	var data: Array = snap.get("terrain", [])
+	
 	var idx := 0
 	for y in range(map_height):
 		for x in range(map_width):
@@ -1250,24 +1280,31 @@ func _apply_snapshot(snap: Dictionary) -> void:
 		map_controller._ensure_beacon_marker()
 
 	# -------------------------
-	# 7) Bomber cosmetic FIRST, then units pop in
-	# -------------------------
-	var dc: Vector2i = snap.get("drop_center_cell", Vector2i.ZERO)
-	if dc != Vector2i.ZERO and map_controller.has_method("_play_bomber_cosmetic"):
-		map_controller.call("_play_bomber_cosmetic", dc)
-		if map_controller.has_signal("bomber_cosmetic_done"):
-			await map_controller.bomber_cosmetic_done
-
-	# -------------------------
-	# 8) Units (includes squad, zombies, boss, weakpoints if they’re in snapshot)
+	# 7) Units FIRST (instant gameplay sync)
 	# -------------------------
 	map_controller.apply_units_snapshot(snap.get("units", []))
 
 	# -------------------------
+	# 8) Bomber cosmetic AFTER (non-blocking)
+	# -------------------------
+	var dc: Vector2i = snap.get("drop_center_cell", Vector2i.ZERO)
+
+	# ✅ Always reveal pending units; bomber cosmetic is optional
+	if map_controller.has_method("_reveal_pending_drop_units"):
+		map_controller.call_deferred("_reveal_pending_drop_units")
+
+	# Play bomber only when drop center changes (visual only)
+	if dc != Vector2i.ZERO and dc != _last_drop_center and map_controller.has_method("_play_bomber_cosmetic"):
+		_last_drop_center = dc
+		map_controller.call_deferred("_play_bomber_cosmetic", dc)
+
+	# -------------------------
 	# 9) TurnManager last
 	# -------------------------
-	if turn_manager != null and is_instance_valid(turn_manager):
-		turn_manager.on_units_spawned()
+	# ✅ Client already gets on_units_spawned() inside _apply_snapshot()
+	if not (_is_coop() and not _is_host()):
+		if turn_manager != null and is_instance_valid(turn_manager):
+			turn_manager.on_units_spawned()
 				
 func _in_bounds(c: Vector2i) -> bool:
 	return c.x >= 0 and c.y >= 0 and c.x < map_width and c.y < map_height
@@ -1437,7 +1474,8 @@ func _build_snapshot() -> Dictionary:
 	snap["h"] = int(map_height)
 
 	# --- terrain ---
-	var data := PackedInt32Array()
+	# ✅ Use plain Array[int] for WebSocket RPC compatibility
+	var data: Array[int] = []
 	data.resize(map_width * map_height)
 	var idx := 0
 	for y in range(map_height):
@@ -1530,6 +1568,7 @@ func _rpc_request_snapshot() -> void:
 	var to_id := multiplayer.get_remote_sender_id()
 	_coop_snapshot_seq += 1
 	var snap := _build_snapshot()
+	print("HOST: sending snapshot to", to_id, "units=", (snap.get("units", []) as Array).size(), "terrain_len=", (snap.get("terrain", []) as Array).size())
 	_rpc_receive_snapshot.rpc_id(to_id, _coop_snapshot_seq, snap)
 	
 func _send_snapshot_to_peer(peer_id: int) -> void:

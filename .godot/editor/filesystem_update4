@@ -4,3 +4,4 @@ res://scripts/game.gd
 res://scripts/network_manager.gd
 res://scenes/lunatic.tscn
 res://scripts/title_screen_map.gd
+res://scripts/map_controller.gd
