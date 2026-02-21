@@ -1592,3 +1592,8 @@ func _send_snapshot_to_peer(peer_id: int) -> void:
 
 	var snap := _build_snapshot()
 	_rpc_receive_snapshot.rpc_id(peer_id, _coop_snapshot_seq, snap)
+func _send_snapshot_to_all_peers() -> void:
+	if not _is_coop() or not _is_host():
+		return
+	for pid in multiplayer.get_peers():
+		_send_snapshot_to_peer(int(pid))

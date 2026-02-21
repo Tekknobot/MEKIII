@@ -98,6 +98,169 @@ var selected: Unit = null
 
 var game_ref: Node = null
 
+# ---------------------------------------------------------
+# CO-OP ACTION SYNC (host authoritative)
+# - Clients never mutate gameplay state directly.
+# - Clients send action requests to host.
+# - Host executes, then broadcasts a snapshot via Game.gd.
+# ---------------------------------------------------------
+func _coop_is_active() -> bool:
+	return game_ref != null and game_ref.has_method("_is_coop") and bool(game_ref.call("_is_coop"))
+
+func _coop_is_host() -> bool:
+	return (not _coop_is_active()) or (game_ref != null and game_ref.has_method("_is_host") and bool(game_ref.call("_is_host")))
+
+func _coop_is_client() -> bool:
+	return _coop_is_active() and (not _coop_is_host())
+
+func _coop_push_snapshot(_reason: String = "") -> void:
+	if not _coop_is_active() or not _coop_is_host():
+		return
+	if game_ref != null and game_ref.has_method("_send_snapshot_to_all_peers"):
+		game_ref.call_deferred("_send_snapshot_to_all_peers")
+		return
+	# fallback (older builds): send to each peer directly if possible
+	if game_ref != null and game_ref.has_method("_send_snapshot_to_peer") and multiplayer != null and multiplayer.has_multiplayer_peer():
+		for pid in multiplayer.get_peers():
+			game_ref.call_deferred("_send_snapshot_to_peer", int(pid))
+
+func _unit_uid(u: Unit) -> String:
+	if u == null or not is_instance_valid(u):
+		return ""
+	if u.has_meta("unit_id"):
+		return str(u.get_meta("unit_id"))
+	if "unit_id" in u:
+		return str(u.unit_id)
+	return ""
+
+func _unit_owner_peer(u: Unit) -> int:
+	if u == null or not is_instance_valid(u):
+		return 1
+	if u.has_meta("owner_peer_id"):
+		return int(u.get_meta("owner_peer_id"))
+	if "owner_peer_id" in u:
+		return int(u.owner_peer_id)
+	return 1
+
+func _find_unit_by_unit_id(uid: String) -> Unit:
+	if uid == "":
+		return null
+	for u in get_all_units():
+		if u == null or not is_instance_valid(u):
+			continue
+		if _unit_uid(u) == uid:
+			return u
+	return null
+
+# -------------------------
+# CLIENT -> HOST requests
+# -------------------------
+func _coop_request_move(u: Unit, target: Vector2i) -> void:
+	if not _coop_is_client():
+		return
+	var uid := _unit_uid(u)
+	if uid == "":
+		return
+	_is_moving = true
+	_rpc_request_move.rpc_id(1, uid, target)
+
+func _coop_request_attack(attacker: Unit, target_cell: Vector2i) -> void:
+	if not _coop_is_client():
+		return
+	var uid := _unit_uid(attacker)
+	if uid == "":
+		return
+	_is_moving = true
+	_rpc_request_attack.rpc_id(1, uid, target_cell)
+
+func _coop_request_special(u: Unit, sid: String, target_cell: Vector2i) -> void:
+	if not _coop_is_client():
+		return
+	var uid := _unit_uid(u)
+	if uid == "":
+		return
+	_is_moving = true
+	_rpc_request_special.rpc_id(1, uid, sid, target_cell)
+
+# -------------------------
+# HOST handlers
+# -------------------------
+@rpc("any_peer", "reliable")
+func _rpc_request_move(unit_id: String, target: Vector2i) -> void:
+	if not _coop_is_host():
+		return
+	var sender := multiplayer.get_remote_sender_id()
+	var u := _find_unit_by_unit_id(unit_id)
+	if u == null:
+		return
+	if _unit_owner_peer(u) != sender:
+		return
+
+	var prev_sel := selected
+	selected = u
+	await _move_selected_to(target)
+	selected = prev_sel
+
+	# Mark moved + refresh indicators on host
+	_set_unit_moved(u, true)
+	_apply_turn_indicator(u)
+	if TM != null and TM.has_method("notify_player_moved"):
+		TM.notify_player_moved(u)
+
+	_coop_push_snapshot("move")
+
+@rpc("any_peer", "reliable")
+func _rpc_request_attack(attacker_unit_id: String, target_cell: Vector2i) -> void:
+	if not _coop_is_host():
+		return
+	var sender := multiplayer.get_remote_sender_id()
+	var attacker := _find_unit_by_unit_id(attacker_unit_id)
+	if attacker == null:
+		return
+	if _unit_owner_peer(attacker) != sender:
+		return
+	var defender = units_by_cell.get(target_cell, null)
+	if defender == null or not is_instance_valid(defender):
+		return
+
+	await _do_attack(attacker, defender)
+
+	_set_unit_attacked(attacker, true)
+	_apply_turn_indicator(attacker)
+	if TM != null and TM.has_method("notify_player_attacked"):
+		TM.notify_player_attacked(attacker)
+
+	_coop_push_snapshot("attack")
+
+@rpc("any_peer", "reliable")
+func _rpc_request_special(unit_id: String, sid: String, target_cell: Vector2i) -> void:
+	if not _coop_is_host():
+		return
+	var sender := multiplayer.get_remote_sender_id()
+	var u := _find_unit_by_unit_id(unit_id)
+	if u == null:
+		return
+	if _unit_owner_peer(u) != sender:
+		return
+
+	sid = sid.to_lower()
+
+	# MINES: do NOT consume attacked
+	if sid == "mines":
+		await _perform_special(u, sid, target_cell)
+		_coop_push_snapshot("special_mines")
+		return
+
+	# Everything else: special consumes attack by default
+	await _perform_special(u, sid, target_cell)
+	_set_unit_attacked(u, true)
+	_apply_turn_indicator(u)
+	if TM != null and TM.has_method("notify_player_attacked"):
+		TM.notify_player_attacked(u)
+
+	_coop_push_snapshot("special")
+
+
 enum AimMode { MOVE, ATTACK, SPECIAL }
 
 var special_id: StringName = &""
@@ -2018,6 +2181,11 @@ func _perform_special(u: Unit, id: String, target_cell: Vector2i) -> void:
 	if u == null or not is_instance_valid(u):
 		return
 
+	# COOP: client requests special; host executes + snapshots
+	if _coop_is_client():
+		_coop_request_special(u, id, target_cell)
+		return
+
 	id = id.to_lower()
 
 	_is_moving = true
@@ -2172,6 +2340,7 @@ func _perform_special(u: Unit, id: String, target_cell: Vector2i) -> void:
 
 	# ✅ Free any units that died while "special_lock" was active
 	_finalize_pending_frees()
+	_coop_push_snapshot("special_local")
 
 func _finalize_pending_frees() -> void:
 	for v in get_all_units():
@@ -2470,6 +2639,12 @@ func _cleanup_dead_at(cell: Vector2i) -> void:
 func _do_attack(attacker: Unit, defender: Unit) -> void:
 	if attacker == null or defender == null:
 		return
+
+	# COOP: client requests attack; host executes + snapshots
+	if _coop_is_client():
+		var def_cell := defender.cell
+		_coop_request_attack(attacker, def_cell)
+		return
 	if not is_instance_valid(attacker) or not is_instance_valid(defender):
 		return
 
@@ -2528,6 +2703,8 @@ func _do_attack(attacker: Unit, defender: Unit) -> void:
 		_cleanup_dead_at(def_cell)
 		
 	_play_idle_anim(attacker)
+
+	_coop_push_snapshot("attack_local")
 
 
 func _safe_tree() -> SceneTree:
@@ -3130,6 +3307,11 @@ func _move_selected_to(target: Vector2i) -> void:
 		return
 
 	var u: Unit = selected
+
+	# COOP: client requests move; host executes + snapshots
+	if _coop_is_client():
+		_coop_request_move(u, target)
+		return
 	if not _is_valid_move_target(target):
 		return
 
@@ -3301,6 +3483,7 @@ func _end_move_cleanup() -> void:
 	_prune_dead_units_by_cell()
 	_refresh_overlays()
 	emit_signal("aim_changed", int(aim_mode), special_id)
+	_coop_push_snapshot("move_cleanup")
 	
 func _find_anim_sprite(root: Node) -> AnimatedSprite2D:
 	if root == null:

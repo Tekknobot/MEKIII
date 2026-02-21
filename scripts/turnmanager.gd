@@ -362,6 +362,11 @@ func _ready() -> void:
 	if laser_sweep_button:
 		laser_sweep_button.pressed.connect(_on_laser_sweep_pressed)
 				
+		# COOP: broadcast authoritative state after enemy phase + spawns
+	if M != null and M.game_ref != null and M.game_ref.has_method("_send_snapshot_to_all_peers"):
+		if M.game_ref.has_method("_is_coop") and bool(M.game_ref.call("_is_coop")) and M.game_ref.has_method("_is_host") and bool(M.game_ref.call("_is_host")):
+			M.game_ref.call_deferred("_send_snapshot_to_all_peers")
+
 	start_player_phase()
 	_update_end_turn_button()
 
