@@ -26,3 +26,4 @@ res://scenes/radioactive_zombie.tscn
 res://scripts/map_controller.gd
 res://scenes/zombie.tscn
 res://scripts/turnmanager.gd
+res://scripts/r_2.gd

@@ -224,12 +224,22 @@ func _fire_projectile_to_cell_with_explosion(M: MapController, dest_cell: Vector
 		if proj.has_method("set_target_cell"):
 			proj.call("set_target_cell", dest_cell)
 
-	if proj != null and proj is Node2D:
-		var tw := create_tween()
-		tw.tween_property(proj, "global_position", end_pos, max(projectile_travel_time, 0.01))
-		await tw.finished
-	else:
-		await get_tree().create_timer(max(projectile_travel_time, 0.01)).timeout
+		var dur = max(projectile_travel_time, 0.01)
+
+		if proj != null and proj is Node2D:
+			# IMPORTANT: don't attach the tween to the unit (self),
+			# because if the unit dies, the tween can be killed and never emit finished.
+			var tw := M.create_tween()  # MapController stays alive during combat
+			tw.tween_property(proj, "global_position", end_pos, dur)
+
+			# Wait using a timer instead of awaiting tw.finished (prevents deadlock)
+			await get_tree().create_timer(dur).timeout
+
+			# Snap to end in case of tiny drift
+			if proj != null and is_instance_valid(proj):
+				(proj as Node2D).global_position = end_pos
+		else:
+			await get_tree().create_timer(dur).timeout
 
 	if not _alive():
 		if proj != null and is_instance_valid(proj):
