@@ -101,6 +101,60 @@ func _rs() -> Node:
 	_rs_cache = rs
 	return rs
 
+# ---------------------------------------------------------
+# UNIT KEY HELPERS (Recruit uniqueness)
+# ---------------------------------------------------------
+# We use a stable "unit key" derived from display_name so a unit
+# already on the board cannot be recruited again this mission.
+func _unit_key_from_display_name(name: String) -> String:
+	var s := name.strip_edges().to_lower()
+	# normalize spaces -> underscores
+	s = s.replace(" ", "_")
+	# strip anything weird
+	var out := ""
+	for i in s.length():
+		var c := s[i]
+		var ok := (c >= "a" and c <= "z") or (c >= "0" and c <= "9") or c == "_"
+		if ok:
+			out += c
+	# collapse double underscores a bit
+	while out.find("__") != -1:
+		out = out.replace("__", "_")
+	return out.strip_edges()
+
+func _unit_key_from_unit(u: Node) -> String:
+	if u == null or not is_instance_valid(u):
+		return ""
+	var dn := ""
+	if "display_name" in u:
+		dn = str(u.display_name)
+	elif u.has_meta("display_name"):
+		dn = str(u.get_meta("display_name"))
+	elif u.has_method("get_display_name"):
+		dn = str(u.call("get_display_name"))
+	return _unit_key_from_display_name(dn)
+
+func _unit_key_from_scene(scene: PackedScene) -> String:
+	if scene == null:
+		return ""
+	var inst := scene.instantiate()
+	if inst == null:
+		return ""
+	var dn := ""
+	if "display_name" in inst:
+		dn = str(inst.display_name)
+	elif inst.has_meta("display_name"):
+		dn = str(inst.get_meta("display_name"))
+	elif inst.has_method("get_display_name"):
+		dn = str(inst.call("get_display_name"))
+	# inst isn't in the tree, so free() is fine
+	inst.free()
+	var k := _unit_key_from_display_name(dn)
+	if k == "":
+		# last resort: filename-based key
+		k = _unit_key_from_display_name(scene.resource_path.get_file().get_basename())
+	return k
+
 func _ach_unlock(id: StringName) -> void:
 	var rs := _rs()
 	if rs != null and is_instance_valid(rs) and rs.has_method("unlock_achievement"):
@@ -5572,21 +5626,45 @@ func _spawn_recruited_ally_fadein(spawn_cell: Vector2i) -> void:
 
 	var scene: PackedScene = null
 
-	var blocked: Array[String] = []
+	# ---------------------------------------------------
+	# Block recruiting any unit that already exists on the board (by unit key)
+	# ---------------------------------------------------
+	var blocked_keys: Dictionary = {} # {String:true}
 	for u2 in get_all_units():
 		if u2 == null or not is_instance_valid(u2):
 			continue
-		if u2.has_meta("scene_path"):
-			var sp := str(u2.get_meta("scene_path"))
-			if sp != "":
-				blocked.append(sp)
+		var k := _unit_key_from_unit(u2)
+		if k != "":
+			blocked_keys[k] = true
+
+	# (Optional) also keep a list of scene paths we already tried, to avoid repeats
+	var tried_paths: Dictionary = {} # {String:true}
 
 	# ✅ Preferred: pick a LOCKED unit (but do NOT unlock yet)
+	#    BUT: never pick a unit that already exists on this map (by unit key).
 	var rs := _rs()
-	if rs != null and rs.has_method("peek_random_locked_unit_scene"):
-		scene = rs.call("peek_random_locked_unit_scene", blocked)
+	var attempts := 12
 
-	# Fallback: old local pool behavior
+	if rs != null and rs.has_method("peek_random_locked_unit_scene"):
+		while attempts > 0 and scene == null:
+			# RunState picker currently takes "blocked scene paths" so we feed it
+			# everything we've already rejected this call.
+			var blocked_paths: Array[String] = []
+			for p_any in tried_paths.keys():
+				blocked_paths.append(str(p_any))
+
+			scene = rs.call("peek_random_locked_unit_scene", blocked_paths)
+
+			if scene != null:
+				var k_scene := _unit_key_from_scene(scene)
+				if k_scene != "" and blocked_keys.has(k_scene):
+					# Reject duplicates, remember this scene path so we don't keep re-rolling it.
+					tried_paths[scene.resource_path] = true
+					scene = null
+
+			attempts -= 1
+
+	# Fallback: old local pool behavior (also filtered by unit key)
 	if scene == null:
 		if ally_scenes.is_empty():
 			push_warning("Recruit: ally_scenes is empty (assign ally scenes in inspector) and RunState pool gave nothing.")
@@ -5595,14 +5673,20 @@ func _spawn_recruited_ally_fadein(spawn_cell: Vector2i) -> void:
 		if _recruit_pool.is_empty():
 			_rebuild_recruit_pool_from_allies()
 
-		if _recruit_pool.is_empty():
-			push_warning("Recruit: no unique allies left to recruit.")
+		# pick something not already on board
+		while not _recruit_pool.is_empty() and scene == null:
+			var idx := randi() % _recruit_pool.size()
+			var cand: PackedScene = _recruit_pool[idx]
+			_recruit_pool.remove_at(idx)
+
+			var k_cand := _unit_key_from_scene(cand)
+			if k_cand == "" or not blocked_keys.has(k_cand):
+				scene = cand
+
+		if scene == null:
+			push_warning("Recruit: no unique allies left to recruit (all are already on the board).")
 			return
-
-		var idx := randi() % _recruit_pool.size()
-		scene = _recruit_pool[idx]
-		_recruit_pool.remove_at(idx)
-
+			
 	if scene == null:
 		push_warning("Recruit: got null recruit scene.")
 		return
@@ -5615,6 +5699,13 @@ func _spawn_recruited_ally_fadein(spawn_cell: Vector2i) -> void:
 	var u := scene.instantiate() as Unit
 	if u == null:
 		push_warning("Recruit: ally scene root must extend Unit.")
+		return
+
+	# Final safety: if this unit key already exists on the board, do not spawn it.
+	var u_key := _unit_key_from_unit(u)
+	if u_key != "" and blocked_keys.has(u_key):
+		push_warning("Recruit: refused duplicate unit key \"%s\" (already on board)." % u_key)
+		u.free()
 		return
 
 	# ✅ ALWAYS stamp the PackedScene path onto the instance (this is what evac/unlock uses)
