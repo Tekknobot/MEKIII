@@ -367,6 +367,9 @@ func _spawn_wp(scene: PackedScene, cell: Vector2i, id: StringName, hp_val: int, 
 		
 	# --- place & register (TileMap-required) ---
 	M.units_root.add_child(u)
+	# ✅ ensure boss parts get a stable net_id for coop snapshots
+	if M.has_method("_net_register_unit"):
+		M.call("_net_register_unit", u)
 	u.cell = cell
 	u.z_index = _z_from_cell(cell)
 	u.position = M.terrain.map_to_local(cell)

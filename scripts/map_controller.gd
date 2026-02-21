@@ -2183,7 +2183,9 @@ func _perform_special(u: Unit, id: String, target_cell: Vector2i) -> void:
 
 	# COOP: client requests special; host executes + snapshots
 	if _coop_is_client():
-		_coop_request_special(u, id, target_cell)
+		# lock locally so you can’t spam
+		_is_moving = true
+		rpc_id(1, "_rpc_client_request_move", int(u.net_id), target_cell) # 1 = host peer id
 		return
 
 	id = id.to_lower()
@@ -2342,6 +2344,28 @@ func _perform_special(u: Unit, id: String, target_cell: Vector2i) -> void:
 	_finalize_pending_frees()
 	_coop_push_snapshot("special_local")
 
+@rpc("authority", "reliable")
+func _rpc_client_request_move(unit_net_id: int, target: Vector2i) -> void:
+	if not multiplayer.is_server():
+		return
+
+	var sender := multiplayer.get_remote_sender_id()
+	var u := _find_unit_by_net_id(unit_net_id)
+	if u == null or not is_instance_valid(u):
+		rpc_id(sender, "_rpc_action_denied_move", unit_net_id)
+		return
+
+	# ownership check using your Unit var
+	if int(u.owner_peer_id) != sender:
+		rpc_id(sender, "_rpc_action_denied_move", unit_net_id)
+		return
+
+	# IMPORTANT: you currently move "selected". For now, temporarily set selected:
+	var old_selected := selected
+	selected = u
+	_move_selected_to(target)
+	selected = old_selected
+	
 func _finalize_pending_frees() -> void:
 	for v in get_all_units():
 		var u := v as Unit
@@ -3310,7 +3334,8 @@ func _move_selected_to(target: Vector2i) -> void:
 
 	# COOP: client requests move; host executes + snapshots
 	if _coop_is_client():
-		_coop_request_move(u, target)
+		var unit_net_id := _net_id_of(u)
+		rpc_id(1, "_rpc_client_request_move", unit_net_id, target) # 1 = host peer id
 		return
 	if not _is_valid_move_target(target):
 		return
@@ -3341,6 +3366,10 @@ func _move_selected_to(target: Vector2i) -> void:
 	if path.is_empty():
 		_end_move_cleanup()
 		return
+
+	# COOP: host tells clients to animate this move visually
+	if multiplayer.has_multiplayer_peer() and multiplayer.is_server():
+		rpc("_rpc_play_move_visual", int(u.net_id), from_cell, target, path)
 
 	_sfx(&"move_start", sfx_volume_world, 1.0, _cell_world(from_cell))
 	_say(u)
@@ -8231,13 +8260,17 @@ func build_units_snapshot() -> Array:
 		if u.hp <= 0:
 			continue
 
+		# Ensure we have a stable net_id on host
+		if u.net_id <= 0:
+			_net_register_unit(u)
+
 		var sp := ""
 		if u.has_meta("scene_path"):
 			sp = str(u.get_meta("scene_path"))
+		elif u.scene_file_path != "":
+			sp = u.scene_file_path
 
 		var cell := Vector2i(-1, -1)
-
-		# ✅ Most of your units already store their cell
 		if "cell" in u:
 			cell = u.cell
 		elif u.has_meta("cell"):
@@ -8251,12 +8284,6 @@ func build_units_snapshot() -> Array:
 		elif "owner_peer_id" in u:
 			owner = int(u.owner_peer_id)
 
-		var id := ""
-		if u.has_meta("unit_id"):
-			id = str(u.get_meta("unit_id"))
-		elif "unit_id" in u:
-			id = str(u.unit_id)
-
 		var quirks: Array = []
 		if u.has_meta("quirks"):
 			quirks = u.get_meta("quirks")
@@ -8265,86 +8292,118 @@ func build_units_snapshot() -> Array:
 
 		var hp := int(u.hp) if ("hp" in u) else 0
 		var max_hp := int(u.max_hp) if ("max_hp" in u) else 0
-		
+
 		if sp != "" and cell.x >= 0:
 			out.append({
 				"scene": sp,
+				"net_id": int(u.net_id),
 				"cell": cell,
 				"team": team,
 				"owner_peer_id": owner,
-				"unit_id": id,
 				"quirks": quirks,
 				"hp": hp,
-				"max_hp": max_hp				
+				"max_hp": max_hp
 			})
-				
+
 	return out
 
-
 func apply_units_snapshot(units: Array) -> void:
-	# Clear existing
-	for u in get_all_units():
-		if u != null and is_instance_valid(u):
-			u.queue_free()
+	# Incremental apply: update/spawn/free by stable net_id.
+	# This prevents constant teleport/flicker caused by rebuild snapshots.
+	if units_root == null or terrain == null:
+		return
 
+	# We'll rebuild occupancy from the snapshot, but keep nodes intact.
 	units_by_cell.clear()
 
-	# Rebuild
-	for d in units:
-		var sp := str(d.get("scene", ""))
-		if sp == "" or not ResourceLoader.exists(sp):
-			continue
-		var ps := load(sp) as PackedScene
-		if ps == null:
-			continue
+	var desired: Dictionary = {} # net_id -> true
 
-		var inst := ps.instantiate()
-		var u := inst as Unit
+	for d_any in units:
+		if typeof(d_any) != TYPE_DICTIONARY:
+			continue
+		var d: Dictionary = d_any
+		var nid := int(d.get("net_id", 0))
+		if nid <= 0:
+			continue
+		desired[nid] = true
+
+		var u := _net_get_unit(nid)
+		var is_new := false
+
 		if u == null:
-			continue
+			var sp := str(d.get("scene", ""))
+			if sp == "" or not ResourceLoader.exists(sp):
+				continue
+			var ps := load(sp) as PackedScene
+			if ps == null:
+				continue
 
-		units_root.add_child(u)
+			var inst := ps.instantiate()
+			u = inst as Unit
+			if u == null:
+				continue
 
-		# CLIENT DEPLOY LOOK: spawn hidden until bomber reveals
-		if get_tree().get_multiplayer().has_multiplayer_peer() and not get_tree().get_multiplayer().is_server():
-			u.modulate.a = 0.0
-			u.set_meta("pending_drop_reveal", true)
+			is_new = true
+			units_root.add_child(u)
 
-		# required for future snapshots
-		u.set_meta("scene_path", sp)
+			u.set_meta("scene_path", sp)
 
-		# team / owner / ids / quirks FIRST (some Units read these in _ready logic / UI)
-		if "team" in d:
+			# Stable id from host
+			u.net_id = nid
+			_net_units_by_id[nid] = u
+
+			_wire_unit_signals(u)
+
+			# Only brand-new spawns get the "drop reveal" cosmetic
+			if get_tree().get_multiplayer().has_multiplayer_peer() and not get_tree().get_multiplayer().is_server():
+				u.modulate.a = 0.0
+				u.set_meta("pending_drop_reveal", true)
+
+		# --- Authoritative fields ---
+		if d.has("team"):
 			u.team = int(d["team"])
 
 		var owner := int(d.get("owner_peer_id", 1))
 		u.owner_peer_id = owner
 		u.set_meta("owner_peer_id", owner)
 
-		var unit_id := str(d.get("unit_id", ""))
-		if unit_id != "":
-			u.set_meta("unit_id", unit_id)
-
 		u.set_meta("quirks", d.get("quirks", []))
 
-		# make it behave like a real spawn
-		_net_register_unit(u)
-		_wire_unit_signals(u)
-
-		# position + cell bookkeeping
-		var cell: Vector2i = d.get("cell", Vector2i(-1, -1))
-		if cell.x < 0:
-			continue
-		u.set_cell(cell, terrain)
-
-		if "max_hp" in d:
+		if d.has("max_hp"):
 			u.max_hp = int(d.get("max_hp", u.max_hp))
-		if "hp" in d:
-			u.hp = int(d.get("hp", u.max_hp))
-		else:
-			u.hp = u.max_hp
+		if d.has("hp"):
+			u.hp = int(d.get("hp", u.hp))
 
-		units_by_cell[cell] = u
+		# --- Cell ---
+		var cell: Vector2i = d.get("cell", Vector2i(-1, -1))
+		if cell.x >= 0:
+			# Don't stomp a unit mid-tween (future-proof for action replay)
+			if u.has_meta("is_animating") and bool(u.get_meta("is_animating")):
+				u.set_meta("pending_cell", cell)
+			else:
+				u.set_cell(cell, terrain)
+
+			units_by_cell[cell] = u
+
+	# Remove units not present
+	var to_remove: Array[int] = []
+	for k_any in _net_units_by_id.keys():
+		var k := int(k_any)
+		if desired.has(k):
+			continue
+		var u2 := _net_get_unit(k)
+		if u2 != null:
+			# Remove any occupancy entry that points at this unit
+			if "cell" in u2:
+				var c2: Vector2i = u2.cell
+				if units_by_cell.has(c2) and units_by_cell[c2] == u2:
+					units_by_cell.erase(c2)
+			u2.queue_free()
+		to_remove.append(k)
+
+	for k in to_remove:
+		_net_units_by_id.erase(k)
+
 
 func _register_boss_parts_from_controller() -> void:
 	if game_ref == null or terrain == null:
@@ -8391,3 +8450,192 @@ func _register_boss_parts_from_controller() -> void:
 
 		# Finally register it like a normal unit
 		units_by_cell[cell] = u
+
+var _coop_replaying := false
+var _coop_deferred_snap: Dictionary = {} # optional if you want to defer snapshots later
+
+func _net_id_of(u: Unit) -> int:
+	# Prefer a stable net_id if you have it; otherwise fallback
+	if u == null: return 0
+	if u.get("net_id") != null:
+		return int(u.get("net_id"))
+	return int(u.get_instance_id()) # fallback (not ideal across peers)
+
+@rpc("any_peer", "reliable")
+func _rpc_play_move_visual(unit_net_id: int, from_cell: Vector2i, target: Vector2i, path: Array) -> void:
+	var u := _find_unit_by_net_id(unit_net_id)
+	if u == null:
+		return
+
+	_coop_replaying = true
+
+	# optional: hard align start (prevents “start from wrong place”)
+	u.cell = from_cell
+	u.global_position = _cell_world(from_cell)
+	_set_unit_depth_from_world(u, u.global_position)
+
+	await _move_unit_visual_along_path(u, target, path)
+
+	_coop_replaying = false
+	
+@rpc("any_peer", "reliable")
+func _rpc_action_denied(kind: String, unit_net_id: int) -> void:
+	# client unlocks if denied
+	_is_moving = false
+
+func _move_unit_along_path_visual(u: Unit, target: Vector2i, path: Array) -> void:
+	if u == null or not is_instance_valid(u) or u.hp <= 0:
+		return
+
+	# Do NOT do any of these on client:
+	# - units_by_cell updates
+	# - moved/attacked flags
+	# - quirks, mines, overwatch, pickups, TM notify, beacon, etc.
+
+	var is_carbot := u.has_method("play_move_step_anim")
+	var step_time := _duration_for_step()
+
+	# start anim/sfx (visual only)
+	if not is_carbot:
+		_play_move_anim(u, true)
+	else:
+		if u.has_method("car_start_move_sfx"):
+			u.call("car_start_move_sfx")
+
+	for step_cell_any in path:
+		var step_cell := Vector2i(step_cell_any)
+
+		if u == null or not is_instance_valid(u) or u.hp <= 0:
+			break
+
+		var from_world := u.global_position
+		var to_world := _cell_world(step_cell)
+
+		if is_carbot:
+			var grid_dir: Vector2i = step_cell - u.cell
+			if u.has_method("play_move_step_anim_grid"):
+				u.call("play_move_step_anim_grid", grid_dir, terrain)
+			else:
+				u.call("play_move_step_anim", from_world, to_world)
+		else:
+			_face_unit_for_step(u, from_world, to_world)
+
+		if u.has_method("car_step_sfx"):
+			u.call("car_step_sfx")
+
+		_sfx(&"move_step", sfx_volume_world * 0.55, _sfx_pitch(), to_world)
+
+		var uid := u.get_instance_id()
+		var tw := create_tween()
+		tw.set_trans(Tween.TRANS_LINEAR)
+		tw.set_ease(Tween.EASE_IN_OUT)
+
+		tw.tween_method(func(p: Vector2):
+			var uu := instance_from_id(uid) as Unit
+			if uu == null or not is_instance_valid(uu):
+				return
+			uu.global_position = p
+			_set_unit_depth_from_world(uu, p)
+		, from_world, to_world, step_time)
+
+		await tw.finished
+
+		if u != null and is_instance_valid(u):
+			u.cell = step_cell
+
+	# finalize
+	if u != null and is_instance_valid(u):
+		u.set_cell(target, terrain)
+
+	if not is_carbot:
+		_play_move_anim(u, false)
+	else:
+		if u.has_method("play_idle_anim"):
+			u.call("play_idle_anim")
+		if u.has_method("car_end_move_sfx"):
+			u.call("car_end_move_sfx")
+
+	_sfx(&"move_end", sfx_volume_world, 1.0, _cell_world(target))
+
+
+func _coop_is_replaying() -> bool:
+	return _coop_replaying
+
+
+func _find_unit_by_net_id(id: int) -> Unit:
+	for uu in get_all_units():
+		if uu == null or not is_instance_valid(uu): continue
+		if "net_id" in uu and int(uu.net_id) == id:
+			return uu
+	return null
+
+
+func _move_unit_visual_along_path(u: Unit, target: Vector2i, path: Array) -> void:
+	if u == null or not is_instance_valid(u) or u.hp <= 0:
+		return
+
+	var is_carbot := u.has_method("play_move_step_anim")
+	var step_time := _duration_for_step()
+
+	# start anim / sfx (VISUAL ONLY)
+	if not is_carbot:
+		_play_move_anim(u, true)
+	else:
+		if u.has_method("car_start_move_sfx"):
+			u.call("car_start_move_sfx")
+
+	for step_cell_any in path:
+		var step_cell := Vector2i(step_cell_any)
+
+		if u == null or not is_instance_valid(u) or u.hp <= 0:
+			break
+
+		var from_world := u.global_position
+		var to_world := _cell_world(step_cell)
+
+		if is_carbot:
+			var grid_dir: Vector2i = step_cell - u.cell
+			if u.has_method("play_move_step_anim_grid"):
+				u.call("play_move_step_anim_grid", grid_dir, terrain)
+			else:
+				u.call("play_move_step_anim", from_world, to_world)
+		else:
+			_face_unit_for_step(u, from_world, to_world)
+
+		if u.has_method("car_step_sfx"):
+			u.call("car_step_sfx")
+
+		_sfx(&"move_step", sfx_volume_world * 0.55, _sfx_pitch(), to_world)
+
+		var uid := u.get_instance_id()
+		var tw := create_tween()
+		tw.set_trans(Tween.TRANS_LINEAR)
+		tw.set_ease(Tween.EASE_IN_OUT)
+
+		tw.tween_method(func(p: Vector2):
+			var uu := instance_from_id(uid) as Unit
+			if uu == null or not is_instance_valid(uu):
+				return
+			uu.global_position = p
+			_set_unit_depth_from_world(uu, p)
+		, from_world, to_world, step_time)
+
+		await tw.finished
+
+		if u != null and is_instance_valid(u):
+			u.cell = step_cell
+
+	# finalize
+	if u != null and is_instance_valid(u):
+		u.set_cell(target, terrain)
+
+	# end anim / sfx (VISUAL ONLY)
+	if not is_carbot:
+		_play_move_anim(u, false)
+	else:
+		if u.has_method("play_idle_anim"):
+			u.call("play_idle_anim")
+		if u.has_method("car_end_move_sfx"):
+			u.call("car_end_move_sfx")
+
+	_sfx(&"move_end", sfx_volume_world, 1.0, _cell_world(target))
