@@ -286,6 +286,30 @@ func _ready() -> void:
 
 		add_child(infestation_hud)
 
+		# Re-resolve buttons in case they were moved into HUD.tscn
+		hellfire_button = _resolve_button(hellfire_button_path, "Hellfire")
+		blade_button = _resolve_button(blade_button_path, "Blade")
+		mines_button = _resolve_button(mines_button_path, "Mines")
+		overwatch_button = _resolve_button(overwatch_button_path, "Watcher")
+		suppress_button = _resolve_button(suppress_button_path, "Supress")
+		stim_button = _resolve_button(stim_button_path, "Stimpack")
+		sunder_button = _resolve_button(sunder_button_path, "Sunder")
+		pounce_button = _resolve_button(pounce_button_path, "Pounce")
+		volley_button = _resolve_button(volley_button_path, "Volley")
+		cannon_button = _resolve_button(cannon_button_path, "Cannon")
+		quake_button = _resolve_button(quake_button_path, "Quake")
+		nova_button = _resolve_button(nova_button_path, "Nova")
+		web_button = _resolve_button(web_button_path, "Web")
+		slam_button = _resolve_button(slam_button_path, "Slam")
+		laser_grid_button = _resolve_button(laser_grid_button_path, "Grid")
+		overcharge_button = _resolve_button(overcharge_button_path, "Overcharge")
+		barrage_button = _resolve_button(barrage_button_path, "Barrage")
+		railgun_button = _resolve_button(railgun_button_path, "Railgun")
+		malfunction_button = _resolve_button(malfunction_button_path, "Malfunction")
+		storm_button = _resolve_button(storm_button_path, "Storm")
+		artillery_strike_button = _resolve_button(artillery_strike_button_path, "Strike")
+		laser_sweep_button = _resolve_button(laser_sweep_button_path, "Sweep")
+
 	if end_turn_button:
 		end_turn_button.pressed.connect(_on_end_turn_pressed)
 	if menu_button:
@@ -3050,3 +3074,29 @@ func _event_pick_line(key: StringName, ctx: Dictionary) -> String:
 func _hud() -> HUD:
 	var n := get_tree().get_first_node_in_group("HUD")
 	return n as HUD
+
+func _resolve_button(path: NodePath, fallback_name: String, group_name: StringName = &"SpecialButton") -> Button:
+	# 1) try the exported NodePath first
+	var b := get_node_or_null(path) as Button
+	if b != null:
+		return b
+
+	# 2) try inside the HUD instance (since you’re moving buttons into HUD.tscn)
+	var huds := get_tree().get_nodes_in_group("HUD")
+	if huds.size() > 0:
+		var hud := huds[0] as Node
+		# direct child under HUD
+		b = hud.get_node_or_null(fallback_name) as Button
+		if b != null:
+			return b
+		# common layout: HUD/SpecialButtons/<Name>
+		b = hud.get_node_or_null("SpecialButtons/%s" % fallback_name) as Button
+		if b != null:
+			return b
+
+	# 3) last resort: search by group + matching name
+	for n in get_tree().get_nodes_in_group(String(group_name)):
+		if n is Button and n.name == fallback_name:
+			return n
+
+	return null

@@ -82,17 +82,17 @@ func _ready() -> void:
 		push_warning("HUD: UnitCard not found.")
 		return
 
-	_portrait = _unit_card.get_node("Margin/Row/PortraitFrame/Portrait") as TextureRect
-	_name     = _unit_card.get_node("Margin/Row/Right/LeftInfo/Name") as Label
-	_hp_label = _unit_card.get_node("Margin/Row/Right/LeftInfo/Bars/HPLabel") as Label
-	_hp_bar   = _unit_card.get_node("Margin/Row/Right/LeftInfo/Bars/HPBar") as ProgressBar
+	_portrait = _unit_card.get_node("Margin/HBoxContainer/Row/PortraitFrame/Portrait") as TextureRect
+	_name     = _unit_card.get_node("Margin/HBoxContainer/Row/Right/LeftInfo/Name") as Label
+	_hp_label = _unit_card.get_node("Margin/HBoxContainer/Row/Right/LeftInfo/Bars/HPLabel") as Label
+	_hp_bar   = _unit_card.get_node("Margin/HBoxContainer/Row/Right/LeftInfo/Bars/HPBar") as ProgressBar
 
-	_move_val  = _unit_card.get_node("Margin/Row/Right/LeftInfo/StatsGrid/MoveVal") as Label
-	_range_val = _unit_card.get_node("Margin/Row/Right/LeftInfo/StatsGrid/RangeVal") as Label
-	_dmg_val   = _unit_card.get_node("Margin/Row/Right/LeftInfo/StatsGrid/DmgVal") as Label
+	_move_val  = _unit_card.get_node("Margin/HBoxContainer/Row/Right/LeftInfo/StatsGrid/MoveVal") as Label
+	_range_val = _unit_card.get_node("Margin/HBoxContainer/Row/Right/LeftInfo/StatsGrid/RangeVal") as Label
+	_dmg_val   = _unit_card.get_node("Margin/HBoxContainer/Row/Right/LeftInfo/StatsGrid/DmgVal") as Label
 
-	extras_box = _unit_card.get_node("Margin/Row/Right/LeftInfo/ExtrasBox") as VBoxContainer
-	quirks_dock = _unit_card.get_node("Margin/Row/Right/QuirksDock") as VBoxContainer
+	extras_box = _unit_card.get_node("Margin/HBoxContainer/Row/Right/LeftInfo/ExtrasBox") as VBoxContainer
+	quirks_dock = _unit_card.get_node("Margin/HBoxContainer/Row/Right/QuirksDock") as VBoxContainer
 
 	_unit_card.visible = false
 

@@ -1,8 +1,9 @@
 HBoxContainer
+Control
+Container
 VBoxContainer
 HFlowContainer
 FlowContainer
-Control
 CanvasLayer
 GPUParticles2D
 Node2D
@@ -11,4 +12,3 @@ CharacterBody2D
 ColorRect
 TextureRect
 TextEdit
-CPUParticles2D
