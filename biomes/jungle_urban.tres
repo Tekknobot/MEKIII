@@ -1,0 +1,19 @@
+[gd_resource type="Resource" script_class="BiomeSet" load_steps=7 format=3 uid="uid://beemq1mpp8ofs"]
+
+[ext_resource type="Texture2D" uid="uid://bvwr3k03hbabx" path="res://sprites/Terrain/biomes/jungle_urban/jungle_dirt.png" id="1_14lx6"]
+[ext_resource type="Texture2D" uid="uid://buhpneiq87lot" path="res://sprites/Terrain/biomes/jungle_urban/jungle_grass.png" id="2_c8ij7"]
+[ext_resource type="Texture2D" uid="uid://cp0p0qkbx28t3" path="res://sprites/Terrain/biomes/jungle_urban/jungle_grass_sandstone.png" id="3_mjely"]
+[ext_resource type="Texture2D" uid="uid://xfm6dkr1hr7c" path="res://sprites/Terrain/biomes/jungle_urban/jungle_stone.png" id="4_268q0"]
+[ext_resource type="Script" uid="uid://dyy06am5hh6de" path="res://scripts/biome_set.gd" id="5_qq1oe"]
+[ext_resource type="Texture2D" uid="uid://0d3dousyqi4y" path="res://sprites/Terrain/biomes/jungle_urban/jungle_grass_overgrown.png" id="6_qq1oe"]
+
+[resource]
+script = ExtResource("5_qq1oe")
+id = &"biome_jungle"
+display_name = "Jungle City"
+dirt = ExtResource("1_14lx6")
+sandstone = ExtResource("4_268q0")
+snow = ExtResource("6_qq1oe")
+grass = ExtResource("2_c8ij7")
+ice = ExtResource("3_mjely")
+metadata/_custom_type_script = "uid://dyy06am5hh6de"

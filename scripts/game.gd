@@ -1,6 +1,84 @@
 extends Node2D
 class_name Game
 
+# -------------------------------------------------
+# BIOME / TILE OVERRIDES (no new tiles needed)
+# Swaps the TEXTURE on existing TileSet sources (same source IDs).
+# -------------------------------------------------
+
+@export_group("Biome Tiles (override)")
+@export var override_dirt_tex: Texture2D
+@export var override_sandstone_tex: Texture2D
+@export var override_snow_tex: Texture2D
+@export var override_grass_tex: Texture2D
+@export var override_ice_tex: Texture2D
+@export var override_water_tex: Texture2D  # you said you reuse water, so this can be empty too
+
+@export_group("Biomes (sets)")
+@export var biome_sets: Array[BiomeSet] = []
+@export var biome_index: int = 0
+@export var randomize_biome_each_generation := true
+
+func _pick_biome_for_generation() -> void:
+	if biome_sets.is_empty():
+		return
+
+	if randomize_biome_each_generation:
+		biome_index = rng.randi_range(0, biome_sets.size() - 1)
+
+func _apply_biome_set() -> void:
+	if terrain == null or not is_instance_valid(terrain):
+		return
+	var ts := terrain.tile_set
+	if ts == null:
+		return
+
+	if biome_sets.is_empty():
+		return
+
+	biome_index = clampi(biome_index, 0, biome_sets.size() - 1)
+	var b := biome_sets[biome_index]
+	if b == null:
+		return
+
+	_try_set_tileset_source_texture(ts, T_DIRT, b.dirt)
+	_try_set_tileset_source_texture(ts, T_SANDSTONE, b.sandstone)
+	_try_set_tileset_source_texture(ts, T_SNOW, b.snow)
+	_try_set_tileset_source_texture(ts, T_GRASS, b.grass)
+	_try_set_tileset_source_texture(ts, T_ICE, b.ice)
+
+	# Water optional — if null, keep existing water
+	if b.water != null:
+		_try_set_tileset_source_texture(ts, T_WATER, b.water)
+
+func _try_set_tileset_source_texture(ts: TileSet, source_id: int, tex: Texture2D) -> void:
+	if tex == null:
+		return
+	if not ts.has_source(source_id):
+		push_warning("Biome: TileSet missing source id %d" % source_id)
+		return
+
+	var src := ts.get_source(source_id)
+	if src is TileSetAtlasSource:
+		(src as TileSetAtlasSource).texture = tex
+	else:
+		push_warning("Biome: source id %d is not TileSetAtlasSource (got %s)" % [source_id, src])
+		
+func _apply_biome_tile_overrides() -> void:
+	if terrain == null or not is_instance_valid(terrain):
+		return
+	var ts := terrain.tile_set
+	if ts == null:
+		push_warning("Biome overrides: Terrain TileMap has no TileSet.")
+		return
+
+	_try_set_tileset_source_texture(ts, T_DIRT, override_dirt_tex)
+	_try_set_tileset_source_texture(ts, T_SANDSTONE, override_sandstone_tex)
+	_try_set_tileset_source_texture(ts, T_SNOW, override_snow_tex)
+	_try_set_tileset_source_texture(ts, T_GRASS, override_grass_tex)
+	_try_set_tileset_source_texture(ts, T_ICE, override_ice_tex)
+	_try_set_tileset_source_texture(ts, T_WATER, override_water_tex)
+
 @export var camera: Camera2D
 @export var fade_rect_path: NodePath
 @export var fade_out_time := 0.88
@@ -183,6 +261,7 @@ func _start_mission() -> void:
 	if randomize_season_each_generation:
 		season = SEASONS[rng.randi_range(0, SEASONS.size() - 1)]
 
+	_pick_biome_for_generation()
 	_pick_weather_for_generation()
 
 	if grid == null:
@@ -356,6 +435,8 @@ func generate_map() -> void:
 		push_error("Terrain TileMap missing.")
 		return
 
+	_apply_biome_set()
+	
 	# 1) Base terrain only (no water yet)
 	_generate_base_terrain_only()
 

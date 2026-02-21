@@ -27,3 +27,8 @@ res://scripts/map_controller.gd
 res://scenes/zombie.tscn
 res://scripts/turnmanager.gd
 res://scripts/r_2.gd
+res://scripts/biome_set.gd
+res://biomes/overgrown_urban.tres
+res://biomes/desert_urban.tres
+res://biomes/new_urban.tres
+res://biomes/jungle_urban.tres

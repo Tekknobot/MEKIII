@@ -1,19 +1,29 @@
-[gd_scene load_steps=112 format=3 uid="uid://bmtwqbsx674eo"]
+[gd_scene load_steps=122 format=3 uid="uid://bmtwqbsx674eo"]
 
 [ext_resource type="Script" uid="uid://bn08mhcoceqg" path="res://scripts/game.gd" id="1_400sg"]
+[ext_resource type="Texture2D" uid="uid://bktpplbikmno4" path="res://sprites/Terrain/biomes/overgrown_urban/overgrown_aged_dirt2.png" id="2_8cbmg"]
+[ext_resource type="Texture2D" uid="uid://dq7r4yda76rh6" path="res://sprites/Terrain/biomes/overgrown_urban/aged_sandstone2.png" id="3_il60g"]
+[ext_resource type="Texture2D" uid="uid://hcyi8na3032k" path="res://sprites/Terrain/biomes/overgrown_urban/overgrown_grass_snow2.png" id="4_4fypl"]
+[ext_resource type="Texture2D" uid="uid://cckmmg7o7r0od" path="res://sprites/Terrain/biomes/overgrown_urban/overgrown_grass_default2.png" id="5_7e8db"]
+[ext_resource type="Texture2D" uid="uid://b44mmtlop13jd" path="res://sprites/Terrain/biomes/overgrown_urban/aged_ice2.png" id="6_ci547"]
 [ext_resource type="PackedScene" uid="uid://w4cia1866i3t" path="res://scenes/rain_tile.tscn" id="6_ltxvx"]
 [ext_resource type="Texture2D" uid="uid://by1nnygq8fbib" path="res://sprites/Terrain/dirt.png" id="6_mcffj"]
 [ext_resource type="Texture2D" uid="uid://bvs7gpxakq282" path="res://sprites/Terrain/sandstone.png" id="7_2rd6h"]
+[ext_resource type="Script" uid="uid://dyy06am5hh6de" path="res://scripts/biome_set.gd" id="7_7e8db"]
 [ext_resource type="PackedScene" uid="uid://g6gfrpvyugsa" path="res://scenes/cursor.tscn" id="7_bneo8"]
 [ext_resource type="Texture2D" uid="uid://d3dw1g0jasso3" path="res://sprites/Tiles_UI/mek3/1x1_move.png" id="7_g4kob"]
 [ext_resource type="PackedScene" uid="uid://cwspl0fjm48ex" path="res://scenes/snow_tile.tscn" id="7_pf47n"]
 [ext_resource type="Texture2D" uid="uid://dqnyvmrsprmvf" path="res://sprites/Terrain/grass_snow.png" id="8_7ua8r"]
 [ext_resource type="Script" uid="uid://82k2eidbwyo3" path="res://scripts/camera.gd" id="8_400sg"]
+[ext_resource type="Resource" uid="uid://cy20goue3rn7q" path="res://biomes/overgrown_urban.tres" id="8_ci547"]
 [ext_resource type="PackedScene" uid="uid://ide8kf2h613i" path="res://scenes/fog_tile.tscn" id="8_nj61y"]
 [ext_resource type="Texture2D" uid="uid://bo43jxw78vpg7" path="res://sprites/Tiles_UI/mek3/2x2_move.png" id="8_qy1jj"]
+[ext_resource type="Resource" uid="uid://bb741nct667ix" path="res://biomes/new_urban.tres" id="8_t1ptx"]
 [ext_resource type="Texture2D" uid="uid://usc687xtdcac" path="res://sprites/Terrain/grass_default.png" id="9_r7sob"]
+[ext_resource type="Resource" uid="uid://cpcjag16ny5xv" path="res://biomes/desert_urban.tres" id="9_t1ptx"]
 [ext_resource type="Texture2D" uid="uid://bsdcosxsddrot" path="res://sprites/Terrain/ice.png" id="10_y5y3l"]
 [ext_resource type="Texture2D" uid="uid://bysc7op7qquei" path="res://sprites/Tiles_UI/mek3/1x1_cursor.png" id="11_2rd6h"]
+[ext_resource type="Resource" uid="uid://beemq1mpp8ofs" path="res://biomes/jungle_urban.tres" id="11_t1ptx"]
 [ext_resource type="Texture2D" uid="uid://eh6ocjhc4lti" path="res://sprites/Terrain/water.png" id="11_vjgi4"]
 [ext_resource type="Texture2D" uid="uid://b2b8iier8i5b7" path="res://sprites/Tiles_UI/mek3/2x2_cursor.png" id="12_7ua8r"]
 [ext_resource type="Texture2D" uid="uid://cchkas5ebl2h5" path="res://sprites/Tiles_UI/mek3/1x1_attack.png" id="14_vjgi4"]
@@ -300,6 +310,12 @@ shader_parameter/shake_amount = 0.0
 
 [node name="Game" type="Node2D" node_paths=PackedStringArray("camera") groups=["GameMap"]]
 script = ExtResource("1_400sg")
+override_dirt_tex = ExtResource("2_8cbmg")
+override_sandstone_tex = ExtResource("3_il60g")
+override_snow_tex = ExtResource("4_4fypl")
+override_grass_tex = ExtResource("5_7e8db")
+override_ice_tex = ExtResource("6_ci547")
+biome_sets = Array[ExtResource("7_7e8db")]([ExtResource("8_t1ptx"), ExtResource("8_ci547"), ExtResource("9_t1ptx"), ExtResource("11_t1ptx")])
 camera = NodePath("Camera2D")
 fade_rect_path = NodePath("UI/FadeLayer/ColorRect")
 fade_out_time = 1.88

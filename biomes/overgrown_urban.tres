@@ -1,0 +1,19 @@
+[gd_resource type="Resource" script_class="BiomeSet" load_steps=7 format=3 uid="uid://cy20goue3rn7q"]
+
+[ext_resource type="Script" uid="uid://dyy06am5hh6de" path="res://scripts/biome_set.gd" id="1_15875"]
+[ext_resource type="Texture2D" uid="uid://bktpplbikmno4" path="res://sprites/Terrain/biomes/overgrown_urban/overgrown_aged_dirt2.png" id="1_urnm0"]
+[ext_resource type="Texture2D" uid="uid://cckmmg7o7r0od" path="res://sprites/Terrain/biomes/overgrown_urban/overgrown_grass_default2.png" id="2_mtllq"]
+[ext_resource type="Texture2D" uid="uid://bsdcosxsddrot" path="res://sprites/Terrain/ice.png" id="3_urnm0"]
+[ext_resource type="Texture2D" uid="uid://dq7r4yda76rh6" path="res://sprites/Terrain/biomes/overgrown_urban/aged_sandstone2.png" id="4_37ixr"]
+[ext_resource type="Texture2D" uid="uid://hcyi8na3032k" path="res://sprites/Terrain/biomes/overgrown_urban/overgrown_grass_snow2.png" id="6_aiadc"]
+
+[resource]
+script = ExtResource("1_15875")
+id = &"biome_overgornw"
+display_name = "Overgrown Urban"
+dirt = ExtResource("1_urnm0")
+sandstone = ExtResource("4_37ixr")
+snow = ExtResource("6_aiadc")
+grass = ExtResource("2_mtllq")
+ice = ExtResource("3_urnm0")
+metadata/_custom_type_script = "uid://dyy06am5hh6de"

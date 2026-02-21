@@ -1,0 +1,19 @@
+[gd_resource type="Resource" script_class="BiomeSet" load_steps=7 format=3 uid="uid://cpcjag16ny5xv"]
+
+[ext_resource type="Texture2D" uid="uid://cvijuygwhrsdt" path="res://sprites/Terrain/biomes/desert_urban/desert_dirt.png" id="1_2ik2j"]
+[ext_resource type="Script" uid="uid://dyy06am5hh6de" path="res://scripts/biome_set.gd" id="1_n0jlt"]
+[ext_resource type="Texture2D" uid="uid://dewijja2jvlhs" path="res://sprites/Terrain/biomes/desert_urban/desert_sandstone.png" id="2_txclb"]
+[ext_resource type="Texture2D" uid="uid://bagasyneeabpm" path="res://sprites/Terrain/biomes/desert_urban/desert_stone.png" id="3_iytvu"]
+[ext_resource type="Texture2D" uid="uid://cqqgg0ekxj0tj" path="res://sprites/Terrain/biomes/desert_urban/desert_sand.png" id="4_33lss"]
+[ext_resource type="Texture2D" uid="uid://b23e88xq7af5s" path="res://sprites/Terrain/biomes/desert_urban/desert_sand_heavy.png" id="6_q1jt8"]
+
+[resource]
+script = ExtResource("1_n0jlt")
+id = &"biome_desert"
+display_name = "Desert City"
+dirt = ExtResource("1_2ik2j")
+sandstone = ExtResource("4_33lss")
+snow = ExtResource("6_q1jt8")
+grass = ExtResource("2_txclb")
+ice = ExtResource("3_iytvu")
+metadata/_custom_type_script = "uid://dyy06am5hh6de"
