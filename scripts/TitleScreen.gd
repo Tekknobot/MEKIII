@@ -11,6 +11,15 @@ extends Control
 @onready var restart_button: Button = $Center/PanelContainer/MarginContainer/VBoxContainer/Buttons/RestartButton
 @onready var title: TextureRect = $Center/PanelContainer/MarginContainer/VBoxContainer/Title
 
+# --- Co-op UI (added by patch; safe if nodes missing) ---
+@onready var coop_host_button: Button = get_node_or_null("Center/PanelContainer/MarginContainer/VBoxContainer/CoopRow/CoopHostButton") as Button
+@onready var coop_join_button: Button = get_node_or_null("Center/PanelContainer/MarginContainer/VBoxContainer/CoopRow/CoopJoinButton") as Button
+@onready var coop_addr: LineEdit = get_node_or_null("Center/PanelContainer/MarginContainer/VBoxContainer/CoopRow/CoopAddr") as LineEdit
+@onready var coop_status: Label = get_node_or_null("Center/PanelContainer/MarginContainer/VBoxContainer/CoopStatus") as Label
+
+func _net() -> Node:
+	return get_tree().root.get_node_or_null("NetworkManager")
+
 var _reset_layer: CanvasLayer = null
 var _reset_prompt_root: Control = null
 var _reset_prompt_open := false
@@ -90,6 +99,12 @@ var _desat_tw: Tween = null
 @export var desat_hold := 0.06
 
 func _ready() -> void:
+	# Ensure NetworkManager exists (we can't rely on Project Settings autoload in a patch zip)
+	if _net() == null:
+		var nm = load("res://scripts/network_manager.gd").new()
+		nm.name = "NetworkManager"
+		get_tree().root.add_child(nm)
+
 	#MusicManagerNode.play_stream(preload("res://audio/Music/Track 1.wav"))	
 	
 	# Fade in from black
@@ -103,6 +118,10 @@ func _ready() -> void:
 	start_button.pressed.connect(_on_start_pressed)
 	quit_button.pressed.connect(_on_quit_pressed)
 	restart_button.pressed.connect(_on_restart_pressed)
+	if coop_host_button != null:
+		coop_host_button.pressed.connect(_on_coop_host_pressed)
+	if coop_join_button != null:
+		coop_join_button.pressed.connect(_on_coop_join_pressed)
 	start_button.grab_focus()
 
 	# Story setup (NO SCROLLING)
@@ -128,6 +147,42 @@ func _ready() -> void:
 	start_button.text = ("CONTINUE" if can_continue else "START")
 	
 	_build_reset_prompt()
+	_update_coop_status()
+
+func _update_coop_status() -> void:
+	if coop_status == null:
+		return
+	var nm := _net()
+	if nm == null or not nm.has_method("is_coop"):
+		coop_status.text = "CO-OP: (network not loaded)"
+		return
+	if nm.call("is_coop"):
+		var me := int(nm.call("local_peer_id"))
+		coop_status.text = "CO-OP: connected (you=%d)" % me
+	else:
+		coop_status.text = "CO-OP: off"
+
+func _on_coop_host_pressed() -> void:
+	var nm := _net()
+	if nm == null:
+		return
+	var ok = nm.call("start_host", 8910)
+	if ok:
+		if coop_addr != null:
+			coop_addr.text = "ws://127.0.0.1:8910"
+	_update_coop_status()
+
+func _on_coop_join_pressed() -> void:
+	var nm := _net()
+	if nm == null:
+		return
+	var url := ""
+	if coop_addr != null:
+		url = coop_addr.text.strip_edges()
+	if url == "":
+		url = "ws://127.0.0.1:8910"
+	nm.call("start_client", url)
+	_update_coop_status()
 
 func _process(delta: float) -> void:
 	if _busy:

@@ -33,6 +33,15 @@ extends Control
 
 @export var roster_columns: int = 3
 
+const COOP_UNITS_PER_PLAYER := 2
+
+func _net() -> Node:
+	return get_tree().root.get_node_or_null("NetworkManager")
+
+func _is_coop() -> bool:
+	var nm := _net()
+	return (nm != null and nm.has_method("is_coop") and nm.call("is_coop"))
+
 @onready var roster_grid: GridContainer = $UI/RosterPanel/ScrollContainer/RosterGrid
 @onready var squad_grid: GridContainer = $UI/SquadPanel/SquadGrid
 @onready var start_button: Button = $UI/SquadPanel/StartButton
@@ -89,7 +98,15 @@ func _ready() -> void:
 	# Grid settings
 	if roster_grid.columns <= 0:
 		roster_grid.columns = roster_columns
+	# CO-OP: each player picks 2 units locally
+	if _is_coop():
+		squad_size = COOP_UNITS_PER_PLAYER
 	squad_grid.columns = squad_size
+
+	# CO-OP: watch pick sync so host can start when both ready
+	var nm := _net()
+	if nm != null and nm.has_signal("squad_picks_changed") and not nm.is_connected("squad_picks_changed", Callable(self, "_on_coop_picks_changed")):
+		nm.connect("squad_picks_changed", Callable(self, "_on_coop_picks_changed"))
 
 	# Build roster
 	await _build_roster_async()
@@ -99,6 +116,24 @@ func _ready() -> void:
 	info_panel.visible = false
 
 func _on_start() -> void:
+	# -------------------------------------------------
+	# CO-OP: "Start" becomes "Ready" (2 units per player)
+	# Host begins when both players are ready.
+	# -------------------------------------------------
+	if _is_coop():
+		if _selected.size() != squad_size:
+			return
+		var nm := _net()
+		if nm == null:
+			return
+		# Submit local picks by path
+		var paths: Array[String] = []
+		for s in _selected:
+			paths.append(_scene_path(s))
+		nm.call("submit_local_picks", paths)
+		_on_coop_picks_changed()
+		return
+
 	if _selected.size() != squad_size:
 		return
 
@@ -183,6 +218,90 @@ func _on_start() -> void:
 			rs.call("save_to_disk")
 
 	# go to overworld
+	if overworld_scene != null:
+		get_tree().change_scene_to_packed(overworld_scene)
+	else:
+		get_tree().change_scene_to_file("res://scenes/overworld.tscn")
+
+func _scene_path(ui_id: String) -> String:
+	# ui_id is like "CarBot#1" etc.
+	var d := _find_roster_data(ui_id)
+	if d.is_empty():
+		return ""
+
+	var p := str(d.get("path", ""))
+	if p != "" and ResourceLoader.exists(p):
+		return p
+
+	# fallback: sometimes roster stores "scene_path"
+	p = str(d.get("scene_path", ""))
+	if p != "" and ResourceLoader.exists(p):
+		return p
+
+	return ""
+func _on_coop_picks_changed() -> void:
+	var nm := _net()
+	if nm == null:
+		return
+	# Button label
+	if start_button != null:
+		var me := int(nm.call("local_peer_id"))
+		var mine := []
+		if "picks_by_peer" in nm:
+			mine = nm.picks_by_peer.get(me, [])
+		if (mine is Array and mine.size() >= COOP_UNITS_PER_PLAYER):
+			start_button.text = "READY"
+		else:
+			start_button.text = "READY (%d/%d)" % [min(_selected.size(), COOP_UNITS_PER_PLAYER), COOP_UNITS_PER_PLAYER]
+
+	# Host auto-start
+	if nm.call("is_coop") and nm.call("are_both_picks_ready", COOP_UNITS_PER_PLAYER):
+		if int(nm.call("local_peer_id")) == 1:
+			_begin_coop_run()
+
+func _begin_coop_run() -> void:
+	var nm := _net()
+	if nm == null:
+		return
+	if int(nm.call("local_peer_id")) != 1:
+		return
+	if not nm.call("are_both_picks_ready", COOP_UNITS_PER_PLAYER):
+		return
+
+	var rs := _rs()
+	if rs == null:
+		return
+
+	var host_picks: Array = nm.picks_by_peer.get(1, [])
+	var client_id := int(nm.client_peer_id) if ("client_peer_id" in nm) else -1
+	var client_picks: Array = nm.picks_by_peer.get(client_id, [])
+
+	var entries: Array = []
+	var all_paths: Array[String] = []
+	for p in host_picks:
+		entries.append({"path": str(p), "owner_peer_id": 1, "quirks": []})
+		all_paths.append(str(p))
+	for p2 in client_picks:
+		entries.append({"path": str(p2), "owner_peer_id": client_id, "quirks": []})
+		all_paths.append(str(p2))
+
+	if rs.has_method("set_squad_entries"):
+		rs.call("set_squad_entries", entries)
+	else:
+		rs.squad_entries = entries
+	# (We rely on squad_entries; game reads these via RunState.get_squad_defs)
+
+	_rpc_coop_start_overworld.rpc(entries, all_paths)
+
+@rpc("any_peer", "call_local", "reliable")
+func _rpc_coop_start_overworld(entries: Array, all_paths: Array) -> void:
+	var rs := _rs()
+	if rs != null:
+		if rs.has_method("set_squad_entries"):
+			rs.call("set_squad_entries", entries)
+		else:
+			rs.squad_entries = entries
+		# (We rely on squad_entries; game reads these via RunState.get_squad_defs)
 	if overworld_scene != null:
 		get_tree().change_scene_to_packed(overworld_scene)
 	else:

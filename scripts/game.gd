@@ -357,11 +357,42 @@ func regenerate_map() -> void:
 		
 	map_controller.reset_for_regen()
 	
-	rng.randomize()
-	if randomize_season_each_generation:
-		season = SEASONS[rng.randi_range(0, SEASONS.size() - 1)]
-
-	_pick_weather_for_generation()
+	# -------------------------------------------------
+	# CO-OP: make map generation deterministic
+	# Host picks (seed/season/weather), clients mirror.
+	# -------------------------------------------------
+	var nm := get_tree().root.get_node_or_null("NetworkManager")
+	var coop = (nm != null and nm.has_method("is_coop") and nm.call("is_coop"))
+	if coop:
+		if int(nm.call("local_peer_id")) == 1:
+			# Host decides settings once per mission
+			var mseed := 0
+			if rs != null:
+				mseed = int(rs.mission_seed)
+			if mseed == 0:
+				mseed = int(Time.get_ticks_msec())
+				if rs != null:
+					rs.mission_seed = mseed
+			rng.seed = mseed
+			var chosen_season := season
+			if randomize_season_each_generation:
+				chosen_season = SEASONS[rng.randi_range(0, SEASONS.size() - 1)]
+			season = chosen_season
+			_pick_weather_for_generation()
+			nm.call("set_mission_settings", mseed, int(SEASONS.find(season)), int(weather))
+		else:
+			# Client waits for host settings
+			if nm.has_signal("mission_settings_ready") and not nm.has_mission_settings:
+				await nm.mission_settings_ready
+			rng.seed = int(nm.mission_seed)
+			if int(nm.picked_season) >= 0 and int(nm.picked_season) < SEASONS.size():
+				season = SEASONS[int(nm.picked_season)]
+			weather = int(nm.picked_weather)
+	else:
+		rng.randomize()
+		if randomize_season_each_generation:
+			season = SEASONS[rng.randi_range(0, SEASONS.size() - 1)]
+		_pick_weather_for_generation()
 
 	if grid == null:
 		grid = GridData.new()

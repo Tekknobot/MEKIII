@@ -385,6 +385,37 @@ theme_override_fonts/font = ExtResource("2_sa3yf")
 theme_override_font_sizes/font_size = 32
 text = "RESTART"
 
+[node name="CoopRow" type="HBoxContainer" parent="Center/PanelContainer/MarginContainer/VBoxContainer"]
+layout_mode = 2
+alignment = 1
+
+[node name="CoopAddr" type="LineEdit" parent="Center/PanelContainer/MarginContainer/VBoxContainer/CoopRow"]
+custom_minimum_size = Vector2(340, 0)
+layout_mode = 2
+placeholder_text = "ws://HOST_IP:8910"
+text = "ws://127.0.0.1:8910"
+
+[node name="CoopHostButton" type="Button" parent="Center/PanelContainer/MarginContainer/VBoxContainer/CoopRow"]
+custom_minimum_size = Vector2(140, 16)
+layout_mode = 2
+theme_override_fonts/font = ExtResource("2_sa3yf")
+theme_override_font_sizes/font_size = 20
+text = "CO-OP HOST"
+
+[node name="CoopJoinButton" type="Button" parent="Center/PanelContainer/MarginContainer/VBoxContainer/CoopRow"]
+custom_minimum_size = Vector2(140, 16)
+layout_mode = 2
+theme_override_fonts/font = ExtResource("2_sa3yf")
+theme_override_font_sizes/font_size = 20
+text = "CO-OP JOIN"
+
+[node name="CoopStatus" type="Label" parent="Center/PanelContainer/MarginContainer/VBoxContainer"]
+layout_mode = 2
+theme_override_fonts/font = ExtResource("2_sa3yf")
+theme_override_font_sizes/font_size = 18
+horizontal_alignment = 1
+text = "CO-OP: off"
+
 [node name="StoryClip" type="Control" parent="."]
 z_index = 4096
 custom_minimum_size = Vector2(120, 120)

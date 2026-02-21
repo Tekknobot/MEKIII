@@ -183,6 +183,13 @@ func set_squad_units(ids: Array[String]) -> void:
 		if not e.is_empty():
 			squad_scene_paths.append(str(e.get("path", "")))
 
+func set_squad_entries(entries: Array) -> void:
+	# entries are dictionaries: {path:String, owner_peer_id:int, id:String(optional), quirks:Array(optional)}
+	squad_entries = entries.duplicate(true)
+	# ensure other squad sources don't override this
+	squad_unit_ids.clear()
+	squad_scene_paths.clear()
+
 func has_squad() -> bool:
 	return (not squad_unit_ids.is_empty()) or (not squad_scene_paths.is_empty())
 
@@ -229,7 +236,12 @@ func get_squad_defs() -> Array[Dictionary]:
 			var p2 := str(e.get("path", ""))
 			if p2 == "":
 				continue
-			out.append({"id": str(e.get("id","")), "path": p2, "quirks": e.get("quirks", [])})
+			out.append({
+				"id": str(e.get("id","")),
+				"path": p2,
+				"quirks": e.get("quirks", []),
+				"owner_peer_id": int(e.get("owner_peer_id", 1)),
+			})
 		if out.size() > 0:
 			return out
 
@@ -1116,20 +1128,6 @@ func _check_stat_achievements() -> void:
 		var minv := int(d.get("min", 0))
 		if stat_key != "" and get_stat(stat_key) >= minv:
 			unlock_achievement(id)
-
-func set_squad_entries(entries: Array) -> void:
-	squad_entries = entries.duplicate(true)
-
-	# keep paths for legacy code that expects them
-	squad_scene_paths.clear()
-	for e in squad_entries:
-		if e is Dictionary and e.has("path"):
-			squad_scene_paths.append(str(e["path"]))
-
-	# ensure ids don’t override anything
-	squad_unit_ids.clear()
-
-	save_to_disk()
 
 func set_boss_nodes(ids: Array, final_id: int) -> void:
 	boss_node_ids.clear()

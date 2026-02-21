@@ -1,6 +1,13 @@
 extends Node2D
 class_name Unit
 
+# ---------------------------------------------------------
+# Co-op helpers (network ownership)
+# ---------------------------------------------------------
+# These are harmless in single-player.
+var net_id: int = -1
+var owner_peer_id: int = 1
+
 enum Team { ALLY, ENEMY }
 
 signal quirk_triggered(quirk_id: StringName, label: String, color: Color)

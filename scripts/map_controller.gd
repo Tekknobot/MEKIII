@@ -1,6 +1,48 @@
 extends Node
 class_name MapController
 
+# ---------------------------------------------------------
+# Co-op (2-player) helpers
+# ---------------------------------------------------------
+var _net_units_by_id: Dictionary = {} # int -> Unit
+var _next_net_id: int = 1
+
+func _net_mgr() -> Node:
+	return get_tree().root.get_node_or_null("NetworkManager")
+
+func _is_coop() -> bool:
+	var nm := _net_mgr()
+	return (nm != null and nm.has_method("is_coop") and nm.call("is_coop"))
+
+func _local_peer_id() -> int:
+	return multiplayer.get_unique_id() if multiplayer != null else 1
+
+func _can_local_control(u: Unit) -> bool:
+	if not _is_coop():
+		return true
+	if u == null or not is_instance_valid(u):
+		return false
+	var owner := int(u.get_meta("owner_peer_id", 1)) if u.has_meta("owner_peer_id") else int(u.owner_peer_id)
+	return owner == _local_peer_id()
+
+func _net_register_unit(u: Unit) -> void:
+	if u == null or not is_instance_valid(u):
+		return
+	if u.net_id <= 0:
+		u.net_id = _next_net_id
+		_next_net_id += 1
+	_net_units_by_id[u.net_id] = u
+
+func _net_get_unit(id: int) -> Unit:
+	var u = _net_units_by_id.get(id, null)
+	return u if (u != null and is_instance_valid(u)) else null
+
+func _sfx_pitch() -> float:
+	# In co-op, avoid random pitch (keeps both peers deterministic).
+	if _is_coop():
+		return 1.0
+	return randf_range(0.95, 1.05)
+
 @export var camera: Camera2D
 @export var terrain_path: NodePath
 @export var units_root_path: NodePath
@@ -1129,6 +1171,18 @@ func spawn_units() -> void:
 		units_root.add_child(u)
 
 		u.team = Unit.Team.ALLY
+
+		# CO-OP: per-unit owner + stable net id
+		var owner_peer := 1
+		if not ally_defs.is_empty() and i < ally_defs.size():
+			owner_peer = int(ally_defs[i].get("owner_peer_id", 1))
+
+		# If your Unit script doesn't have owner_peer_id declared, comment this line out
+		# and rely on meta only.
+		u.owner_peer_id = owner_peer
+		u.set_meta("owner_peer_id", owner_peer)
+
+		_net_register_unit(u)
 		_apply_runstate_upgrades_to_unit(u)
 		_wire_unit_signals(u)
 
@@ -1375,8 +1429,11 @@ func _spawn_elite_mech_in_zone(zone_cells: Array[Vector2i], structure_blocked: D
 
 	units_root.add_child(u)
 	_wire_unit_signals(u)
+	_net_register_unit(u)
 
 	u.team = Unit.Team.ENEMY
+	u.owner_peer_id = 0
+	u.set_meta("owner_peer_id", 0)
 	u.hp = u.max_hp
 
 	u.set_cell(cell, terrain)
@@ -2067,6 +2124,9 @@ func unit_at_cell(c: Vector2i) -> Unit:
 func _select(u: Unit) -> void:
 	if TM != null and not TM.can_select(u):
 		return
+	# CO-OP: only allow selecting your owned allies
+	if u != null and is_instance_valid(u) and u.team == Unit.Team.ALLY and not _can_local_control(u):
+		return
 	if selected == u:
 		return
 
@@ -2322,7 +2382,7 @@ func _do_attack(attacker: Unit, defender: Unit) -> void:
 	_face_unit_toward_world(attacker, defender.global_position)
 	_face_unit_toward_world(defender, attacker.global_position)
 	
-	_sfx(&"attack_swing", sfx_volume_world, randf_range(0.95, 1.05), attacker.global_position)
+	_sfx(&"attack_swing", sfx_volume_world, _sfx_pitch(), attacker.global_position)
 	_play_attack_anim(attacker)
 
 	_flash_unit_white(defender, attack_flash_time)
@@ -2343,7 +2403,7 @@ func _do_attack(attacker: Unit, defender: Unit) -> void:
 
 	defender.take_damage(dmg)
 
-	_sfx(&"attack_hit", sfx_volume_world, randf_range(0.95, 1.05), defender.global_position)
+	_sfx(&"attack_hit", sfx_volume_world, _sfx_pitch(), defender.global_position)
 
 	# ✅ QUIRK TRIGGER: kill confirm
 	# (defender might be freed later; check now)
@@ -3037,7 +3097,7 @@ func _move_selected_to(target: Vector2i) -> void:
 		if u.has_method("car_step_sfx"):
 			u.call("car_step_sfx")
 
-		_sfx(&"move_step", sfx_volume_world * 0.55, randf_range(0.95, 1.05), to_world)
+		_sfx(&"move_step", sfx_volume_world * 0.55, _sfx_pitch(), to_world)
 
 		var tw := create_tween()
 		tw.set_trans(Tween.TRANS_LINEAR)
@@ -4281,7 +4341,7 @@ func _trigger_mine_if_present(u: Unit) -> void:
 	if u.team == mine_team:
 		mines_by_cell.erase(c)
 		remove_mine_visual(c)
-		_sfx(&"mine_pickup", sfx_volume_ui, randf_range(0.95, 1.05), _cell_world(c))
+		_sfx(&"mine_pickup", sfx_volume_ui, _sfx_pitch(), _cell_world(c))
 		# (inventory returns...)
 		emit_signal("tutorial_event", &"mine_picked_up", {"cell": c, "team": mine_team})
 		return
@@ -4344,7 +4404,7 @@ func spawn_explosion_at_cell(cell: Vector2i) -> void:
 	var world_pos := terrain.to_global(terrain.map_to_local(cell))
 	world_pos += Vector2(0, explosion_y_offset_px)
 	fx.global_position = world_pos
-	_sfx(&"explosion_small", sfx_volume_world * 0.4, randf_range(0.95, 1.05), world_pos)
+	_sfx(&"explosion_small", sfx_volume_world * 0.4, _sfx_pitch(), world_pos)
 	
 	# Depth using grid-space (recomputed after offset)
 	var local := terrain.to_local(world_pos)
@@ -4905,7 +4965,7 @@ func _check_overwatch_trigger(_mover: Unit, _entered_cell: Vector2i) -> void:
 		_sync_ghost_facing(w)
 
 		_say(w, "Contact!")
-		_sfx(sfx_overwatch_shot, sfx_volume_world, randf_range(0.95, 1.05), w.global_position)
+		_sfx(sfx_overwatch_shot, sfx_volume_world, _sfx_pitch(), w.global_position)
 
 		await _do_attack(w, t)
 		
@@ -5552,7 +5612,15 @@ func _try_recruit_near_structure(mover: Unit) -> void:
 		return
 
 	_say(mover, "RECRUIT INBOUND")
-	_spawn_recruited_ally_fadein(spawn_cell)
+	# CO-OP: the recruiting player's peer controls the recruited unit.
+	if _is_coop():
+		_rpc_spawn_recruit.rpc(spawn_cell, int(mover.get_meta("owner_peer_id", mover.owner_peer_id)))
+	else:
+		_spawn_recruited_ally_fadein(spawn_cell)
+
+@rpc("any_peer", "call_local", "reliable")
+func _rpc_spawn_recruit(spawn_cell: Vector2i, owner_peer_id: int) -> void:
+	_spawn_recruited_ally_fadein(spawn_cell, owner_peer_id)
 	
 func _find_adjacent_structure_cell(cell: Vector2i) -> Vector2i:
 	# Use the authoritative structure_blocked dictionary (footprint coverage)
@@ -5613,7 +5681,7 @@ func _find_open_adjacent_to_structure(s_cell: Vector2i) -> Vector2i:
 	# Prefer closer-to-player-ish: pick random is fine, but you can sort if you want
 	return candidates.pick_random()
 
-func _spawn_recruited_ally_fadein(spawn_cell: Vector2i) -> void:
+func _spawn_recruited_ally_fadein(spawn_cell: Vector2i, owner_peer_id := 1) -> void:
 	# one recruit per cell ever
 	if _recruits_spawned_at.has(spawn_cell):
 		return
@@ -5716,6 +5784,9 @@ func _spawn_recruited_ally_fadein(spawn_cell: Vector2i) -> void:
 	units_root.add_child(u)
 	_wire_unit_signals(u)
 	u.team = Unit.Team.ALLY
+	u.owner_peer_id = int(owner_peer_id)
+	u.set_meta("owner_peer_id", int(owner_peer_id))
+	_net_register_unit(u)
 	u.hp = u.max_hp
 	u.global_position.y -= 720
 
@@ -5829,7 +5900,7 @@ func fire_support_missile_curve_async(
 	line.add_point(curve[0])
 	line.add_point(curve[0])
 
-	_sfx(sfx_missile_launch, sfx_volume_world, randf_range(0.95, 1.05), start_w)
+	_sfx(sfx_missile_launch, sfx_volume_world, _sfx_pitch(), start_w)
 
 	var tw := create_tween()
 	tw.set_trans(Tween.TRANS_LINEAR)
@@ -5945,7 +6016,7 @@ func try_collect_pickup(u: Variant) -> void:
 
 	# ✅ PLAY PICKUP SFX (cell-world position is best)
 	if has_method("_sfx"):
-		_sfx(&"pickup_floppy", 1.0, randf_range(0.95, 1.05), _cell_world(c))
+		_sfx(&"pickup_floppy", 1.0, _sfx_pitch(), _cell_world(c))
 
 	# ✅ Only increment for allies
 	beacon_parts_collected += 1
@@ -6060,7 +6131,7 @@ func get_kills_until_next_floppy() -> int:
 func _on_pickup_collected(u: Unit, cell: Vector2i) -> void:
 	# give the unit a floppy
 	u.floppy_parts += 1
-	_sfx(&"pickup_floppy", 1.0, randf_range(0.95, 1.05), _cell_world(u.cell))
+	_sfx(&"pickup_floppy", 1.0, _sfx_pitch(), _cell_world(u.cell))
 
 	_check_and_trigger_beacon_sweep()
 
@@ -6111,7 +6182,7 @@ func satellite_sweep() -> void:
 		_spawn_sat_beam(p)
 
 		# laser sfx + optional laser fx scene
-		_sfx(&"sat_laser", 1.0, randf_range(0.95, 1.05), p)
+		_sfx(&"sat_laser", 1.0, _sfx_pitch(), p)
 
 		# explosion (your existing explosion scene)
 		var boom = boom_scene.instantiate()
@@ -6389,7 +6460,7 @@ func _evac_pickup_unit(uid: int) -> void:
 	if u.team != Unit.Team.ALLY:
 		return
 
-	_sfx(evac_sfx_pickup, sfx_volume_world, randf_range(0.95, 1.05), u.global_position)
+	_sfx(evac_sfx_pickup, sfx_volume_world, _sfx_pitch(), u.global_position)
 
 	# Choose what to animate (visual if present, otherwise the unit node)
 	var visual := _get_unit_visual_node(u)
@@ -7077,7 +7148,7 @@ func _drop_unit_from_bomber(u: Unit, bomber: Node2D, target_cell: Vector2i) -> v
 		pop.tween_property(vis, "position", base, max(0.01, drop_land_pop_time))
 		await pop.finished
 
-	_sfx(drop_sfx, sfx_volume_world, randf_range(0.95, 1.05), target_world)
+	_sfx(drop_sfx, sfx_volume_world, _sfx_pitch(), target_world)
 
 func _apply_runstate_upgrades_to_unit(u: Unit) -> void:
 	var rs := get_tree().root.get_node_or_null("RunState")
