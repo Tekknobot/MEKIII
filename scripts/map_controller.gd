@@ -8,7 +8,7 @@ var _net_units_by_id: Dictionary = {} # int -> Unit
 var _next_net_id: int = 1
 
 func _net_mgr() -> Node:
-	return get_tree().root.get_node_or_null("NetworkManager")
+	return get_tree().root.get_node_or_null("Network")
 
 func _is_coop() -> bool:
 	var nm := _net_mgr()
@@ -850,7 +850,8 @@ func spawn_units() -> void:
 					"scene": scene,
 					"path": p,
 					"id": str(d.get("id", "")),
-					"quirks": qs
+					"quirks": qs,
+					"owner_peer_id": int(d.get("owner_peer_id", 1)),
 				})
 
 	# ---------------------------------------------------
@@ -1000,10 +1001,13 @@ func spawn_units() -> void:
 				" quirks0=", ally_defs[0].get("quirks", []) if ally_defs.size() > 0 else "none")
 	
 	var ally_src_n := ally_defs.size() if not ally_defs.is_empty() else ally_scenes.size()
-	var start_n = min(ally_count, ally_src_n)
-	if start_n <= 0:
-		push_warning("spawn_units: no allies to spawn (start_n <= 0).")
-		return
+
+	var start_n := 0
+	if _is_coop():
+		# ✅ co-op: spawn every picked unit (2 per player => 4 total)
+		start_n = ally_src_n
+	else:
+		start_n = min(ally_count, ally_src_n)
 
 	# ---------------------------------------------------
 	# 1) Pick a connected component big enough for allies

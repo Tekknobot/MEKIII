@@ -23,10 +23,10 @@ config/icon="uid://chr7hpqn7573j"
 RunStateNode="*res://scripts/RunState.gd"
 MusicManagerNode="*res://scripts/music_manager.gd"
 QuirkData="*res://scripts/quirk_db.gd"
+Network="*res://scripts/network_manager.gd"
 
 [display]
 
-window/size/mode=3
 window/stretch/mode="canvas_items"
 window/stretch/aspect="expand"
 

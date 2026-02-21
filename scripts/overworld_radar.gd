@@ -143,9 +143,21 @@ func _ready() -> void:
 
 	# --- seed ---Current node highlight
 	if rs != null:
-		if int(rs.overworld_seed) == 0:
-			rs.overworld_seed = int(Time.get_unix_time_from_system()) ^ randi()
-		rng.seed = int(rs.overworld_seed)
+		var nm := get_tree().root.get_node_or_null("Network")
+
+		if rs != null:
+			if nm != null and nm.has_method("is_coop") and nm.call("is_coop"):
+				# ✅ co-op: use the shared seed from Network (already synced)
+				if nm.has_method("shared_seed") and int(nm.shared_seed) != 0:
+					rs.overworld_seed = int(nm.shared_seed)
+
+			# fallback for solo / missing seed
+			if int(rs.overworld_seed) == 0:
+				rs.overworld_seed = int(Time.get_unix_time_from_system()) ^ randi()
+
+			rng.seed = int(rs.overworld_seed)
+		else:
+			rng.randomize()
 	else:
 		rng.randomize()
 

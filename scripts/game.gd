@@ -361,7 +361,7 @@ func regenerate_map() -> void:
 	# CO-OP: make map generation deterministic
 	# Host picks (seed/season/weather), clients mirror.
 	# -------------------------------------------------
-	var nm := get_tree().root.get_node_or_null("NetworkManager")
+	var nm := get_tree().root.get_node_or_null("Network")
 	var coop = (nm != null and nm.has_method("is_coop") and nm.call("is_coop"))
 	if coop:
 		if int(nm.call("local_peer_id")) == 1:

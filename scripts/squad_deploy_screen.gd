@@ -36,7 +36,7 @@ extends Control
 const COOP_UNITS_PER_PLAYER := 2
 
 func _net() -> Node:
-	return get_tree().root.get_node_or_null("NetworkManager")
+	return get_tree().root.get_node_or_null("Network")
 
 func _is_coop() -> bool:
 	var nm := _net()
@@ -297,16 +297,33 @@ func _begin_coop_run() -> void:
 func _rpc_coop_start_overworld(entries: Array, all_paths: Array) -> void:
 	var rs := _rs()
 	if rs != null:
+		# Keep your existing storage
 		if rs.has_method("set_squad_entries"):
 			rs.call("set_squad_entries", entries)
 		else:
 			rs.squad_entries = entries
-		# (We rely on squad_entries; game reads these via RunState.get_squad_defs)
+
+		# ✅ ADD THESE TWO BLOCKS RIGHT HERE (before change_scene)
+		# 1) For OverworldRadar HUD
+		if "squad_scene_paths" in rs:
+			rs.set("squad_scene_paths", all_paths)
+		rs.set_meta(&"squad_scene_paths", all_paths)
+
+		# 2) For MapController spawn + ownership
+		if "squad_defs" in rs:
+			rs.set("squad_defs", entries)
+		rs.set_meta(&"squad_defs", entries)
+
+		# Optional but nice: persist
+		if rs.has_method("save_to_disk"):
+			rs.call("save_to_disk")
+
+	# NOW change scenes
 	if overworld_scene != null:
 		get_tree().change_scene_to_packed(overworld_scene)
 	else:
 		get_tree().change_scene_to_file("res://scenes/overworld.tscn")
-
+		
 func _fade_on_ready() -> void:
 	# optional: one frame delay so Control layout/modulate is initialized
 	await get_tree().process_frame

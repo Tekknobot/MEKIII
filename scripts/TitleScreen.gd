@@ -18,7 +18,7 @@ extends Control
 @onready var coop_status: Label = get_node_or_null("Center/PanelContainer/MarginContainer/VBoxContainer/CoopStatus") as Label
 
 func _net() -> Node:
-	return get_tree().root.get_node_or_null("NetworkManager")
+	return get_tree().root.get_node_or_null("Network")
 
 var _reset_layer: CanvasLayer = null
 var _reset_prompt_root: Control = null
@@ -102,7 +102,7 @@ func _ready() -> void:
 	# Ensure NetworkManager exists (we can't rely on Project Settings autoload in a patch zip)
 	if _net() == null:
 		var nm = load("res://scripts/network_manager.gd").new()
-		nm.name = "NetworkManager"
+		nm.name = "Network"
 		get_tree().root.add_child(nm)
 
 	#MusicManagerNode.play_stream(preload("res://audio/Music/Track 1.wav"))	
