@@ -23,6 +23,7 @@ var _coop_snapshot_pending: bool = false
 var _coop_snapshot_seq: int = 0
 var _coop_client_ready: bool = false
 
+
 func _net() -> Node:
 	var t := get_tree()
 	if t == null:
@@ -322,6 +323,10 @@ func _start_mission() -> void:
 			rng.seed = mseed
 			seed(mseed) # ✅ global RNG too
 
+			# ✅ Client never ran _start_mission(), so it never picked biome_index.
+			# Re-pick biome deterministically from the mission seed (matches host).
+			_pick_biome_for_generation()
+			
 			var chosen_season := season
 			if randomize_season_each_generation:
 				chosen_season = SEASONS[rng.randi_range(0, SEASONS.size() - 1)]
@@ -363,7 +368,8 @@ func _start_mission() -> void:
 
 	# setup + spawn units
 	map_controller.setup(self)
-	map_controller.spawn_units()
+	
+	await map_controller.spawn_units() # ✅ IMPORTANT: wait for bomber + ally drop + weakpoint registration
 
 	if _is_coop() and _is_host():
 		_coop_client_ready = false
@@ -511,7 +517,7 @@ func regenerate_map() -> void:
 	spawn_structures()
 
 	map_controller.setup(self)
-	map_controller.spawn_units()
+	await map_controller.spawn_units() # ✅ IMPORTANT: wait for bomber + ally drop + weakpoint registration
 
 	if turn_manager != null and is_instance_valid(turn_manager):
 		turn_manager.on_units_spawned()
@@ -1095,7 +1101,9 @@ func spawn_structures() -> void:
 		placed += 1
 
 func _apply_snapshot(snap: Dictionary) -> void:
-	# settings
+	# -------------------------
+	# 1) Settings / RNG
+	# -------------------------
 	var mseed := int(snap.get("mission_seed", 0))
 	season = int(snap.get("season", int(season)))
 	weather = int(snap.get("weather", int(weather)))
@@ -1103,7 +1111,9 @@ func _apply_snapshot(snap: Dictionary) -> void:
 	rng.seed = mseed
 	seed(mseed)
 
-	# grid
+	# -------------------------
+	# 2) Grid + terrain data
+	# -------------------------
 	map_width = int(snap.get("w", map_width))
 	map_height = int(snap.get("h", map_height))
 
@@ -1119,12 +1129,17 @@ func _apply_snapshot(snap: Dictionary) -> void:
 				grid.terrain[x][y] = int(data[idx])
 			idx += 1
 
-	# paint terrain directly (NO generation)
+	# biome affects how we paint tiles (must be set before painting)
+	biome_index = int(snap.get("biome_index", biome_index))
+
+	# Paint terrain directly (NO generation)
 	_apply_biome_set()
 	_paint_terrain()
 	_apply_weather_tiles()
 
-	# roads
+	# -------------------------
+	# 3) Roads
+	# -------------------------
 	_clear_roads()
 	_sync_roads_transform()
 
@@ -1141,7 +1156,9 @@ func _apply_snapshot(snap: Dictionary) -> void:
 
 	_rebuild_road_blocked()
 
-	# structures
+	# -------------------------
+	# 4) Structures
+	# -------------------------
 	if structures_root == null:
 		structures_root = self
 	for ch in structures_root.get_children():
@@ -1150,16 +1167,19 @@ func _apply_snapshot(snap: Dictionary) -> void:
 	var structs: Array = snap.get("structures", [])
 	for d in structs:
 		var sp := str(d.get("scene", ""))
-		var origin = d.get("origin", Vector2i(-1, -1))
+		var origin: Vector2i = d.get("origin", Vector2i(-1, -1))
 		if sp == "" or not ResourceLoader.exists(sp):
 			continue
+
 		var ps := load(sp) as PackedScene
 		if ps == null:
 			continue
+
 		var inst := ps.instantiate()
 		var b := inst as Node2D
 		if b == null:
 			continue
+
 		structures_root.add_child(b)
 		b.set_meta("scene_path", sp)
 		b.set_meta("origin_cell", origin)
@@ -1169,13 +1189,50 @@ func _apply_snapshot(snap: Dictionary) -> void:
 		else:
 			b.global_position = terrain.to_global(terrain.map_to_local(origin))
 
-	# units
+	# -------------------------
+	# 5) MapController setup (must exist before beacon/units)
+	# -------------------------
 	map_controller.setup(self)
+
+	# -------------------------
+	# Boss visual (client)
+	# -------------------------
+	var boss_present := bool(snap.get("boss_present", false))
+	var boss := _find_boss_controller()
+	if boss != null:
+		boss.visible = bool(snap.get("boss_present", false))
+		if boss.visible and boss.has_method("bind_map_client"):
+			boss.call("bind_map_client", map_controller)
+			
+	# -------------------------
+	# 6) Beacon state + marker (after setup)
+	# -------------------------
+	if map_controller != null and is_instance_valid(map_controller):
+		map_controller.beacon_cell = snap.get("beacon_cell", map_controller.beacon_cell)
+		map_controller.beacon_parts_collected = int(snap.get("beacon_parts_collected", 0))
+		map_controller.beacon_ready = bool(snap.get("beacon_ready", false))
+		map_controller._ensure_beacon_marker()
+
+	# -------------------------
+	# 7) Bomber cosmetic FIRST, then units pop in
+	# -------------------------
+	var dc: Vector2i = snap.get("drop_center_cell", Vector2i.ZERO)
+	if dc != Vector2i.ZERO and map_controller.has_method("_play_bomber_cosmetic"):
+		map_controller.call("_play_bomber_cosmetic", dc)
+		if map_controller.has_signal("bomber_cosmetic_done"):
+			await map_controller.bomber_cosmetic_done
+
+	# -------------------------
+	# 8) Units (includes squad, zombies, boss, weakpoints if they’re in snapshot)
+	# -------------------------
 	map_controller.apply_units_snapshot(snap.get("units", []))
 
+	# -------------------------
+	# 9) TurnManager last
+	# -------------------------
 	if turn_manager != null and is_instance_valid(turn_manager):
 		turn_manager.on_units_spawned()
-		
+				
 func _in_bounds(c: Vector2i) -> bool:
 	return c.x >= 0 and c.y >= 0 and c.x < map_width and c.y < map_height
 
@@ -1383,4 +1440,37 @@ func _build_snapshot() -> Dictionary:
 		units = map_controller.build_units_snapshot()
 	snap["units"] = units
 
+	# cosmetic: where bomber arrived
+	if map_controller != null and is_instance_valid(map_controller):
+		snap["drop_center_cell"] = map_controller.get_meta("drop_center_cell", Vector2i.ZERO)
+		
+	# --- beacon ---
+	if map_controller != null and is_instance_valid(map_controller):
+		snap["beacon_cell"] = map_controller.beacon_cell
+		snap["beacon_parts_collected"] = map_controller.beacon_parts_collected
+		snap["beacon_ready"] = map_controller.beacon_ready
+		
+	snap["biome_index"] = int(biome_index)
+
+	var count_wp := 0
+	for d in snap.get("units", []):
+		if str(d.get("scene_path","")).find("weakpoint") != -1:
+			count_wp += 1
+	print("SNAP weakpoints=", count_wp, " total units=", (snap.get("units",[]) as Array).size())
+
+	# boss visual exists?
+	var boss := _find_boss_controller()
+	snap["boss_present"] = (boss != null and boss.visible)
+
 	return snap
+
+func _find_boss_controller() -> Node:
+	var b := get_node_or_null("BossController")
+	if b == null and map_controller != null:
+		b = map_controller.get_node_or_null("BossController")
+	if b == null:
+		b = get_tree().current_scene.get_node_or_null("BossController")
+	# Optional best-practice: put BossController in a group called "BossController"
+	if b == null:
+		b = get_tree().get_first_node_in_group("BossController")
+	return b

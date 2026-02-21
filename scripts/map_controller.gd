@@ -127,7 +127,7 @@ var _start_max_zombies := 8
 
 signal selection_changed(unit: Unit)
 signal aim_changed(mode: int, special_id: StringName)
-
+signal bomber_cosmetic_done
 
 # -------------------------------------------------------
 # Achievements / stats helpers (RunState-backed)
@@ -1113,6 +1113,8 @@ func spawn_units() -> void:
 	# 5) Allies AFTER (bomber drop)
 	# ---------------------------------------------------
 	var drop_center_cell := chosen_cells[0]
+	set_meta("drop_center_cell", drop_center_cell)
+	
 	var drop_center_world := _cell_world(drop_center_cell)
 	_sfx(bomber_sfx_in, sfx_volume_world, 1.0, drop_center_world)
 
@@ -1239,6 +1241,34 @@ func spawn_units() -> void:
 
 	_ensure_beacon_marker()
 
+func _play_bomber_cosmetic(center_cell: Vector2i) -> void:
+	if terrain == null:
+		return
+	var w := _cell_world(center_cell)
+
+	var bomber := _spawn_bomber(w.x, w.y)
+	if bomber == null:
+		return
+
+	_sfx(bomber_sfx_in, sfx_volume_world, 1.0, w)
+
+	await _tween_node_global_pos(
+		bomber,
+		bomber.global_position,
+		w + Vector2(0, -bomber_hover_px),
+		bomber_arrive_time
+	)
+
+	_sfx(bomber_sfx_out, sfx_volume_world, 1.0, bomber.global_position)
+	await _tween_node_global_pos(
+		bomber,
+		bomber.global_position,
+		bomber.global_position + Vector2(0, bomber_y_offscreen),
+		bomber_depart_time
+	)
+	bomber.queue_free()
+	emit_signal("bomber_cosmetic_done")
+	
 func _neighbors4(c: Vector2i) -> Array[Vector2i]:
 	return [c + Vector2i(1,0), c + Vector2i(-1,0), c + Vector2i(0,1), c + Vector2i(0,-1)]
 
@@ -1328,6 +1358,13 @@ func _spawn_weakpoints_last(structure_blocked: Dictionary, reserved_boss: Dictio
 	if boss == null:
 		return
 
+	# ✅ BossController spawns weakpoints in setup(map_controller)
+	if boss.has_method("setup"):
+		boss.call("setup", self)
+
+	# wait a frame so units_root/units_by_cell are updated before snapshot
+	await get_tree().process_frame
+
 	# --- Build an "occupied" set ---
 	var occupied: Dictionary = {} # Vector2i -> true
 
@@ -1390,17 +1427,16 @@ func _spawn_weakpoints_last(structure_blocked: Dictionary, reserved_boss: Dictio
 	# --- Tell BossController what it may use ---
 	# Prefer passing candidates if your BossController supports it.
 	# Option A: BossController has spawn_weakpoints_from_candidates(candidates)
-	if boss.has_method("spawn_weakpoints_from_candidates"):
-		boss.call("spawn_weakpoints_from_candidates", candidates)
-		return
+	# ✅ Your BossController spawns weakpoints in setup(map_controller)
+	if boss.has_method("setup"):
+		boss.call("setup", self)
 
-	# Option B: You set a property and call spawn()
-	if "weakpoint_spawn_candidates" in boss:
-		boss.weakpoint_spawn_candidates = candidates
+	# Weakpoints are instantiated during setup; wait 1 frame so they’re in the tree & positioned
+	await get_tree().process_frame
 
-	if boss.has_method("spawn_weakpoints"):
-		boss.call("spawn_weakpoints")
-
+	# ✅ Register now (NOT deferred) so snapshots include them immediately
+	_register_boss_parts_from_controller()
+	
 func _spawn_elite_mech_in_zone(zone_cells: Array[Vector2i], structure_blocked: Dictionary, reserved_ally: Dictionary = {}) -> bool:
 	if units_root == null or terrain == null:
 		return false
@@ -1580,14 +1616,28 @@ func _spawn_specific_ally(preferred: Vector2i, scene: PackedScene) -> void:
 		push_error("MapController: ally scene root is not a Unit.")
 		return
 
+	# ✅ Required so coop snapshots include this ally
+	var sp := ""
+	if scene != null and scene.resource_path != "":
+		sp = scene.resource_path
+	elif u.scene_file_path != "":
+		sp = u.scene_file_path
+
+	if sp != "":
+		u.set_meta("scene_path", sp)
+
 	units_root.add_child(u)
 	_wire_unit_signals(u)
 	
+	_net_register_unit(u)
+		
 	u.team = Unit.Team.ALLY
 	u.hp = u.max_hp
 	u.set_cell(c, terrain)
+	
 	units_by_cell[c] = u
-
+	_set_unit_depth_from_world(u, u.global_position)
+	
 	print("Spawned ALLY", scene.resource_path.get_file(), "at", c)
 
 func clear_all() -> void:
@@ -1633,6 +1683,10 @@ func _spawn_unit_walkable(preferred: Vector2i, team: int, reserved_ally: Diction
 	if u == null:
 		push_error("MapController: scene root is not a Unit (must extend Unit).")
 		return false
+
+	# ✅ CRITICAL for coop snapshots: units must carry their scene path
+	if scene != null and scene.resource_path != "":
+		u.set_meta("scene_path", scene.resource_path)
 
 	units_root.add_child(u)
 	_wire_unit_signals(u)
@@ -7954,6 +8008,7 @@ func _quirks_on_damage_taken(u: Unit, dmg: int) -> void:
 func build_units_snapshot() -> Array:
 	var out: Array = []
 	var all := get_all_units()
+	
 	for u in all:
 		if u == null or not is_instance_valid(u):
 			continue
@@ -7992,6 +8047,9 @@ func build_units_snapshot() -> Array:
 		elif "quirks" in u and (u.quirks is Array):
 			quirks = u.quirks
 
+		var hp := int(u.hp) if ("hp" in u) else 0
+		var max_hp := int(u.max_hp) if ("max_hp" in u) else 0
+		
 		if sp != "" and cell.x >= 0:
 			out.append({
 				"scene": sp,
@@ -7999,8 +8057,11 @@ func build_units_snapshot() -> Array:
 				"team": team,
 				"owner_peer_id": owner,
 				"unit_id": id,
-				"quirks": quirks
+				"quirks": quirks,
+				"hp": hp,
+				"max_hp": max_hp				
 			})
+				
 	return out
 
 
@@ -8022,25 +8083,90 @@ func apply_units_snapshot(units: Array) -> void:
 			continue
 
 		var inst := ps.instantiate()
-		var u := inst as Node2D
+		var u := inst as Unit
 		if u == null:
 			continue
 
 		units_root.add_child(u)
+
+		# required for future snapshots
 		u.set_meta("scene_path", sp)
 
+		# team / owner / ids / quirks FIRST (some Units read these in _ready logic / UI)
+		if "team" in d:
+			u.team = int(d["team"])
+
+		var owner := int(d.get("owner_peer_id", 1))
+		u.owner_peer_id = owner
+		u.set_meta("owner_peer_id", owner)
+
+		var unit_id := str(d.get("unit_id", ""))
+		if unit_id != "":
+			u.set_meta("unit_id", unit_id)
+
+		u.set_meta("quirks", d.get("quirks", []))
+
+		# make it behave like a real spawn
+		_net_register_unit(u)
+		_wire_unit_signals(u)
+
+		# position + cell bookkeeping
 		var cell: Vector2i = d.get("cell", Vector2i(-1, -1))
 		if cell.x < 0:
 			continue
+		u.set_cell(cell, terrain)
 
-		# position
-		u.global_position = terrain.to_global(terrain.map_to_local(cell))
+		if "max_hp" in d:
+			u.max_hp = int(d.get("max_hp", u.max_hp))
+		if "hp" in d:
+			u.hp = int(d.get("hp", u.max_hp))
+		else:
+			u.hp = u.max_hp
 
-		# team / owner / ids / quirks
-		if "team" in d and ("team" in u):
-			u.team = int(d["team"])
-		u.set_meta("owner_peer_id", int(d.get("owner_peer_id", 1)))
-		u.set_meta("unit_id", str(d.get("unit_id", "")))
-		u.set_meta("quirks", d.get("quirks", []))
+		units_by_cell[cell] = u
 
+func _register_boss_parts_from_controller() -> void:
+	if game_ref == null or terrain == null:
+		return
+
+	var boss := game_ref.get_node_or_null("BossController")
+	if boss == null:
+		return
+
+	# Walk boss subtree and register anything that looks like a weakpoint/boss unit.
+	var stack: Array[Node] = [boss]
+	while not stack.is_empty():
+		var n = stack.pop_back()
+		for ch in n.get_children():
+			stack.append(ch)
+
+		if not (n is Node2D):
+			continue
+		var u := n as Node2D
+
+		# Only register boss parts (weakpoints) and/or boss units:
+		# weakpoints in your code carry boss_part_id meta.
+		var is_part := u.has_meta("boss_part_id") or u.has_meta("is_boss_part")
+		var is_boss := u.has_meta("is_boss_unit")
+		if not is_part and not is_boss:
+			continue
+
+		# Determine cell
+		var cell := Vector2i(-1, -1)
+		if "cell" in u:
+			cell = u.cell
+		elif u.has_meta("cell"):
+			cell = u.get_meta("cell")
+		else:
+			cell = terrain.local_to_map(terrain.to_local(u.global_position))
+
+		if cell.x < 0:
+			continue
+
+		# Ensure scene_path exists for snapshot
+		if (not u.has_meta("scene_path")) or str(u.get_meta("scene_path")) == "":
+			if u.scene_file_path != "":
+				u.set_meta("scene_path", u.scene_file_path)
+
+		# Finally register it like a normal unit
 		units_by_cell[cell] = u

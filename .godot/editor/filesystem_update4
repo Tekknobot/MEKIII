@@ -16,3 +16,4 @@ res://shaders/color_me.gdshader
 res://shaders/text_outline_1px.gdshader
 res://shaders/desaturate.gdshader
 res://shaders/pixel_fire.gdshader
+res://scripts/boss_controller.gd

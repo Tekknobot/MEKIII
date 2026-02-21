@@ -93,6 +93,11 @@ var _boss_base_modulate: Color
 
 var boss_turn_index: int = 0
 
+# Client-safe: binds map + positions boss sprite WITHOUT spawning weakpoints
+func bind_map_client(map_controller: MapController) -> void:
+	M = map_controller
+	_position_big_sprite()
+	
 func _ready() -> void:
 	var t := _get_flash_target()
 	if t != null:
@@ -353,6 +358,12 @@ func _spawn_wp(scene: PackedScene, cell: Vector2i, id: StringName, hp_val: int, 
 	if u == null:
 		return
 
+	# ✅ CRITICAL for coop snapshots (MapController.build_units_snapshot requires this)
+	if scene != null and scene.resource_path != "":
+		u.set_meta("scene_path", scene.resource_path)
+	elif u.scene_file_path != "":
+		u.set_meta("scene_path", u.scene_file_path)
+		
 	# --- place & register (TileMap-required) ---
 	M.units_root.add_child(u)
 	u.cell = cell
