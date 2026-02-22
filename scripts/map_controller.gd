@@ -158,29 +158,49 @@ func _find_unit_by_unit_id(uid: String) -> Unit:
 func _coop_request_move(u: Unit, target: Vector2i) -> void:
 	if not _coop_is_client():
 		return
-	var uid := _unit_uid(u)
-	if uid == "":
+	if u == null or not is_instance_valid(u):
+		return
+	# Only the owning client may request.
+	if not _can_local_control(u):
+		print("COOP(CLIENT): move blocked (not owner). local=", _local_peer_id(), " owner=", _unit_owner_peer(u))
+		return
+	# net_id is the only stable identifier across peers.
+	if int(u.net_id) <= 0:
+		print("COOP(CLIENT): move blocked (net_id missing) for ", u.get_display_name())
 		return
 	_is_moving = true
-	_rpc_request_move.rpc_id(1, uid, target)
+	print("COOP(CLIENT): sending move req -> host. net_id=", int(u.net_id), " target=", target)
+	rpc_id(1, "_rpc_client_request_move", int(u.net_id), target)
 
 func _coop_request_attack(attacker: Unit, target_cell: Vector2i) -> void:
 	if not _coop_is_client():
 		return
-	var uid := _unit_uid(attacker)
-	if uid == "":
+	if attacker == null or not is_instance_valid(attacker):
+		return
+	if not _can_local_control(attacker):
+		print("COOP(CLIENT): attack blocked (not owner). local=", _local_peer_id(), " owner=", _unit_owner_peer(attacker))
+		return
+	if int(attacker.net_id) <= 0:
+		print("COOP(CLIENT): attack blocked (net_id missing) for ", attacker.get_display_name())
 		return
 	_is_moving = true
-	_rpc_request_attack.rpc_id(1, uid, target_cell)
+	print("COOP(CLIENT): sending attack req -> host. net_id=", int(attacker.net_id), " target=", target_cell)
+	rpc_id(1, "_rpc_client_request_attack", int(attacker.net_id), target_cell)
 
 func _coop_request_special(u: Unit, sid: String, target_cell: Vector2i) -> void:
 	if not _coop_is_client():
 		return
-	var uid := _unit_uid(u)
-	if uid == "":
+	if u == null or not is_instance_valid(u):
+		return
+	if not _can_local_control(u):
+		print("COOP(CLIENT): special blocked (not owner). local=", _local_peer_id(), " owner=", _unit_owner_peer(u))
+		return
+	if int(u.net_id) <= 0:
+		print("COOP(CLIENT): special blocked (net_id missing) for ", u.get_display_name())
 		return
 	_is_moving = true
-	_rpc_request_special.rpc_id(1, uid, sid, target_cell)
+	print("COOP(CLIENT): sending special req -> host. net_id=", int(u.net_id), " sid=", sid, " target=", target_cell)
+	rpc_id(1, "_rpc_client_request_special", int(u.net_id), sid, target_cell)
 
 # -------------------------
 # HOST handlers
@@ -1933,17 +1953,19 @@ func _pick_enemy_zombie_scene() -> PackedScene:
 
 	# Otherwise normal variant
 	return pool.pick_random()
-
+	
 # --------------------------
 # Walkable + placement search
 # --------------------------
 func _is_walkable(c: Vector2i) -> bool:
-	if grid == null or not grid.has_method("in_bounds"):
+	var gd := _grid_data()
+	if gd == null:
 		return false
-	if not grid.in_bounds(c):
+	if not gd.in_bounds(c):
 		return false
-	# T_WATER == 5 in your Game
-	return grid.terrain[c.x][c.y] != 5
+
+	# IMPORTANT indexing: most 2D arrays are [y][x]
+	return int(gd.terrain[c.y][c.x]) != 5
 
 func _find_nearest_open_walkable(preferred: Vector2i, reserved_ally: Dictionary = {}, max_r: int = 12) -> Vector2i:
 	# Check preferred first
@@ -2344,27 +2366,124 @@ func _perform_special(u: Unit, id: String, target_cell: Vector2i) -> void:
 	_finalize_pending_frees()
 	_coop_push_snapshot("special_local")
 
-@rpc("authority", "reliable")
+@rpc("any_peer", "reliable")
 func _rpc_client_request_move(unit_net_id: int, target: Vector2i) -> void:
 	if not multiplayer.is_server():
 		return
 
 	var sender := multiplayer.get_remote_sender_id()
+	print("COOP(HOST): MOVE REQ sender=", sender, " net_id=", unit_net_id, " target=", target)
+
+	# ✅ debounce duplicates (client sometimes fires multiple input events)
+	var key := str(sender) + ":" + str(unit_net_id)
+	if not has_meta("_last_move_req"):
+		set_meta("_last_move_req", {})
+	var last: Dictionary = get_meta("_last_move_req")
+	var now := Time.get_ticks_msec()
+
+	var prev := int(last.get(key, -999999))
+	if now - prev < 120:
+		print("COOP(HOST): MOVE IGNORE duplicate within 120ms")
+		return
+	last[key] = now
+	set_meta("_last_move_req", last)
+
 	var u := _find_unit_by_net_id(unit_net_id)
 	if u == null or not is_instance_valid(u):
-		rpc_id(sender, "_rpc_action_denied_move", unit_net_id)
+		print("COOP(HOST): MOVE DENY unit not found net_id=", unit_net_id)
+		rpc_id(sender, "_rpc_action_denied", "move", unit_net_id)
 		return
 
-	# ownership check using your Unit var
+	print("COOP(HOST): MOVE unit=", u.get_display_name(), " owner=", int(u.owner_peer_id), " team=", int(u.team), " cell=", u.cell)
+
+	# ✅ ownership gate
 	if int(u.owner_peer_id) != sender:
-		rpc_id(sender, "_rpc_action_denied_move", unit_net_id)
+		print("COOP(HOST): MOVE DENY owner mismatch. owner=", int(u.owner_peer_id), " sender=", sender)
+		rpc_id(sender, "_rpc_action_denied", "move", unit_net_id)
 		return
 
-	# IMPORTANT: you currently move "selected". For now, temporarily set selected:
+	# ✅ movement locks / TM gates
+	if _is_moving:
+		print("COOP(HOST): MOVE DENY host is busy (_is_moving)")
+		rpc_id(sender, "_rpc_action_denied", "move", unit_net_id)
+		return
+
+	if not _is_valid_move_target_for_unit(u, target):
+		print("COOP(HOST): MOVE DENY invalid target ", target)
+		rpc_id(sender, "_rpc_action_denied", "move", unit_net_id)
+		return
+
+	if TM != null:
+		if not TM.player_input_allowed():
+			print("COOP(HOST): MOVE DENY TM.player_input_allowed=false")
+			rpc_id(sender, "_rpc_action_denied", "move", unit_net_id)
+			return
+		if not TM.can_move(u):
+			print("COOP(HOST): MOVE DENY TM.can_move=false")
+			rpc_id(sender, "_rpc_action_denied", "move", unit_net_id)
+			return
+
+	# ✅ ACCEPT
+	print("COOP(HOST): MOVE ACCEPT")
+
+	# host only
+	var path := _pick_clear_L_path(u.cell, target) # whatever your pathfinder is
+	rpc("rpc_move_commit", unit_net_id, target, path)
+
+	print("COOP(HOST): MOVE COMMIT broadcast net_id=", unit_net_id, " target=", target)
+
+	# temporarily set selected and run your existing authoritative logic
 	var old_selected := selected
 	selected = u
 	_move_selected_to(target)
 	selected = old_selected
+
+@rpc("any_peer", "reliable")
+func _rpc_client_request_attack(attacker_net_id: int, target_cell: Vector2i) -> void:
+	if not multiplayer.is_server():
+		return
+	var sender := multiplayer.get_remote_sender_id()
+	print("COOP(HOST): ATTACK REQ sender=", sender, " net_id=", attacker_net_id, " target=", target_cell)
+	var attacker := _find_unit_by_net_id(attacker_net_id)
+	if attacker == null or not is_instance_valid(attacker):
+		rpc_id(sender, "_rpc_action_denied", "attack", attacker_net_id)
+		return
+	if int(attacker.owner_peer_id) != sender:
+		print("COOP(HOST): ATTACK DENY (owner mismatch) owner=", int(attacker.owner_peer_id))
+		rpc_id(sender, "_rpc_action_denied", "attack", attacker_net_id)
+		return
+	var defender = units_by_cell.get(target_cell, null)
+	if defender == null or not is_instance_valid(defender):
+		rpc_id(sender, "_rpc_action_denied", "attack", attacker_net_id)
+		return
+	await _do_attack(attacker, defender)
+	_set_unit_attacked(attacker, true)
+	_apply_turn_indicator(attacker)
+	if TM != null and TM.has_method("notify_player_attacked"):
+		TM.notify_player_attacked(attacker)
+	_coop_push_snapshot("attack")
+
+
+@rpc("any_peer", "reliable")
+func _rpc_client_request_special(unit_net_id: int, sid: String, target_cell: Vector2i) -> void:
+	if not multiplayer.is_server():
+		return
+	var sender := multiplayer.get_remote_sender_id()
+	print("COOP(HOST): SPECIAL REQ sender=", sender, " net_id=", unit_net_id, " sid=", sid, " target=", target_cell)
+	var u := _find_unit_by_net_id(unit_net_id)
+	if u == null or not is_instance_valid(u):
+		rpc_id(sender, "_rpc_action_denied", "special", unit_net_id)
+		return
+	if int(u.owner_peer_id) != sender:
+		print("COOP(HOST): SPECIAL DENY (owner mismatch) owner=", int(u.owner_peer_id))
+		rpc_id(sender, "_rpc_action_denied", "special", unit_net_id)
+		return
+	# Temporarily select so your existing special flow works
+	var old_selected := selected
+	selected = u
+	await _perform_special(u, sid, target_cell)
+	selected = old_selected
+	_coop_push_snapshot("special")
 	
 func _finalize_pending_frees() -> void:
 	for v in get_all_units():
@@ -8477,6 +8596,10 @@ func _rpc_play_move_visual(unit_net_id: int, from_cell: Vector2i, target: Vector
 	await _move_unit_visual_along_path(u, target, path)
 
 	_coop_replaying = false
+	# If this client initiated an action, it locked input locally.
+	# Always unlock on clients after the visual replay finishes.
+	if _coop_is_client():
+		_is_moving = false
 	
 @rpc("any_peer", "reliable")
 func _rpc_action_denied(kind: String, unit_net_id: int) -> void:
@@ -8545,7 +8668,9 @@ func _move_unit_along_path_visual(u: Unit, target: Vector2i, path: Array) -> voi
 
 	# finalize
 	if u != null and is_instance_valid(u):
-		u.set_cell(target, terrain)
+		u.cell = target
+		u.global_position = _cell_world(target)
+		_set_unit_depth_from_world(u, u.global_position)
 
 	if not is_carbot:
 		_play_move_anim(u, false)
@@ -8627,7 +8752,9 @@ func _move_unit_visual_along_path(u: Unit, target: Vector2i, path: Array) -> voi
 
 	# finalize
 	if u != null and is_instance_valid(u):
-		u.set_cell(target, terrain)
+		u.cell = target
+		u.global_position = _cell_world(target)
+		_set_unit_depth_from_world(u, u.global_position)
 
 	# end anim / sfx (VISUAL ONLY)
 	if not is_carbot:
@@ -8639,3 +8766,135 @@ func _move_unit_visual_along_path(u: Unit, target: Vector2i, path: Array) -> voi
 			u.call("car_end_move_sfx")
 
 	_sfx(&"move_end", sfx_volume_world, 1.0, _cell_world(target))
+
+func _is_valid_move_target_for_unit(u: Unit, target: Vector2i) -> bool:
+	if u == null or not is_instance_valid(u):
+		print("MOVE CHECK: u invalid")
+		return false
+
+	# same cell is fine (no-op)
+	if target == u.cell:
+		print("MOVE CHECK: target is same cell")
+		return true
+
+	# must be in bounds
+	var gd := _grid_data()
+	if gd == null or not gd.in_bounds(target):
+		print("MOVE CHECK: out of bounds ", target)
+		return false
+	
+	# must be walkable
+	if not _is_walkable(target):
+		print("MOVE CHECK: not walkable ", target)
+		return false
+
+	# must not be occupied
+	if units_by_cell.has(target):
+		print("MOVE CHECK: occupied by ", units_by_cell[target])
+		return false
+
+	# must be within move range (use your real range getter)
+	var mr := u.get_move_range() if u.has_method("get_move_range") else int(u.move_range)
+	var d := u.cell.distance_to(target)
+	if d > mr:
+		print("MOVE CHECK: too far dist=", d, " mr=", mr, " from=", u.cell, " to=", target)
+		return false
+
+	return true
+
+func _gm() -> Node:
+	var arr := get_tree().get_nodes_in_group("GameMap")
+	return arr[0] if arr.size() > 0 else null
+
+func _grid_data() -> GridData:
+	var gm := _gm()
+	if gm == null:
+		return null
+
+	# common property names
+	if "grid_data" in gm:
+		return gm.grid_data as GridData
+	if "grid" in gm:
+		return gm.grid as GridData
+	if gm.has_method("get_grid_data"):
+		return gm.call("get_grid_data") as GridData
+
+	return null
+
+# client side
+func request_move(unit_net_id: int, target: Vector2i) -> void:
+	rpc_id(1, "rpc_move_request", unit_net_id, target)
+	
+@rpc("any_peer")
+func rpc_move_request(unit_net_id: int, target: Vector2i) -> void:
+	if not multiplayer.is_server():
+		return
+
+	var sender := multiplayer.get_remote_sender_id()
+
+	var u := _get_unit_by_net_id(unit_net_id)
+	if u == null:
+		return
+
+	# validate ownership + rules here
+	if u.owner_peer_id != sender:
+		return
+	if not _is_valid_move_target_for_unit(u, target):
+		return
+
+	# ✅ APPLY ON HOST
+	_apply_move(u, target)
+
+	# ✅ BROADCAST TO ALL (and run locally on host too)
+	rpc("rpc_move_commit", unit_net_id, target)
+	
+@rpc("authority", "call_local")
+func rpc_move_commit(net_id: int, target: Vector2i, path: Array) -> void:
+	var u: Unit = _get_unit_by_net_id(net_id)
+	if u == null:
+		print("MOVE COMMIT: unit not found id=", net_id, " peer=", multiplayer.get_unique_id())
+		return
+
+	# ✅ VISUAL ONLY
+	await _move_unit_visual_along_path(u, target, path)
+
+func _get_unit_by_net_id(net_id: int) -> Unit:
+	if units_root == null:
+		return null
+	for n in units_root.get_children():
+		var u := n as Unit
+		if u == null:
+			continue
+		if int(u.get("net_id")) == net_id:
+			return u
+	return null
+
+var units_by_net_id: Dictionary = {} # int -> Unit
+
+func _register_unit_net(u: Unit) -> void:
+	if u == null:
+		return
+	var id := int(u.get("net_id"))
+	units_by_net_id[id] = u
+
+func _unregister_unit_net(u: Unit) -> void:
+	if u == null:
+		return
+	var id := int(u.get("net_id"))
+	if units_by_net_id.has(id) and units_by_net_id[id] == u:
+		units_by_net_id.erase(id)
+
+func _apply_move(u: Unit, target: Vector2i) -> void:
+	if u == null or not is_instance_valid(u):
+		return
+
+	# occupancy update
+	if units_by_cell.has(u.cell) and units_by_cell[u.cell] == u:
+		units_by_cell.erase(u.cell)
+
+	u.cell = target
+	units_by_cell[target] = u
+
+	# visual position update (use your real conversion)
+	if terrain != null:
+		u.global_position = terrain.to_global(terrain.map_to_local(target))
