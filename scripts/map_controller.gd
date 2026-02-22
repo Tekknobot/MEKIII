@@ -5203,6 +5203,11 @@ func _apply_splash_damage(center: Vector2i, radius: int, dmg: int, hit_cache = n
 				continue
 
 			if u.hp <= 0:
+				# tell clients BEFORE we remove it
+				if _coop_is_active() and _coop_is_host() and not _coop_vfx_block_broadcast:
+					if int(u.net_id) > 0:
+						rpc("_rpc_play_death", int(u.net_id), c)
+						
 				await _play_death_and_wait(u)
 				_remove_unit_from_board_at_cell(c)
 			else:
@@ -8745,14 +8750,22 @@ func apply_units_snapshot(units: Array) -> void:
 		if desired.has(k):
 			continue
 		var u2 := _net_get_unit(k)
-		if u2 != null:
+		if u2 != null and is_instance_valid(u2):
+
+			# ✅ DON'T remove while death animation is pending on client
+			if u2.has_meta("death_anim_pending") and bool(u2.get_meta("death_anim_pending")):
+				continue
+
 			# Remove any occupancy entry that points at this unit
 			if "cell" in u2:
 				var c2: Vector2i = u2.cell
 				if units_by_cell.has(c2) and units_by_cell[c2] == u2:
 					units_by_cell.erase(c2)
+
 			u2.queue_free()
-		to_remove.append(k)
+			to_remove.append(k)
+		else:
+			to_remove.append(k)
 
 	for k in to_remove:
 		_net_units_by_id.erase(k)
@@ -9257,6 +9270,35 @@ func _rpc_support_bot_action(net_id: int, action: String) -> void:
 
 	_coop_visual_only = prev
 	_is_moving = prev_moving
+
+@rpc("authority", "reliable")
+func _rpc_play_death(net_id: int, cell: Vector2i) -> void:
+	# host -> clients only
+	if multiplayer.is_server():
+		return
+
+	var u := _find_unit_by_net_id(net_id)
+	if u == null or not is_instance_valid(u):
+		# fallback: maybe it was already removed, nothing to animate
+		return
+
+	# Visual-only safety
+	var prev := _coop_visual_only
+	_coop_visual_only = true
+
+	# Ensure it's at the right cell visually
+	if terrain != null and ("set_cell" in u):
+		u.set_cell(cell, terrain)
+
+	u.set_meta("death_anim_pending", true)
+
+	# Play the same death routine clients use elsewhere
+	await _play_death_and_wait(u)
+
+	# Remove after anim
+	_remove_unit_from_board_at_cell(cell)
+
+	_coop_visual_only = prev
 	
 func _play_structure_demolished_at_cell(cell: Vector2i) -> void:
 	# If you already have an explosion/debris FX, use it here.
