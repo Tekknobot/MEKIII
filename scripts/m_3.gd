@@ -478,15 +478,19 @@ func _sky_laser_strike(M: MapController, at_cell: Vector2i) -> void:
 	p2.emitting = true
 	p2.finished.connect(Callable(p2, "queue_free"))
 
+	# Tiny pacing delay so the beam reads before impact
 	await get_tree().create_timer(0.05).timeout
 
 	# ---------------------------------------------------------
-	# BASE explosion (does its usual 1 dmg)
+	# BASE explosion (FX + (host) damage) — DO NOT await, to avoid chain stalls
 	# ---------------------------------------------------------
-	await M.spawn_explosion_at_cell(at_cell)
+	M.spawn_explosion_at_cell(at_cell)
+
+	# Optional micro-gap so the hit reads even if explosion_fallback_seconds is large
+	await get_tree().create_timer(0.06).timeout
 
 	# ---------------------------------------------------------
-	# ✅ ADDITIONAL SKY STRIKE DAMAGE
+	# ✅ ADDITIONAL SKY STRIKE DAMAGE (host-authoritative via your coop design)
 	# ---------------------------------------------------------
 	for u in M.get_all_units():
 		if u == null or not is_instance_valid(u) or u.hp <= 0:
@@ -503,23 +507,16 @@ func _sky_laser_strike(M: MapController, at_cell: Vector2i) -> void:
 	# ---------------------------------------------------------
 	# Fade out all beam strands
 	# NOTE: fade tween is owned by MapController (survives M3 death)
-	# Cleanup is already guaranteed by timers above.
+	# Cleanup is already guaranteed by timers above — so do NOT await.
 	# ---------------------------------------------------------
 	var tw := M.create_tween()
-	var tweened := false
-
 	for beam in beams:
 		if beam == null or not is_instance_valid(beam):
 			continue
 		var c1 := beam.default_color
 		c1.a = 0.0
 		tw.tween_property(beam, "default_color", c1, sky_beam_fade_time)
-		tweened = true
-
-	# ✅ Only await if we actually tweened something
-	if tweened:
-		await tw.finished
-		
+				
 # -------------------------
 # Visual Effects
 # -------------------------
