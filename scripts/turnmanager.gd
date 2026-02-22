@@ -1786,8 +1786,14 @@ func _try_end_player_phase_if_done() -> void:
 		await start_enemy_phase()
 
 func _run_support_bots_phase() -> void:
+	# ✅ co-op: only host runs support bot sim
+	if M != null and M.has_method("_coop_is_active") and M.call("_coop_is_active"):
+		if not M.call("_coop_is_host"):
+			return
+				
 	var prev := phase
 	phase = Phase.BUSY
+	
 	_update_end_turn_button()
 	_update_special_buttons()
 
@@ -1805,9 +1811,14 @@ func _run_support_bots_phase() -> void:
 		if u.has_method("auto_support_action"):
 			await u.call("auto_support_action", M)   # RecruitBot
 		elif u.has_method("auto_roll_action"):
-			await u.call("auto_roll_action", M)      # Rollerbot
+			await M.coop_support_roll(u)
 		elif u.has_method("auto_drive_action"):
-			await u.call("auto_drive_action", M)     # CarBot
+			await M.coop_support_drive(u)
+
+	# ✅ after support bots move/attack, sync state to client
+	if M != null and M.has_method("_coop_is_active") and M.call("_coop_is_active"):
+		if M.call("_coop_is_host") and M.has_method("_coop_push_snapshot"):
+			M.call("_coop_push_snapshot", "support_bots")
 
 	phase = prev
 	_update_end_turn_button()

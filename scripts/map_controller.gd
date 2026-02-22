@@ -2308,6 +2308,14 @@ func _perform_special(u: Unit, id: String, target_cell: Vector2i) -> void:
 	elif id == "laser_sweep" and u.has_method("perform_laser_sweep"):
 		await u.call("perform_laser_sweep", self, target_cell)
 
+	elif id == "roll" and u.has_method("perform_roll"):
+		await u.call("perform_roll", self, target_cell)
+
+	elif id == "drive":
+		# CarBot-style auto drive (ignores target_cell)
+		if u.has_method("auto_drive_action"):
+			await u.call("auto_drive_action", self)
+
 	# ---------------------------------------------------------
 	# ✅ If the caster died during the special (hazards, etc.),
 	# force board cleanup + free now that the await is done.
@@ -2473,7 +2481,14 @@ func _perform_special_visual(u: Unit, id: String, target_cell: Vector2i) -> void
 
 	elif id == "laser_sweep" and u.has_method("perform_laser_sweep"):
 		await u.call("perform_laser_sweep", self, target_cell)
+	
+	elif id == "roll" and u.has_method("perform_roll"):
+		await u.call("perform_roll", self, target_cell)
 
+	elif id == "drive":
+		if u.has_method("auto_drive_action"):
+			await u.call("auto_drive_action", self)
+			
 	# end visual-only mode
 	_coop_visual_only = false
 	_is_moving = false
@@ -4383,6 +4398,26 @@ func _push_unit_to_cell(u: Unit, to_cell: Vector2i) -> void:
 
 	var from_world := _cell_world(from_cell)
 	var to_world := _cell_world(to_cell)
+
+	# ---------------------------------------------------------
+	# CO-OP VISUAL REPLAY: do NOT trigger gameplay on clients.
+	# We still update cell + position so the animation matches.
+	# ---------------------------------------------------------
+	if coop_visual_only():
+		# occupancy
+		if units_by_cell.has(from_cell) and units_by_cell[from_cell] == u:
+			units_by_cell.erase(from_cell)
+		units_by_cell[to_cell] = u
+
+		# logical + visual
+		u.set_cell(to_cell, terrain)
+		_set_unit_depth_from_world(u, to_world)
+
+		# keep overwatch ghost aligned if needed (purely visual)
+		if is_overwatching(u):
+			_update_overwatch_ghost_pos(u)
+
+		return
 
 	# Update occupancy map
 	if units_by_cell.has(from_cell) and units_by_cell[from_cell] == u:
@@ -9174,6 +9209,54 @@ func _rpc_structure_demolish(cell: Vector2i) -> void:
 		
 	# Play demolition VFX at that cell (no Node required)
 	_play_structure_demolished_at_cell(cell)
+
+func coop_support_roll(u: Unit) -> void:
+	if u == null or not is_instance_valid(u):
+		return
+	if _coop_is_active() and _coop_is_host():
+		if u.has_method("auto_roll_action"):
+			await u.call("auto_roll_action", self)
+		# replay on clients
+		if int(u.net_id) > 0:
+			rpc("_rpc_support_bot_action", int(u.net_id), "roll")
+	else:
+		if u.has_method("auto_roll_action"):
+			await u.call("auto_roll_action", self)
+
+func coop_support_drive(u: Unit) -> void:
+	if u == null or not is_instance_valid(u):
+		return
+	if _coop_is_active() and _coop_is_host():
+		if u.has_method("auto_drive_action"):
+			await u.call("auto_drive_action", self)
+		if int(u.net_id) > 0:
+			rpc("_rpc_support_bot_action", int(u.net_id), "drive")
+	else:
+		if u.has_method("auto_drive_action"):
+			await u.call("auto_drive_action", self)
+
+@rpc("authority", "reliable")
+func _rpc_support_bot_action(net_id: int, action: String) -> void:
+	# host -> clients only
+	if multiplayer.is_server():
+		return
+
+	var u := _find_unit_by_net_id(net_id)
+	if u == null or not is_instance_valid(u):
+		return
+
+	var prev_moving := _is_moving
+	_is_moving = true
+	var prev := _coop_visual_only
+	_coop_visual_only = true
+
+	if action == "roll" and u.has_method("auto_roll_action"):
+		await u.call("auto_roll_action", self)
+	elif action == "drive" and u.has_method("auto_drive_action"):
+		await u.call("auto_drive_action", self)
+
+	_coop_visual_only = prev
+	_is_moving = prev_moving
 	
 func _play_structure_demolished_at_cell(cell: Vector2i) -> void:
 	# If you already have an explosion/debris FX, use it here.

@@ -287,7 +287,7 @@ func _crush_enemy_if_present(M: MapController, at_cell: Vector2i) -> void:
 		return
 
 	if victim.hp > 0:
-		if not M.coop_visual_only():
+		if M == null or not M.coop_visual_only():
 			victim.take_damage(crush_damage)
 		if car_sfx != null:
 			car_sfx.hit(1.0)
