@@ -5173,10 +5173,11 @@ func _apply_splash_damage(center: Vector2i, radius: int, dmg: int, hit_cache = n
 				_cleanup_dead_at(c)
 				
 func _apply_structure_splash_damage(center: Vector2i, radius: int, dmg: int) -> void:
-	if coop_visual_only():
-		return
-		
 	if dmg <= 0:
+		return
+
+	# ✅ co-op: only host mutates
+	if _coop_is_active() and not _coop_is_host():
 		return
 
 	for dx in range(-radius, radius + 1):
@@ -5187,11 +5188,31 @@ func _apply_structure_splash_damage(center: Vector2i, radius: int, dmg: int) -> 
 			if grid != null and grid.has_method("in_bounds") and not grid.in_bounds(c):
 				continue
 
-			_damage_structure_at_cell(c, dmg)
+			# ✅ only if there is a structure here (use your check)
+			if not _structure_at_cell(c):
+				continue
 
-func _damage_structure_at_cell(cell: Vector2i, dmg: int) -> void:
+			# --- host applies structure damage ---
+			var demolished := _damage_structure_at_cell(c, dmg)  # return true if it demolished (recommended)
+
+			# --- sync to clients ---
+			if _coop_is_active() and not _coop_vfx_block_broadcast:
+				rpc("_rpc_structure_apply_damage", c, dmg)
+				if demolished:
+					rpc("_rpc_structure_demolish", c)
+
+func _damage_structure_at_cell(cell: Vector2i, dmg: int) -> bool:
+	# pre-check: did we have a structure?
+	var had := _structure_at_cell(cell)
+
 	_damage_structure_only_at_cell(cell, dmg)
 
+	# post-check: do we still have one?
+	var has_now := _structure_at_cell(cell)
+
+	# demolished if it existed and no longer exists
+	return had and not has_now
+	
 func _node_cell(n: Node) -> Vector2i:
 	if n == null:
 		return Vector2i(-999, -999)
@@ -9118,3 +9139,24 @@ func _rpc_sync_dead_at_cell(cell: Vector2i) -> void:
 		# If you have a clean kill/remove path, call it.
 		# Otherwise basic remove:
 		_remove_unit_from_board_at_cell(cell)
+
+@rpc("authority", "reliable")
+func _rpc_structure_apply_damage(cell: Vector2i, dmg: int) -> void:
+	if multiplayer.is_server():
+		return
+	_damage_structure_only_at_cell(cell, dmg)
+
+@rpc("authority", "reliable")
+func _rpc_structure_demolish(cell: Vector2i) -> void:
+	if multiplayer.is_server():
+		return
+		
+	# Play demolition VFX at that cell (no Node required)
+	_play_structure_demolished_at_cell(cell)
+	
+func _play_structure_demolished_at_cell(cell: Vector2i) -> void:
+	# If you already have an explosion/debris FX, use it here.
+	# This is safe on client and doesn’t need a structure Node.
+	if has_method("spawn_explosion_at_cell"):
+		# FX-only if co-op client (per your earlier co-op branch)
+		spawn_explosion_at_cell(cell)
