@@ -1311,28 +1311,23 @@ func spawn_units() -> void:
 	var drop_center_cell := chosen_cells[0]
 	set_meta("drop_center_cell", drop_center_cell)
 
-	# ✅ CO-OP: tell client to start bomber NOW (so it matches host)
-	if game_ref != null and is_instance_valid(game_ref):
-		if game_ref.has_method("_is_coop") and game_ref.has_method("_is_host"):
-			if bool(game_ref.call("_is_coop")) and bool(game_ref.call("_is_host")):
-				var nm := get_tree().root.get_node_or_null("Network")
-				if nm != null:
-					var cid := int(nm.client_peer_id)
-					if cid > 1:
-						game_ref._rpc_bomber_start.rpc_id(cid, drop_center_cell)
-	
+	var defer_bomber := _coop_is_active() and _coop_is_host()
+
 	var drop_center_world := _cell_world(drop_center_cell)
-	_sfx(bomber_sfx_in, sfx_volume_world, 1.0, drop_center_world)
 
-	var bomber := _spawn_bomber(drop_center_world.x, drop_center_world.y)
-	if bomber != null:
-		await _tween_node_global_pos(
-			bomber,
-			bomber.global_position,
-			drop_center_world + Vector2(0, -bomber_hover_px),
-			bomber_arrive_time
-		)
-
+	# Only play bomber immediately in solo / non-host
+	var bomber = null
+	if not defer_bomber:
+		_sfx(bomber_sfx_in, sfx_volume_world, 1.0, drop_center_world)
+		bomber = _spawn_bomber(drop_center_world.x, drop_center_world.y)
+		if bomber != null:
+			await _tween_node_global_pos(
+				bomber,
+				bomber.global_position,
+				drop_center_world + Vector2(0, -bomber_hover_px),
+				bomber_arrive_time
+			)
+			
 	for i in range(chosen_cells.size()):
 		var cell_i := chosen_cells[i]
 
@@ -1426,9 +1421,15 @@ func spawn_units() -> void:
 			await _drop_unit_from_bomber(u, bomber, cell_i)
 		else:
 			u.set_cell(cell_i, terrain)
+
+			# ✅ In co-op host (deferred bomber), spawn allies hidden until bomber reveal
+			if defer_bomber:
+				u.modulate.a = 0.0
+				u.set_meta("pending_drop_reveal", true)	
+						
 			_set_unit_depth_from_world(u, u.global_position)
 
-	if bomber != null and is_instance_valid(bomber):
+	if bomber != null:
 		_sfx(bomber_sfx_out, sfx_volume_world, 1.0, bomber.global_position)
 		await _tween_node_global_pos(
 			bomber,
@@ -9160,3 +9161,12 @@ func _play_structure_demolished_at_cell(cell: Vector2i) -> void:
 	if has_method("spawn_explosion_at_cell"):
 		# FX-only if co-op client (per your earlier co-op branch)
 		spawn_explosion_at_cell(cell)
+
+func _hide_pending_drop_units() -> void:
+	for u in get_all_units():
+		if u == null or not is_instance_valid(u):
+			continue
+		# whatever flag you use to mark bomber-drop units:
+		if u.has_meta("pending_drop") and bool(u.get_meta("pending_drop")):
+			u.visible = true
+			u.modulate.a = 0.0

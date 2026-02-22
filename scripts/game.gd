@@ -298,12 +298,6 @@ func _ready() -> void:
 
 	await _start_mission()
 
-	# ✅ Host / solo can fade in immediately.
-	# ✅ Coop client must fade in when the first snapshot arrives,
-	#    otherwise bomber + drops happen behind the black fade.
-	if not (_is_coop() and not _is_host()):
-		await _fade_to(0.0, fade_in_time)	
-
 func _start_mission() -> void:
 	if _is_coop() and not _is_host():
 		# ✅ Client does NOT generate anything
@@ -398,9 +392,14 @@ func _start_mission() -> void:
 	# setup + spawn units
 	map_controller.setup(self)
 
+	# ✅ Fade IN before bomber cinematic / deployment (host + solo)
+	# Coop client will fade when snapshot arrives.
+	if not (_is_coop() and not _is_host()):
+		await _fade_to(0.0, fade_in_time)
+
 	# ✅ CO-OP: host spawns + snapshots; client waits for snapshot
 	if _is_coop() and not _is_host():
-		# Wait until the host snapshot arrives (rpc sets _coop_snapshot_seq)
+		# client waits for snapshot
 		var timeout := 0.1
 		var t := 0.0
 		while _coop_snapshot_seq == 0 and t < timeout:
@@ -422,6 +421,21 @@ func _start_mission() -> void:
 		while not _coop_client_ready and t < timeout:
 			await get_tree().process_frame
 			t += get_process_delta_time()
+
+		# ✅ Start bomber at the same moment on host + client
+		var drop_center := Vector2i(map_controller.get_meta("drop_center_cell", Vector2i.ZERO))
+
+		# Host plays cosmetic locally (non-blocking)
+		map_controller.call_deferred("_play_bomber_cosmetic", drop_center)
+
+		# Client plays cosmetic via RPC
+		_rpc_bomber_start.rpc_id(_net().client_peer_id, drop_center)
+
+		# ✅ NOW start bomber cosmetic on client (client has snapshot + is visible)
+		# Use the same drop cell you used for host deployment
+		if map_controller != null and is_instance_valid(map_controller):
+			drop_center = Vector2i(map_controller.drop_center_cell) if ("drop_center_cell" in map_controller) else Vector2i.ZERO
+			_rpc_bomber_start.rpc_id(_net().client_peer_id, drop_center)
 			
 	if turn_manager != null and is_instance_valid(turn_manager):
 		turn_manager.on_units_spawned()	
@@ -1308,7 +1322,8 @@ func _apply_snapshot(snap: Dictionary) -> void:
 	
 	# ✅ Always reveal pending units; bomber cosmetic is optional
 	if map_controller.has_method("_reveal_pending_drop_units"):
-		map_controller.call_deferred("_reveal_pending_drop_units")
+		#map_controller.call_deferred("_reveal_pending_drop_units")
+		map_controller._hide_pending_drop_units()
 
 	# -------------------------
 	# 9) TurnManager last
