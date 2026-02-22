@@ -663,6 +663,11 @@ var _boss_intent_tiles: Array[Node] = []
 
 var _bomber_playing := false
 
+# -------------------------
+# COOP: VFX broadcast guard
+# -------------------------
+var _coop_vfx_block_broadcast: bool = false
+
 func boss_clear_intents() -> void:
 	for n in _boss_intent_tiles:
 		if n != null and is_instance_valid(n):
@@ -2207,7 +2212,7 @@ func _perform_special(u: Unit, id: String, target_cell: Vector2i) -> void:
 	if _coop_is_client():
 		# lock locally so you can’t spam
 		_is_moving = true
-		rpc_id(1, "_rpc_client_request_move", int(u.net_id), target_cell) # 1 = host peer id
+		rpc_id(1, "_rpc_client_request_special", int(u.net_id), id, target_cell) # 1 = host peer id
 		return
 
 	id = id.to_lower()
@@ -2673,6 +2678,11 @@ func _play_idle_anim(u: Unit) -> void:
 func _flash_unit_white(u: Unit, t: float) -> void:
 	if u == null or not is_instance_valid(u):
 		return
+	# COOP: mirror flashes to peers (visual-only)
+	if (not _coop_vfx_block_broadcast) and _coop_is_active() and _coop_is_host():
+		var nid := _net_id_of(u)
+		if nid > 0:
+			rpc("_rpc_vfx_flash_white", nid, float(t))
 
 	var ci: CanvasItem = null
 
@@ -4817,45 +4827,29 @@ func spawn_explosion_at_cell(cell: Vector2i) -> void:
 	if explosion_scene == null or terrain == null:
 		return
 
-	var fx := explosion_scene.instantiate() as Node2D
-	if fx == null:
+	# ---------------------------------------------------------
+	# CO-OP: host applies damage; VFX is broadcast to everyone.
+	# ---------------------------------------------------------
+	if _coop_is_active() and _coop_is_host():
+		# Visual only (host + all peers)
+		if not _coop_vfx_block_broadcast:
+			rpc("_rpc_vfx_explosion_at_cell", cell)
+
+		# Gameplay damage (HOST ONLY)
+		await _apply_splash_damage(cell, structure_splash_radius, structure_explosion_splash_damage)
+		_apply_structure_splash_damage(cell, structure_splash_radius, structure_hit_damage)
+
+		# Keep pacing roughly similar even though VFX plays via RPC
+		await get_tree().create_timer(explosion_fallback_seconds).timeout
 		return
 
-	# ✅ NEW: explosions also apply splash + structure damage
-	# (keeps all explosions consistent: mines, hellfire, etc.)
+	# ---------------------------------------------------------
+	# Singleplayer / local: do both damage + VFX locally.
+	# ---------------------------------------------------------
 	await _apply_splash_damage(cell, structure_splash_radius, structure_explosion_splash_damage)
 	_apply_structure_splash_damage(cell, structure_splash_radius, structure_hit_damage)
-
-	if overlay_root != null:
-		overlay_root.add_child(fx)
-	else:
-		add_child(fx)
-
-	# Position in world (+16px feet offset)
-	var world_pos := terrain.to_global(terrain.map_to_local(cell))
-	world_pos += Vector2(0, explosion_y_offset_px)
-	fx.global_position = world_pos
-	_sfx(&"explosion_small", sfx_volume_world * 0.4, _sfx_pitch(), world_pos)
+	await _spawn_explosion_fx_only(cell)
 	
-	# Depth using grid-space (recomputed after offset)
-	var local := terrain.to_local(world_pos)
-	var depth_cell := terrain.local_to_map(local)
-
-	fx.z_as_relative = false
-	fx.z_index = 2 + (depth_cell.x + depth_cell.y)
-
-	# Play animation and wait for it to finish
-	var a := fx.get_node_or_null("AnimatedSprite2D") as AnimatedSprite2D
-	if a != null and a.sprite_frames != null and a.sprite_frames.has_animation(explosion_anim_name):
-		a.play(explosion_anim_name)
-		await a.animation_finished
-	else:
-		# fallback if no anim
-		await get_tree().create_timer(explosion_fallback_seconds).timeout
-
-	if fx != null and is_instance_valid(fx):
-		fx.queue_free()
-
 func launch_projectile_arc(
 	from_cell: Vector2i,
 	to_cell: Vector2i,
@@ -8898,3 +8892,32 @@ func _apply_move(u: Unit, target: Vector2i) -> void:
 	# visual position update (use your real conversion)
 	if terrain != null:
 		u.global_position = terrain.to_global(terrain.map_to_local(target))
+
+func _spawn_explosion_fx_only(at_cell: Vector2i) -> void:
+	# Visual-only explosion helper for peers.
+	# Tries to reuse whatever explosion FX function you already have.
+	# No gameplay damage should happen here.
+
+	# Try common existing helpers first (no guessing required)
+	if has_method("_spawn_explosion_fx"):
+		call("_spawn_explosion_fx", at_cell)
+		return
+	if has_method("_spawn_explosion_fx_at_cell"):
+		call("_spawn_explosion_fx_at_cell", at_cell)
+		return
+	if has_method("_spawn_explosion_vfx"):
+		call("_spawn_explosion_vfx", at_cell)
+		return
+
+	# Fallback: if you have a PackedScene var for explosions, instance it.
+	# (This stays visual-only.)
+	if "explosion_fx_scene" in self and self.explosion_fx_scene is PackedScene:
+		var fx := (self.explosion_fx_scene as PackedScene).instantiate()
+		add_child(fx)
+
+		if fx is Node2D:
+			(fx as Node2D).global_position = _cell_world(at_cell)
+
+	# Always at least play SFX if your helper exists
+	if has_method("_sfx"):
+		_sfx(&"explosion_small", sfx_volume_world, 1.0, _cell_world(at_cell))

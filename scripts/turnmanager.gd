@@ -651,6 +651,10 @@ func start_enemy_phase() -> void:
 				break # no more valid edge cells
 
 		print("Spawned %d/%d enemies for Round %d" % [spawned, to_spawn, round_index])
+		# COOP: mirror new edge spawns to clients (snapshot spawns missing zombies on peers)
+		if M != null and M.has_method("_coop_push_snapshot"):
+			M.call_deferred("_coop_push_snapshot", "edge_spawn")
+
 
 		call_deferred("_refresh_population_and_check")
 		if _game_over_triggered:
