@@ -5112,6 +5112,10 @@ func _apply_splash_damage(center: Vector2i, radius: int, dmg: int, hit_cache = n
 	if dmg <= 0:
 		return
 
+	# ✅ Co-op: ONLY host mutates HP
+	if _coop_is_active() and not _coop_is_host():
+		return
+
 	for dx in range(-radius, radius + 1):
 		for dy in range(-radius, radius + 1):
 			var c := center + Vector2i(dx, dy)
@@ -5122,7 +5126,6 @@ func _apply_splash_damage(center: Vector2i, radius: int, dmg: int, hit_cache = n
 			if grid != null and grid.has_method("in_bounds") and not grid.in_bounds(c):
 				continue
 
-			# ✅ fetch unit for THIS cell
 			var u := unit_at_cell(c)
 			if u == null or not is_instance_valid(u):
 				continue
@@ -5137,29 +5140,28 @@ func _apply_splash_damage(center: Vector2i, radius: int, dmg: int, hit_cache = n
 			_flash_unit_white(u, max(attack_flash_time, 0.12))
 			_jitter_unit(u, 2.5, 5, 0.10)
 
-			await _safe_wait(0.06) # splash delay
+			await _safe_wait(0.06)
 
-			# ---------------------------------------------------------
-			# ✅ CRITICAL: re-check after await (unit may have been freed)
-			# ---------------------------------------------------------
+			# Re-check after await
 			if u == null or not is_instance_valid(u):
 				continue
-
-			# (Optional but safer): ensure the unit is still the unit at this cell
-			# If explosions / death cleanup removed it, don't apply damage.
 			var u_now := unit_at_cell(c)
 			if u_now == null or not is_instance_valid(u_now):
 				continue
 			if u_now != u:
-				# cell changed occupant during the delay; decide policy:
-				# usually: don't "transfer" splash to a new unit.
 				continue
 
+			# Apply damage on host
 			u.take_damage(dmg)
 
-			# ---------------------------------------------------------
-			# ✅ after damage, re-check again (take_damage may queue_free)
-			# ---------------------------------------------------------
+			# ✅ Sync HP/death to clients in co-op
+			if _coop_is_active() and not _coop_vfx_block_broadcast:
+				if u != null and is_instance_valid(u) and u.hp > 0:
+					rpc("_rpc_sync_hp_at_cell", c, int(u.hp))
+				else:
+					rpc("_rpc_sync_dead_at_cell", c)
+
+			# Cleanup/death flow
 			if u == null or not is_instance_valid(u):
 				_cleanup_dead_at(c)
 				continue
@@ -5169,7 +5171,7 @@ func _apply_splash_damage(center: Vector2i, radius: int, dmg: int, hit_cache = n
 				_remove_unit_from_board_at_cell(c)
 			else:
 				_cleanup_dead_at(c)
-
+				
 func _apply_structure_splash_damage(center: Vector2i, radius: int, dmg: int) -> void:
 	if coop_visual_only():
 		return
@@ -9094,3 +9096,25 @@ func _rpc_vfx_explosion_at_cell(cell: Vector2i) -> void:
 	if multiplayer.is_server():
 		return
 	await _spawn_explosion_fx_only(cell)
+
+@rpc("authority", "reliable")
+func _rpc_sync_hp_at_cell(cell: Vector2i, hp: int) -> void:
+	if multiplayer.is_server():
+		return
+	var u := unit_at_cell(cell)
+	if u == null or not is_instance_valid(u):
+		return
+	if "hp" in u:
+		u.hp = hp
+	# optional: if you have UI refresh method(s), call here
+
+@rpc("authority", "reliable")
+func _rpc_sync_dead_at_cell(cell: Vector2i) -> void:
+	if multiplayer.is_server():
+		return
+	# Trust host: remove whoever is at that cell
+	var u := unit_at_cell(cell)
+	if u != null and is_instance_valid(u):
+		# If you have a clean kill/remove path, call it.
+		# Otherwise basic remove:
+		_remove_unit_from_board_at_cell(cell)
