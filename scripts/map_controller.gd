@@ -4976,30 +4976,36 @@ func spawn_explosion_at_cell(cell: Vector2i) -> void:
 		return
 
 	# ---------------------------------------------------------
-	# CO-OP: host applies damage; VFX is broadcast to everyone.
+	# CO-OP: host applies damage; everyone plays FX.
 	# ---------------------------------------------------------
-	if _coop_is_active() and _coop_is_host():
-		# Visual only (host + all peers)
-		# Host must also see the VFX locally (rpc() does NOT call_local by default)
-		await _spawn_explosion_fx_only(cell)
-		if not _coop_vfx_block_broadcast:
-			rpc("_rpc_vfx_explosion_at_cell", cell)
+	if _coop_is_active():
+		if _coop_is_host():
+			# Host plays FX locally...
+			await _spawn_explosion_fx_only(cell)
 
-		# Gameplay damage (HOST ONLY)
-		await _apply_splash_damage(cell, structure_splash_radius, structure_explosion_splash_damage)
-		_apply_structure_splash_damage(cell, structure_splash_radius, structure_hit_damage)
+			# ...and tells clients to play FX
+			if not _coop_vfx_block_broadcast:
+				rpc("_rpc_vfx_explosion_at_cell", cell)
 
-		# Keep pacing roughly similar even though VFX plays via RPC
-		await get_tree().create_timer(explosion_fallback_seconds).timeout
-		return
+			# Host applies gameplay damage
+			await _apply_splash_damage(cell, structure_splash_radius, structure_explosion_splash_damage)
+			_apply_structure_splash_damage(cell, structure_splash_radius, structure_hit_damage)
+
+			await get_tree().create_timer(explosion_fallback_seconds).timeout
+			return
+		else:
+			# ✅ Client in co-op (including visual replay): FX only, no damage, no broadcast
+			await _spawn_explosion_fx_only(cell)
+			await get_tree().create_timer(explosion_fallback_seconds).timeout
+			return
 
 	# ---------------------------------------------------------
-	# Singleplayer / local: do both damage + VFX locally.
+	# Singleplayer / local
 	# ---------------------------------------------------------
 	await _apply_splash_damage(cell, structure_splash_radius, structure_explosion_splash_damage)
 	_apply_structure_splash_damage(cell, structure_splash_radius, structure_hit_damage)
 	await _spawn_explosion_fx_only(cell)
-	
+		
 func launch_projectile_arc(
 	from_cell: Vector2i,
 	to_cell: Vector2i,
@@ -5165,6 +5171,9 @@ func _apply_splash_damage(center: Vector2i, radius: int, dmg: int, hit_cache = n
 				_cleanup_dead_at(c)
 
 func _apply_structure_splash_damage(center: Vector2i, radius: int, dmg: int) -> void:
+	if coop_visual_only():
+		return
+		
 	if dmg <= 0:
 		return
 
@@ -9056,30 +9065,32 @@ func _apply_move(u: Unit, target: Vector2i) -> void:
 		u.global_position = terrain.to_global(terrain.map_to_local(target))
 
 func _spawn_explosion_fx_only(at_cell: Vector2i) -> void:
-	# Visual-only explosion helper for peers.
-	# Tries to reuse whatever explosion FX function you already have.
-	# No gameplay damage should happen here.
+	# Visual-only explosion helper for peers (NO DAMAGE).
+	# This must spawn the same FX you use in normal gameplay.
 
-	# Try common existing helpers first (no guessing required)
-	if has_method("_spawn_explosion_fx"):
-		call("_spawn_explosion_fx", at_cell)
-		return
-	if has_method("_spawn_explosion_fx_at_cell"):
-		call("_spawn_explosion_fx_at_cell", at_cell)
-		return
-	if has_method("_spawn_explosion_vfx"):
-		call("_spawn_explosion_vfx", at_cell)
+	if explosion_scene == null or terrain == null:
 		return
 
-	# Fallback: if you have a PackedScene var for explosions, instance it.
-	# (This stays visual-only.)
-	if "explosion_fx_scene" in self and self.explosion_fx_scene is PackedScene:
-		var fx := (self.explosion_fx_scene as PackedScene).instantiate()
-		add_child(fx)
+	var fx := explosion_scene.instantiate()
+	if fx == null:
+		return
 
-		if fx is Node2D:
-			(fx as Node2D).global_position = _cell_world(at_cell)
+	# Position
+	var pos := _cell_world(at_cell)
+	pos.y -= 8
+	if fx is Node2D:
+		(fx as Node2D).global_position = pos
+		(fx as Node2D).z_index = 1 + at_cell.x + at_cell.y
 
-	# Always at least play SFX if your helper exists
+	add_child(fx)
+
+	# Optional SFX (keep if you want)
 	if has_method("_sfx"):
-		_sfx(&"explosion_small", sfx_volume_world, 1.0, _cell_world(at_cell))
+		_sfx(&"explosion_small", sfx_volume_world, 1.0, pos)
+		
+@rpc("authority", "reliable")
+func _rpc_vfx_explosion_at_cell(cell: Vector2i) -> void:
+	# Host tells clients to play explosion FX.
+	if multiplayer.is_server():
+		return
+	await _spawn_explosion_fx_only(cell)
