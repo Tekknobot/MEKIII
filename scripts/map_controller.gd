@@ -5920,6 +5920,13 @@ func spawn_edge_road_zombie() -> bool:
 	if z == null:
 		return false
 
+	# ✅ Ensure snapshot can recreate this unit on clients
+	if scene.resource_path != "":
+		z.set_meta("scene_path", scene.resource_path)
+
+	if _coop_is_active() and _coop_is_host() and z.net_id <= 0:
+		_net_register_unit(z)
+		
 	units_root.add_child(z)
 
 	# ✅ connect died signal so parts/pickups can drop
@@ -8652,14 +8659,27 @@ func apply_units_snapshot(units: Array) -> void:
 
 			_wire_unit_signals(u)
 
-			# Only brand-new spawns get the "drop reveal" cosmetic
-			if get_tree().get_multiplayer().has_multiplayer_peer() and not get_tree().get_multiplayer().is_server():
-				u.modulate.a = 0.0
-				u.set_meta("pending_drop_reveal", true)
+			# We'll decide visibility after team is applied (ALLY gets bomber reveal; ENEMY shows immediately)
 
 		# --- Authoritative fields ---
 		if d.has("team"):
 			u.team = int(d["team"])
+
+		# ✅ Client-side spawn visibility policy:
+		# - Allies: use bomber "drop reveal"
+		# - Enemies: show immediately (or fade in quickly)
+		if is_new and get_tree().get_multiplayer().has_multiplayer_peer() and not get_tree().get_multiplayer().is_server():
+			if u.team == Unit.Team.ALLY:
+				u.modulate.a = 0.0
+				u.set_meta("pending_drop_reveal", true)
+			else:
+				# Enemy (zombies): do NOT wait for bomber reveal
+				u.set_meta("pending_drop_reveal", false)
+				u.modulate.a = 1.0
+				# Optional: match host fade-in feel
+				u.modulate.a = 0.0
+				var tw := u.create_tween()
+				tw.tween_property(u, "modulate:a", 1.0, enemy_fade_time)
 
 		var owner := int(d.get("owner_peer_id", 1))
 		u.owner_peer_id = owner

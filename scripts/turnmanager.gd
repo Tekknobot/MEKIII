@@ -163,6 +163,72 @@ var _pending_event_success := false
 
 enum MissionState { DROP, SCRAMBLE, EVAC }
 
+
+var _coop_end_turn_pending := false
+
+func _coop_active() -> bool:
+	return M != null and M.has_method("_coop_is_active") and bool(M.call("_coop_is_active"))
+
+func _coop_host() -> bool:
+	return M != null and M.has_method("_coop_is_host") and bool(M.call("_coop_is_host"))
+
+func _coop_host_peer_id() -> int:
+	# Godot server/host is typically peer 1.
+	return 1
+
+
+@rpc("any_peer", "reliable")
+func _rpc_request_end_turn() -> void:
+	# Only host should act on requests.
+	if not _coop_active() or not _coop_host():
+		return
+
+	# Prevent double-requests / spam
+	if _coop_end_turn_pending:
+		return
+	if phase != Phase.PLAYER:
+		return
+
+	_coop_end_turn_pending = true
+	call_deferred("_coop_do_end_turn")
+
+
+func _coop_do_end_turn() -> void:
+	# This is deferred so we can safely await inside.
+	await _do_end_turn_authoritative()
+	_coop_end_turn_pending = false
+
+func _do_end_turn_authoritative() -> void:
+	if phase != Phase.PLAYER:
+		return
+
+	# --- Clear Overlays ---
+	M._clear_overlay()
+
+	if M != null and M.has_method("stop_all_enemy_red_pulse"):
+		M.call("stop_all_enemy_red_pulse")
+
+	emit_signal("tutorial_event", &"end_turn_pressed", {"round": round_index})
+
+	phase = Phase.BUSY
+	_update_end_turn_button()
+
+	# Auto-finish allies
+	for u in _moved.keys():
+		if u == null or not is_instance_valid(u):
+			continue
+		if not _moved.get(u, false):
+			_moved[u] = true
+		if not _attacked.get(u, false):
+			_attacked[u] = true
+			M.set_unit_exhausted(u, true)
+
+	# support bots
+	await _run_support_bots_phase()
+
+	# enemies + spawns (host authoritative)
+	await start_enemy_phase()
+		
 func _pick_pattern() -> int:
 	# early turns: simple; later: nastier
 	if _event_turn <= 1:
@@ -691,38 +757,19 @@ func _calc_spawn_count_for_round(r: int) -> int:
 func _on_end_turn_pressed() -> void:
 	if phase != Phase.PLAYER:
 		return
+
+	# ✅ Co-op: client does NOT simulate. It requests host.
+	if _coop_active() and not _coop_host():
+		phase = Phase.BUSY
+		_update_end_turn_button()
+		_update_special_buttons()
+
+		rpc_id(_coop_host_peer_id(), "_rpc_request_end_turn")
+		return
+
+	# ✅ Host / solo: do it locally
+	await _do_end_turn_authoritative()
 	
-	# --- Clear Overlays ---	
-	M._clear_overlay()
-
-	# ✅ stop enemy pulses for next phase (they'll restart when threat overlay is redrawn)
-	if M != null and M.has_method("stop_all_enemy_red_pulse"):
-		M.call("stop_all_enemy_red_pulse")
-
-
-	# --- Tutorial hook ---
-	emit_signal("tutorial_event", &"end_turn_pressed", {"round": round_index})
-
-	phase = Phase.BUSY
-	_update_end_turn_button()
-
-	# Auto-finish allies
-	for u in _moved.keys():
-		if u == null or not is_instance_valid(u):
-			continue
-		if not _moved.get(u, false):
-			_moved[u] = true
-		if not _attacked.get(u, false):
-			_attacked[u] = true
-			M.set_unit_exhausted(u, true)
-
-	# NEW: support bots act here (before enemies)
-	await _run_support_bots_phase()
-
-	# then enemies
-	await start_enemy_phase()
-
-
 func _on_selection_changed(_u: Unit) -> void:
 	_update_special_buttons()
 
