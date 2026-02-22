@@ -917,6 +917,29 @@ func _extract_unit_card_data(scene_path: String) -> Dictionary:
 		inst.queue_free()
 		return {}
 
+	# ---------------------------------------------------------
+	# CO-OP RESTRICTION:
+	# Hide certain units from roster in co-op (not supported online)
+	# ---------------------------------------------------------
+	if _is_coop():
+		var cname := ""
+
+		# Prefer script global class name (class_name CarBot / Roller)
+		var scr = u.get_script()
+		if scr != null:
+			# Godot 4: Script.get_global_name() exists
+			if scr.has_method("get_global_name"):
+				cname = str(scr.call("get_global_name"))
+
+		# Fallbacks if global name not present
+		if cname == "":
+			# Sometimes you can still get something useful here
+			cname = str(u.get_class())
+
+		if cname == "CarBot" or cname == "Roller" or cname == "RecruitBot":
+			inst.queue_free()
+			return {}
+
 	# ---- gather fields robustly ----
 	var name := _unit_get_name(u, inst, scene_path)
 	var portrait := _unit_get_portrait(u)
