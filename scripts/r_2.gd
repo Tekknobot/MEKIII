@@ -99,7 +99,8 @@ func perform_basic_attack(M: MapController, target_cell: Vector2i) -> void:
 		return
 	_face_toward_cell(target_cell)
 	_play_attack_anim_once()
-	_apply_damage_safely(tgt, basic_ranged_damage)
+	if not M.coop_visual_only():
+		_apply_damage_safely(tgt, basic_ranged_damage)
 
 # -------------------------------------------------------
 # Special: CANNON BARRAGE (AUTO)
@@ -165,7 +166,8 @@ func perform_cannon(M: MapController, _target_cell: Vector2i) -> void:
 		return
 
 	# ✅ cooldowns forced to 0
-	special_cd[id_key] = 0
+	if not M.coop_visual_only():
+		special_cd[id_key] = 0
 
 # Collect enemy cells within Manhattan range, sorted closest-first
 func _get_enemy_cells_in_range(M: MapController, r: int) -> Array[Vector2i]:

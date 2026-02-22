@@ -137,7 +137,8 @@ func perform_basic_attack(M: MapController, target_cell: Vector2i) -> void:
 		await get_tree().create_timer(0.3).timeout
 
 	if is_instance_valid(tgt):
-		_apply_damage_safely(tgt, basic_ranged_damage)
+		if not M.coop_visual_only():
+			_apply_damage_safely(tgt, basic_ranged_damage)
 		M.spawn_explosion_at_cell(target_cell)
 		_sfx_at_cell(M, &"explosion_small", target_cell)
 
@@ -200,7 +201,8 @@ func perform_malfunction(M: MapController, target_cell: Vector2i) -> void:
 				if "team" in tgt and tgt.team != team:
 					if M.has_method("_flash_unit_white"):
 						M.call("_flash_unit_white", tgt, 0.10)
-					_apply_damage_safely(tgt, malfunction_damage + attack_damage)
+					if not M.coop_visual_only():
+						_apply_damage_safely(tgt, malfunction_damage + attack_damage)
 
 			# Stagger explosions within ring
 			if malfunction_explosion_stagger > 0.0:
@@ -212,12 +214,14 @@ func perform_malfunction(M: MapController, target_cell: Vector2i) -> void:
 
 	# ED-209 takes self-damage from malfunction
 	if malfunction_self_damage > 0 and _alive():
-		_apply_damage_safely(self, malfunction_self_damage)
+		if not M.coop_visual_only():
+			_apply_damage_safely(self, malfunction_self_damage)
 		if M.has_method("_flash_unit_white"):
 			M.call("_flash_unit_white", self, 0.15)
 
 	_play_idle_anim()
-	special_cd[id_key] = malfunction_cooldown
+	if not M.coop_visual_only():
+		special_cd[id_key] = malfunction_cooldown
 
 func _get_spiral_pattern(M: MapController, center: Vector2i, max_radius: int) -> Array:
 	var rings := []
@@ -314,7 +318,8 @@ func perform_storm(M: MapController, target_cell: Vector2i) -> void:
 		await storm_complete
 
 	_play_idle_anim()
-	special_cd[id_key] = storm_cooldown
+	if not M.coop_visual_only():
+		special_cd[id_key] = storm_cooldown
 
 func _fire_storm_projectile(M: MapController, from_cell: Vector2i, to_cell: Vector2i, impact_id: int) -> void:
 	var proj := projectile_scene.instantiate()

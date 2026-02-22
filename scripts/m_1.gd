@@ -175,7 +175,8 @@ func perform_sunder(M: MapController, target_cell: Vector2i) -> void:
 		c += dir
 
 	_play_idle_anim()
-	mark_special_used("sunder", sunder_cooldown)
+	if not M.coop_visual_only():
+		mark_special_used("sunder", sunder_cooldown)
 
 # -------------------------------------------------------
 # Special 2: SLAM (quake-like ripple)
@@ -206,7 +207,8 @@ func perform_slam(M: MapController, target_cell: Vector2i) -> void:
 
 	_play_idle_anim()
 
-	mark_special_used("slam", slam_cooldown)
+	if not M.coop_visual_only():
+		mark_special_used("slam", slam_cooldown)
 
 # -------------------------------------------------------
 # SLAM implementation

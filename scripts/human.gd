@@ -60,8 +60,10 @@ func perform_hellfire(M: MapController, target: Vector2i) -> void:
 		var victim = M.unit_at_cell(c)
 		if victim != null and is_instance_valid(victim) and victim.team != team:
 			M._flash_unit_white(victim, 0.12)
-			victim.take_damage(hellfire_damage + attack_damage)
-			M._cleanup_dead_at(c)
+			if not M.coop_visual_only():
+				victim.take_damage(hellfire_damage + attack_damage)
+			if not M.coop_visual_only():
+				M._cleanup_dead_at(c)
 
 		await get_tree().create_timer(hellfire_delay).timeout
 
@@ -123,7 +125,8 @@ func perform_suppress(map: MapController, target_cell: Vector2i) -> void:
 
 		# hit
 		map._flash_unit_white(t, 0.12)
-		t.take_damage(suppress_damage + attack_damage)
+		if not map.coop_visual_only():
+			t.take_damage(suppress_damage + attack_damage)
 
 		# debuff via meta
 		t.set_meta("suppress_turns", suppress_duration_turns)

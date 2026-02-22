@@ -287,7 +287,8 @@ func _crush_enemy_if_present(M: MapController, at_cell: Vector2i) -> void:
 		return
 
 	if victim.hp > 0:
-		victim.take_damage(crush_damage)
+		if not M.coop_visual_only():
+			victim.take_damage(crush_damage)
 		if car_sfx != null:
 			car_sfx.hit(1.0)
 		if M != null and M.has_method("_sfx"):
@@ -368,15 +369,17 @@ func _roll_path_ok(M: MapController, path: Array[Vector2i], structure_blocked: D
 			return false
 
 		# walkability: allow enemies, forbid allies
-		if M.units_by_cell != null and M.units_by_cell.has(step):
-			var occ = M.units_by_cell[step]
-			if occ != null and is_instance_valid(occ) and (occ is Unit):
-				var ou := occ as Unit
-				if _is_avoid_unit(ou):
-					return false
-				if ou.team == Unit.Team.ALLY:
-					return false
-				# enemy is allowed (we crush)
+		if not M.coop_visual_only():
+			if M.units_by_cell != null and M.units_by_cell.has(step):
+				if not M.coop_visual_only():
+					var occ = M.units_by_cell[step]
+					if occ != null and is_instance_valid(occ) and (occ is Unit):
+						var ou := occ as Unit
+						if _is_avoid_unit(ou):
+							return false
+						if ou.team == Unit.Team.ALLY:
+							return false
+						# enemy is allowed (we crush)
 
 		# if you also block tiles via _is_walkable, keep enemy exception
 		if M.has_method("_is_walkable") and not M.call("_is_walkable", step):
@@ -395,14 +398,16 @@ func _count_enemies_on_path(M: MapController, path: Array[Vector2i]) -> int:
 func _cell_has_enemy(M: MapController, c: Vector2i) -> bool:
 	if M == null or not is_instance_valid(M):
 		return false
-	if M.units_by_cell == null:
-		return false
+	if not M.coop_visual_only():
+		if M.units_by_cell == null:
+			return false
 	if not M.units_by_cell.has(c):
 		return false
-	var occ = M.units_by_cell[c]
-	if occ != null and is_instance_valid(occ) and (occ is Unit):
-		var u := occ as Unit
-		return (u.team == Unit.Team.ENEMY) and not _is_avoid_unit(u) and u.hp > 0
+	if not M.coop_visual_only():
+		var occ = M.units_by_cell[c]
+		if occ != null and is_instance_valid(occ) and (occ is Unit):
+			var u := occ as Unit
+			return (u.team == Unit.Team.ENEMY) and not _is_avoid_unit(u) and u.hp > 0
 	return false
 
 # ---------------------------------------------------------
@@ -499,13 +504,15 @@ func _is_avoid_unit(u: Object) -> bool:
 func _cell_has_avoid_unit(M: MapController, c: Vector2i) -> bool:
 	if M == null or not is_instance_valid(M):
 		return false
-	if M.units_by_cell == null:
-		return false
+	if not M.coop_visual_only():
+		if M.units_by_cell == null:
+			return false
 	if not M.units_by_cell.has(c):
 		return false
-	var occ = M.units_by_cell[c]
-	if occ != null and is_instance_valid(occ) and (occ is Unit):
-		return _is_avoid_unit(occ)
+	if not M.coop_visual_only():
+		var occ = M.units_by_cell[c]
+		if occ != null and is_instance_valid(occ) and (occ is Unit):
+			return _is_avoid_unit(occ)
 	return false
 
 func _get_enemy_at_cell(M: MapController, c: Vector2i) -> Unit:
@@ -613,14 +620,16 @@ func _pick_roll_path(M: MapController) -> Array[Vector2i]:
 				continue
 
 			# allies block, enemies allowed
-			if M.units_by_cell != null and M.units_by_cell.has(dest):
-				var occ = M.units_by_cell[dest]
-				if occ != null and is_instance_valid(occ) and (occ is Unit):
-					var ou := occ as Unit
-					if _is_avoid_unit(ou):
-						continue
-					if ou.team == Unit.Team.ALLY:
-						continue
+			if not M.coop_visual_only():
+				if M.units_by_cell != null and M.units_by_cell.has(dest):
+					if not M.coop_visual_only():
+						var occ = M.units_by_cell[dest]
+						if occ != null and is_instance_valid(occ) and (occ is Unit):
+							var ou := occ as Unit
+							if _is_avoid_unit(ou):
+								continue
+							if ou.team == Unit.Team.ALLY:
+								continue
 
 			# ✅ reuse your existing builder
 			var path := _build_roll_path_to(M, dest)

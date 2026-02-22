@@ -105,7 +105,8 @@ func perform_basic_attack(M: MapController, target_cell: Vector2i) -> void:
 		return
 	_face_toward_cell(target_cell)
 	_play_attack_anim_once()
-	_apply_damage_safely(tgt, attack_damage)
+	if not M.coop_visual_only():
+		_apply_damage_safely(tgt, attack_damage)
 
 # -------------------------------------------------------
 # Special: NINEFOLD VOLLEY (AUTO)
@@ -172,7 +173,8 @@ func perform_volley(M: MapController, _target_cell: Vector2i) -> void:
 		spr.play("idle") # change if your idle anim name differs
 		
 	# Cooldown once at end
-	mark_special_used(id_key, volley_cooldown)
+	if not M.coop_visual_only():
+		mark_special_used(id_key, volley_cooldown)
 
 
 # Collect enemy cells within Manhattan range, sorted closest-first

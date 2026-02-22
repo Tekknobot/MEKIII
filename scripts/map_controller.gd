@@ -7,6 +7,12 @@ class_name MapController
 var _net_units_by_id: Dictionary = {} # int -> Unit
 var _next_net_id: int = 1
 
+# COOP: when true, unit perform_* runs VFX/anim only (no damage/logic)
+var _coop_visual_only: bool = false
+
+func coop_visual_only() -> bool:
+	return _coop_visual_only
+
 func _net_mgr() -> Node:
 	return get_tree().root.get_node_or_null("Network")
 
@@ -2216,6 +2222,12 @@ func _perform_special(u: Unit, id: String, target_cell: Vector2i) -> void:
 		return
 
 	id = id.to_lower()
+	# COOP: if the HOST player triggered a special locally, broadcast its VFX/anim to clients.
+	# (Client-triggered specials already broadcast from _rpc_client_request_special; avoid double-send.)
+	if _coop_is_active() and _coop_is_host() and multiplayer.has_multiplayer_peer() and multiplayer.is_server():
+		var from_client := (has_meta(&"_coop_special_from_client") and bool(get_meta(&"_coop_special_from_client")))
+		if not from_client:
+			rpc("_rpc_special_visual", int(u.net_id), id, target_cell)
 
 	_is_moving = true
 	_clear_overlay()
@@ -2371,6 +2383,100 @@ func _perform_special(u: Unit, id: String, target_cell: Vector2i) -> void:
 	_finalize_pending_frees()
 	_coop_push_snapshot("special_local")
 
+# ---------------------------------------------------------
+# COOP: visual-only replay of specials (clients)
+# Runs the unit's perform_*() so you get its unique VFX/anim,
+# but unit scripts must guard gameplay writes using:
+#   if M.coop_visual_only(): return / skip damage
+# ---------------------------------------------------------
+func _perform_special_visual(u: Unit, id: String, target_cell: Vector2i) -> void:
+	if u == null or not is_instance_valid(u):
+		return
+
+	# Visual replay should not affect turn lock on clients, but you may
+	# want to block input during the animation:
+	_is_moving = true
+
+	# mark visual-only for unit scripts to skip damage/state writes
+	_coop_visual_only = true
+
+	id = id.to_lower()
+
+	# NOTE: do NOT clear overlay / achievements / cleanup / snapshots here
+
+	# -------------------------
+	# Execute special (VISUAL ONLY)
+	# -------------------------
+	if id == "hellfire" and u.has_method("perform_hellfire"):
+		await u.call("perform_hellfire", self, target_cell)
+
+	elif id == "blade" and u.has_method("perform_blade"):
+		await u.call("perform_blade", self, target_cell)
+
+	elif id == "mines" and u.has_method("perform_place_mine"):
+		await u.call("perform_place_mine", self, target_cell)
+
+	elif id == "overwatch" and u.has_method("perform_overwatch"):
+		await u.call("perform_overwatch", self)
+
+	elif id == "suppress" and u.has_method("perform_suppress"):
+		await u.call("perform_suppress", self, target_cell)
+
+	elif id == "stim" and u.has_method("perform_stim"):
+		await u.call("perform_stim", self)
+
+	elif id == "sunder" and u.has_method("perform_sunder"):
+		await u.call("perform_sunder", self, target_cell)
+
+	elif id == "pounce" and u.has_method("perform_pounce"):
+		await u.call("perform_pounce", self, target_cell)
+
+	elif id == "volley" and u.has_method("perform_volley"):
+		await u.call("perform_volley", self, target_cell)
+
+	elif id == "cannon" and u.has_method("perform_cannon"):
+		await u.call("perform_cannon", self, target_cell)
+
+	elif id == "quake" and u.has_method("perform_quake"):
+		await u.call("perform_quake", self, target_cell)
+
+	elif id == "nova" and u.has_method("perform_nova"):
+		await u.call("perform_nova", self, target_cell)
+
+	elif id == "web" and u.has_method("perform_web"):
+		await u.call("perform_web", self, target_cell)
+
+	elif id == "slam" and u.has_method("perform_slam"):
+		await u.call("perform_slam", self, target_cell)
+
+	elif id == "laser_grid" and u.has_method("perform_laser_grid"):
+		await u.call("perform_laser_grid", self, target_cell)
+
+	elif id == "overcharge" and u.has_method("perform_overcharge"):
+		await u.call("perform_overcharge", self, target_cell)
+
+	elif id == "barrage" and u.has_method("perform_barrage"):
+		await u.call("perform_barrage", self, target_cell)
+
+	elif id == "railgun" and u.has_method("perform_railgun"):
+		await u.call("perform_railgun", self, target_cell)
+
+	elif id == "malfunction" and u.has_method("perform_malfunction"):
+		await u.call("perform_malfunction", self, target_cell)
+
+	elif id == "storm" and u.has_method("perform_storm"):
+		await u.call("perform_storm", self, target_cell)
+
+	elif id == "artillery_strike" and u.has_method("perform_artillery_strike"):
+		await u.call("perform_artillery_strike", self, target_cell)
+
+	elif id == "laser_sweep" and u.has_method("perform_laser_sweep"):
+		await u.call("perform_laser_sweep", self, target_cell)
+
+	# end visual-only mode
+	_coop_visual_only = false
+	_is_moving = false
+
 @rpc("any_peer", "reliable")
 func _rpc_client_request_move(unit_net_id: int, target: Vector2i) -> void:
 	if not multiplayer.is_server():
@@ -2461,12 +2567,29 @@ func _rpc_client_request_attack(attacker_net_id: int, target_cell: Vector2i) -> 
 	if defender == null or not is_instance_valid(defender):
 		rpc_id(sender, "_rpc_action_denied", "attack", attacker_net_id)
 		return
+	# COOP: broadcast attack VFX/anim to clients (visual-only)
+	rpc("_rpc_attack_visual", attacker_net_id, target_cell)
 	await _do_attack(attacker, defender)
 	_set_unit_attacked(attacker, true)
 	_apply_turn_indicator(attacker)
 	if TM != null and TM.has_method("notify_player_attacked"):
 		TM.notify_player_attacked(attacker)
 	_coop_push_snapshot("attack")
+
+@rpc("authority", "reliable")
+func _rpc_attack_visual(attacker_net_id: int, target_cell: Vector2i) -> void:
+	# Server -> clients: play attack anim/VFX only (no damage)
+	if multiplayer.is_server():
+		return
+	var attacker: Unit = _find_unit_by_net_id(attacker_net_id)
+	if attacker == null or not is_instance_valid(attacker):
+		return
+	# Visual-only replay
+	var prev := _coop_visual_only
+	_coop_visual_only = true
+	if attacker.has_method("perform_basic_attack"):
+		await attacker.call("perform_basic_attack", self, target_cell)
+	_coop_visual_only = prev
 
 
 @rpc("any_peer", "reliable")
@@ -2486,10 +2609,30 @@ func _rpc_client_request_special(unit_net_id: int, sid: String, target_cell: Vec
 	# Temporarily select so your existing special flow works
 	var old_selected := selected
 	selected = u
+	# COOP: broadcast special VFX/anim to clients (visual-only)
+	rpc("_rpc_special_visual", unit_net_id, sid, target_cell)
+	set_meta(&"_coop_special_from_client", true)
 	await _perform_special(u, sid, target_cell)
+	set_meta(&"_coop_special_from_client", false)
 	selected = old_selected
 	_coop_push_snapshot("special")
 	
+@rpc("authority", "reliable")
+func _rpc_special_visual(unit_net_id: int, sid: String, target_cell: Vector2i) -> void:
+	# Server -> clients: replay special visuals only
+	if multiplayer.is_server():
+		return
+	var u: Unit = _find_unit_by_net_id(unit_net_id)
+	if u == null or not is_instance_valid(u):
+		return
+	var prev_moving := _is_moving
+	_is_moving = true
+	var prev := _coop_visual_only
+	_coop_visual_only = true
+	await _perform_special_visual(u, sid, target_cell)
+	_coop_visual_only = prev
+	_is_moving = prev_moving
+
 func _finalize_pending_frees() -> void:
 	for v in get_all_units():
 		var u := v as Unit
@@ -4006,6 +4149,9 @@ func ai_move_free(u: Unit, target: Vector2i) -> void:
 	var path := _pick_clear_L_path(from_cell, target)
 	if path.is_empty():
 		return
+	# COOP: host broadcasts AI/enemy moves so clients see them too.
+	if _coop_is_active() and _coop_is_host() and multiplayer.has_multiplayer_peer() and multiplayer.is_server():
+		rpc("_rpc_play_move_visual", int(u.net_id), from_cell, target, path)
 
 	_is_moving = true
 	_clear_overlay()
@@ -4103,6 +4249,8 @@ func ai_move_free(u: Unit, target: Vector2i) -> void:
 
 	_is_moving = false
 
+	# COOP: after authoritative AI move, push snapshot so occupancy/state stays correct on clients.
+	_coop_push_snapshot("ai_move")
 func ai_attack(attacker: Unit, defender: Unit) -> void:
 	if attacker == null or defender == null:
 		return
@@ -4832,6 +4980,8 @@ func spawn_explosion_at_cell(cell: Vector2i) -> void:
 	# ---------------------------------------------------------
 	if _coop_is_active() and _coop_is_host():
 		# Visual only (host + all peers)
+		# Host must also see the VFX locally (rpc() does NOT call_local by default)
+		await _spawn_explosion_fx_only(cell)
 		if not _coop_vfx_block_broadcast:
 			rpc("_rpc_vfx_explosion_at_cell", cell)
 
@@ -4951,6 +5101,8 @@ func _trigger_structure_explosion(center: Vector2i) -> void:
 	_apply_structure_splash_damage(center, structure_splash_radius, structure_hit_damage)
 
 func _apply_splash_damage(center: Vector2i, radius: int, dmg: int, hit_cache = null) -> void:
+	if coop_visual_only():
+		return
 	if dmg <= 0:
 		return
 
@@ -8586,6 +8738,16 @@ func _rpc_play_move_visual(unit_net_id: int, from_cell: Vector2i, target: Vector
 	u.cell = from_cell
 	u.global_position = _cell_world(from_cell)
 	_set_unit_depth_from_world(u, u.global_position)
+	# COOP client-side: keep occupancy map in sync for UI/path previews (visual-only update).
+	if not multiplayer.is_server():
+		# erase any stale entry for this unit
+		for k in units_by_cell.keys():
+			if units_by_cell[k] == u:
+				units_by_cell.erase(k)
+				break
+		# apply from->to occupancy
+		units_by_cell.erase(from_cell)
+		units_by_cell[target] = u
 
 	await _move_unit_visual_along_path(u, target, path)
 

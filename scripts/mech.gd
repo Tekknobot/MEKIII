@@ -40,9 +40,15 @@ func perform_place_mine(M: MapController, target_cell: Vector2i) -> void:
 	if M.units_by_cell.has(target_cell):
 		return
 	if M.mines_by_cell.has(target_cell):
+	# COOP: peers replay visuals only (do not modify mine state)
+		pass
+	if M.coop_visual_only():
+		M.place_mine_visual(target_cell)
 		return
+	return
 
-	M.mines_by_cell[target_cell] = {"team": team, "damage": mine_damage + attack_damage}
+	if not M.coop_visual_only():
+		M.mines_by_cell[target_cell] = {"team": team, "damage": mine_damage + attack_damage}
 	
 	# ✅ spawn mine scene visual
 	M.place_mine_visual(target_cell)
@@ -66,8 +72,10 @@ func get_special_range(id: String) -> int:
 func perform_overwatch(M: MapController) -> void:
 	if not can_use_special("overwatch"):
 		return
-	M.set_overwatch(self, true, overwatch_range, 1) # ✅ 1 round
-	mark_special_used("overwatch", 0)
+	if not M.coop_visual_only():
+		M.set_overwatch(self, true, overwatch_range, 1) # ✅ 1 round
+	if not M.coop_visual_only():
+		mark_special_used("overwatch", 0)
 
 func play_death_anim() -> void:
 	var M := get_tree().get_first_node_in_group("MapController")

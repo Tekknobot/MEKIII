@@ -163,7 +163,8 @@ func perform_artillery_strike(M: MapController, target_cell: Vector2i) -> void:
 		await artillery_complete
 
 	_play_idle_anim()
-	special_cd[id_key] = artillery_cooldown
+	if not M.coop_visual_only():
+		special_cd[id_key] = artillery_cooldown
 
 func _on_artillery_missile_finished(M: MapController, impact_cell: Vector2i) -> void:
 	_on_artillery_impact(M, impact_cell)
@@ -268,7 +269,8 @@ func perform_laser_sweep(M: MapController, target_cell: Vector2i) -> void:
 		await _sky_laser_strike(M, u.cell)
 
 	_play_idle_anim()
-	special_cd[id_key] = laser_cooldown
+	if not M.coop_visual_only():
+		special_cd[id_key] = laser_cooldown
 
 func _build_sky_chain_targets(M: MapController, first: Unit) -> Array[Unit]:
 	var out: Array[Unit] = []

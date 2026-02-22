@@ -158,7 +158,8 @@ func perform_blade(M: MapController, target_cell: Vector2i) -> void:
 		M._sfx(&"attack_swing", M.sfx_volume_world, randf_range(0.95, 1.05), global_position)
 
 		M._flash_unit_white(v, flash_time)
-		v.take_damage(dmg)
+		if not M.coop_visual_only():
+			v.take_damage(dmg)
 
 		# wait a bit (bounded), but only if we're still alive
 		if not _self_alive.call():
@@ -167,7 +168,8 @@ func perform_blade(M: MapController, target_cell: Vector2i) -> void:
 		await M._wait_for_attack_anim(self)
 		await _wait_seconds_no_timer(M.attack_anim_lock_time)
 
-		M._cleanup_dead_at(cleanup_cell)
+		if not M.coop_visual_only():
+			M._cleanup_dead_at(cleanup_cell)
 
 	# -----------------------------
 	# 1) For EACH target: move adjacent -> hit -> cleave
@@ -279,7 +281,8 @@ func perform_stim(M: MapController) -> void:
 	_apply_stim_fx()
 
 	# Cooldown (your system)
-	mark_special_used("stim", stim_cooldown_turns)
+	if not M.coop_visual_only():
+		mark_special_used("stim", stim_cooldown_turns)
 
 func _apply_stim_fx() -> void:
 	var ci := _get_unit_render_node()

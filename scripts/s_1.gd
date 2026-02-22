@@ -148,7 +148,8 @@ func perform_basic_attack(M: MapController, target_cell: Vector2i) -> void:
 	_play_attack_anim_once()
 	_sfx_at_cell(M, scanner_sfx_id, cell)
 
-	_apply_damage_safely(tgt, basic_laser_damage + attack_damage)
+	if not M.coop_visual_only():
+		_apply_damage_safely(tgt, basic_laser_damage + attack_damage)
 
 	if M.has_method("_flash_unit_white"):
 		M.call("_flash_unit_white", tgt, 0.10)
@@ -225,14 +226,16 @@ func perform_laser_grid(M: MapController, target_cell: Vector2i) -> void:
 			elif M.has_method("flash_unit_white"):
 				M.call("flash_unit_white", tgt, 0.10)
 
-			_apply_damage_safely(tgt, grid_damage + attack_damage)
+			if not M.coop_visual_only():
+				_apply_damage_safely(tgt, grid_damage + attack_damage)
 
 		# let the beam be visible briefly, then fade
 		await get_tree().create_timer(0.02).timeout
 		_fade_and_free(strike, 0.10)
 
 	_play_idle_anim()
-	special_cd[id_key] = grid_cooldown
+	if not M.coop_visual_only():
+		special_cd[id_key] = grid_cooldown
 
 func _create_sky_strike(M: MapController, hit_cell: Vector2i) -> Node2D:
 	# A vertical-ish beam from "sky" down to the cell.
@@ -361,12 +364,14 @@ func perform_overcharge(M: MapController, target_cell: Vector2i) -> void:
 			elif M.has_method("flash_unit_white"):
 				M.call("flash_unit_white", tgt, 0.15)
 
-			_apply_damage_safely(tgt, overcharge_damage + attack_damage)
+			if not M.coop_visual_only():
+				_apply_damage_safely(tgt, overcharge_damage + attack_damage)
 
 		await get_tree().create_timer(0.02).timeout
 
 	_play_idle_anim()
-	special_cd[id_key] = overcharge_cooldown
+	if not M.coop_visual_only():
+		special_cd[id_key] = overcharge_cooldown
 
 func _bresenham_cells(a: Vector2i, b: Vector2i) -> Array[Vector2i]:
 	var cells: Array[Vector2i] = []

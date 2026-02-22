@@ -106,7 +106,8 @@ func perform_basic_attack(M: MapController, target_cell: Vector2i) -> void:
 
 	_face_toward_cell(target_cell)
 	_play_attack_anim_once()
-	_apply_damage_safely(tgt, basic_ranged_damage)
+	if not M.coop_visual_only():
+		_apply_damage_safely(tgt, basic_ranged_damage)
 
 # -------------------------------------------------------
 # Special: QUAKE
@@ -134,7 +135,8 @@ func perform_quake(M: MapController, target_cell: Vector2i) -> void:
 	await _play_quake_ripple(M, target_cell)
 	_play_idle_anim()
 
-	special_cd[id_key] = quake_cooldown
+	if not M.coop_visual_only():
+		special_cd[id_key] = quake_cooldown
 
 # -------------------------------------------------------
 # QUAKE implementation

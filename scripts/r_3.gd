@@ -152,7 +152,8 @@ func perform_basic_attack(M: MapController, target_cell: Vector2i) -> void:
 		await tw.finished
 
 	if is_instance_valid(tgt):
-		_apply_damage_safely(tgt, basic_ranged_damage)
+		if not M.coop_visual_only():
+			_apply_damage_safely(tgt, basic_ranged_damage)
 		M.spawn_explosion_at_cell(target_cell)
 
 	_play_idle_anim()
@@ -224,7 +225,8 @@ func perform_barrage(M: MapController, target_cell: Vector2i) -> void:
 
 	# ✅ back to idle only when DONE
 	_play_idle_anim()
-	special_cd[id_key] = barrage_cooldown
+	if not M.coop_visual_only():
+		special_cd[id_key] = barrage_cooldown
 
 
 func _on_barrage_missile_finished(M: MapController, impact_cell: Vector2i) -> void:
@@ -359,7 +361,8 @@ func perform_railgun(M: MapController, target_cell: Vector2i) -> void:
 		if M.has_method("_flash_unit_white"):
 			M.call("_flash_unit_white", u, 0.15)
 
-		_apply_damage_safely(u, int(current_damage))
+		if not M.coop_visual_only():
+			_apply_damage_safely(u, int(current_damage))
 		_sfx_at_cell(M, railgun_hit_sfx_id, u.cell)
 
 		# Explosion on hit cell + 8 surrounding cells
@@ -375,7 +378,8 @@ func perform_railgun(M: MapController, target_cell: Vector2i) -> void:
 		_fade_out_beam(beam)
 
 	_play_idle_anim()
-	special_cd[id_key] = railgun_cooldown
+	if not M.coop_visual_only():
+		special_cd[id_key] = railgun_cooldown
 
 func _spawn_railgun_hit_burst(M: MapController, center_cell: Vector2i) -> void:
 	if M == null:

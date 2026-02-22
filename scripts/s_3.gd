@@ -136,7 +136,8 @@ func perform_basic_attack(M: MapController, target_cell: Vector2i) -> void:
 
 	_face_toward_cell(target_cell)
 	_play_attack_anim_once()
-	_apply_damage_safely(tgt, basic_melee_damage)
+	if not M.coop_visual_only():
+		_apply_damage_safely(tgt, basic_melee_damage)
 
 # -------------------------------------------------------
 # Special 1: NOVA
@@ -182,7 +183,8 @@ func perform_nova(M: MapController, target_cell: Vector2i) -> void:
 			return
 
 	_play_idle_anim()
-	special_cd[id_key] = nova_cooldown
+	if not M.coop_visual_only():
+		special_cd[id_key] = nova_cooldown
 
 # -------------------------------------------------------
 # Special 2: WEB
@@ -236,7 +238,8 @@ func perform_web(M: MapController, target_cell: Vector2i) -> void:
 			M.call("_spawn_explosion_at_cell", tgt.cell)
 
 		_sfx_at_cell(M, web_hit_sfx_id, tgt.cell)
-		_apply_damage_safely(tgt, web_damage + attack_damage)
+		if not M.coop_visual_only():
+			_apply_damage_safely(tgt, web_damage + attack_damage)
 
 		# flash white on hit (keep)
 		if M.has_method("_flash_unit_white"):
@@ -253,7 +256,8 @@ func perform_web(M: MapController, target_cell: Vector2i) -> void:
 			_fade_out_web_line(line)
 
 	_play_idle_anim()
-	special_cd[id_key] = web_cooldown
+	if not M.coop_visual_only():
+		special_cd[id_key] = web_cooldown
 
 func _find_web_targets(M: MapController, focus_cell: Vector2i) -> Array:
 	var targets := []

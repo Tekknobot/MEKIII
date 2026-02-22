@@ -155,7 +155,8 @@ func perform_pounce(M: MapController, _target_cell: Vector2i) -> void:
 		await _lunge_to_cell_and_back(M, tgt_cell_for_fx)
 
 
-		_apply_damage_safely(tgt, pounce_damage + attack_damage)
+		if not M.coop_visual_only():
+			_apply_damage_safely(tgt, pounce_damage + attack_damage)
 
 		# ✅ wait anim
 		await _wait_attack_anim()
@@ -179,7 +180,8 @@ func perform_pounce(M: MapController, _target_cell: Vector2i) -> void:
 				if M.has_method("_ringout_push_and_die"):
 					await M.call("_ringout_push_and_die", self, tgt)
 				else:
-					_apply_damage_safely(tgt, 999)
+					if not M.coop_visual_only():
+						_apply_damage_safely(tgt, 999)
 				break
 
 			# ✅ pushed into water/non-walkable = death
@@ -187,7 +189,8 @@ func perform_pounce(M: MapController, _target_cell: Vector2i) -> void:
 				if M.has_method("_ringout_push_and_die"):
 					await M.call("_ringout_push_and_die", self, tgt)
 				else:
-					_apply_damage_safely(tgt, 999)
+					if not M.coop_visual_only():
+						_apply_damage_safely(tgt, 999)
 				break
 
 			var structure_blocked := _get_structure_blocked(M)
@@ -196,11 +199,15 @@ func perform_pounce(M: MapController, _target_cell: Vector2i) -> void:
 
 			var occ := M.unit_at_cell(next_cell)
 			if occ != null and is_instance_valid(occ):
-				_apply_damage_safely(tgt, slam_damage)
-				_apply_damage_safely(occ, slam_damage)
+				if not M.coop_visual_only():
+					_apply_damage_safely(tgt, slam_damage)
+				if not M.coop_visual_only():
+					_apply_damage_safely(occ, slam_damage)
 				if slam_kills_both:
-					_apply_damage_safely(tgt, 999)
-					_apply_damage_safely(occ, 999)
+					if not M.coop_visual_only():
+						_apply_damage_safely(tgt, 999)
+					if not M.coop_visual_only():
+						_apply_damage_safely(occ, 999)
 				break
 
 			if M.has_method("_push_unit_to_cell"):
@@ -212,7 +219,8 @@ func perform_pounce(M: MapController, _target_cell: Vector2i) -> void:
 			if tgt == null or not is_instance_valid(tgt):
 				break
 
-	mark_special_used("pounce", pounce_cooldown)
+	if not M.coop_visual_only():
+		mark_special_used("pounce", pounce_cooldown)
 
 # -------------------------
 # Helpers
