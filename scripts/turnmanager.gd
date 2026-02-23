@@ -518,8 +518,14 @@ func _refresh_population_and_check() -> void:
 		return
 	if M == null:
 		return
-	if not loss_checks_enabled:
-		return
+
+	# Co-op: clients still need HUD updates, but only the host should trigger loss/game_over.
+	var coop_active := false
+	var coop_host := true
+	if M.has_method("_coop_is_active"):
+		coop_active = bool(M.call("_coop_is_active"))
+	if coop_active and M.has_method("_coop_is_host"):
+		coop_host = bool(M.call("_coop_is_host"))
 
 	var units := M.get_all_units()
 	if units == null or units.is_empty():
@@ -553,17 +559,19 @@ func _refresh_population_and_check() -> void:
 		if M != null and M.has_method("get_kills_until_next_floppy"):
 			infestation_hud.set_floppy_progress(int(M.call("get_kills_until_next_floppy")))
 			
-	# Loss #1: too many zombies (allowed as soon as checks are enabled)
-	if zombies > zombie_limit:
-		_loss_mode = LossMode.RESTART_MISSION
-		game_over("SYSTEM OVERRUN\n\nInfestation exceeded containment limits.\nZombies: %d / %d" % [zombies, zombie_limit])
-		return
+	# Loss checks are host-authoritative in co-op
+	if loss_checks_enabled and (not coop_active or coop_host):
+		# Loss #1: too many zombies (allowed as soon as checks are enabled)
+		if zombies > zombie_limit:
+			_loss_mode = LossMode.RESTART_MISSION
+			game_over("SYSTEM OVERRUN\n\nInfestation exceeded containment limits.\nZombies: %d / %d" % [zombies, zombie_limit])
+			return
 
-	# Loss #2: no allies (ONLY if we have had allies at least once)
-	if _had_any_allies and allies <= 0:
-		_loss_mode = LossMode.TO_MENU
-		game_over("LAST LIGHT EXTINGUISHED\n\nNo allied units remain operational.")
-		return
+		# Loss #2: no allies (ONLY if we have had allies at least once)
+		if _had_any_allies and allies <= 0:
+			_loss_mode = LossMode.TO_MENU
+			game_over("LAST LIGHT EXTINGUISHED\n\nNo allied units remain operational.")
+			return
 
 
 func _on_loss_restart_pressed() -> void:
