@@ -1310,6 +1310,10 @@ func _apply_snapshot(snap: Dictionary) -> void:
 	# -------------------------
 	map_controller.apply_units_snapshot(snap.get("units", []))
 
+	# --- hazards (fire/rad/ice) ---
+	if map_controller != null and is_instance_valid(map_controller) and map_controller.has_method("apply_hazards_snapshot"):
+		map_controller.apply_hazards_snapshot(snap)
+
 	# -------------------------
 	# 8) Bomber cosmetic AFTER (non-blocking)
 	# -------------------------
@@ -1540,6 +1544,12 @@ func _build_snapshot() -> Dictionary:
 	if map_controller != null and is_instance_valid(map_controller):
 		units = map_controller.build_units_snapshot()
 	snap["units"] = units
+
+	# --- hazards (fire/rad/ice tiles) ---
+	if map_controller != null and is_instance_valid(map_controller) and map_controller.has_method("_haz_pack"):
+		snap["fire_tiles"] = map_controller.call("_haz_pack", map_controller.get_meta("fire_tiles", {}))
+		snap["rad_contam"] = map_controller.call("_haz_pack", map_controller.get_meta("rad_contam", {}))
+		snap["ice_tiles"]  = map_controller.call("_haz_pack", map_controller.get_meta("ice_tiles", {}))
 
 	# cosmetic: where bomber arrived
 	if map_controller != null and is_instance_valid(map_controller):

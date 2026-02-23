@@ -644,6 +644,13 @@ func start_enemy_phase() -> void:
 	if h != null:
 		h.show_turn_banner("ENEMY TURN", "enemy")
 
+	# ✅ co-op: enemy AI + hazard decay runs on HOST only
+	if M != null and M.has_method("_coop_is_active") and bool(M.call("_coop_is_active")):
+		if not bool(M.call("_coop_is_host")):
+			_update_end_turn_button()
+			_update_special_buttons()
+			return
+
 	M.reset_turn_flags_for_enemies()
 	
 	_reset_first_hit_armor_flags()  # ✅ RESET HERE

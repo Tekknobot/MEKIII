@@ -120,10 +120,16 @@ func _deal_damage_safely(M: Node, u: Unit, dmg: int) -> void:
 		u.hp = max(0, u.hp - dmg)
 
 func _mark_burning(M: Node, c: Vector2i, turns: int) -> void:
-	# Store in MapController metadata: cell -> remaining turns
+	# Host-authoritative hazard placement in co-op.
+	if M == null:
+		return
+	if M.has_method("coop_hazard_set"):
+		M.call("coop_hazard_set", &"fire_tiles", c, turns)
+		return
+
+	# Fallback (non co-op / older MapController):
 	var key := &"fire_tiles"
 	var tiles := {}
-
 	if M.has_meta(key):
 		tiles = M.get_meta(key)
 	if not (tiles is Dictionary):
@@ -131,12 +137,12 @@ func _mark_burning(M: Node, c: Vector2i, turns: int) -> void:
 
 	var cur := int(tiles.get(c, 0))
 	tiles[c] = max(cur, turns)
-
-	M.set_meta(key, tiles)
-
-	# Optional: refresh visuals if you add them later
-	if M.has_method("_fire_refresh_visuals"):
-		M.call("_fire_refresh_visuals")
+	if M.has_method("coop_hazard_set_state"):
+		M.call("coop_hazard_set_state", key, tiles)
+	else:
+		M.set_meta(key, tiles)
+		if M.has_method("_fire_refresh_visuals"):
+			M.call("_fire_refresh_visuals")
 
 # ---------------------------------------------------------
 # Static tick: damage allies standing on burning tiles,
@@ -247,7 +253,9 @@ static func fire_tiles_tick(M: Node) -> void:
 	for c in to_erase:
 		tiles.erase(c)
 
-	M.set_meta(key, tiles)
-
-	if M.has_method("_fire_refresh_visuals"):
-		M.call("_fire_refresh_visuals")
+	if M.has_method("coop_hazard_set_state"):
+		M.call("coop_hazard_set_state", key, tiles)
+	else:
+		M.set_meta(key, tiles)
+		if M.has_method("_fire_refresh_visuals"):
+			M.call("_fire_refresh_visuals")

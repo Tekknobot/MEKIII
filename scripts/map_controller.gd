@@ -78,6 +78,12 @@ var rad_tiles_by_cell: Dictionary = {} # Vector2i -> Node2D
 @export var fire_tile_scene: PackedScene # a small Sprite2D/Node2D "burning tile" overlay (pixel flames)
 var fire_tiles_by_cell: Dictionary = {} # Vector2i -> Node2D
 
+@export var ice_tile_scene: PackedScene # optional: icy tile overlay (matches fire/rad style)
+var ice_tiles_by_cell: Dictionary = {} # Vector2i -> Node2D
+
+@export var hazard_fade_in_time := 0.12
+@export var hazard_fade_out_time := 0.12
+
 @export var ice_tile_chill_duration := 1
 
 @export var enemy_elite_mech_scene: PackedScene 
@@ -98,6 +104,7 @@ var grid
 var terrain: TileMap
 var units_root: Node2D
 var overlay_root: Node2D
+var hazards_root: Node2D = null # container for hazard overlay nodes (fire/rad/ice)
 
 var units_by_cell: Dictionary = {}  # Vector2i -> Unit
 var selected: Unit = null
@@ -130,6 +137,149 @@ func _coop_push_snapshot(_reason: String = "") -> void:
 		for pid in multiplayer.get_peers():
 			game_ref.call_deferred("_send_snapshot_to_peer", int(pid))
 
+
+# ---------------------------------------------------------
+# CO-OP: Hazard tiles sync (fire / radiation / ice)
+# - Host is authoritative for hazard state + decay.
+# - Clients only render visuals based on replicated state.
+# ---------------------------------------------------------
+const _HAZ_FIRE := &"fire_tiles"
+const _HAZ_RAD  := &"rad_contam"
+const _HAZ_ICE  := &"ice_tiles"
+
+func _haz_root() -> Node2D:
+	# Prefer overlay_root if you have one, otherwise attach to MapController.
+	if hazards_root != null and is_instance_valid(hazards_root):
+		return hazards_root
+
+	var parent: Node = overlay_root if (overlay_root != null and is_instance_valid(overlay_root)) else self
+	var n := parent.get_node_or_null("Hazards") as Node2D
+	if n == null:
+		n = Node2D.new()
+		n.name = "Hazards"
+		parent.add_child(n)
+	hazards_root = n
+	return hazards_root
+
+func _haz_pack(d: Dictionary) -> Array:
+	# WebSocket-safe: [{c:Vector2i, t:int}]
+	var out: Array = []
+	if d == null:
+		return out
+	for k in d.keys():
+		var c: Vector2i = k
+		out.append({"c": c, "t": int(d.get(k, 0))})
+	return out
+
+func _haz_unpack(a: Array) -> Dictionary:
+	var out: Dictionary = {}
+	for v in a:
+		if typeof(v) != TYPE_DICTIONARY:
+			continue
+		var dd: Dictionary = v
+		var c: Vector2i = dd.get("c", Vector2i(-1, -1))
+		var t := int(dd.get("t", 0))
+		if c.x < 0 or t <= 0:
+			continue
+		out[c] = t
+	return out
+
+@rpc("authority", "reliable")
+func _rpc_hazard_state(kind: StringName, packed: Array) -> void:
+	# Host -> clients: set entire hazard dict (used after ticks / big changes)
+	var d := _haz_unpack(packed)
+	set_meta(kind, d)
+	_haz_refresh_kind(kind)
+
+@rpc("authority", "reliable")
+func _rpc_hazard_delta(kind: StringName, cell: Vector2i, turns: int) -> void:
+	# Host -> clients: set/extend a single hazard tile
+	var d: Dictionary = get_meta(kind, {}) if has_meta(kind) else {}
+	if not (d is Dictionary):
+		d = {}
+	var cur := int(d.get(cell, 0))
+	d[cell] = max(cur, turns)
+	set_meta(kind, d)
+	_haz_refresh_kind(kind)
+
+@rpc("authority", "reliable")
+func _rpc_hazard_clear(kind: StringName, cell: Vector2i) -> void:
+	var d: Dictionary = get_meta(kind, {}) if has_meta(kind) else {}
+	if not (d is Dictionary):
+		d = {}
+	if d.has(cell):
+		d.erase(cell)
+		set_meta(kind, d)
+	_haz_refresh_kind(kind)
+
+func coop_hazard_set(kind: StringName, cell: Vector2i, turns: int) -> void:
+	# Host-only mutator (safe no-op on client)
+	if _coop_is_active() and not _coop_is_host():
+		return
+	var d: Dictionary = get_meta(kind, {}) if has_meta(kind) else {}
+	if not (d is Dictionary):
+		d = {}
+	var cur := int(d.get(cell, 0))
+	d[cell] = max(cur, turns)
+	set_meta(kind, d)
+	_haz_refresh_kind(kind)
+
+	if _coop_is_active() and _coop_is_host() and multiplayer != null and multiplayer.has_multiplayer_peer() and multiplayer.is_server():
+		_rpc_hazard_delta.rpc(kind, cell, int(d[cell]))
+
+func coop_hazard_clear(kind: StringName, cell: Vector2i) -> void:
+	if _coop_is_active() and not _coop_is_host():
+		return
+	var d: Dictionary = get_meta(kind, {}) if has_meta(kind) else {}
+	if not (d is Dictionary):
+		d = {}
+	if d.has(cell):
+		d.erase(cell)
+		set_meta(kind, d)
+	_haz_refresh_kind(kind)
+
+	if _coop_is_active() and _coop_is_host() and multiplayer != null and multiplayer.has_multiplayer_peer() and multiplayer.is_server():
+		_rpc_hazard_clear.rpc(kind, cell)
+
+func coop_hazard_set_state(kind: StringName, state: Dictionary) -> void:
+	# Use this after bulk ticks/decay to avoid per-cell spam
+	if _coop_is_active() and not _coop_is_host():
+		return
+	if not (state is Dictionary):
+		state = {}
+	set_meta(kind, state)
+	_haz_refresh_kind(kind)
+
+	if _coop_is_active() and _coop_is_host() and multiplayer != null and multiplayer.has_multiplayer_peer() and multiplayer.is_server():
+		_rpc_hazard_state.rpc(kind, _haz_pack(state))
+
+func apply_hazards_snapshot(snap: Dictionary) -> void:
+	# Called by Game.gd after applying terrain/units.
+	# Works for both host and client; on host it's just a refresh.
+	if snap == null:
+		return
+
+	if snap.has("fire_tiles"):
+		set_meta(_HAZ_FIRE, _haz_unpack(snap.get("fire_tiles", [])))
+	if snap.has("rad_contam"):
+		set_meta(_HAZ_RAD, _haz_unpack(snap.get("rad_contam", [])))
+	if snap.has("ice_tiles"):
+		set_meta(_HAZ_ICE, _haz_unpack(snap.get("ice_tiles", [])))
+
+	_haz_refresh_all()
+
+func _haz_refresh_all() -> void:
+	_haz_refresh_kind(_HAZ_FIRE)
+	_haz_refresh_kind(_HAZ_RAD)
+	_haz_refresh_kind(_HAZ_ICE)
+
+func _haz_refresh_kind(kind: StringName) -> void:
+	if kind == _HAZ_FIRE:
+		_fire_refresh_visuals()
+	elif kind == _HAZ_RAD:
+		_rad_refresh_visuals()
+	elif kind == _HAZ_ICE:
+		_ice_refresh_visuals()
 func _unit_uid(u: Unit) -> String:
 	if u == null or not is_instance_valid(u):
 		return ""
@@ -677,7 +827,7 @@ var _coop_vfx_block_broadcast: bool = false
 func boss_clear_intents() -> void:
 	for n in _boss_intent_tiles:
 		if n != null and is_instance_valid(n):
-			n.queue_free()
+			_haz_fade_out_and_free(n)
 	_boss_intent_tiles.clear()
 
 func boss_show_intents(cells: Array[Vector2i]) -> void:
@@ -1878,7 +2028,7 @@ func clear_all() -> void:
 
 	for n in mine_nodes_by_cell.values():
 		if n != null and is_instance_valid(n):
-			n.queue_free()
+			_haz_fade_out_and_free(n)
 	mine_nodes_by_cell.clear()
 	mines_by_cell.clear()
 	_clear_beacon_marker()
@@ -8191,12 +8341,41 @@ func _rad_get_contam() -> Dictionary:
 	var d = get_meta(key)
 	return d if (d is Dictionary) else {}
 
+
+
+func _haz_fade_in(n: Node) -> void:
+	if n == null or not is_instance_valid(n):
+		return
+	if hazard_fade_in_time <= 0.0:
+		return
+	if n is CanvasItem:
+		var ci := n as CanvasItem
+		var c := ci.modulate
+		c.a = 0.0
+		ci.modulate = c
+		var tw := create_tween()
+		tw.tween_property(ci, "modulate:a", 1.0, hazard_fade_in_time)
+
+func _haz_fade_out_and_free(n: Node) -> void:
+	if n == null or not is_instance_valid(n):
+		return
+	if hazard_fade_out_time <= 0.0:
+		n.queue_free()
+		return
+	if n is CanvasItem:
+		var ci := n as CanvasItem
+		var tw := create_tween()
+		tw.tween_property(ci, "modulate:a", 0.0, hazard_fade_out_time)
+		tw.tween_callback(Callable(n, "queue_free"))
+	else:
+		n.queue_free()
+
 func _rad_clear_visual(c: Vector2i) -> void:
 	if rad_tiles_by_cell.has(c):
 		var n = rad_tiles_by_cell[c]
 		rad_tiles_by_cell.erase(c)
 		if n != null and is_instance_valid(n):
-			n.queue_free()
+			_haz_fade_out_and_free(n)
 
 func _rad_ensure_visual(c: Vector2i) -> void:
 	if rad_tile_scene == null:
@@ -8211,8 +8390,9 @@ func _rad_ensure_visual(c: Vector2i) -> void:
 	if inst == null:
 		return
 
-	add_child(inst)
+	_haz_root().add_child(inst)
 	rad_tiles_by_cell[c] = inst
+	_haz_fade_in(inst)
 
 	# position + depth (match your tile/world conventions)
 	if inst is Node2D:
@@ -8244,7 +8424,7 @@ func _fire_clear_visual(c: Vector2i) -> void:
 		var n = fire_tiles_by_cell[c]
 		fire_tiles_by_cell.erase(c)
 		if n != null and is_instance_valid(n):
-			n.queue_free()
+			_haz_fade_out_and_free(n)
 
 func _fire_ensure_visual(c: Vector2i) -> void:
 	if fire_tile_scene == null:
@@ -8261,8 +8441,9 @@ func _fire_ensure_visual(c: Vector2i) -> void:
 	if inst == null:
 		return
 
-	add_child(inst)
+	_haz_root().add_child(inst)
 	fire_tiles_by_cell[c] = inst
+	_haz_fade_in(inst)
 
 	if inst is Node2D:
 		var n2 := inst as Node2D
@@ -8281,6 +8462,54 @@ func _fire_refresh_visuals() -> void:
 	# Add visuals for active tiles
 	for c in tiles.keys():
 		_fire_ensure_visual(c)
+
+
+func _ice_get_tiles() -> Dictionary:
+	var key := &"ice_tiles"
+	if not has_meta(key):
+		return {}
+	var d = get_meta(key)
+	return d if (d is Dictionary) else {}
+
+func _ice_clear_visual(c: Vector2i) -> void:
+	if ice_tiles_by_cell.has(c):
+		var n = ice_tiles_by_cell[c]
+		ice_tiles_by_cell.erase(c)
+		if n != null and is_instance_valid(n):
+			_haz_fade_out_and_free(n)
+
+func _ice_ensure_visual(c: Vector2i) -> void:
+	if ice_tile_scene == null:
+		return
+
+	if ice_tiles_by_cell.has(c):
+		var existing = ice_tiles_by_cell[c]
+		if existing != null and is_instance_valid(existing):
+			return
+		ice_tiles_by_cell.erase(c)
+
+	var inst = ice_tile_scene.instantiate()
+	if inst == null:
+		return
+
+	_haz_root().add_child(inst)
+	ice_tiles_by_cell[c] = inst
+	_haz_fade_in(inst)
+
+	if inst is Node2D:
+		var n2 := inst as Node2D
+		n2.global_position = _cell_world(c)
+		n2.z_index = 0 + (c.x + c.y)
+
+func _ice_refresh_visuals() -> void:
+	var tiles := _ice_get_tiles()
+
+	for c in ice_tiles_by_cell.keys():
+		if not tiles.has(c):
+			_ice_clear_visual(c)
+
+	for c in tiles.keys():
+		_ice_ensure_visual(c)
 
 func _try_fire_on_enter(u: Unit) -> void:
 	if u == null or not is_instance_valid(u):
@@ -8332,13 +8561,6 @@ func _try_fire_on_enter(u: Unit) -> void:
 		u.call("take_damage", dmg)
 	else:
 		u.hp = max(0, u.hp - dmg)
-
-func _ice_get_tiles() -> Dictionary:
-	var key := &"ice_tiles"
-	if not has_meta(key):
-		return {}
-	var d = get_meta(key)
-	return d if (d is Dictionary) else {}
 
 func _try_ice_on_enter(u: Unit, chill_turns: int = 1) -> void:
 	if u == null or not is_instance_valid(u):
@@ -8647,7 +8869,10 @@ func build_units_snapshot() -> Array:
 				"owner_peer_id": owner,
 				"quirks": quirks,
 				"hp": hp,
-				"max_hp": max_hp
+				"max_hp": max_hp,
+				"chilled_turns": int(u.get_meta(&"chilled_turns", 0)) if u.has_meta(&"chilled_turns") else 0,
+				"stim_turns": int(u.get_meta(&"stim_turns", 0)) if u.has_meta(&"stim_turns") else 0,
+				"stim_damage_bonus": int(u.get_meta(&"stim_damage_bonus", 0)) if u.has_meta(&"stim_damage_bonus") else 0
 			})
 
 	return out
@@ -8731,6 +8956,17 @@ func apply_units_snapshot(units: Array) -> void:
 			u.max_hp = int(d.get("max_hp", u.max_hp))
 		if d.has("hp"):
 			u.hp = int(d.get("hp", u.hp))
+		# --- Status metas (for hazard visuals / buffs) ---
+		if d.has("chilled_turns"):
+			u.set_meta(&"chilled_turns", int(d.get("chilled_turns", 0)))
+			if has_method("_refresh_chill_visuals_for_unit"):
+				_refresh_chill_visuals_for_unit(u)
+		if d.has("stim_turns"):
+			u.set_meta(&"stim_turns", int(d.get("stim_turns", 0)))
+		if d.has("stim_damage_bonus"):
+			u.set_meta(&"stim_damage_bonus", int(d.get("stim_damage_bonus", 0)))
+
+
 
 		# --- Cell ---
 		var cell: Vector2i = d.get("cell", Vector2i(-1, -1))

@@ -140,10 +140,15 @@ func _apply_chill(u: Unit, turns: int) -> void:
 		M.call("_refresh_chill_visuals_for_unit", u)
 			
 func _mark_ice_tile(M: Node, c: Vector2i, turns: int) -> void:
-	# MapController meta: cell -> remaining turns
+	# Host-authoritative hazard placement in co-op.
+	if M == null:
+		return
+	if M.has_method("coop_hazard_set"):
+		M.call("coop_hazard_set", &"ice_tiles", c, turns)
+		return
+
 	var key := &"ice_tiles"
 	var tiles := {}
-
 	if M.has_meta(key):
 		tiles = M.get_meta(key)
 	if not (tiles is Dictionary):
@@ -151,12 +156,11 @@ func _mark_ice_tile(M: Node, c: Vector2i, turns: int) -> void:
 
 	var cur := int(tiles.get(c, 0))
 	tiles[c] = max(cur, turns)
-
 	M.set_meta(key, tiles)
 
-	# Optional: refresh visuals if you implement it like rad/fire
 	if M.has_method("_ice_refresh_visuals"):
 		M.call("_ice_refresh_visuals")
+
 
 # ---------------------------------------------------------
 # Static tick: decrement ice tiles + decrement chill timers.
@@ -188,10 +192,12 @@ static func ice_tick_global(M: Node) -> void:
 			for c in to_erase:
 				tiles.erase(c)
 
-			M.set_meta(key, tiles)
-
-			if M.has_method("_ice_refresh_visuals"):
-				M.call("_ice_refresh_visuals")
+			if M.has_method("coop_hazard_set_state"):
+				M.call("coop_hazard_set_state", key, tiles)
+			else:
+				M.set_meta(key, tiles)
+				if M.has_method("_ice_refresh_visuals"):
+					M.call("_ice_refresh_visuals")
 
 	# ✅ ADD THIS RIGHT HERE (very bottom of function)
 	if M.has_method("_refresh_chill_visuals"):

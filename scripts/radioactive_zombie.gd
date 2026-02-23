@@ -126,9 +126,15 @@ func _deal_damage_safely(M: Node, u: Unit, dmg: int) -> void:
 		u.hp = max(0, u.hp - dmg)
 
 func _mark_contaminated(M: Node, c: Vector2i, turns: int) -> void:
+	# Host-authoritative hazard placement in co-op.
+	if M == null:
+		return
+	if M.has_method("coop_hazard_set"):
+		M.call("coop_hazard_set", &"rad_contam", c, turns)
+		return
+
 	var key := &"rad_contam"
 	var contam := {}
-
 	if M.has_meta(key):
 		contam = M.get_meta(key)
 	if not (contam is Dictionary):
@@ -136,12 +142,13 @@ func _mark_contaminated(M: Node, c: Vector2i, turns: int) -> void:
 
 	var cur := int(contam.get(c, 0))
 	contam[c] = max(cur, turns)
+	if M.has_method("coop_hazard_set_state"):
+		M.call("coop_hazard_set_state", key, contam)
+	else:
+		M.set_meta(key, contam)
+		if M.has_method("_rad_refresh_visuals"):
+			M.call("_rad_refresh_visuals")
 
-	M.set_meta(key, contam)
-
-	# ✅ NEW: refresh contamination visuals
-	if M.has_method("_rad_refresh_visuals"):
-		M.call("_rad_refresh_visuals")
 
 # ---------------------------------------------------------
 # Static helper you can call from TurnManager each round
