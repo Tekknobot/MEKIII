@@ -1327,9 +1327,7 @@ func spawn_units() -> void:
 				drop_center_world + Vector2(0, -bomber_hover_px),
 				bomber_arrive_time
 			)
-	
-	var _used_owned_ids: Dictionary = {}
-				
+			
 	for i in range(chosen_cells.size()):
 		var cell_i := chosen_cells[i]
 
@@ -1341,14 +1339,16 @@ func spawn_units() -> void:
 		if not ally_defs.is_empty():
 			if i >= ally_defs.size():
 				continue
-
 			var def: Dictionary = ally_defs[i]
 			scene = def.get("scene", null)
 			unit_id = str(def.get("id", ""))
 			scene_path = str(def.get("path", ""))
-			quirks = (def.get("quirks", []) as Array).duplicate(true)
+			quirks = def.get("quirks", [])
 
-			# 🔥 ensure latest quirks from roster (post-mission awards)
+			# ---------------------------------------------------------
+			# ✅ CRITICAL: Always pull the LATEST quirks from RunState
+			# (post-mission awards update roster_units, not squad_entries)
+			# ---------------------------------------------------------
 			if unit_id != "" and rs != null and rs.has_method("get_roster_unit"):
 				var re: Dictionary = rs.call("get_roster_unit", unit_id)
 				if not re.is_empty():
@@ -1361,19 +1361,6 @@ func spawn_units() -> void:
 			if scene != null:
 				scene_path = scene.resource_path
 
-		# -------------------------------------------------
-		# ⭐ CRITICAL FIX:
-		# recover owned unit + quirks when using path-only squads
-		# -------------------------------------------------
-		if (unit_id == "" or quirks.is_empty()) and rs != null:
-			var pick := _rs_pick_owned_unit_for_path(rs, scene_path, _used_owned_ids)
-			if not pick.is_empty():
-				unit_id = str(pick.get("id",""))
-				quirks = (pick.get("quirks", []) as Array).duplicate(true)
-				if unit_id != "":
-					_used_owned_ids[unit_id] = true
-				print("spawn_units: recovered owned_id=", unit_id, " quirks=", quirks)
-
 		if scene == null:
 			continue
 
@@ -1381,18 +1368,29 @@ func spawn_units() -> void:
 		if u == null:
 			continue
 
+		# ✅ Bulletproof: if the def forgot to provide "path", fall back to the PackedScene's resource_path
+		if (not u.has_meta("scene_path")) or str(u.get_meta("scene_path")) == "":
+			if scene_path == "" and scene != null and scene.resource_path != "":
+				scene_path = scene.resource_path
+			if scene_path != "":
+				u.set_meta("scene_path", scene_path)
+
 		if scene_path != "":
 			u.set_meta("scene_path", scene_path)
 		if unit_id != "":
 			u.set_meta("unit_id", unit_id)
 
 		units_root.add_child(u)
+
 		u.team = Unit.Team.ALLY
 
+		# CO-OP: per-unit owner + stable net id
 		var owner_peer := 1
 		if not ally_defs.is_empty() and i < ally_defs.size():
 			owner_peer = int(ally_defs[i].get("owner_peer_id", 1))
 
+		# If your Unit script doesn't have owner_peer_id declared, comment this line out
+		# and rely on meta only.
 		u.owner_peer_id = owner_peer
 		u.set_meta("owner_peer_id", owner_peer)
 
@@ -1400,17 +1398,20 @@ func spawn_units() -> void:
 		_apply_runstate_upgrades_to_unit(u)
 		_wire_unit_signals(u)
 
+		# Apply RunState upgrades (safe)
 		if rs != null and rs.has_method("apply_upgrades_to_unit"):
 			rs.apply_upgrades_to_unit(u)
 
-		# ✅ APPLY QUIRKS (identical to normal mode)
+		# Apply Quirks
 		if not quirks.is_empty():
 			QuirkDB.apply_to_unit(u, quirks)
 			print("spawn_units: applied quirks meta=", u.get_meta(&"quirks", []))
+
 			if u.has_method("apply_quirk_stat_mods_once"):
 				u.apply_quirk_stat_mods_once()
 
 		u.hp = u.max_hp
+
 		units_by_cell[cell_i] = u
 
 		if not _used_ally_scenes.has(scene):
@@ -1420,11 +1421,14 @@ func spawn_units() -> void:
 			await _drop_unit_from_bomber(u, bomber, cell_i)
 		else:
 			u.set_cell(cell_i, terrain)
+
+			# ✅ In co-op host (deferred bomber), spawn allies hidden until bomber reveal
 			if defer_bomber:
 				u.modulate.a = 0.0
-				u.set_meta("pending_drop_reveal", true)
+				u.set_meta("pending_drop_reveal", true)	
+						
 			_set_unit_depth_from_world(u, u.global_position)
-			
+
 	if bomber != null:
 		_sfx(bomber_sfx_out, sfx_volume_world, 1.0, bomber.global_position)
 		await _tween_node_global_pos(
@@ -1444,30 +1448,6 @@ func spawn_units() -> void:
 
 	_ensure_beacon_marker()
 
-func _rs_pick_owned_unit_for_path(rs, scene_path: String, used: Dictionary) -> Dictionary:
-	if rs == null:
-		return {}
-
-	if not rs.has_method("get_roster_units"):
-		return {}
-
-	var best := {}
-	for r in rs.get_roster_units():
-		if not (r is Dictionary):
-			continue
-		if str(r.get("path","")) != scene_path:
-			continue
-
-		var id := str(r.get("id",""))
-		if id == "" or used.has(id):
-			continue
-
-		best = r
-		if not (r.get("quirks", []) as Array).is_empty():
-			break
-
-	return best
-	
 func _play_bomber_cosmetic(center_cell: Vector2i) -> void:
 	if _bomber_playing:
 		return
@@ -5062,6 +5042,29 @@ func spawn_explosion_at_cell(cell: Vector2i) -> void:
 	_apply_structure_splash_damage(cell, structure_splash_radius, structure_hit_damage)
 	await _spawn_explosion_fx_only(cell)
 		
+
+# ---------------------------------------------------------
+# CO-OP VFX ONLY: explosion flash without any gameplay damage.
+# Use this for boss telegraphs/impacts that already apply their own damage.
+# ---------------------------------------------------------
+func vfx_explosion_at_cell(cell: Vector2i) -> void:
+	if terrain == null:
+		return
+
+	# Co-op: host broadcasts; clients play locally only.
+	if _coop_is_active():
+		if _coop_is_host():
+			await _spawn_explosion_fx_only(cell)
+			if not _coop_vfx_block_broadcast:
+				rpc("_rpc_vfx_explosion_at_cell", cell)
+			return
+		else:
+			await _spawn_explosion_fx_only(cell)
+			return
+
+	# Singleplayer/local visual
+	await _spawn_explosion_fx_only(cell)
+
 func launch_projectile_arc(
 	from_cell: Vector2i,
 	to_cell: Vector2i,
@@ -8649,22 +8652,11 @@ func build_units_snapshot() -> Array:
 		elif "owner_peer_id" in u:
 			owner = int(u.owner_peer_id)
 
-		# --- Quirks (RPC-safe) ---
-		# QuirkDB stores with meta key &"quirks" (StringName). Some older code may use "quirks".
-		# For networking, always pack as Array[String] so RPC dictionaries stay stable.
 		var quirks: Array = []
-		if u.has_meta(&"quirks"):
-			quirks = u.get_meta(&"quirks", [])
-		elif u.has_meta("quirks"):
-			quirks = u.get_meta("quirks", [])
+		if u.has_meta("quirks"):
+			quirks = u.get_meta("quirks")
 		elif "quirks" in u and (u.quirks is Array):
 			quirks = u.quirks
-		# Convert to Array[String] (RPC-safe)
-		var quirks_out: Array = []
-		for q in quirks:
-			if q == null:
-				continue
-			quirks_out.append(str(q))
 
 		var hp := int(u.hp) if ("hp" in u) else 0
 		var max_hp := int(u.max_hp) if ("max_hp" in u) else 0
@@ -8676,7 +8668,7 @@ func build_units_snapshot() -> Array:
 				"cell": cell,
 				"team": team,
 				"owner_peer_id": owner,
-				"quirks": quirks_out,
+				"quirks": quirks,
 				"hp": hp,
 				"max_hp": max_hp
 			})
@@ -8756,70 +8748,12 @@ func apply_units_snapshot(units: Array) -> void:
 		u.owner_peer_id = owner
 		u.set_meta("owner_peer_id", owner)
 
-		# -------------------------------------------------
-		# Quirks (co-op snapshot)
-		# -------------------------------------------------
-		# In normal mode, spawn_units() uses QuirkDB.apply_to_unit(), which:
-		# - normalizes to Array[StringName]
-		# - filters unknown ids
-		# - stores on meta("quirks")
-		# Some UI paths expect this normalized meta.
-		#
-		# BUT: host stats already include quirk deltas, and snapshot ships hp/max_hp.
-		# So we:
-		#  1) capture authoritative hp/max_hp from snapshot
-		#  2) apply_to_unit() for normalization/meta
-		#  3) restore hp/max_hp exactly as sent
-		var snap_max_hp := int(d.get("max_hp", u.max_hp))
-		var snap_hp := int(d.get("hp", u.hp))
+		u.set_meta("quirks", d.get("quirks", []))
 
-		# --- Quirks (robust decode + always set meta) ---
-		# RPC may deliver quirks as Array, PackedStringArray, null, or mixed types.
-		var raw_q = d.get("quirks", [])
-		var q_strs: Array = []
-		match typeof(raw_q):
-			TYPE_ARRAY:
-				for v in raw_q:
-					if v == null:
-						continue
-					q_strs.append(str(v))
-			TYPE_PACKED_STRING_ARRAY:
-				for v in raw_q:
-					q_strs.append(str(v))
-			TYPE_STRING:
-				if str(raw_q) != "":
-					q_strs.append(str(raw_q))
-			TYPE_NIL:
-				q_strs = []
-			_:
-				# Unknown / unserializable -> treat as empty
-				q_strs = []
-
-		# Normalize into Array[StringName] for QuirkDB + your UI expectations
-		var q_ids: Array = []
-		for s in q_strs:
-			if s == "":
-				continue
-			q_ids.append(StringName(s))
-
-		# Always provide both meta keys so any reader path works
-		u.set_meta(&"quirks", q_ids)
-		u.set_meta("quirks", q_ids)
-
-		# Apply quirks through the normal pipeline (but avoid stat double-apply by restoring hp/max_hp)
-		if q_ids.size() > 0:
-			QuirkDB.apply_to_unit(u, q_ids)
-			# Some units compute derived stats lazily
-			if u.has_method("apply_quirk_stat_mods_once"):
-				u.apply_quirk_stat_mods_once()
-
-		# Restore authoritative stats from host snapshot
-		u.max_hp = snap_max_hp
-		u.hp = snap_hp
-
-		# Nudge HUD rebuild paths (if present)
-		if u.has_signal("quirks_changed"):
-			u.emit_signal("quirks_changed")
+		if d.has("max_hp"):
+			u.max_hp = int(d.get("max_hp", u.max_hp))
+		if d.has("hp"):
+			u.hp = int(d.get("hp", u.hp))
 
 		# --- Cell ---
 		var cell: Vector2i = d.get("cell", Vector2i(-1, -1))
@@ -9404,14 +9338,3 @@ func _hide_pending_drop_units() -> void:
 		if u.has_meta("pending_drop") and bool(u.get_meta("pending_drop")):
 			u.visible = true
 			u.modulate.a = 0.0
-
-@rpc("authority","unreliable")
-func _rpc_vfx_flash_white(net_id: int, t: float) -> void:
-	if multiplayer.is_server():
-		return
-
-	var u := _net_get_unit(net_id)
-	if u == null:
-		return
-
-	_flash_unit_white(u, t)

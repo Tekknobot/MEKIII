@@ -94,6 +94,56 @@ var _boss_base_modulate: Color
 var boss_turn_index: int = 0
 
 # Client-safe: binds map + positions boss sprite WITHOUT spawning weakpoints
+
+
+# -------------------------
+# CO-OP helpers (read from MapController)
+# -------------------------
+func _coop_is_active() -> bool:
+	if M != null and M.has_method("_coop_is_active"):
+		return bool(M.call("_coop_is_active"))
+	return false
+
+func _coop_is_host() -> bool:
+	if M != null and M.has_method("_coop_is_host"):
+		return bool(M.call("_coop_is_host"))
+	return true
+
+# -------------------------
+# CO-OP: host plans attacks; clients receive the exact plan for intents.
+# -------------------------
+@rpc("authority", "reliable")
+func _rpc_boss_set_plan(turn_idx: int, new_phase: int, attacks: Array) -> void:
+	# Host tells clients what the boss planned (cells + dmg).
+	if multiplayer.is_server():
+		return
+	boss_turn_index = turn_idx
+	phase = new_phase
+
+	planned_attacks.clear()
+	for a_any in attacks:
+		if typeof(a_any) != TYPE_DICTIONARY:
+			continue
+		var a: Dictionary = a_any
+		var cells_in: Array = a.get("cells", [])
+		var cells: Array[Vector2i] = []
+		for c in cells_in:
+			if c is Vector2i:
+				cells.append(c)
+		var dmg := int(a.get("dmg", 1))
+		planned_attacks.append({"cells": cells, "dmg": dmg})
+
+	# Rebuild intent overlay from the received plan
+	var all_cells: Array[Vector2i] = []
+	for a in planned_attacks:
+		var arr = a.get("cells", [])
+		for c in arr:
+			if c is Vector2i:
+				all_cells.append(c)
+
+	if M != null and ("boss_show_intents" in M):
+		M.boss_show_intents(all_cells)
+
 func bind_map_client(map_controller: MapController) -> void:
 	visible = true
 	M = map_controller
@@ -508,7 +558,10 @@ func resolve_planned_attacks_async() -> void:
 	# VFX pass (intent tiles only) with stagger
 	# -------------------------
 	for c in fx_cells_ordered:
-		_spawn_explosion_at_cell(c)
+		if M != null and M.has_method("vfx_explosion_at_cell"):
+			await M.call("vfx_explosion_at_cell", c)
+		else:
+			_spawn_explosion_at_cell(c)
 		if between_impacts_sec > 0.0:
 			await get_tree().create_timer(between_impacts_sec).timeout
 
@@ -591,6 +644,12 @@ func _plan_next_turn() -> void:
 	if M == null:
 		return
 
+	# _COOP_CLIENT_NO_LOCAL_PLAN
+	# In co-op, ONLY the host is allowed to randomize/plan boss attacks.
+	# Clients will receive the chosen plan via _rpc_boss_set_plan and only render intents.
+	if _coop_is_active() and not _coop_is_host():
+		return
+
 	planned_attacks.clear()
 	_clear_intents()
 
@@ -635,6 +694,10 @@ func _plan_next_turn() -> void:
 
 	if "boss_show_intents" in M:
 		M.boss_show_intents(all_cells)
+
+	# CO-OP: broadcast this exact plan so clients show the same intents.
+	if _coop_is_active() and _coop_is_host():
+		_rpc_boss_set_plan.rpc(boss_turn_index, phase, planned_attacks)
 
 func _clear_intents() -> void:
 	if M != null and "boss_clear_intents" in M:
