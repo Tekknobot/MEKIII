@@ -1971,12 +1971,16 @@ func _pick_enemy_zombie_scene() -> PackedScene:
 # --------------------------
 func _is_walkable(c: Vector2i) -> bool:
 	var gd := _grid_data()
-	if gd == null:
-		return false
-	if not gd.in_bounds(c):
+	if gd == null or not gd.in_bounds(c):
 		return false
 
-	# IMPORTANT indexing: most 2D arrays are [y][x]
+	# If the Terrain tilemap at this cell is water source, treat as blocked
+	if terrain != null:
+		var src := terrain.get_cell_source_id(0, c)
+		if src == 5: # or T_WATER constant
+			return false
+
+	# Grid-based rule
 	return int(gd.terrain[c.y][c.x]) != 5
 
 func _find_nearest_open_walkable(preferred: Vector2i, reserved_ally: Dictionary = {}, max_r: int = 12) -> Vector2i:

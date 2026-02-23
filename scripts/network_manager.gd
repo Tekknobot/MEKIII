@@ -118,23 +118,50 @@ func local_peer_id() -> int:
 	return multiplayer.get_unique_id() if multiplayer != null else 1
 
 func get_host_lan_ip() -> String:
-	# Pick a likely private IPv4 (skip IPv6)
+	# Auto-detect a shareable LAN IPv4 for co-op invites.
+	# Prefer private ranges (192.168/10/172.16-31), skip loopback/IPv6/APIPA.
 	var addrs := IP.get_local_addresses()
+	var best_ip := ""
+	var best_score := -999
+
 	for ip in addrs:
+		# Skip IPv6
 		if ip.find(":") != -1:
 			continue
-		if ip.begins_with("192.168.") or ip.begins_with("10.") \
-		or ip.begins_with("172.16.") or ip.begins_with("172.17.") or ip.begins_with("172.18.") or ip.begins_with("172.19.") \
-		or ip.begins_with("172.20.") or ip.begins_with("172.21.") or ip.begins_with("172.22.") or ip.begins_with("172.23.") \
-		or ip.begins_with("172.24.") or ip.begins_with("172.25.") or ip.begins_with("172.26.") or ip.begins_with("172.27.") \
-		or ip.begins_with("172.28.") or ip.begins_with("172.29.") or ip.begins_with("172.30.") or ip.begins_with("172.31."):
-			return ip
+		# Skip loopback / invalid
+		if ip == "127.0.0.1" or ip == "0.0.0.0" or ip == "":
+			continue
 
-	# Fallback: first IPv4
-	for ip2 in addrs:
-		if ip2.find(":") == -1:
-			return ip2
+		var score := 0
 
+		# De-prioritize APIPA (usually means no real LAN)
+		if ip.begins_with("169.254."):
+			score -= 50
+
+		# Prefer common private LAN ranges
+		if ip.begins_with("192.168."):
+			score += 100
+		elif ip.begins_with("10."):
+			score += 90
+		elif ip.begins_with("172."):
+			# Only 172.16.0.0 – 172.31.255.255 are private
+			for n in range(16, 32):
+				if ip.begins_with("172.%d." % n):
+					score += 80
+					break
+
+		# Small bonus for "normal looking" IPv4 that isn't loopback/apipa
+		score += 5
+
+		if score > best_score:
+			best_score = score
+			best_ip = ip
+
+	# If we found any non-loopback IPv4, return the best candidate.
+	if best_ip != "":
+		return best_ip
+
+	# Last resort
 	return "127.0.0.1"
 
 func get_invite_url() -> String:
@@ -157,9 +184,11 @@ func start_host(port := 8910) -> bool:
 	stop()
 
 	var peer := WebSocketMultiplayerPeer.new()
-	var err := peer.create_server(port)
+	var err := peer.create_server(port, "0.0.0.0")
 	print("COOP(HOST): create_server err=", err)
-
+	print("COOP(HOST): local_addrs=", IP.get_local_addresses())
+	print("COOP(HOST): lan_ip=", get_host_lan_ip())
+	
 	if err != OK:
 		push_warning("COOP: failed to host WebSocket server (err=%s)" % [err])
 		_set_conn_state(ConnState.FAILED, "Host failed (err=%s)" % [err])

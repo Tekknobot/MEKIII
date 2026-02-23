@@ -169,7 +169,15 @@ func _on_coop_host_pressed() -> void:
 	var ok = nm.call("start_host", 8910)
 	if ok:
 		if coop_addr != null:
-			coop_addr.text = "ws://127.0.0.1:8910"
+			if nm != null and nm.has_method("get_invite_url"):
+				coop_addr.text = str(nm.call("get_invite_url"))
+			else:
+				coop_addr.text = "ws://127.0.0.1:8910"
+			# quality-of-life: auto-focus + select so host can copy/paste quickly
+			if coop_addr.has_method("grab_focus"):
+				coop_addr.grab_focus()
+			if coop_addr.has_method("select_all"):
+				coop_addr.select_all()
 	_update_coop_status()
 
 func _on_coop_join_pressed() -> void:

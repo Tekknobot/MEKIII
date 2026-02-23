@@ -39,18 +39,19 @@ func perform_place_mine(M: MapController, target_cell: Vector2i) -> void:
 		return
 	if M.units_by_cell.has(target_cell):
 		return
+
+	# Don't stack mines
 	if M.mines_by_cell.has(target_cell):
-	# COOP: peers replay visuals only (do not modify mine state)
-		pass
+		return
+
+	# CO-OP: clients (visual-only) should not mutate gameplay state,
+	# but they still need to show the mine sprite for parity.
 	if M.coop_visual_only():
 		M.place_mine_visual(target_cell)
 		return
-	return
 
-	if not M.coop_visual_only():
-		M.mines_by_cell[target_cell] = {"team": team, "damage": mine_damage + attack_damage}
-	
-	# ✅ spawn mine scene visual
+	# Normal / host-authoritative: commit mine state then spawn visual
+	M.mines_by_cell[target_cell] = {"team": team, "damage": mine_damage + attack_damage}
 	M.place_mine_visual(target_cell)
 
 func get_available_specials() -> Array[String]:
