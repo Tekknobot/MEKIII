@@ -9404,3 +9404,14 @@ func _hide_pending_drop_units() -> void:
 		if u.has_meta("pending_drop") and bool(u.get_meta("pending_drop")):
 			u.visible = true
 			u.modulate.a = 0.0
+
+@rpc("authority","unreliable")
+func _rpc_vfx_flash_white(net_id: int, t: float) -> void:
+	if multiplayer.is_server():
+		return
+
+	var u := _net_get_unit(net_id)
+	if u == null:
+		return
+
+	_flash_unit_white(u, t)
