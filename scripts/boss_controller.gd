@@ -141,13 +141,32 @@ func _rpc_boss_set_plan(turn_idx: int, new_phase: int, attacks: Array) -> void:
 			if c is Vector2i:
 				all_cells.append(c)
 
-	if M != null and ("boss_show_intents" in M):
+	if M != null and M.has_method("boss_show_intents"):
 		M.boss_show_intents(all_cells)
+
+
+# -------------------------
+# CO-OP: if the client spawns/loads the boss after the host already planned,
+# request the current plan so intent tiles render immediately.
+# -------------------------
+@rpc("any_peer", "reliable")
+func _rpc_boss_request_plan() -> void:
+	# Clients call this on the host (server id=1) after binding the map.
+	if not multiplayer.is_server():
+		return
+	var sender := multiplayer.get_remote_sender_id()
+	# Send the most recent plan/phase/turn index back to that client.
+	_rpc_boss_set_plan.rpc_id(sender, boss_turn_index, phase, planned_attacks)
+
 
 func bind_map_client(map_controller: MapController) -> void:
 	visible = true
 	M = map_controller
 	_position_big_sprite()
+
+	# ✅ CO-OP: ask host for the current plan so red intent tiles appear immediately.
+	if _coop_is_active() and not _coop_is_host():
+		_rpc_boss_request_plan.rpc_id(1)
 	
 func _ready() -> void:
 	var t := _get_flash_target()
@@ -692,7 +711,7 @@ func _plan_next_turn() -> void:
 			if c is Vector2i:
 				all_cells.append(c)
 
-	if "boss_show_intents" in M:
+	if M.has_method("boss_show_intents"):
 		M.boss_show_intents(all_cells)
 
 	# CO-OP: broadcast this exact plan so clients show the same intents.
@@ -700,7 +719,7 @@ func _plan_next_turn() -> void:
 		_rpc_boss_set_plan.rpc(boss_turn_index, phase, planned_attacks)
 
 func _clear_intents() -> void:
-	if M != null and "boss_clear_intents" in M:
+	if M != null and M.has_method("boss_clear_intents"):
 		M.boss_clear_intents()
 	planned_attacks.clear()
 
