@@ -205,6 +205,14 @@ func get_roster_unit(uid: String) -> Dictionary:
 			return e
 	return {}
 
+
+func get_roster_unit_by_path(path: String) -> Dictionary:
+	path = str(path)
+	for e in roster_units:
+		if str(e.get("path","")) == path:
+			return e
+	return {}
+
 func get_roster_units() -> Array[Dictionary]:
 	return roster_units.duplicate(true)
 
@@ -245,11 +253,18 @@ func get_squad_defs() -> Array[Dictionary]:
 		if out.size() > 0:
 			return out
 
-	# ✅ Fallback: paths-only (no quirks)
+	# ✅ Fallback: paths-only (try to recover quirks from roster by matching path)
 	for p3 in squad_scene_paths:
 		var ps := str(p3)
-		if ps != "":
-			out.append({"id": "", "path": ps, "quirks": []})
+		if ps == "":
+			continue
+		var e3 := get_roster_unit_by_path(ps)
+		var uid3 := str(e3.get("id","")) if (e3 != null and not e3.is_empty()) else ""
+		var qs3: Array[StringName] = []
+		if e3 != null and not e3.is_empty():
+			for q in e3.get("quirks", []):
+				qs3.append(StringName(str(q)))
+		out.append({"id": uid3, "path": ps, "quirks": qs3})
 	return out
 
 func get_squad_packed_scenes() -> Array[PackedScene]:

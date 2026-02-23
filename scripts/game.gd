@@ -407,6 +407,11 @@ func _start_mission() -> void:
 			t += get_process_delta_time()
 	else:
 		await map_controller.spawn_units()
+
+	# ✅ Boss missions: spawn BossController + weakpoints immediately (before snapshot / bomber)
+	# This ensures the host snapshot contains weakpoints and the player sees the boss setup on entry.
+	if not (_is_coop() and not _is_host()):
+		_ensure_boss_spawned_early()
 		
 	if _is_coop() and _is_host():
 		_coop_client_ready = false
@@ -1310,10 +1315,6 @@ func _apply_snapshot(snap: Dictionary) -> void:
 	# -------------------------
 	map_controller.apply_units_snapshot(snap.get("units", []))
 
-	# --- hazards (fire/rad/ice) ---
-	if map_controller != null and is_instance_valid(map_controller) and map_controller.has_method("apply_hazards_snapshot"):
-		map_controller.apply_hazards_snapshot(snap)
-
 	# -------------------------
 	# 8) Bomber cosmetic AFTER (non-blocking)
 	# -------------------------
@@ -1489,6 +1490,43 @@ func _rs() -> Node:
 		return rs
 	return null
 
+
+func _is_boss_mission_next() -> bool:
+	var rs := _rs()
+	if rs == null:
+		return false
+	# Prefer the explicit mission node type (set by OverworldRadar), but fall back to the latch flag.
+	if "mission_node_type" in rs:
+		if StringName(str(rs.mission_node_type)).to_lower() == "boss":
+			return true
+	if "boss_mode_enabled_next_mission" in rs:
+		return bool(rs.boss_mode_enabled_next_mission)
+	return false
+
+func _ensure_boss_spawned_early() -> void:
+	# Host/solo only: make sure boss + weakpoints exist BEFORE we snapshot / play bomber.
+	if _is_coop() and not _is_host():
+		return
+	if not _is_boss_mission_next():
+		return
+
+	# If a boss already exists, don't re-spawn.
+	var existing := get_tree().get_first_node_in_group("BossController")
+	if existing != null and is_instance_valid(existing):
+		return
+
+	if turn_manager == null or not is_instance_valid(turn_manager):
+		return
+	if not turn_manager.has_method("start_boss_battle"):
+		return
+
+	# Ensure TurnManager knows we're in boss mode (so later logic stays consistent).
+	if "boss_mode_enabled" in turn_manager:
+		turn_manager.boss_mode_enabled = true
+
+	turn_manager.start_boss_battle()
+
+
 func _build_snapshot() -> Dictionary:
 	var snap: Dictionary = {}
 
@@ -1544,12 +1582,6 @@ func _build_snapshot() -> Dictionary:
 	if map_controller != null and is_instance_valid(map_controller):
 		units = map_controller.build_units_snapshot()
 	snap["units"] = units
-
-	# --- hazards (fire/rad/ice tiles) ---
-	if map_controller != null and is_instance_valid(map_controller) and map_controller.has_method("_haz_pack"):
-		snap["fire_tiles"] = map_controller.call("_haz_pack", map_controller.get_meta("fire_tiles", {}))
-		snap["rad_contam"] = map_controller.call("_haz_pack", map_controller.get_meta("rad_contam", {}))
-		snap["ice_tiles"]  = map_controller.call("_haz_pack", map_controller.get_meta("ice_tiles", {}))
 
 	# cosmetic: where bomber arrived
 	if map_controller != null and is_instance_valid(map_controller):

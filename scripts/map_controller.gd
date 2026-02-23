@@ -78,12 +78,6 @@ var rad_tiles_by_cell: Dictionary = {} # Vector2i -> Node2D
 @export var fire_tile_scene: PackedScene # a small Sprite2D/Node2D "burning tile" overlay (pixel flames)
 var fire_tiles_by_cell: Dictionary = {} # Vector2i -> Node2D
 
-@export var ice_tile_scene: PackedScene # optional: icy tile overlay (matches fire/rad style)
-var ice_tiles_by_cell: Dictionary = {} # Vector2i -> Node2D
-
-@export var hazard_fade_in_time := 0.12
-@export var hazard_fade_out_time := 0.12
-
 @export var ice_tile_chill_duration := 1
 
 @export var enemy_elite_mech_scene: PackedScene 
@@ -104,7 +98,6 @@ var grid
 var terrain: TileMap
 var units_root: Node2D
 var overlay_root: Node2D
-var hazards_root: Node2D = null # container for hazard overlay nodes (fire/rad/ice)
 
 var units_by_cell: Dictionary = {}  # Vector2i -> Unit
 var selected: Unit = null
@@ -137,149 +130,6 @@ func _coop_push_snapshot(_reason: String = "") -> void:
 		for pid in multiplayer.get_peers():
 			game_ref.call_deferred("_send_snapshot_to_peer", int(pid))
 
-
-# ---------------------------------------------------------
-# CO-OP: Hazard tiles sync (fire / radiation / ice)
-# - Host is authoritative for hazard state + decay.
-# - Clients only render visuals based on replicated state.
-# ---------------------------------------------------------
-const _HAZ_FIRE := &"fire_tiles"
-const _HAZ_RAD  := &"rad_contam"
-const _HAZ_ICE  := &"ice_tiles"
-
-func _haz_root() -> Node2D:
-	# Prefer overlay_root if you have one, otherwise attach to MapController.
-	if hazards_root != null and is_instance_valid(hazards_root):
-		return hazards_root
-
-	var parent: Node = overlay_root if (overlay_root != null and is_instance_valid(overlay_root)) else self
-	var n := parent.get_node_or_null("Hazards") as Node2D
-	if n == null:
-		n = Node2D.new()
-		n.name = "Hazards"
-		parent.add_child(n)
-	hazards_root = n
-	return hazards_root
-
-func _haz_pack(d: Dictionary) -> Array:
-	# WebSocket-safe: [{c:Vector2i, t:int}]
-	var out: Array = []
-	if d == null:
-		return out
-	for k in d.keys():
-		var c: Vector2i = k
-		out.append({"c": c, "t": int(d.get(k, 0))})
-	return out
-
-func _haz_unpack(a: Array) -> Dictionary:
-	var out: Dictionary = {}
-	for v in a:
-		if typeof(v) != TYPE_DICTIONARY:
-			continue
-		var dd: Dictionary = v
-		var c: Vector2i = dd.get("c", Vector2i(-1, -1))
-		var t := int(dd.get("t", 0))
-		if c.x < 0 or t <= 0:
-			continue
-		out[c] = t
-	return out
-
-@rpc("authority", "reliable")
-func _rpc_hazard_state(kind: StringName, packed: Array) -> void:
-	# Host -> clients: set entire hazard dict (used after ticks / big changes)
-	var d := _haz_unpack(packed)
-	set_meta(kind, d)
-	_haz_refresh_kind(kind)
-
-@rpc("authority", "reliable")
-func _rpc_hazard_delta(kind: StringName, cell: Vector2i, turns: int) -> void:
-	# Host -> clients: set/extend a single hazard tile
-	var d: Dictionary = get_meta(kind, {}) if has_meta(kind) else {}
-	if not (d is Dictionary):
-		d = {}
-	var cur := int(d.get(cell, 0))
-	d[cell] = max(cur, turns)
-	set_meta(kind, d)
-	_haz_refresh_kind(kind)
-
-@rpc("authority", "reliable")
-func _rpc_hazard_clear(kind: StringName, cell: Vector2i) -> void:
-	var d: Dictionary = get_meta(kind, {}) if has_meta(kind) else {}
-	if not (d is Dictionary):
-		d = {}
-	if d.has(cell):
-		d.erase(cell)
-		set_meta(kind, d)
-	_haz_refresh_kind(kind)
-
-func coop_hazard_set(kind: StringName, cell: Vector2i, turns: int) -> void:
-	# Host-only mutator (safe no-op on client)
-	if _coop_is_active() and not _coop_is_host():
-		return
-	var d: Dictionary = get_meta(kind, {}) if has_meta(kind) else {}
-	if not (d is Dictionary):
-		d = {}
-	var cur := int(d.get(cell, 0))
-	d[cell] = max(cur, turns)
-	set_meta(kind, d)
-	_haz_refresh_kind(kind)
-
-	if _coop_is_active() and _coop_is_host() and multiplayer != null and multiplayer.has_multiplayer_peer() and multiplayer.is_server():
-		_rpc_hazard_delta.rpc(kind, cell, int(d[cell]))
-
-func coop_hazard_clear(kind: StringName, cell: Vector2i) -> void:
-	if _coop_is_active() and not _coop_is_host():
-		return
-	var d: Dictionary = get_meta(kind, {}) if has_meta(kind) else {}
-	if not (d is Dictionary):
-		d = {}
-	if d.has(cell):
-		d.erase(cell)
-		set_meta(kind, d)
-	_haz_refresh_kind(kind)
-
-	if _coop_is_active() and _coop_is_host() and multiplayer != null and multiplayer.has_multiplayer_peer() and multiplayer.is_server():
-		_rpc_hazard_clear.rpc(kind, cell)
-
-func coop_hazard_set_state(kind: StringName, state: Dictionary) -> void:
-	# Use this after bulk ticks/decay to avoid per-cell spam
-	if _coop_is_active() and not _coop_is_host():
-		return
-	if not (state is Dictionary):
-		state = {}
-	set_meta(kind, state)
-	_haz_refresh_kind(kind)
-
-	if _coop_is_active() and _coop_is_host() and multiplayer != null and multiplayer.has_multiplayer_peer() and multiplayer.is_server():
-		_rpc_hazard_state.rpc(kind, _haz_pack(state))
-
-func apply_hazards_snapshot(snap: Dictionary) -> void:
-	# Called by Game.gd after applying terrain/units.
-	# Works for both host and client; on host it's just a refresh.
-	if snap == null:
-		return
-
-	if snap.has("fire_tiles"):
-		set_meta(_HAZ_FIRE, _haz_unpack(snap.get("fire_tiles", [])))
-	if snap.has("rad_contam"):
-		set_meta(_HAZ_RAD, _haz_unpack(snap.get("rad_contam", [])))
-	if snap.has("ice_tiles"):
-		set_meta(_HAZ_ICE, _haz_unpack(snap.get("ice_tiles", [])))
-
-	_haz_refresh_all()
-
-func _haz_refresh_all() -> void:
-	_haz_refresh_kind(_HAZ_FIRE)
-	_haz_refresh_kind(_HAZ_RAD)
-	_haz_refresh_kind(_HAZ_ICE)
-
-func _haz_refresh_kind(kind: StringName) -> void:
-	if kind == _HAZ_FIRE:
-		_fire_refresh_visuals()
-	elif kind == _HAZ_RAD:
-		_rad_refresh_visuals()
-	elif kind == _HAZ_ICE:
-		_ice_refresh_visuals()
 func _unit_uid(u: Unit) -> String:
 	if u == null or not is_instance_valid(u):
 		return ""
@@ -827,7 +677,7 @@ var _coop_vfx_block_broadcast: bool = false
 func boss_clear_intents() -> void:
 	for n in _boss_intent_tiles:
 		if n != null and is_instance_valid(n):
-			_haz_fade_out_and_free(n)
+			n.queue_free()
 	_boss_intent_tiles.clear()
 
 func boss_show_intents(cells: Array[Vector2i]) -> void:
@@ -1477,7 +1327,9 @@ func spawn_units() -> void:
 				drop_center_world + Vector2(0, -bomber_hover_px),
 				bomber_arrive_time
 			)
-			
+	
+	var _used_owned_ids: Dictionary = {}
+				
 	for i in range(chosen_cells.size()):
 		var cell_i := chosen_cells[i]
 
@@ -1489,16 +1341,14 @@ func spawn_units() -> void:
 		if not ally_defs.is_empty():
 			if i >= ally_defs.size():
 				continue
+
 			var def: Dictionary = ally_defs[i]
 			scene = def.get("scene", null)
 			unit_id = str(def.get("id", ""))
 			scene_path = str(def.get("path", ""))
-			quirks = def.get("quirks", [])
+			quirks = (def.get("quirks", []) as Array).duplicate(true)
 
-			# ---------------------------------------------------------
-			# ✅ CRITICAL: Always pull the LATEST quirks from RunState
-			# (post-mission awards update roster_units, not squad_entries)
-			# ---------------------------------------------------------
+			# 🔥 ensure latest quirks from roster (post-mission awards)
 			if unit_id != "" and rs != null and rs.has_method("get_roster_unit"):
 				var re: Dictionary = rs.call("get_roster_unit", unit_id)
 				if not re.is_empty():
@@ -1511,6 +1361,19 @@ func spawn_units() -> void:
 			if scene != null:
 				scene_path = scene.resource_path
 
+		# -------------------------------------------------
+		# ⭐ CRITICAL FIX:
+		# recover owned unit + quirks when using path-only squads
+		# -------------------------------------------------
+		if (unit_id == "" or quirks.is_empty()) and rs != null:
+			var pick := _rs_pick_owned_unit_for_path(rs, scene_path, _used_owned_ids)
+			if not pick.is_empty():
+				unit_id = str(pick.get("id",""))
+				quirks = (pick.get("quirks", []) as Array).duplicate(true)
+				if unit_id != "":
+					_used_owned_ids[unit_id] = true
+				print("spawn_units: recovered owned_id=", unit_id, " quirks=", quirks)
+
 		if scene == null:
 			continue
 
@@ -1518,29 +1381,18 @@ func spawn_units() -> void:
 		if u == null:
 			continue
 
-		# ✅ Bulletproof: if the def forgot to provide "path", fall back to the PackedScene's resource_path
-		if (not u.has_meta("scene_path")) or str(u.get_meta("scene_path")) == "":
-			if scene_path == "" and scene != null and scene.resource_path != "":
-				scene_path = scene.resource_path
-			if scene_path != "":
-				u.set_meta("scene_path", scene_path)
-
 		if scene_path != "":
 			u.set_meta("scene_path", scene_path)
 		if unit_id != "":
 			u.set_meta("unit_id", unit_id)
 
 		units_root.add_child(u)
-
 		u.team = Unit.Team.ALLY
 
-		# CO-OP: per-unit owner + stable net id
 		var owner_peer := 1
 		if not ally_defs.is_empty() and i < ally_defs.size():
 			owner_peer = int(ally_defs[i].get("owner_peer_id", 1))
 
-		# If your Unit script doesn't have owner_peer_id declared, comment this line out
-		# and rely on meta only.
 		u.owner_peer_id = owner_peer
 		u.set_meta("owner_peer_id", owner_peer)
 
@@ -1548,20 +1400,17 @@ func spawn_units() -> void:
 		_apply_runstate_upgrades_to_unit(u)
 		_wire_unit_signals(u)
 
-		# Apply RunState upgrades (safe)
 		if rs != null and rs.has_method("apply_upgrades_to_unit"):
 			rs.apply_upgrades_to_unit(u)
 
-		# Apply Quirks
+		# ✅ APPLY QUIRKS (identical to normal mode)
 		if not quirks.is_empty():
 			QuirkDB.apply_to_unit(u, quirks)
 			print("spawn_units: applied quirks meta=", u.get_meta(&"quirks", []))
-
 			if u.has_method("apply_quirk_stat_mods_once"):
 				u.apply_quirk_stat_mods_once()
 
 		u.hp = u.max_hp
-
 		units_by_cell[cell_i] = u
 
 		if not _used_ally_scenes.has(scene):
@@ -1571,14 +1420,11 @@ func spawn_units() -> void:
 			await _drop_unit_from_bomber(u, bomber, cell_i)
 		else:
 			u.set_cell(cell_i, terrain)
-
-			# ✅ In co-op host (deferred bomber), spawn allies hidden until bomber reveal
 			if defer_bomber:
 				u.modulate.a = 0.0
-				u.set_meta("pending_drop_reveal", true)	
-						
+				u.set_meta("pending_drop_reveal", true)
 			_set_unit_depth_from_world(u, u.global_position)
-
+			
 	if bomber != null:
 		_sfx(bomber_sfx_out, sfx_volume_world, 1.0, bomber.global_position)
 		await _tween_node_global_pos(
@@ -1598,6 +1444,30 @@ func spawn_units() -> void:
 
 	_ensure_beacon_marker()
 
+func _rs_pick_owned_unit_for_path(rs, scene_path: String, used: Dictionary) -> Dictionary:
+	if rs == null:
+		return {}
+
+	if not rs.has_method("get_roster_units"):
+		return {}
+
+	var best := {}
+	for r in rs.get_roster_units():
+		if not (r is Dictionary):
+			continue
+		if str(r.get("path","")) != scene_path:
+			continue
+
+		var id := str(r.get("id",""))
+		if id == "" or used.has(id):
+			continue
+
+		best = r
+		if not (r.get("quirks", []) as Array).is_empty():
+			break
+
+	return best
+	
 func _play_bomber_cosmetic(center_cell: Vector2i) -> void:
 	if _bomber_playing:
 		return
@@ -2028,7 +1898,7 @@ func clear_all() -> void:
 
 	for n in mine_nodes_by_cell.values():
 		if n != null and is_instance_valid(n):
-			_haz_fade_out_and_free(n)
+			n.queue_free()
 	mine_nodes_by_cell.clear()
 	mines_by_cell.clear()
 	_clear_beacon_marker()
@@ -8341,41 +8211,12 @@ func _rad_get_contam() -> Dictionary:
 	var d = get_meta(key)
 	return d if (d is Dictionary) else {}
 
-
-
-func _haz_fade_in(n: Node) -> void:
-	if n == null or not is_instance_valid(n):
-		return
-	if hazard_fade_in_time <= 0.0:
-		return
-	if n is CanvasItem:
-		var ci := n as CanvasItem
-		var c := ci.modulate
-		c.a = 0.0
-		ci.modulate = c
-		var tw := create_tween()
-		tw.tween_property(ci, "modulate:a", 1.0, hazard_fade_in_time)
-
-func _haz_fade_out_and_free(n: Node) -> void:
-	if n == null or not is_instance_valid(n):
-		return
-	if hazard_fade_out_time <= 0.0:
-		n.queue_free()
-		return
-	if n is CanvasItem:
-		var ci := n as CanvasItem
-		var tw := create_tween()
-		tw.tween_property(ci, "modulate:a", 0.0, hazard_fade_out_time)
-		tw.tween_callback(Callable(n, "queue_free"))
-	else:
-		n.queue_free()
-
 func _rad_clear_visual(c: Vector2i) -> void:
 	if rad_tiles_by_cell.has(c):
 		var n = rad_tiles_by_cell[c]
 		rad_tiles_by_cell.erase(c)
 		if n != null and is_instance_valid(n):
-			_haz_fade_out_and_free(n)
+			n.queue_free()
 
 func _rad_ensure_visual(c: Vector2i) -> void:
 	if rad_tile_scene == null:
@@ -8390,9 +8231,8 @@ func _rad_ensure_visual(c: Vector2i) -> void:
 	if inst == null:
 		return
 
-	_haz_root().add_child(inst)
+	add_child(inst)
 	rad_tiles_by_cell[c] = inst
-	_haz_fade_in(inst)
 
 	# position + depth (match your tile/world conventions)
 	if inst is Node2D:
@@ -8424,7 +8264,7 @@ func _fire_clear_visual(c: Vector2i) -> void:
 		var n = fire_tiles_by_cell[c]
 		fire_tiles_by_cell.erase(c)
 		if n != null and is_instance_valid(n):
-			_haz_fade_out_and_free(n)
+			n.queue_free()
 
 func _fire_ensure_visual(c: Vector2i) -> void:
 	if fire_tile_scene == null:
@@ -8441,9 +8281,8 @@ func _fire_ensure_visual(c: Vector2i) -> void:
 	if inst == null:
 		return
 
-	_haz_root().add_child(inst)
+	add_child(inst)
 	fire_tiles_by_cell[c] = inst
-	_haz_fade_in(inst)
 
 	if inst is Node2D:
 		var n2 := inst as Node2D
@@ -8462,54 +8301,6 @@ func _fire_refresh_visuals() -> void:
 	# Add visuals for active tiles
 	for c in tiles.keys():
 		_fire_ensure_visual(c)
-
-
-func _ice_get_tiles() -> Dictionary:
-	var key := &"ice_tiles"
-	if not has_meta(key):
-		return {}
-	var d = get_meta(key)
-	return d if (d is Dictionary) else {}
-
-func _ice_clear_visual(c: Vector2i) -> void:
-	if ice_tiles_by_cell.has(c):
-		var n = ice_tiles_by_cell[c]
-		ice_tiles_by_cell.erase(c)
-		if n != null and is_instance_valid(n):
-			_haz_fade_out_and_free(n)
-
-func _ice_ensure_visual(c: Vector2i) -> void:
-	if ice_tile_scene == null:
-		return
-
-	if ice_tiles_by_cell.has(c):
-		var existing = ice_tiles_by_cell[c]
-		if existing != null and is_instance_valid(existing):
-			return
-		ice_tiles_by_cell.erase(c)
-
-	var inst = ice_tile_scene.instantiate()
-	if inst == null:
-		return
-
-	_haz_root().add_child(inst)
-	ice_tiles_by_cell[c] = inst
-	_haz_fade_in(inst)
-
-	if inst is Node2D:
-		var n2 := inst as Node2D
-		n2.global_position = _cell_world(c)
-		n2.z_index = 0 + (c.x + c.y)
-
-func _ice_refresh_visuals() -> void:
-	var tiles := _ice_get_tiles()
-
-	for c in ice_tiles_by_cell.keys():
-		if not tiles.has(c):
-			_ice_clear_visual(c)
-
-	for c in tiles.keys():
-		_ice_ensure_visual(c)
 
 func _try_fire_on_enter(u: Unit) -> void:
 	if u == null or not is_instance_valid(u):
@@ -8561,6 +8352,13 @@ func _try_fire_on_enter(u: Unit) -> void:
 		u.call("take_damage", dmg)
 	else:
 		u.hp = max(0, u.hp - dmg)
+
+func _ice_get_tiles() -> Dictionary:
+	var key := &"ice_tiles"
+	if not has_meta(key):
+		return {}
+	var d = get_meta(key)
+	return d if (d is Dictionary) else {}
 
 func _try_ice_on_enter(u: Unit, chill_turns: int = 1) -> void:
 	if u == null or not is_instance_valid(u):
@@ -8851,11 +8649,22 @@ func build_units_snapshot() -> Array:
 		elif "owner_peer_id" in u:
 			owner = int(u.owner_peer_id)
 
+		# --- Quirks (RPC-safe) ---
+		# QuirkDB stores with meta key &"quirks" (StringName). Some older code may use "quirks".
+		# For networking, always pack as Array[String] so RPC dictionaries stay stable.
 		var quirks: Array = []
-		if u.has_meta("quirks"):
-			quirks = u.get_meta("quirks")
+		if u.has_meta(&"quirks"):
+			quirks = u.get_meta(&"quirks", [])
+		elif u.has_meta("quirks"):
+			quirks = u.get_meta("quirks", [])
 		elif "quirks" in u and (u.quirks is Array):
 			quirks = u.quirks
+		# Convert to Array[String] (RPC-safe)
+		var quirks_out: Array = []
+		for q in quirks:
+			if q == null:
+				continue
+			quirks_out.append(str(q))
 
 		var hp := int(u.hp) if ("hp" in u) else 0
 		var max_hp := int(u.max_hp) if ("max_hp" in u) else 0
@@ -8867,12 +8676,9 @@ func build_units_snapshot() -> Array:
 				"cell": cell,
 				"team": team,
 				"owner_peer_id": owner,
-				"quirks": quirks,
+				"quirks": quirks_out,
 				"hp": hp,
-				"max_hp": max_hp,
-				"chilled_turns": int(u.get_meta(&"chilled_turns", 0)) if u.has_meta(&"chilled_turns") else 0,
-				"stim_turns": int(u.get_meta(&"stim_turns", 0)) if u.has_meta(&"stim_turns") else 0,
-				"stim_damage_bonus": int(u.get_meta(&"stim_damage_bonus", 0)) if u.has_meta(&"stim_damage_bonus") else 0
+				"max_hp": max_hp
 			})
 
 	return out
@@ -8950,23 +8756,70 @@ func apply_units_snapshot(units: Array) -> void:
 		u.owner_peer_id = owner
 		u.set_meta("owner_peer_id", owner)
 
-		u.set_meta("quirks", d.get("quirks", []))
+		# -------------------------------------------------
+		# Quirks (co-op snapshot)
+		# -------------------------------------------------
+		# In normal mode, spawn_units() uses QuirkDB.apply_to_unit(), which:
+		# - normalizes to Array[StringName]
+		# - filters unknown ids
+		# - stores on meta("quirks")
+		# Some UI paths expect this normalized meta.
+		#
+		# BUT: host stats already include quirk deltas, and snapshot ships hp/max_hp.
+		# So we:
+		#  1) capture authoritative hp/max_hp from snapshot
+		#  2) apply_to_unit() for normalization/meta
+		#  3) restore hp/max_hp exactly as sent
+		var snap_max_hp := int(d.get("max_hp", u.max_hp))
+		var snap_hp := int(d.get("hp", u.hp))
 
-		if d.has("max_hp"):
-			u.max_hp = int(d.get("max_hp", u.max_hp))
-		if d.has("hp"):
-			u.hp = int(d.get("hp", u.hp))
-		# --- Status metas (for hazard visuals / buffs) ---
-		if d.has("chilled_turns"):
-			u.set_meta(&"chilled_turns", int(d.get("chilled_turns", 0)))
-			if has_method("_refresh_chill_visuals_for_unit"):
-				_refresh_chill_visuals_for_unit(u)
-		if d.has("stim_turns"):
-			u.set_meta(&"stim_turns", int(d.get("stim_turns", 0)))
-		if d.has("stim_damage_bonus"):
-			u.set_meta(&"stim_damage_bonus", int(d.get("stim_damage_bonus", 0)))
+		# --- Quirks (robust decode + always set meta) ---
+		# RPC may deliver quirks as Array, PackedStringArray, null, or mixed types.
+		var raw_q = d.get("quirks", [])
+		var q_strs: Array = []
+		match typeof(raw_q):
+			TYPE_ARRAY:
+				for v in raw_q:
+					if v == null:
+						continue
+					q_strs.append(str(v))
+			TYPE_PACKED_STRING_ARRAY:
+				for v in raw_q:
+					q_strs.append(str(v))
+			TYPE_STRING:
+				if str(raw_q) != "":
+					q_strs.append(str(raw_q))
+			TYPE_NIL:
+				q_strs = []
+			_:
+				# Unknown / unserializable -> treat as empty
+				q_strs = []
 
+		# Normalize into Array[StringName] for QuirkDB + your UI expectations
+		var q_ids: Array = []
+		for s in q_strs:
+			if s == "":
+				continue
+			q_ids.append(StringName(s))
 
+		# Always provide both meta keys so any reader path works
+		u.set_meta(&"quirks", q_ids)
+		u.set_meta("quirks", q_ids)
+
+		# Apply quirks through the normal pipeline (but avoid stat double-apply by restoring hp/max_hp)
+		if q_ids.size() > 0:
+			QuirkDB.apply_to_unit(u, q_ids)
+			# Some units compute derived stats lazily
+			if u.has_method("apply_quirk_stat_mods_once"):
+				u.apply_quirk_stat_mods_once()
+
+		# Restore authoritative stats from host snapshot
+		u.max_hp = snap_max_hp
+		u.hp = snap_hp
+
+		# Nudge HUD rebuild paths (if present)
+		if u.has_signal("quirks_changed"):
+			u.emit_signal("quirks_changed")
 
 		# --- Cell ---
 		var cell: Vector2i = d.get("cell", Vector2i(-1, -1))

@@ -81,3 +81,4 @@ res://scripts/weakpoint.gd
 res://scripts/weather_particles.gd
 res://scripts/zombie.gd
 res://scenes/squad_deploy_screen.tscn
+res://scenes/HUD.tscn
