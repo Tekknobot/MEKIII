@@ -136,3 +136,4 @@ res://scripts/weakpoint.gd
 res://scripts/weather_particles.gd
 res://scripts/zombie.gd
 res://scripts/network_manager.gd
+res://biomes/tropical_urban.tres

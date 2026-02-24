@@ -1,0 +1,19 @@
+[gd_resource type="Resource" script_class="BiomeSet" load_steps=7 format=3 uid="uid://be7ixepcsqfle"]
+
+[ext_resource type="Texture2D" uid="uid://c3ygwnpnc6fvi" path="res://sprites/Terrain/biomes/tropical_urban/tropical_dirt.png" id="1_oj7o4"]
+[ext_resource type="Texture2D" uid="uid://bckf3f1mwg1vo" path="res://sprites/Terrain/biomes/tropical_urban/tropical_grass.png" id="2_bcegw"]
+[ext_resource type="Texture2D" uid="uid://mgg3450nukoe" path="res://sprites/Terrain/biomes/tropical_urban/tropical_beachsand.png" id="3_i8j01"]
+[ext_resource type="Texture2D" uid="uid://bj8ryj21tmlpm" path="res://sprites/Terrain/biomes/tropical_urban/tropical_sanstone.png" id="4_43wuu"]
+[ext_resource type="Script" uid="uid://dyy06am5hh6de" path="res://scripts/biome_set.gd" id="5_iv63m"]
+[ext_resource type="Texture2D" uid="uid://h0gsydlcm14p" path="res://sprites/Terrain/biomes/tropical_urban/tropical_sand_grass.png" id="6_iv63m"]
+
+[resource]
+script = ExtResource("5_iv63m")
+id = &"biome_tropical"
+display_name = "Tropical Urban"
+dirt = ExtResource("1_oj7o4")
+sandstone = ExtResource("4_43wuu")
+snow = ExtResource("6_iv63m")
+grass = ExtResource("2_bcegw")
+ice = ExtResource("3_i8j01")
+metadata/_custom_type_script = "uid://dyy06am5hh6de"

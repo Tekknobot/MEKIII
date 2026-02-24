@@ -1,4 +1,4 @@
-[gd_scene load_steps=122 format=3 uid="uid://bmtwqbsx674eo"]
+[gd_scene load_steps=123 format=3 uid="uid://bmtwqbsx674eo"]
 
 [ext_resource type="Script" uid="uid://bn08mhcoceqg" path="res://scripts/game.gd" id="1_400sg"]
 [ext_resource type="Texture2D" uid="uid://bktpplbikmno4" path="res://sprites/Terrain/biomes/overgrown_urban/overgrown_aged_dirt2.png" id="2_8cbmg"]
@@ -25,6 +25,7 @@
 [ext_resource type="Texture2D" uid="uid://bysc7op7qquei" path="res://sprites/Tiles_UI/mek3/1x1_cursor.png" id="11_2rd6h"]
 [ext_resource type="Resource" uid="uid://beemq1mpp8ofs" path="res://biomes/jungle_urban.tres" id="11_t1ptx"]
 [ext_resource type="Texture2D" uid="uid://eh6ocjhc4lti" path="res://sprites/Terrain/water.png" id="11_vjgi4"]
+[ext_resource type="Resource" uid="uid://be7ixepcsqfle" path="res://biomes/tropical_urban.tres" id="12_5edba"]
 [ext_resource type="Texture2D" uid="uid://b2b8iier8i5b7" path="res://sprites/Tiles_UI/mek3/2x2_cursor.png" id="12_7ua8r"]
 [ext_resource type="Texture2D" uid="uid://cchkas5ebl2h5" path="res://sprites/Tiles_UI/mek3/1x1_attack.png" id="14_vjgi4"]
 [ext_resource type="PackedScene" uid="uid://bm1g128j70kea" path="res://scenes/StarNight.tscn" id="20_sv1m6"]
@@ -315,7 +316,7 @@ override_sandstone_tex = ExtResource("3_il60g")
 override_snow_tex = ExtResource("4_4fypl")
 override_grass_tex = ExtResource("5_7e8db")
 override_ice_tex = ExtResource("6_ci547")
-biome_sets = Array[ExtResource("7_7e8db")]([ExtResource("8_t1ptx"), ExtResource("8_ci547"), ExtResource("9_t1ptx"), ExtResource("11_t1ptx")])
+biome_sets = Array[ExtResource("7_7e8db")]([ExtResource("8_t1ptx"), ExtResource("8_ci547"), ExtResource("9_t1ptx"), ExtResource("11_t1ptx"), ExtResource("12_5edba")])
 camera = NodePath("Camera2D")
 fade_rect_path = NodePath("UI/FadeLayer/ColorRect")
 fade_out_time = 1.88
