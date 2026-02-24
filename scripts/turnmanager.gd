@@ -36,6 +36,7 @@ var _pending_loss_mode: int = 0
 
 var loss_checks_enabled: bool = false
 var _had_any_allies: bool = false
+var _deployment_complete: bool = false  # true once initial drop/snapshot has produced allies
 var _spawn_wait_tries: int = 0
 const _SPAWN_WAIT_MAX_TRIES := 90  # ~1.5s at 60fps
 
@@ -453,8 +454,9 @@ func _ready() -> void:
 	# Initial refresh (after scene loads / units spawn)
 	loss_checks_enabled = false
 	_had_any_allies = false
+	_deployment_complete = false
 	_spawn_wait_tries = 0
-	call_deferred("_wait_for_units_then_enable_loss_checks")
+	call_deferred("_bootstrap_loss_checks")
 
 	var rs := get_tree().root.get_node_or_null("RunStateNode")
 	if rs != null:
@@ -491,7 +493,7 @@ func _ready() -> void:
 			call_deferred("_titan_event_setup")
 		else:
 			_is_titan_event = false
-
+			
 func _wait_until_allies_exist(max_frames := 1200) -> bool:
 	# 1200 frames ≈ 20 seconds @ 60fps (deployment/fades can be long)
 	var frames := 0
@@ -502,16 +504,18 @@ func _wait_until_allies_exist(max_frames := 1200) -> bool:
 					return true
 		frames += 1
 		await get_tree().process_frame
-	return false
-		
-func _on_map_tutorial_event(id: StringName, _payload: Dictionary) -> void:
-	# enemy_died is guaranteed from MapController.on_unit_died()
-	if id == &"enemy_died":
-		call_deferred("_refresh_population_and_check")
 
-	if id == &"pickup_collected":
-		_refresh_population_and_check()
-		return		
+	return false
+	
+func _on_map_tutorial_event(id: StringName, _payload: Dictionary) -> void:
+	# MapController emits tutorial_event for key state changes.
+	# Keep infestation HUD + loss logic responsive.
+	match id:
+		&"enemy_died", &"ally_died", &"recruit_spawned", &"pickup_collected":
+			call_deferred("_refresh_population_and_check")
+			return
+		_:
+			return
 
 func _refresh_population_and_check() -> void:
 	if _game_over_triggered:
@@ -562,13 +566,13 @@ func _refresh_population_and_check() -> void:
 	# Loss checks are host-authoritative in co-op
 	if loss_checks_enabled and (not coop_active or coop_host):
 		# Loss #1: too many zombies (allowed as soon as checks are enabled)
-		if zombies > zombie_limit:
+		if zombie_limit > 0 and zombies >= zombie_limit:
 			_loss_mode = LossMode.RESTART_MISSION
 			game_over("SYSTEM OVERRUN\n\nInfestation exceeded containment limits.\nZombies: %d / %d" % [zombies, zombie_limit])
 			return
 
 		# Loss #2: no allies (ONLY if we have had allies at least once)
-		if _had_any_allies and allies <= 0:
+		if _deployment_complete and _had_any_allies and allies <= 0:
 			_loss_mode = LossMode.TO_MENU
 			game_over("LAST LIGHT EXTINGUISHED\n\nNo allied units remain operational.")
 			return
@@ -793,6 +797,16 @@ func _update_end_turn_button() -> void:
 func on_units_spawned() -> void:
 	_update_special_buttons()
 	snapshot_mission_start_squad()
+	# ✅ Units now exist (initial drop / recruit drop / co-op snapshot) — enable loss checks safely.
+	loss_checks_enabled = true
+	_deployment_complete = true
+	if M != null:
+		for uu in M.get_all_units():
+			if uu != null and is_instance_valid(uu) and uu.hp > 0 and uu.team == Unit.Team.ALLY:
+				_had_any_allies = true
+				break
+	call_deferred("_refresh_population_and_check")
+
 	
 	if _is_titan_event and not _titan_autorun_started:
 		_titan_autorun_started = true
@@ -2121,31 +2135,28 @@ func _on_campaign_victory_continue() -> void:
 
 	tree.change_scene_to_file("res://scenes/squad_deploy_screen.tscn")
 
-func _wait_for_units_then_enable_loss_checks() -> void:
+func _bootstrap_loss_checks():
+	# Missions can take a long time to finish bomber deployment / fades.
+	# If we enable loss too early, "no allies" can false-trigger; if we give up too early,
+	# loss checks may never turn on at all. So we wait (up to ~20s) for an ally to exist,
+	# then enable checks. on_units_spawned() is an additional safety latch.
 	if _game_over_triggered:
 		return
 	if M == null:
 		return
 
-	var units := M.get_all_units()
-	if units != null and not units.is_empty():
-		# We have units in the scene — safe to start evaluating.
-		loss_checks_enabled = true
+	var got_allies := await _wait_until_allies_exist(1200)
 
-		# Start boss ONLY once, only if enabled
-		if boss_mode_enabled and (boss == null or not is_instance_valid(boss)):
-			start_boss_battle()
+	loss_checks_enabled = true
+	if got_allies:
+		_had_any_allies = true
+		_deployment_complete = true
 
-		call_deferred("_refresh_population_and_check")
-		return
+	# Start boss ONLY once, only if enabled
+	if boss_mode_enabled and (boss == null or not is_instance_valid(boss)):
+		start_boss_battle()
 
-	_spawn_wait_tries += 1
-	if _spawn_wait_tries >= _SPAWN_WAIT_MAX_TRIES:
-		# Give up quietly; we'll re-enable later when something happens (kills/spawns/end turn)
-		return
-
-	# Try again next frame
-	call_deferred("_wait_for_units_then_enable_loss_checks")
+	call_deferred("_refresh_population_and_check")
 
 
 func start_boss_battle() -> void:
