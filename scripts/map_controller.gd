@@ -2431,7 +2431,7 @@ func _perform_special(u: Unit, id: String, target_cell: Vector2i) -> void:
 # but unit scripts must guard gameplay writes using:
 #   if M.coop_visual_only(): return / skip damage
 # ---------------------------------------------------------
-func _perform_special_visual(u: Unit, id: String, target_cell: Vector2i) -> void:
+func _perform_special_visual(u: Unit, id: String, target_cell: Vector2i):
 	if u == null or not is_instance_valid(u):
 		return
 
