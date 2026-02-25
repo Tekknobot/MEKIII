@@ -222,10 +222,7 @@ func _coop_request_special(u: Unit, sid: String, target_cell: Vector2i) -> void:
 		return
 	# lock + remember requester so we can unlock after visual replay
 	_coop_last_special_req_net_id = int(u.net_id)
-	# clear local overlays immediately (client does not run logic)
-	_set_aim_mode(AimMode.MOVE)
-	_clear_overlay()
-	_refresh_overlays()
+
 	_is_moving = true
 	print("COOP(CLIENT): sending special req -> host. net_id=", int(u.net_id), " sid=", sid, " target=", target_cell)
 	rpc_id(1, "_rpc_client_request_special", int(u.net_id), sid, target_cell)
@@ -2814,12 +2811,16 @@ func _rpc_special_visual(unit_net_id: int, sid: String, target_cell: Vector2i) -
 	await _perform_special_visual(u, sid, target_cell)
 	_coop_visual_only = prev
 
-	# Owning client: specials count as "attack" for turn-state
+	# Owning client: most specials count as "attack" for turn-state
+	# ✅ EXCEPTION: stim should NOT consume attack (you want Blade right after)
+	sid = String(sid).to_lower()
+
 	if _coop_is_client() and u.team == Unit.Team.ALLY and _can_local_control(u):
-		_set_unit_attacked(u, true)
-		_apply_turn_indicator(u)
-		if TM != null and TM.has_method("notify_player_attacked"):
-			TM.notify_player_attacked(u)
+		if sid != "stim":
+			_set_unit_attacked(u, true)
+			_apply_turn_indicator(u)
+			if TM != null and TM.has_method("notify_player_attacked"):
+				TM.notify_player_attacked(u)
 
 		# After SPECIAL, arm MOVE if available
 		if selected != u:
@@ -3327,8 +3328,12 @@ func _draw_move_range(u: Unit) -> void:
 
 			if not _is_walkable(c):
 				continue
-			if structure_blocked.has(c):
-				continue
+				
+			# ✅ client-only: hide move tiles under structures
+			if not multiplayer.is_server():
+				if _structure_at_cell(c) != null:
+					continue
+					
 			if c != origin and unit_at_cell(c) != null:
 				continue
 
@@ -3843,6 +3848,12 @@ func _move_selected_to(target: Vector2i) -> void:
 	if not _is_valid_move_target(target):
 		return
 
+	# ✅ Hard runtime guard (prevents host/client overlap if overlay is stale)
+	if _cell_occupied_by_other(u, target):
+		_sfx(&"ui_denied", sfx_volume_ui, 1.0)
+		_refresh_overlays()
+		return
+
 	# ✅ per-unit move lock (ally only)
 	if u.team == Unit.Team.ALLY:
 		if _unit_has_moved(u):
@@ -4350,6 +4361,11 @@ func _force_unlock_movement() -> void:
 	_refresh_overlays()
 	emit_signal("aim_changed", int(aim_mode), special_id)
 
+
+func _cell_occupied_by_other(mover: Unit, cell: Vector2i) -> bool:
+	var occ := unit_at_cell(cell) # uses units_by_cell + fallback scan
+	return occ != null and is_instance_valid(occ) and occ != mover
+	
 # AI / scripted move that does NOT consume move/attack flags
 # (no _set_unit_moved, no TM.notify_player_moved, no aim_mode changes)
 func ai_move_free(u: Unit, target: Vector2i) -> void:
@@ -5522,7 +5538,6 @@ func _structure_at_cell(cell: Vector2i) -> Node:
 
 	return null
 
-
 func _flash_structure_white(s: Node, t: float) -> void:
 	if s == null or not is_instance_valid(s):
 		return
@@ -6143,7 +6158,6 @@ func _edge_spawn_ok(c: Vector2i, structure_blocked: Dictionary) -> bool:
 func spawn_edge_road_zombie() -> bool:
 	if units_root == null or terrain == null or grid == null:
 		return false
-
 
 	# ✅ CO-OP: client never spawns zombies locally; host snapshot will spawn them.
 	if _coop_is_client():
@@ -9263,9 +9277,10 @@ func _is_valid_move_target_for_unit(u: Unit, target: Vector2i) -> bool:
 		print("MOVE CHECK: not walkable ", target)
 		return false
 
-	# must not be occupied
-	if units_by_cell.has(target):
-		print("MOVE CHECK: occupied by ", units_by_cell[target])
+	# ✅ must not be occupied (robust: uses fallback scan too)
+	if _cell_occupied_by_other(u, target):
+		var occ := unit_at_cell(target)
+		print("MOVE CHECK: occupied by ", occ)
 		return false
 
 	# must be within move range (use your real range getter)

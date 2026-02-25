@@ -1831,6 +1831,23 @@ func _tick_buffs_enemy_phase_start() -> void:
 				u.set_meta(&"stim_damage_bonus", 0) # keep if you still reference it elsewhere
 				changed = true
 
+		# ✅ CO-OP CLIENT: if stim was visual-only, clear its shader at end-turn (enemy phase start)
+		if not multiplayer.is_server():
+			if u.has_meta(&"stim_fx_local") and bool(u.get_meta(&"stim_fx_local")):
+				# If we don't have a real stim_turns buff, this was visual-only
+				var t := int(u.get_meta(&"stim_turns", 0)) if u.has_meta(&"stim_turns") else 0
+				if t <= 0:
+					if u.has_method("_clear_stim_fx"):
+						u.call("_clear_stim_fx")
+					else:
+						# fallback (least ideal)
+						var ci: CanvasItem = null
+						if u.has_method("_get_unit_render_node"):
+							ci = u.call("_get_unit_render_node")
+						if ci != null and is_instance_valid(ci):
+							ci.material = null
+
+					u.set_meta(&"stim_fx_local", false)
 
 	# If any buff state changed, refresh special buttons now
 	if changed:

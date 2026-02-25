@@ -255,9 +255,16 @@ func get_special_range(id: String) -> int:
 # STIM
 # ---------------------------------------------------------
 func perform_stim(M: MapController) -> void:
-	if not can_use_special("stim"):
+	# ✅ CO-OP: during visual-only replay, do NOT apply gameplay buffs/meta on clients
+	# (otherwise stim gets applied locally and never expires)
+	if M != null and is_instance_valid(M) and M.coop_visual_only():
+		set_meta(&"stim_fx_local", true) # ✅ remember: client applied shader locally
+		# optional: keep the feedback
+		M._say(self, "Stim!")
+		M._sfx(&"ui_stim", M.sfx_volume_ui, 1.0, global_position)
+		_apply_stim_fx()
 		return
-
+		
 	# prevent double-stacking
 	if has_meta(&"stim_turns") and int(get_meta(&"stim_turns")) > 0:
 		return
@@ -291,6 +298,11 @@ func _apply_stim_fx() -> void:
 	if stim_shader == null:
 		return
 
+	# ✅ store previous material so we can restore later
+	# (only store if we are not already using the stim shader)
+	if not (ci.material is ShaderMaterial and (ci.material as ShaderMaterial).shader == stim_shader):
+		set_meta(&"stim_prev_material", ci.material)
+
 	var sm: ShaderMaterial
 	if ci.material is ShaderMaterial and (ci.material as ShaderMaterial).shader == stim_shader:
 		sm = ci.material as ShaderMaterial
@@ -317,6 +329,18 @@ func _apply_stim_fx() -> void:
 	tw.tween_property(sm, "shader_parameter/stim_strength", 0.65, 0.14)
 	tw.tween_property(sm, "shader_parameter/time_scale", 1.25, 0.14)
 	tw.tween_property(sm, "shader_parameter/glow", 0.95, 0.14)
+
+func _clear_stim_fx() -> void:
+	var ci := _get_unit_render_node()
+	if ci == null or not is_instance_valid(ci):
+		return
+
+	# ✅ restore previous material if we saved it, else clear
+	if has_meta(&"stim_prev_material"):
+		ci.material = get_meta(&"stim_prev_material")
+		set_meta(&"stim_prev_material", null)
+	else:
+		ci.material = null
 
 func _get_unit_render_node() -> CanvasItem:
 	var n := get_node_or_null("Render")
