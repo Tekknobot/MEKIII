@@ -191,7 +191,8 @@ func set_squad_entries(entries: Array) -> void:
 	squad_scene_paths.clear()
 
 func has_squad() -> bool:
-	return (not squad_unit_ids.is_empty()) or (not squad_scene_paths.is_empty())
+	# ✅ Co-op uses squad_entries (path + owner_peer_id). Treat that as a valid squad too.
+	return (not squad_unit_ids.is_empty()) or (not squad_scene_paths.is_empty()) or (squad_entries != null and squad_entries.size() > 0)
 
 func clear_squad() -> void:
 	squad_scene_paths.clear()

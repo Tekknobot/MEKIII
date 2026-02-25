@@ -184,14 +184,25 @@ func _rpc_request_end_turn() -> void:
 	if not _coop_active() or not _coop_host():
 		return
 
-	# Prevent double-requests / spam
-	if _coop_end_turn_pending:
-		return
-	if phase != Phase.PLAYER:
+
+@rpc("authority", "reliable")
+func _rpc_client_start_player_phase(p_round_index: int) -> void:
+	# Host tells clients that the new PLAYER phase has begun.
+	# Clients must re-enable input + refresh HUD/buttons based on per-unit turn state.
+	if not _coop_active() or _coop_host():
 		return
 
-	_coop_end_turn_pending = true
-	call_deferred("_coop_do_end_turn")
+	round_index = p_round_index
+	phase = Phase.PLAYER
+	_coop_end_turn_pending = false
+
+	# Reset per-unit turn flags + tints on the client too.
+	if M != null and M.has_method("reset_turn_flags_for_allies"):
+		M.reset_turn_flags_for_allies()
+
+	_update_end_turn_button()
+	_update_special_buttons()
+	return
 
 
 func _coop_do_end_turn() -> void:
@@ -650,11 +661,23 @@ func start_player_phase() -> void:
 
 	_update_end_turn_button()
 
+	# ✅ Co-op: inform clients that PLAYER phase has begun so they can reset specials/move flags.
+	if _coop_active() and _coop_host():
+		_rpc_client_start_player_phase.rpc(round_index)
+
 func start_enemy_phase() -> void:
 	phase = Phase.ENEMY
 	var h := _hud()
 	if h != null:
 		h.show_turn_banner("ENEMY TURN", "enemy")
+
+	# ✅ CO-OP: only HOST runs enemy phase simulation/spawns.
+	# Clients only show banner/UI and wait for snapshots + visual RPC replays.
+	if M != null and M.has_method("_coop_is_active") and M.call("_coop_is_active"):
+		if not M.call("_coop_is_host"):
+			_update_end_turn_button()
+			_update_special_buttons()
+			return
 
 	M.reset_turn_flags_for_enemies()
 	
@@ -849,7 +872,9 @@ func can_move(u: Unit) -> bool:
 		return false
 	if u.team != Unit.Team.ALLY:
 		return false
-	return not _moved.get(u, false)
+	# Co-op: Turn state is stored on unit meta (authoritative), allow move if not moved yet.
+	var moved := bool(u.get_meta(&"turn_moved", false)) if u.has_meta(&"turn_moved") else bool(_moved.get(u, false))
+	return not moved
 
 func can_attack(u: Unit) -> bool:
 	if u == null or not is_instance_valid(u):
@@ -858,39 +883,27 @@ func can_attack(u: Unit) -> bool:
 		return false
 	if u.team != Unit.Team.ALLY:
 		return false
-	# Attack decision only becomes available AFTER move (move-first rules)
-	if not _moved.get(u, false):
-		return false
-	return not _attacked.get(u, false)
+	# Allow attack/special even if the unit has not moved yet.
+	var attacked := bool(u.get_meta(&"turn_attacked", false)) if u.has_meta(&"turn_attacked") else bool(_attacked.get(u, false))
+	return not attacked
 
 # MapController notifies us:
 func notify_player_moved(u: Unit) -> void:
-	if u != null and is_instance_valid(u):
-		_moved[u] = true
-
-		# If no enemies are in range, auto-skip the attack decision
-		var any_target := false
-		for e in M.get_all_units():
-			if e.team == Unit.Team.ENEMY and M.can_attack_cell(u, e.cell):
-				any_target = true
-				break
-		if not any_target:
-			_attacked[u] = true
-			M.set_unit_exhausted(u, true) # moved + no targets = done
-
+	if u == null or not is_instance_valid(u):
+		return
+	_moved[u] = true
+	# Store on unit meta so clients/host share the same state.
+	u.set_meta(&"turn_moved", true)
 	_update_end_turn_button()
 	_update_special_buttons()
-
 
 func notify_player_attacked(u: Unit) -> void:
-	if u != null and is_instance_valid(u):
-		_attacked[u] = true
-		_moved[u] = true # attacking ends the whole unit turn
-		M.set_unit_exhausted(u, true)
-		
+	if u == null or not is_instance_valid(u):
+		return
+	_attacked[u] = true
+	u.set_meta(&"turn_attacked", true)
 	_update_end_turn_button()
 	_update_special_buttons()
-	call_deferred("_refresh_population_and_check")
 
 # If you want "skip attack" as a button later:
 func skip_attack_for_selected(u: Unit) -> void:
@@ -1278,95 +1291,117 @@ func _update_special_buttons() -> void:
 	if artillery_strike_button: artillery_strike_button.toggle_mode = true
 	if laser_sweep_button: laser_sweep_button.toggle_mode = true
 						
+	# -----------------------------------------
+	# TEMP SELECT GUARD (co-op replay safety)
+	# During client move/special replay, MapController.selected can be null for a frame.
+	# Do NOT hide buttons in that case; just disable them until selection returns.
+	# -----------------------------------------
+	var sel := (M.selected if (M != null) else null)
+	if sel == null or not is_instance_valid(sel):
+		# Disable without changing visibility
+		for b in [hellfire_button, blade_button, mines_button, overwatch_button, suppress_button, stim_button, sunder_button, pounce_button, volley_button, cannon_button, quake_button, nova_button, web_button, slam_button, laser_grid_button, overcharge_button, barrage_button, railgun_button, malfunction_button, storm_button, artillery_strike_button, laser_sweep_button]:
+			if b != null:
+				b.disabled = true
+				b.button_pressed = false
+		return
+
+	# If input isn't allowed, keep them visible but disabled (no flicker/disappear)
+	if not player_input_allowed():
+		for b in [hellfire_button, blade_button, mines_button, overwatch_button, suppress_button, stim_button, sunder_button, pounce_button, volley_button, cannon_button, quake_button, nova_button, web_button, slam_button, laser_grid_button, overcharge_button, barrage_button, railgun_button, malfunction_button, storm_button, artillery_strike_button, laser_sweep_button]:
+			if b != null:
+				b.disabled = true
+				b.button_pressed = false
+		return
+
 	# Reset
 	if hellfire_button:
 		hellfire_button.disabled = true
 		hellfire_button.button_pressed = false
-		hellfire_button.visible = false
+		hellfire_button.visible = true
 	if blade_button:
 		blade_button.disabled = true
 		blade_button.button_pressed = false
-		blade_button.visible = false
+		blade_button.visible = true
 	if mines_button:
 		mines_button.disabled = true
 		mines_button.button_pressed = false
-		mines_button.visible = false
+		mines_button.visible = true
 	if overwatch_button:
 		overwatch_button.disabled = true
 		overwatch_button.button_pressed = false
-		overwatch_button.visible = false
+		overwatch_button.visible = true
 	if suppress_button:
 		suppress_button.disabled = true
 		suppress_button.button_pressed = false
-		suppress_button.visible = false
+		suppress_button.visible = true
 	if stim_button:
 		stim_button.disabled = true
 		stim_button.button_pressed = false
-		stim_button.visible = false
+		stim_button.visible = true
 	if sunder_button:
 		sunder_button.disabled = true
 		sunder_button.button_pressed = false
-		sunder_button.visible = false
+		sunder_button.visible = true
 	if pounce_button:
 		pounce_button.disabled = true
 		pounce_button.button_pressed = false
-		pounce_button.visible = false
+		pounce_button.visible = true
 	if volley_button:
 		volley_button.disabled = true
 		volley_button.button_pressed = false
-		volley_button.visible = false
+		volley_button.visible = true
 	if cannon_button:
 		cannon_button.disabled = true
 		cannon_button.button_pressed = false
-		cannon_button.visible = false
+		cannon_button.visible = true
 	if quake_button:
 		quake_button.disabled = true
 		quake_button.button_pressed = false
-		quake_button.visible = false
+		quake_button.visible = true
 	if nova_button:
 		nova_button.disabled = true
 		nova_button.button_pressed = false
-		nova_button.visible = false
+		nova_button.visible = true
 	if web_button:
 		web_button.disabled = true
 		web_button.button_pressed = false
-		web_button.visible = false
+		web_button.visible = true
 	if slam_button:
 		slam_button.disabled = true
 		slam_button.button_pressed = false
-		slam_button.visible = false
+		slam_button.visible = true
 	if laser_grid_button:                      
 		laser_grid_button.disabled = true       
 		laser_grid_button.button_pressed = false 
-		laser_grid_button.visible = false        
+		laser_grid_button.visible = true        
 	if overcharge_button:                      
 		overcharge_button.disabled = true       
 		overcharge_button.button_pressed = false 
-		overcharge_button.visible = false   
+		overcharge_button.visible = true   
 	if barrage_button:
 		barrage_button.disabled = true
 		barrage_button.button_pressed = false
-		barrage_button.visible = false
+		barrage_button.visible = true
 	if railgun_button:
 		railgun_button.disabled = true
 		railgun_button.button_pressed = false
-		railgun_button.visible = false			     
+		railgun_button.visible = true			     
 	if malfunction_button:
 		malfunction_button.disabled = true
 		malfunction_button.button_pressed = false
-		malfunction_button.visible = false
+		malfunction_button.visible = true
 	if storm_button:
 		storm_button.disabled = true
 		storm_button.button_pressed = false
-		storm_button.visible = false		
+		storm_button.visible = true		
 	if artillery_strike_button:
 		artillery_strike_button.disabled = true
 		artillery_strike_button.button_pressed = false
-		artillery_strike_button.visible = false
+		artillery_strike_button.visible = true
 	if laser_sweep_button:
 		laser_sweep_button.disabled = true
 		laser_sweep_button.button_pressed = false
-		laser_sweep_button.visible = false
+		laser_sweep_button.visible = true
 									
 	# Only during player phase
 	if phase != Phase.PLAYER:
@@ -1665,10 +1700,11 @@ func _ensure_unit_tracked(u: Unit) -> void:
 		return
 	if u.team != Unit.Team.ALLY:
 		return
-	if not _moved.has(u):
-		_moved[u] = false
-	if not _attacked.has(u):
-		_attacked[u] = false
+	# Keep local dictionaries in sync with authoritative unit meta flags.
+	var moved := bool(u.get_meta(&"turn_moved", false)) if u.has_meta(&"turn_moved") else false
+	var attacked := bool(u.get_meta(&"turn_attacked", false)) if u.has_meta(&"turn_attacked") else false
+	_moved[u] = moved
+	_attacked[u] = attacked
 
 func _on_overwatch_pressed() -> void:
 	if phase != Phase.PLAYER:
@@ -2000,7 +2036,7 @@ func game_over(msg: String) -> void:
 	if h != null:
 		var toast := h.get_node_or_null("TutorialToast")
 		if toast != null:
-			toast.visible = false
+			toast.visible = true
 			
 	# --- If enabled, play surge first, then show loss panel ---
 	if fail_surge_enabled and _fail_surge != null and is_instance_valid(_fail_surge):
@@ -2977,11 +3013,11 @@ func _set_hud_visible(v: bool) -> void:
 		if n == null or not is_instance_valid(n):
 			continue
 		if n is CanvasItem:
-			(n as CanvasItem).visible = false
+			(n as CanvasItem).visible = true
 		elif n is Node:
 			# fallback if it's not a CanvasItem for some reason
 			if "visible" in n:
-				n.visible = false
+				n.visible = true
 					
 	# End turn + menu buttons
 	if end_turn_button != null:

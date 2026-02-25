@@ -9,6 +9,10 @@ var _next_net_id: int = 1
 
 # COOP: when true, unit perform_* runs VFX/anim only (no damage/logic)
 var _coop_visual_only: bool = false
+# COOP: track last special request net_id so client can unlock after visual replay
+var _coop_last_special_req_net_id: int = 0
+var _coop_last_move_req_net_id: int = 0
+var _coop_last_attack_req_net_id: int = 0
 
 func coop_visual_only() -> bool:
 	return _coop_visual_only
@@ -21,7 +25,8 @@ func _is_coop() -> bool:
 	return (nm != null and nm.has_method("is_coop") and nm.call("is_coop"))
 
 func _local_peer_id() -> int:
-	return multiplayer.get_unique_id() if multiplayer != null else 1
+	# Always trust MultiplayerAPI. Returns 1 on host, >1 on clients.
+	return int(multiplayer.get_unique_id())
 
 func _can_local_control(u: Unit) -> bool:
 	if not _is_coop():
@@ -119,6 +124,15 @@ func _coop_is_host() -> bool:
 func _coop_is_client() -> bool:
 	return _coop_is_active() and (not _coop_is_host())
 
+
+func _coop_request_snapshot_now() -> void:
+	# Client -> Host: request an authoritative snapshot ASAP (self-heal desync)
+	if not _coop_is_client():
+		return
+	if game_ref != null and game_ref.has_method("_rpc_request_snapshot"):
+		# Host always has unique_id == 1
+		game_ref._rpc_request_snapshot.rpc_id(1)
+
 func _coop_push_snapshot(_reason: String = "") -> void:
 	if not _coop_is_active() or not _coop_is_host():
 		return
@@ -174,6 +188,7 @@ func _coop_request_move(u: Unit, target: Vector2i) -> void:
 	if int(u.net_id) <= 0:
 		print("COOP(CLIENT): move blocked (net_id missing) for ", u.get_display_name())
 		return
+	_coop_last_move_req_net_id = int(u.net_id)
 	_is_moving = true
 	print("COOP(CLIENT): sending move req -> host. net_id=", int(u.net_id), " target=", target)
 	rpc_id(1, "_rpc_client_request_move", int(u.net_id), target)
@@ -189,6 +204,7 @@ func _coop_request_attack(attacker: Unit, target_cell: Vector2i) -> void:
 	if int(attacker.net_id) <= 0:
 		print("COOP(CLIENT): attack blocked (net_id missing) for ", attacker.get_display_name())
 		return
+	_coop_last_attack_req_net_id = int(attacker.net_id)
 	_is_moving = true
 	print("COOP(CLIENT): sending attack req -> host. net_id=", int(attacker.net_id), " target=", target_cell)
 	rpc_id(1, "_rpc_client_request_attack", int(attacker.net_id), target_cell)
@@ -204,6 +220,12 @@ func _coop_request_special(u: Unit, sid: String, target_cell: Vector2i) -> void:
 	if int(u.net_id) <= 0:
 		print("COOP(CLIENT): special blocked (net_id missing) for ", u.get_display_name())
 		return
+	# lock + remember requester so we can unlock after visual replay
+	_coop_last_special_req_net_id = int(u.net_id)
+	# clear local overlays immediately (client does not run logic)
+	_set_aim_mode(AimMode.MOVE)
+	_clear_overlay()
+	_refresh_overlays()
 	_is_moving = true
 	print("COOP(CLIENT): sending special req -> host. net_id=", int(u.net_id), " sid=", sid, " target=", target_cell)
 	rpc_id(1, "_rpc_client_request_special", int(u.net_id), sid, target_cell)
@@ -809,31 +831,32 @@ func _apply_turn_indicator(u: Unit) -> void:
 	var has_move_left := not moved
 	var has_attack_left := not attacked
 
-	# Fully exhausted
+	# Fully exhausted (did both)
 	if (not has_move_left) and (not has_attack_left):
 		_set_unit_tint(u, tint_exhausted)
 		_stop_pulse(u)
 		return
 
-	# ✅ BOTH left: do NOT pulse (this is the “start of turn / just selected” state)
+	# ✅ Start of turn (both actions left): normal
 	if has_move_left and has_attack_left:
 		_set_unit_tint(u, Color(1, 1, 1, 1))
 		_stop_pulse(u)
 		return
 
-	# ✅ Attack left ONLY (meaning they must have moved already): PULSE
+	# ✅ Moved already but still has an attack left: PULSE ONLY (stay normal color)
 	if has_attack_left and moved:
-		_set_unit_tint(u, tint_attack_left)
+		_set_unit_tint(u, Color(1, 1, 1, 1))
 		_start_pulse(u)
 		return
 
-	# Move left ONLY (they attacked without moving, or whatever your rules allow)
-	if has_move_left:
-		_set_unit_tint(u, tint_move_left)
+	# ✅ Attacked already but still has a move left: stay normal (no pulse)
+	if has_move_left and attacked:
+		_set_unit_tint(u, Color(1, 1, 1, 1))
 		_stop_pulse(u)
 		return
 
 	# Fallback safety
+	_set_unit_tint(u, Color(1, 1, 1, 1))
 	_stop_pulse(u)
 
 func _stop_all_pulses() -> void:
@@ -1354,6 +1377,14 @@ func spawn_units() -> void:
 				if not re.is_empty():
 					quirks = (re.get("quirks", quirks) as Array).duplicate(true)
 					print("spawn uid=", unit_id, " quirks=", quirks)
+			# If squad selection didn't provide a roster unit id, fall back to lookup by scene path.
+			elif scene_path != "" and rs != null and rs.has_method("get_roster_unit_by_path"):
+				var re2: Dictionary = rs.call("get_roster_unit_by_path", scene_path)
+				if not re2.is_empty():
+					quirks = (re2.get("quirks", quirks) as Array).duplicate(true)
+					unit_id = str(re2.get("id", unit_id))
+					if unit_id != "":
+						print("spawn path->uid=", unit_id, " quirks=", quirks)
 		else:
 			if i >= ally_scenes.size():
 				continue
@@ -2017,9 +2048,10 @@ func _mouse_to_cell_no_offset() -> Vector2i:
 # Input: select + attack
 # --------------------------
 func _unhandled_input(event: InputEvent) -> void:
-	if _is_moving:
+	# ✅ Block input only during active visual replay (or while truly executing locally on host)
+	if _is_moving and (_coop_replaying or not _coop_is_client()):
 		return
-
+		
 	if event is InputEventMouseButton and event.pressed:
 		# Right click = ATTACK mode (arm)
 		if event.button_index == MOUSE_BUTTON_RIGHT:
@@ -2596,14 +2628,136 @@ func _rpc_client_request_attack(attacker_net_id: int, target_cell: Vector2i) -> 
 		TM.notify_player_attacked(attacker)
 	_coop_push_snapshot("attack")
 
-@rpc("authority", "reliable")
-func _rpc_attack_visual(attacker_net_id: int, target_cell: Vector2i) -> void:
-	# Server -> clients: play attack anim/VFX only (no damage)
-	if multiplayer.is_server():
+func _net_on_move_visual(unit_net_id: int, from_cell: Vector2i, target: Vector2i, path: Array) -> void:
+	var M := $MapController   # adjust if your node path differs
+	if M != null:
+		M._rpc_play_move_visual(unit_net_id, from_cell, target, path)
+
+func _net_on_attack_visual(attacker_net_id: int, target_cell: Vector2i) -> void:
+	var M := $MapController
+	if M != null:
+		M._rpc_attack_visual(attacker_net_id, target_cell)
+
+func _net_on_special_visual(unit_net_id: int, sid: String, target_cell: Vector2i) -> void:
+	var M := $MapController
+	if M != null:
+		M._rpc_special_visual(unit_net_id, sid, target_cell)
+
+# Helper: trust only host-originated RPCs
+func _is_from_host() -> bool:
+	return int(multiplayer.get_remote_sender_id()) == 1
+
+@rpc("any_peer", "reliable")
+func _rpc_play_move_visual(unit_net_id: int, a = null, b = null, c = null) -> void:
+	if not _is_from_host():
 		return
+
+	var u := _find_unit_by_net_id(unit_net_id)
+	if u == null:
+		if _coop_is_client():
+			_is_moving = false
+		return
+
+	# -------- decode args (old/new signature) --------
+	var from_cell: Vector2i = Vector2i(-1, -1)
+	var target: Vector2i = Vector2i(-1, -1)
+	var path: Array = []
+
+	# Old signature: (net_id, target_cell)
+	# NOTE: We do NOT know true from_cell here. Best we can do is use current u.cell.
+	if (a is Vector2i) and (b == null):
+		target = a
+		from_cell = u.cell
+
+	# New signature: (net_id, from_cell, target, path)
+	elif (a is Vector2i) and (b is Vector2i):
+		from_cell = a
+		target = b
+		if c is Array:
+			path = c
+	else:
+		# unknown signature
+		if _coop_is_client():
+			_is_moving = false
+		return
+
+	print("CLIENT: MOVE VISUAL net_id=", unit_net_id, " from=", from_cell, " to=", target, " sender=", multiplayer.get_remote_sender_id())
+
+	# Safety: if anything is invalid, bail but don't leave client locked.
+	if target.x < 0 or target.y < 0:
+		if _coop_is_client():
+			_is_moving = false
+		return
+	if from_cell.x < 0 or from_cell.y < 0:
+		# fall back to the unit's current cell instead of (-1,-1)
+		from_cell = u.cell
+
+	_coop_replaying = true
+
+	# -------- align start (only if it differs) --------
+	if u.cell != from_cell:
+		u.cell = from_cell
+		u.global_position = _cell_world(from_cell)
+		_set_unit_depth_from_world(u, u.global_position)
+
+	# -------- client-only occupancy hinting --------
+	if _coop_is_client():
+		# remove stale entry for this unit (find key first, then erase)
+		var old_key = null
+		for k in units_by_cell.keys():
+			if units_by_cell[k] == u:
+				old_key = k
+				break
+		if old_key != null:
+			units_by_cell.erase(old_key)
+
+		# if we have a plausible from_cell, erase it too
+		if from_cell.x >= 0 and from_cell.y >= 0:
+			units_by_cell.erase(from_cell)
+
+		var occ = units_by_cell.get(target, null)
+		if occ != null and occ != u:
+			_coop_request_snapshot_now()
+		else:
+			units_by_cell[target] = u
+
+	await _move_unit_visual_along_path(u, target, path)
+
+	# -------- owning client: update turn-state/UI --------
+	if _coop_is_client() and u.team == Unit.Team.ALLY and _can_local_control(u):
+		_set_unit_moved(u, true)
+		_apply_turn_indicator(u)
+		if TM != null and TM.has_method("notify_player_moved"):
+			TM.notify_player_moved(u)
+
+	# If this was our requested move, reselect + auto-arm attack (even if ownership check flickers)
+	if _coop_is_client() and int(unit_net_id) == int(_coop_last_move_req_net_id):
+		_coop_last_move_req_net_id = 0
+		if selected != u:
+			_select(u)
+		if not _unit_has_attacked(u):
+			_set_aim_mode(AimMode.ATTACK)
+		_refresh_overlays()
+
+	_coop_replaying = false
+
+	# Always unlock on clients after visual replay
+	if _coop_is_client():
+		_is_moving = false
+		
+@rpc("any_peer", "reliable")
+func _rpc_attack_visual(attacker_net_id: int, target_cell: Vector2i) -> void:
+	if not _is_from_host():
+		return
+
 	var attacker: Unit = _find_unit_by_net_id(attacker_net_id)
 	if attacker == null or not is_instance_valid(attacker):
+		if _coop_is_client():
+			_is_moving = false
 		return
+
+	_coop_replaying = true
+
 	# Visual-only replay
 	var prev := _coop_visual_only
 	_coop_visual_only = true
@@ -2611,7 +2765,78 @@ func _rpc_attack_visual(attacker_net_id: int, target_cell: Vector2i) -> void:
 		await attacker.call("perform_basic_attack", self, target_cell)
 	_coop_visual_only = prev
 
+	# Owning client: apply post-attack turn-state + UI
+	if _coop_is_client() and attacker.team == Unit.Team.ALLY and _can_local_control(attacker):
+		_set_unit_attacked(attacker, true)
+		_apply_turn_indicator(attacker)
 
+		if TM != null and TM.has_method("notify_player_attacked"):
+			TM.notify_player_attacked(attacker)
+
+		# After ATTACK, reselect + arm MOVE if this was our requested attack and move remains
+		if int(attacker_net_id) == int(_coop_last_attack_req_net_id):
+			_coop_last_attack_req_net_id = 0
+			if selected != attacker:
+				_select(attacker)
+			if not _unit_has_moved(attacker):
+				_set_aim_mode(AimMode.MOVE)
+
+		_refresh_overlays()
+
+	_coop_replaying = false
+
+	if _coop_is_client():
+		_is_moving = false
+
+
+
+@rpc("any_peer", "reliable")
+func _rpc_special_visual(unit_net_id: int, sid: String, target_cell: Vector2i) -> void:
+	if not _is_from_host():
+		return
+
+	# Server never replays its own visual RPC
+	if multiplayer.is_server():
+		return
+
+	var u: Unit = _find_unit_by_net_id(unit_net_id)
+	if u == null or not is_instance_valid(u):
+		if _coop_is_client():
+			_is_moving = false
+		return
+
+	_coop_replaying = true
+	_is_moving = true
+
+	# Visual-only replay
+	var prev := _coop_visual_only
+	_coop_visual_only = true
+	await _perform_special_visual(u, sid, target_cell)
+	_coop_visual_only = prev
+
+	# Owning client: specials count as "attack" for turn-state
+	if _coop_is_client() and u.team == Unit.Team.ALLY and _can_local_control(u):
+		_set_unit_attacked(u, true)
+		_apply_turn_indicator(u)
+		if TM != null and TM.has_method("notify_player_attacked"):
+			TM.notify_player_attacked(u)
+
+		# After SPECIAL, arm MOVE if available
+		if selected != u:
+			_select(u)
+		if not _unit_has_moved(u):
+			_set_aim_mode(AimMode.MOVE)
+
+	_clear_overlay()
+	_refresh_overlays()
+
+	_coop_replaying = false
+
+	if _coop_is_client():
+		_is_moving = false
+		if int(unit_net_id) == int(_coop_last_special_req_net_id):
+			_coop_last_special_req_net_id = 0
+			
 @rpc("any_peer", "reliable")
 func _rpc_client_request_special(unit_net_id: int, sid: String, target_cell: Vector2i) -> void:
 	if not multiplayer.is_server():
@@ -2637,22 +2862,6 @@ func _rpc_client_request_special(unit_net_id: int, sid: String, target_cell: Vec
 	selected = old_selected
 	_coop_push_snapshot("special")
 	
-@rpc("authority", "reliable")
-func _rpc_special_visual(unit_net_id: int, sid: String, target_cell: Vector2i) -> void:
-	# Server -> clients: replay special visuals only
-	if multiplayer.is_server():
-		return
-	var u: Unit = _find_unit_by_net_id(unit_net_id)
-	if u == null or not is_instance_valid(u):
-		return
-	var prev_moving := _is_moving
-	_is_moving = true
-	var prev := _coop_visual_only
-	_coop_visual_only = true
-	await _perform_special_visual(u, sid, target_cell)
-	_coop_visual_only = prev
-	_is_moving = prev_moving
-
 func _finalize_pending_frees() -> void:
 	for v in get_all_units():
 		var u := v as Unit
@@ -2681,29 +2890,30 @@ func _mouse_to_cell() -> Vector2i:
 
 	return cell
 
-func unit_at_cell(c: Vector2i) -> Unit:
-	if not units_by_cell.has(c):
-		return null
+func unit_at_cell(cell: Vector2i) -> Unit:
+	# Fast path: dictionary
+	var u = units_by_cell.get(cell, null)
+	if u != null and is_instance_valid(u):
+		return u as Unit
 
-	var v = units_by_cell[c]   # DO NOT cast yet
+	# ✅ Fallback: scan actual units (prevents "can't click/select" when units_by_cell desyncs)
+	for uu in get_all_units():
+		if uu == null or not is_instance_valid(uu):
+			continue
+		if not ("cell" in uu):
+			continue
+		if uu.cell == cell:
+			return uu as Unit
 
-	# If not an object anymore, or freed → clean dictionary
-	if v == null or typeof(v) != TYPE_OBJECT or not is_instance_valid(v):
-		units_by_cell.erase(c)
-		return null
-
-	# Now it is safe to cast
-	var u := v as Unit
-	if u == null:
-		units_by_cell.erase(c)
-		return null
-
-	return u
-
-
+	return null
+	
 func _select(u: Unit) -> void:
+	# ✅ Singleplayer/host: respect TurnManager selection gating
+	# ✅ Co-op client: allow selecting (UI) even if TM is out of sync
 	if TM != null and not TM.can_select(u):
-		return
+		if not _coop_is_client():
+			return
+
 	# CO-OP: only allow selecting your owned allies
 	if u != null and is_instance_valid(u) and u.team == Unit.Team.ALLY and not _can_local_control(u):
 		return
@@ -2713,8 +2923,6 @@ func _select(u: Unit) -> void:
 	_unselect()
 	selected = u
 	selected.set_selected(true)
-
-	#_debug_print_unit(u)
 
 	_sfx(&"ui_select", sfx_volume_ui, 1.0)
 
@@ -2726,7 +2934,6 @@ func _select(u: Unit) -> void:
 	emit_signal("selection_changed", selected)
 	emit_signal("aim_changed", int(aim_mode), special_id)
 
-	# --- Tutorial hook ---
 	emit_signal("tutorial_event", &"ally_selected", {"cell": u.cell})
 
 func _debug_print_unit(u: Object) -> void:
@@ -2762,15 +2969,19 @@ func _unselect() -> void:
 	if selected and is_instance_valid(selected):
 		_sfx(&"ui_deselect", sfx_volume_ui, 1.0)
 		selected.set_selected(false)
-			
+
 	if selected and is_instance_valid(selected):
 		selected.set_selected(false)
 	selected = null
 	_clear_overlay()
 
+	# ✅ CO-OP client safety: never let input stay locked after deselect
+	if _coop_is_client():
+		_is_moving = false
+		_coop_replaying = false
+
 	emit_signal("selection_changed", null)
 	emit_signal("aim_changed", int(aim_mode), special_id)
-
 
 func _in_attack_range(attacker: Unit, target_cell: Vector2i) -> bool:
 	var d = abs(attacker.cell.x - target_cell.x) + abs(attacker.cell.y - target_cell.y)
@@ -3566,7 +3777,7 @@ func _slam_affected_cells_for_dir(origin: Vector2i, dir: Vector2i, start: int, s
 				out[c] = true
 
 	return out
-
+	
 func _is_valid_move_target(c: Vector2i) -> bool:
 	return selected != null and is_instance_valid(selected) and valid_move_cells.has(c)
 
@@ -5931,6 +6142,11 @@ func _edge_spawn_ok(c: Vector2i, structure_blocked: Dictionary) -> bool:
 
 func spawn_edge_road_zombie() -> bool:
 	if units_root == null or terrain == null or grid == null:
+		return false
+
+
+	# ✅ CO-OP: client never spawns zombies locally; host snapshot will spawn them.
+	if _coop_is_client():
 		return false
 
 	var structure_blocked: Dictionary = {}
@@ -8844,6 +9060,12 @@ func _register_boss_parts_from_controller() -> void:
 		# Finally register it like a normal unit
 		units_by_cell[cell] = u
 
+	# ✅ After applying a snapshot, re-apply tint/pulse indicators so client visuals match host.
+	_apply_turn_indicators_all_allies()
+	# ✅ If we have a selection, refresh overlays/HUD state as snapshot may have updated moved/attacked flags.
+	if selected != null and is_instance_valid(selected):
+		_refresh_overlays()
+
 var _coop_replaying := false
 var _coop_deferred_snap: Dictionary = {} # optional if you want to defer snapshots later
 
@@ -8854,37 +9076,6 @@ func _net_id_of(u: Unit) -> int:
 		return int(u.get("net_id"))
 	return int(u.get_instance_id()) # fallback (not ideal across peers)
 
-@rpc("any_peer", "reliable")
-func _rpc_play_move_visual(unit_net_id: int, from_cell: Vector2i, target: Vector2i, path: Array) -> void:
-	var u := _find_unit_by_net_id(unit_net_id)
-	if u == null:
-		return
-
-	_coop_replaying = true
-
-	# optional: hard align start (prevents “start from wrong place”)
-	u.cell = from_cell
-	u.global_position = _cell_world(from_cell)
-	_set_unit_depth_from_world(u, u.global_position)
-	# COOP client-side: keep occupancy map in sync for UI/path previews (visual-only update).
-	if not multiplayer.is_server():
-		# erase any stale entry for this unit
-		for k in units_by_cell.keys():
-			if units_by_cell[k] == u:
-				units_by_cell.erase(k)
-				break
-		# apply from->to occupancy
-		units_by_cell.erase(from_cell)
-		units_by_cell[target] = u
-
-	await _move_unit_visual_along_path(u, target, path)
-
-	_coop_replaying = false
-	# If this client initiated an action, it locked input locally.
-	# Always unlock on clients after the visual replay finishes.
-	if _coop_is_client():
-		_is_moving = false
-	
 @rpc("any_peer", "reliable")
 func _rpc_action_denied(kind: String, unit_net_id: int) -> void:
 	# client unlocks if denied
@@ -9132,15 +9323,39 @@ func rpc_move_request(unit_net_id: int, target: Vector2i) -> void:
 	# ✅ BROADCAST TO ALL (and run locally on host too)
 	rpc("rpc_move_commit", unit_net_id, target)
 	
-@rpc("authority", "call_local")
+@rpc("any_peer", "call_local", "reliable")
 func rpc_move_commit(net_id: int, target: Vector2i, path: Array) -> void:
+	if multiplayer.get_remote_sender_id() != 1:
+		return
+
+	print("CLIENT: MOVE COMMIT recv net_id=", net_id, " target=", target, " sender=", multiplayer.get_remote_sender_id())
+
 	var u: Unit = _get_unit_by_net_id(net_id)
 	if u == null:
 		print("MOVE COMMIT: unit not found id=", net_id, " peer=", multiplayer.get_unique_id())
+		if _coop_is_client():
+			_is_moving = false
 		return
 
-	# ✅ VISUAL ONLY
+	_coop_replaying = true
 	await _move_unit_visual_along_path(u, target, path)
+	_coop_replaying = false
+
+	# ✅ owning client: mark moved + update indicator + auto-arm
+	if _coop_is_client() and u.team == Unit.Team.ALLY and _can_local_control(u):
+		_set_unit_moved(u, true)
+		_apply_turn_indicator(u)
+		if int(net_id) == int(_coop_last_move_req_net_id):
+			_coop_last_move_req_net_id = 0
+			if selected != u:
+				_select(u)
+			if not _unit_has_attacked(u):
+				_set_aim_mode(AimMode.ATTACK)
+		_refresh_overlays()
+
+	if _coop_is_client():
+		_is_moving = false
+		
 
 func _get_unit_by_net_id(net_id: int) -> Unit:
 	if units_root == null:

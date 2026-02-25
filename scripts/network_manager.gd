@@ -369,7 +369,9 @@ func _on_connected_to_server() -> void:
 	print("COOP(CLIENT): connected_to_server fired")
 	_connecting = false
 
-	# ✅ request session state immediately (your existing state sync)
+	await get_tree().process_frame
+	print("COOP(CLIENT): assigned unique_id=", int(multiplayer.get_unique_id()))
+
 	print("COOP(CLIENT): requesting session state from host")
 	_rpc_request_session_state.rpc_id(host_peer_id)
 
@@ -684,3 +686,27 @@ func _rpc_receive_snapshot(snap: Dictionary) -> void:
 		return
 
 	game.call("_apply_snapshot", snap)
+
+@rpc("any_peer", "reliable")
+func _rpc_move_visual(unit_net_id: int, from_cell: Vector2i, target: Vector2i, path: Array) -> void:
+	if multiplayer.get_remote_sender_id() != 1:
+		return
+	var game := get_tree().root.get_node_or_null("Game")
+	if game != null:
+		game.call_deferred("_net_on_move_visual", unit_net_id, from_cell, target, path)
+
+@rpc("any_peer", "reliable")
+func _rpc_attack_visual(attacker_net_id: int, target_cell: Vector2i) -> void:
+	if multiplayer.get_remote_sender_id() != 1:
+		return
+	var game := get_tree().root.get_node_or_null("Game")
+	if game != null:
+		game.call_deferred("_net_on_attack_visual", attacker_net_id, target_cell)
+
+@rpc("any_peer", "reliable")
+func _rpc_special_visual(unit_net_id: int, sid: String, target_cell: Vector2i) -> void:
+	if multiplayer.get_remote_sender_id() != 1:
+		return
+	var game := get_tree().root.get_node_or_null("Game")
+	if game != null:
+		game.call_deferred("_net_on_special_visual", unit_net_id, sid, target_cell)

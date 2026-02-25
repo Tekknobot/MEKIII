@@ -348,6 +348,12 @@ func _render_extras(u):
 	if u == null:
 		return
 
+	# Co-op robustness: some codepaths store quirks as 'quirks_meta'. Mirror it.
+	if (not u.has_meta(&"quirks")) and u.has_meta(&"quirks_meta"):
+		var qm = u.get_meta(&"quirks_meta", [])
+		if qm is Array:
+			u.set_meta(&"quirks", qm)
+
 	print("HUD extras for ", u.get_display_name() if u.has_method("get_display_name") else u.name,
 		" quirks_meta=", u.get_meta(&"quirks", "NO_META") if u.has_meta(&"quirks") else "MISSING")
 
