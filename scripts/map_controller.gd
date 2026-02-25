@@ -6954,6 +6954,13 @@ func _play_recruit_drop_visual_existing(u: Unit, spawn_cell: Vector2i) -> void:
 # -------------------------------------------------------------------
 @rpc("authority", "call_local", "reliable")
 func _rpc_spawn_recruit(spawn_cell: Vector2i, owner_peer_id: int, scene_path: String) -> void:
+	# ✅ Never spawn onto an occupied / unwalkable cell
+	if (not _is_walkable(spawn_cell)) or units_by_cell.has(spawn_cell):
+		spawn_cell = _find_nearest_free_cell(spawn_cell)
+		if spawn_cell.x < 0:
+			_warn_net("spawn_recruit denied: no free cell", {})
+			return
+			
 	# Clients ignore authoritative spawn; wait for snapshot.
 	if not multiplayer.is_server():
 		_dbg_net("RPC spawn_recruit recv on client (ignored)", {
@@ -7122,12 +7129,11 @@ func _try_recruit_near_structure_host_with_owner(mover: Unit, owner_peer_id: int
 	if terrain == null or units_root == null or grid == null:
 		return
 
-	# Client should never run this logic
+	# Client should never run this gameplay logic
 	if _is_coop() and _coop_is_client():
 		rpc_id(1, "_rpc_client_request_recruit_attempt", int(mover.net_id))
 		return
 
-	# Must have some recruit source
 	var rs := _rs()
 	var has_rs_pool := (rs != null and rs.has_method("take_random_recruit_scene"))
 	if not has_rs_pool and ally_scenes.is_empty():
@@ -7146,27 +7152,40 @@ func _try_recruit_near_structure_host_with_owner(mover: Unit, owner_peer_id: int
 	if asp != null and asp.is_playing() and asp.animation == &"demolished":
 		return
 
-	# Walk up to unique root
+	# Walk up to UNIQUE root
 	var root: Node = s
 	while root != null and is_instance_valid(root) and not root.is_in_group(UNIQUE_GROUP):
 		root = root.get_parent()
 	if root == null or not is_instance_valid(root):
 		return
 
-	# Per-mission gate
-	var rid := int(root.get_instance_id())
-	if _secured_unique_ids.has(rid):
+	# ✅ Stable per-mission gate key (origin_cell if available, else instance_id)
+	var stable_key := ""
+	if root.has_meta("origin_cell") and typeof(root.get_meta("origin_cell")) == TYPE_VECTOR2I:
+		var oc: Vector2i = root.get_meta("origin_cell")
+		stable_key = str(oc.x) + "," + str(oc.y)
+	else:
+		stable_key = "iid:" + str(int(root.get_instance_id()))
+
+	if _secured_unique_ids.has(stable_key):
 		return
-	_secured_unique_ids[rid] = true
+	_secured_unique_ids[stable_key] = true
 	_secured_count += 1
 
-	# Pulse (send ORIGIN cell ideally, but using s_cell is ok if that’s your origin)
+	# ✅ Pulse using origin_cell when possible (more reliable on clients)
+	var pulse_ref := s_cell
+	if root.has_meta("origin_cell") and typeof(root.get_meta("origin_cell")) == TYPE_VECTOR2I:
+		pulse_ref = Vector2i(root.get_meta("origin_cell"))
+
 	if _is_coop():
-		rpc("_rpc_recruit_pulse_visual", s_cell)
+		rpc("_rpc_recruit_pulse_visual", pulse_ref)
 	await _on_unique_recruit_pulse(root)
 
+	# Gate
+	if recruit_buildings_needed <= 0:
+		recruit_buildings_needed = 1
+
 	if _secured_count < recruit_buildings_needed:
-		push_warning("RECRUIT: secured " + str(_secured_count) + "/" + str(recruit_buildings_needed) + " (pulse only)")
 		return
 
 	_secured_count -= recruit_buildings_needed
@@ -7177,7 +7196,7 @@ func _try_recruit_near_structure_host_with_owner(mover: Unit, owner_peer_id: int
 
 	_say(mover, "RECRUIT INBOUND")
 
-	# Pick a VALID recruit
+	# ✅ Avoid duplicates already on board
 	var blocked_paths: Array[String] = []
 	for u2 in get_all_units():
 		if u2 == null or not is_instance_valid(u2):
@@ -7189,13 +7208,11 @@ func _try_recruit_near_structure_host_with_owner(mover: Unit, owner_peer_id: int
 
 	var scene_path := ""
 
-	# ✅ Use your compatibility helper (supports rng + blocked_paths signature)
 	if rs != null:
 		var ps := _rs_take_random_recruit_scene(rs, mission_rng, blocked_paths)
 		if ps != null:
 			scene_path = ps.resource_path
 
-	# Fallback: pick from ally_scenes, skipping blocked
 	if scene_path == "" and not ally_scenes.is_empty():
 		for i in range(ally_scenes.size()):
 			var pick = ally_scenes.pick_random()
@@ -7212,7 +7229,10 @@ func _try_recruit_near_structure_host_with_owner(mover: Unit, owner_peer_id: int
 	if scene_path == "" or not ResourceLoader.exists(scene_path):
 		_warn_net("RECRUIT failed: invalid or duplicate-only pool", {"scene_path": scene_path, "blocked_count": blocked_paths.size()})
 		return
-		
+
+	# ✅ THIS WAS MISSING: actually spawn (host authority, clients ignore + wait for snapshot)
+	_rpc_spawn_recruit.rpc(spawn_cell, int(owner_peer_id), scene_path)
+			
 func _try_recruit_near_structure_host(mover: Unit) -> void:
 	if not recruit_enabled:
 		return
@@ -10305,18 +10325,25 @@ func rpc_move_commit(net_id: int, target: Vector2i, path: Array) -> void:
 	if _coop_is_client() and u.team == Unit.Team.ALLY and _can_local_control(u):
 		_set_unit_moved(u, true)
 		_apply_turn_indicator(u)
+
 		if int(net_id) == int(_coop_last_move_req_net_id):
 			_coop_last_move_req_net_id = 0
 			if selected != u:
 				_select(u)
 			if not _unit_has_attacked(u):
 				_set_aim_mode(AimMode.ATTACK)
+
 		_refresh_overlays()
+
+		# ✅ NEW: after YOUR move is committed, ask host to evaluate recruit near structures
+		# (Client never runs gameplay; host is authoritative)
+		if recruit_enabled:
+			_dbg_net("client->host recruit_attempt", {"net_id": int(u.net_id), "cell": u.cell})
+			rpc_id(1, "_rpc_client_request_recruit_attempt", int(u.net_id))
 
 	if _coop_is_client():
 		_is_moving = false
 		
-
 func _get_unit_by_net_id(net_id: int) -> Unit:
 	if units_root == null:
 		return null

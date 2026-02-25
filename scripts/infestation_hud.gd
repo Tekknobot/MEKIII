@@ -33,6 +33,15 @@ var _floppy_count: Label
 
 func _ready() -> void:
 	_build_ui()
+
+	# ✅ If the exported texture got cleared in the Inspector, recover it.
+	if zombie_portrait == null:
+		zombie_portrait = load("res://sprites/Portraits/zombie_port.png")
+
+	# ✅ Ensure the TextureRect is actually using it (covers rebuilds/late overrides).
+	if _portrait != null and is_instance_valid(_portrait):
+		_portrait.texture = zombie_portrait
+
 	set_counts(0, zombie_limit)
 
 func _build_ui() -> void:
