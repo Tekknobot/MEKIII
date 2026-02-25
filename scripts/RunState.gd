@@ -1153,3 +1153,59 @@ func set_boss_nodes(ids: Array, final_id: int) -> void:
 
 func is_final_boss_node(node_id: int) -> bool:
 	return final_boss_node_id != -1 and node_id == final_boss_node_id
+
+
+# -------------------------------------------------
+# CO-OP: minimal RunState snapshot for synced overworld progression
+# -------------------------------------------------
+func build_coop_snapshot() -> Dictionary:
+	var snap: Dictionary = {}
+	# core overworld / mission fields
+	snap["overworld_seed"] = int(overworld_seed)
+	snap["overworld_current_node_id"] = int(overworld_current_node_id)
+	snap["mission_seed"] = int(mission_seed)
+	snap["mission_node_id"] = int(mission_node_id)
+	snap["mission_node_type"] = String(mission_node_type)
+	snap["mission_difficulty"] = float(mission_difficulty)
+	# progression flags
+	snap["overworld_cleared"] = overworld_cleared.duplicate(true)
+	snap["campaign_cleared"] = bool(campaign_cleared)
+	snap["true_clear"] = bool(true_clear)
+	snap["final_boss_node_id"] = int(final_boss_node_id)
+	snap["boss_node_ids"] = boss_node_ids.duplicate(true)
+	# squad (for showing the right roster if needed)
+	snap["squad_scene_paths"] = squad_scene_paths.duplicate(true)
+	# deaths (if you use it elsewhere)
+	if "dead_scene_paths" in self:
+		snap["dead_scene_paths"] = dead_scene_paths.duplicate(true)
+	return snap
+
+func apply_coop_snapshot(snap: Dictionary) -> void:
+	if snap == null:
+		return
+	if snap.has("overworld_seed"):
+		overworld_seed = int(snap["overworld_seed"])
+	if snap.has("overworld_current_node_id"):
+		overworld_current_node_id = int(snap["overworld_current_node_id"])
+	if snap.has("mission_seed"):
+		mission_seed = int(snap["mission_seed"])
+	if snap.has("mission_node_id"):
+		mission_node_id = int(snap["mission_node_id"])
+	if snap.has("mission_node_type"):
+		mission_node_type = StringName(str(snap["mission_node_type"]))
+	if snap.has("mission_difficulty"):
+		mission_difficulty = float(snap["mission_difficulty"])
+	if snap.has("overworld_cleared") and snap["overworld_cleared"] is Dictionary:
+		overworld_cleared = (snap["overworld_cleared"] as Dictionary).duplicate(true)
+	if snap.has("campaign_cleared"):
+		campaign_cleared = bool(snap["campaign_cleared"])
+	if snap.has("true_clear"):
+		true_clear = bool(snap["true_clear"])
+	if snap.has("final_boss_node_id"):
+		final_boss_node_id = int(snap["final_boss_node_id"])
+	if snap.has("boss_node_ids") and snap["boss_node_ids"] is Array:
+		boss_node_ids = (snap["boss_node_ids"] as Array).duplicate(true)
+	if snap.has("squad_scene_paths") and snap["squad_scene_paths"] is Array:
+		squad_scene_paths = (snap["squad_scene_paths"] as Array).duplicate(true)
+	if snap.has("dead_scene_paths") and snap["dead_scene_paths"] is Array and ("dead_scene_paths" in self):
+		dead_scene_paths = (snap["dead_scene_paths"] as Array).duplicate(true)

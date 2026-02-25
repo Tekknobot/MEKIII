@@ -9,6 +9,8 @@ class_name TurnManager
 # Set this to your actual title scene path
 @export var title_scene_path: String = "res://scenes/title_screen.tscn"
 
+@export var overworld_scene_path: String = "res://scenes/overworld.tscn"
+
 @export var zombie_limit: int = 32
 @export var show_infestation_hud: bool = true
 @export var zombie_portrait_tex: Texture2D = preload("res://sprites/Portraits/zombie_port.png") # change if needed
@@ -176,6 +178,165 @@ func _coop_host() -> bool:
 func _coop_host_peer_id() -> int:
 	# Godot server/host is typically peer 1.
 	return 1
+
+# -------------------------------------------------
+# CO-OP: Mission-end panels + synced scene transitions
+# -------------------------------------------------
+func _coop_sync_runstate_to_clients() -> void:
+	if not _coop_active() or not _coop_host():
+		return
+	var tree := get_tree()
+	if tree == null:
+		return
+	var rs := tree.root.get_node_or_null("RunStateNode")
+	if rs == null:
+		rs = tree.root.get_node_or_null("RunState")
+	if rs == null:
+		return
+	if rs.has_method("build_coop_snapshot"):
+		var snap = rs.call("build_coop_snapshot")
+		rpc("_rpc_coop_apply_runstate", snap)
+
+@rpc("authority", "reliable")
+func _rpc_coop_apply_runstate(snap: Dictionary) -> void:
+	# Host -> clients: keep overworld progression consistent.
+	if _coop_active() and _coop_host():
+		return
+	var tree := get_tree()
+	if tree == null:
+		return
+	var rs := tree.root.get_node_or_null("RunStateNode")
+	if rs == null:
+		rs = tree.root.get_node_or_null("RunState")
+	if rs != null and rs.has_method("apply_coop_snapshot"):
+		rs.call("apply_coop_snapshot", snap)
+
+@rpc("authority", "reliable")
+func _rpc_coop_change_scene(scene_path: String) -> void:
+	# Host -> clients: both peers load the same scene.
+	if _coop_active() and _coop_host():
+		return
+	var tree := get_tree()
+	if tree == null:
+		return
+	tree.paused = false
+	if scene_path != "" and ResourceLoader.exists(scene_path):
+		tree.change_scene_to_file(scene_path)
+
+@rpc("authority", "reliable")
+func _rpc_coop_show_event_success(title_text: String, body_text: String, button_text: String) -> void:
+	# Host -> clients: show mission complete / event success panel.
+	if _coop_active() and _coop_host():
+		return
+	if end_panel == null or not is_instance_valid(end_panel):
+		return
+	end_panel.show_event_success(title_text, body_text, button_text)
+	if end_panel.continue_button != null:
+		end_panel.continue_button.disabled = false
+	end_panel._picked = true
+	# Continue should request the host to advance
+	if end_panel.continue_pressed.is_connected(_on_game_over_main_menu):
+		end_panel.continue_pressed.disconnect(_on_game_over_main_menu)
+	if end_panel.continue_pressed.is_connected(_on_game_over_retry):
+		end_panel.continue_pressed.disconnect(_on_game_over_retry)
+	if end_panel.continue_pressed.is_connected(_on_campaign_victory_continue):
+		end_panel.continue_pressed.disconnect(_on_campaign_victory_continue)
+	if end_panel.continue_pressed.is_connected(_on_coop_return_to_overworld_pressed):
+		end_panel.continue_pressed.disconnect(_on_coop_return_to_overworld_pressed)
+	end_panel.continue_pressed.connect(_on_coop_return_to_overworld_pressed)
+
+@rpc("authority", "reliable")
+func _rpc_coop_show_loss(msg: String) -> void:
+	# Host -> clients: show mission failed panel.
+	if _coop_active() and _coop_host():
+		return
+	if end_panel == null or not is_instance_valid(end_panel):
+		return
+	end_panel.show_loss(msg, "MAIN MENU")
+	if end_panel.continue_button != null:
+		end_panel.continue_button.text = "MAIN MENU"
+		end_panel.continue_button.disabled = false
+	end_panel._picked = true
+	if end_panel.continue_pressed.is_connected(_on_game_over_retry):
+		end_panel.continue_pressed.disconnect(_on_game_over_retry)
+	if end_panel.continue_pressed.is_connected(_on_game_over_main_menu):
+		end_panel.continue_pressed.disconnect(_on_game_over_main_menu)
+	if end_panel.continue_pressed.is_connected(_on_coop_loss_continue_pressed):
+		end_panel.continue_pressed.disconnect(_on_coop_loss_continue_pressed)
+	end_panel.continue_pressed.connect(_on_coop_loss_continue_pressed)
+
+@rpc("any_peer", "reliable")
+func _rpc_coop_request_return_to_overworld() -> void:
+	# Clients -> host: request advancing after mission complete.
+	if not _coop_active() or not _coop_host():
+		return
+	_coop_return_to_overworld_host()
+
+@rpc("any_peer", "reliable")
+func _rpc_coop_request_loss_continue() -> void:
+	# Clients -> host: request leaving after mission failed.
+	if not _coop_active() or not _coop_host():
+		return
+	_coop_loss_continue_host()
+
+func _on_coop_return_to_overworld_pressed() -> void:
+	if not _coop_active():
+		# singleplayer fallback (if you ever call this)
+		if overworld_scene_path != "" and ResourceLoader.exists(overworld_scene_path):
+			get_tree().change_scene_to_file(overworld_scene_path)
+		return
+	if _coop_host():
+		_coop_return_to_overworld_host()
+	else:
+		rpc_id(_coop_host_peer_id(), "_rpc_coop_request_return_to_overworld")
+
+func _on_coop_loss_continue_pressed() -> void:
+	if not _coop_active():
+		_on_game_over_main_menu()
+		return
+	if _coop_host():
+		_coop_loss_continue_host()
+	else:
+		rpc_id(_coop_host_peer_id(), "_rpc_coop_request_loss_continue")
+
+func _coop_return_to_overworld_host() -> void:
+	# Host: sync RunState then change scene on both peers.
+	_coop_sync_runstate_to_clients()
+	if _coop_active():
+		rpc("_rpc_coop_change_scene", overworld_scene_path)
+	var tree := get_tree()
+	if tree != null and overworld_scene_path != "" and ResourceLoader.exists(overworld_scene_path):
+		tree.paused = false
+		tree.change_scene_to_file(overworld_scene_path)
+
+func _coop_loss_continue_host() -> void:
+	# For co-op, keep it simple and deterministic: both peers go to main menu.
+	# (Retry-in-place requires syncing squad/deaths + reloading on both peers.)
+	var tree := get_tree()
+	if tree == null:
+		return
+	tree.paused = false
+	if title_scene_path != "" and ResourceLoader.exists(title_scene_path):
+		rpc("_rpc_coop_change_scene", title_scene_path)
+		tree.change_scene_to_file(title_scene_path)
+
+func _coop_show_mission_complete_panel(title_text: String, body_text: String) -> void:
+	if end_panel == null or not is_instance_valid(end_panel):
+		return
+	end_panel.show_event_success(title_text, body_text, "OVERWORLD")
+	if end_panel.continue_button != null:
+		end_panel.continue_button.disabled = false
+	end_panel._picked = true
+	# Continue handler: return to overworld (host-synced in co-op)
+	if end_panel.continue_pressed.is_connected(_on_game_over_retry):
+		end_panel.continue_pressed.disconnect(_on_game_over_retry)
+	if end_panel.continue_pressed.is_connected(_on_game_over_main_menu):
+		end_panel.continue_pressed.disconnect(_on_game_over_main_menu)
+	if end_panel.continue_pressed.is_connected(_on_campaign_victory_continue):
+		end_panel.continue_pressed.disconnect(_on_campaign_victory_continue)
+	if end_panel.continue_pressed.is_connected(_on_coop_return_to_overworld_pressed):
+		end_panel.continue_pressed.disconnect(_on_coop_return_to_overworld_pressed)
+	end_panel.continue_pressed.connect(_on_coop_return_to_overworld_pressed)
 
 
 @rpc("any_peer", "reliable")
@@ -2039,9 +2200,16 @@ func snapshot_mission_start_squad() -> void:
 			_mission_start_squad_paths.append(str(p))
 
 func game_over(msg: String) -> void:
+	# CO-OP: clients never decide game over locally; host will RPC the panel.
+	if _coop_active() and not _coop_host():
+		return
 	if _game_over_triggered:
 		return
 	_game_over_triggered = true
+
+	# CO-OP: broadcast mission failed panel to clients.
+	if _coop_active() and _coop_host():
+		rpc("_rpc_coop_show_loss", msg)
 
 	print(msg)
 	phase = Phase.BUSY
@@ -2080,6 +2248,23 @@ func _on_fail_surge_finished() -> void:
 
 func _show_loss_panel(msg: String) -> void:
 	if end_panel == null or not is_instance_valid(end_panel):
+		return
+
+	# CO-OP: loss panel "Continue" must be host-authoritative.
+	if _coop_active():
+		end_panel.show_loss(msg, "MAIN MENU")
+		if end_panel.continue_button != null:
+			end_panel.continue_button.text = "MAIN MENU"
+			end_panel.continue_button.disabled = false
+		end_panel._picked = true
+		# Disconnect old
+		if end_panel.continue_pressed.is_connected(_on_game_over_main_menu):
+			end_panel.continue_pressed.disconnect(_on_game_over_main_menu)
+		if end_panel.continue_pressed.is_connected(_on_game_over_retry):
+			end_panel.continue_pressed.disconnect(_on_game_over_retry)
+		if end_panel.continue_pressed.is_connected(_on_coop_loss_continue_pressed):
+			end_panel.continue_pressed.disconnect(_on_coop_loss_continue_pressed)
+		end_panel.continue_pressed.connect(_on_coop_loss_continue_pressed)
 		return
 
 	end_panel.show_loss(msg)
@@ -2322,8 +2507,13 @@ func _on_boss_defeated() -> void:
 
 	# If NOT final boss: return to overworld normally (don’t end campaign)
 	if not is_final:
-		# optional: show a small “BOSS DOWN” banner somewhere later; but keep loop going
-		emit_signal("tutorial_event", &"extraction_finished", {})
+		# In co-op, show a synced mission-complete panel and let the host advance both peers.
+		if _coop_active() and _coop_host():
+			var body := "Boss down. Extraction complete.\nRounds survived: %d" % int(round_index)
+			rpc("_rpc_coop_show_event_success", "MISSION COMPLETE", body, "OVERWORLD")
+			_coop_show_mission_complete_panel("MISSION COMPLETE", body)
+		elif not _coop_active():
+			emit_signal("tutorial_event", &"extraction_finished", {})
 		return
 
 	# FINAL boss: show your existing campaign victory screen
@@ -2671,7 +2861,13 @@ func _titan_event_success() -> void:
 		await M._extract_allies_with_bomber()
 		emit_signal("tutorial_event", &"extraction_finished", {})
 			
-	#get_tree().change_scene_to_file("res://scenes/overworld.tscn")
+	
+	# COOP: show synced event-complete panel and advance both peers.
+	if _coop_active() and _coop_host():
+		var body := "Objective complete.\nRounds survived: %d" % int(round_index)
+		rpc("_rpc_coop_show_event_success", "EVENT COMPLETE", body, "OVERWORLD")
+		_coop_show_mission_complete_panel("EVENT COMPLETE", body)
+#get_tree().change_scene_to_file("res://scenes/overworld.tscn")
 
 func _map_top_apex_world() -> Vector2:
 	if M == null or M.terrain == null:

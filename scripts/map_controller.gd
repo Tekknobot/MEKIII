@@ -9059,7 +9059,10 @@ func build_units_snapshot() -> Array:
 				"owner_peer_id": owner,
 				"quirks": quirks,
 				"hp": hp,
-				"max_hp": max_hp
+				"max_hp": max_hp,
+				# status/meta that affects visuals and turn logic (keeps client deterministic)
+				"chilled_turns": int(u.get_meta(&"chilled_turns", 0)),
+				"stim_turns": int(u.get_meta(&"stim_turns", 0))
 			})
 
 	return out
@@ -9144,6 +9147,16 @@ func apply_units_snapshot(units: Array) -> void:
 		if d.has("hp"):
 			u.hp = int(d.get("hp", u.hp))
 
+
+		# --- Status/meta (e.g., Chill visuals) ---
+		if d.has("chilled_turns"):
+			u.set_meta(&"chilled_turns", int(d.get("chilled_turns", 0)))
+		if d.has("stim_turns"):
+			u.set_meta(&"stim_turns", int(d.get("stim_turns", 0)))
+
+		# Refresh chill shader on clients when snapshots land
+		if has_method("_refresh_chill_visuals_for_unit"):
+			call("_refresh_chill_visuals_for_unit", u)
 		# --- Cell ---
 		var cell: Vector2i = d.get("cell", Vector2i(-1, -1))
 		if cell.x >= 0:
