@@ -6896,18 +6896,23 @@ func _play_recruit_drop_visual_existing(u: Unit, spawn_cell: Vector2i) -> void:
 		_warn_bomber("Recruit drop visual abort: terrain is null", {"spawn_cell": spawn_cell})
 		return
 
-	_dbg_bomber("Recruit drop visual start", {"unit_net_id": int(u.net_id) if u != null else -1, "spawn_cell": spawn_cell})
+	_dbg_bomber("Recruit drop visual start", {"unit_net_id": int(u.net_id), "spawn_cell": spawn_cell})
 
-	# If bomber scene is missing, just ensure the unit is locked to its cell.
+	# If bomber scene is missing, just ensure the unit is locked to its cell + visible.
 	if bomber_scene == null:
 		_warn_bomber("Recruit drop visual: bomber_scene is null; snapping unit to cell", {"unit_net_id": int(u.net_id), "spawn_cell": spawn_cell})
 		u.set_cell(spawn_cell, terrain)
+		u.modulate.a = 1.0
+		u.set_meta("pending_drop_reveal", false)
 		_set_unit_depth_from_world(u, u.global_position)
 		return
 
 	var target_world := _cell_world(spawn_cell)
 
-	# Start the unit "offscreen" so the drop reads correctly.
+	# Ensure we start hidden (matches snapshot policy)
+	u.modulate.a = 0.0
+
+	# Start offscreen so the drop reads correctly.
 	u.global_position = target_world + Vector2(0, -720)
 	_set_unit_depth_from_world(u, u.global_position)
 
@@ -6928,6 +6933,12 @@ func _play_recruit_drop_visual_existing(u: Unit, spawn_cell: Vector2i) -> void:
 		u.set_cell(spawn_cell, terrain)
 		_set_unit_depth_from_world(u, u.global_position)
 
+	# ✅ REVEAL UNIT NOW (this is what you were missing)
+	u.set_meta("pending_drop_reveal", false)
+	var tw := create_tween()
+	tw.tween_property(u, "modulate:a", 1.0, 0.12)
+	await tw.finished
+
 	if bomber != null and is_instance_valid(bomber):
 		_sfx(bomber_sfx_out, sfx_volume_world, 1.0, bomber.global_position)
 		await _tween_node_global_pos(
@@ -6937,52 +6948,77 @@ func _play_recruit_drop_visual_existing(u: Unit, spawn_cell: Vector2i) -> void:
 			bomber_depart_time
 		)
 		bomber.queue_free()
-		
+			
 # -------------------------------------------------------------------
 # CO-OP: host-only recruit spawn (client calls this via .rpc(...))
 # -------------------------------------------------------------------
 @rpc("authority", "call_local", "reliable")
 func _rpc_spawn_recruit(spawn_cell: Vector2i, owner_peer_id: int, scene_path: String) -> void:
-	# Host is authority; clients ignore spawn and wait for snapshot.
+	# Clients ignore authoritative spawn; wait for snapshot.
 	if not multiplayer.is_server():
 		_dbg_net("RPC spawn_recruit recv on client (ignored)", {
-			"spawn_cell": spawn_cell,
 			"owner_peer_id": owner_peer_id,
-			"scene_path": scene_path
+			"scene_path": scene_path,
+			"spawn_cell": spawn_cell
 		})
 		return
 
 	_dbg_net("RPC spawn_recruit on host", {
-		"spawn_cell": spawn_cell,
 		"owner_peer_id": owner_peer_id,
-		"scene_path": scene_path
+		"scene_path": scene_path,
+		"spawn_cell": spawn_cell
 	})
 
-	if scene_path == "" or not ResourceLoader.exists(scene_path):
-		_warn_net("spawn_recruit denied: invalid scene_path", {"scene_path": scene_path})
-		return
-
-	var u: Unit = null
-
-	# ✅ Spawn (and AWAIT) so we can grab the net_id for drop visuals
-	if has_method("_spawn_recruited_ally_fadein_from_scene"):
-		u = await _spawn_recruited_ally_fadein_from_scene(scene_path, spawn_cell, owner_peer_id)
-	elif has_method("spawn_recruited_ally_fadein_from_scene"):
-		u = await spawn_recruited_ally_fadein_from_scene(scene_path, spawn_cell, owner_peer_id)
-	else:
-		_warn_net("spawn_recruit failed: missing spawn helper", {"scene_path": scene_path})
-		return
-
+	# ✅ Spawn instantly (hidden) so snapshot can go out immediately
+	var u := _spawn_recruit_instant_hidden(scene_path, spawn_cell, owner_peer_id)
 	if u == null or not is_instance_valid(u):
-		_warn_net("spawn_recruit failed: spawn helper returned null", {"scene_path": scene_path})
+		_warn_net("spawn_recruit failed: instant spawn returned null", {"scene_path": scene_path})
 		return
 
-	# ✅ 1) snapshot so the unit exists on clients
+	# ✅ 1) snapshot immediately (so client has the unit right away)
 	coop_broadcast_snapshot("recruit_spawn")
 
-	# ✅ 2) then tell clients to play bomber/drop on that existing unit
+	# ✅ 2) tell clients to play the same bomber reveal
 	rpc("_rpc_recruit_drop_visual", int(u.net_id), spawn_cell)
-				
+
+	# ✅ 3) host plays the same reveal locally (no waiting on network)
+	await _play_recruit_drop_visual_existing(u, spawn_cell)
+	
+func _spawn_recruit_instant_hidden(scene_path: String, spawn_cell: Vector2i, owner_peer_id: int) -> Unit:
+	if terrain == null or units_root == null or grid == null:
+		return null
+	if scene_path == "" or not ResourceLoader.exists(scene_path):
+		return null
+	if units_by_cell.has(spawn_cell):
+		return null
+
+	var ps := load(scene_path) as PackedScene
+	if ps == null:
+		return null
+
+	var u := ps.instantiate() as Unit
+	if u == null:
+		return null
+
+	units_root.add_child(u)
+	_wire_unit_signals(u)
+
+	u.team = Unit.Team.ALLY
+	u.owner_peer_id = int(owner_peer_id)
+	u.set_meta("owner_peer_id", int(owner_peer_id))
+	u.set_meta("scene_path", scene_path)
+
+	_net_register_unit(u)
+
+	u.set_cell(spawn_cell, terrain)
+	units_by_cell[spawn_cell] = u
+
+	# Hidden until bomber reveal
+	u.modulate.a = 0.0
+	u.set_meta("pending_drop_reveal", true)
+
+	return u
+					
 func _spawn_recruited_ally_fadein_with_owner(spawn_cell: Vector2i, owner_peer_id: int) -> void:
 	# If your existing function already handles picking the scene + placing it, reuse it.
 	_spawn_recruited_ally_fadein(spawn_cell)
