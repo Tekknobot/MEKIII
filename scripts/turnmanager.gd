@@ -245,27 +245,86 @@ func _rpc_coop_show_event_success(title_text: String, body_text: String, button_
 		end_panel.continue_pressed.disconnect(_on_coop_return_to_overworld_pressed)
 	end_panel.continue_pressed.connect(_on_coop_return_to_overworld_pressed)
 
+@rpc("any_peer", "reliable")
+func _rpc_client_request_recruit(struct_cell: Vector2i) -> void:
+	if not multiplayer.is_server():
+		return
+
+	var sender := multiplayer.get_remote_sender_id()
+
+	var s := M._structure_at_cell(struct_cell)
+	if s == null or not is_instance_valid(s):
+		rpc_id(sender, "_rpc_action_denied", "recruit", 0)
+		return
+	if not s.has_method("can_recruit") or not bool(s.call("can_recruit")):
+		rpc_id(sender, "_rpc_action_denied", "recruit", 0)
+		return
+
+	var spawn_cell: Vector2i = struct_cell
+	if s.has_method("get_recruit_drop_cell"):
+		spawn_cell = s.call("get_recruit_drop_cell")
+
+	if not M._is_walkable(spawn_cell) or M.units_by_cell.has(spawn_cell):
+		spawn_cell = M._find_nearest_free_cell(spawn_cell)
+
+	var rs := get_node_or_null("/root/RunState")
+	var scene_path := ""
+	if rs != null and rs.has_method("coop_pick_recruit_scene_path"):
+		scene_path = str(rs.call("coop_pick_recruit_scene_path"))
+	if scene_path == "":
+		rpc_id(sender, "_rpc_action_denied", "recruit", 0)
+		return
+
+	# spawn recruit using MapController pipeline
+	M._spawn_recruited_ally_fadein(spawn_cell, int(sender))
+
+	if rs != null and rs.has_method("coop_commit_recruit"):
+		rs.call("coop_commit_recruit", scene_path)
+
+	rpc("_rpc_recruit_visual", spawn_cell)
+
+	M._coop_push_snapshot("recruit")
+
+
 @rpc("authority", "reliable")
-func _rpc_coop_show_loss(msg: String) -> void:
-	# Host -> clients: show mission failed panel.
+func _rpc_recruit_visual(_spawn_cell: Vector2i) -> void:
+	# Host -> clients: visual-only hook (kept for back-compat).
+	# Recruit visuals are handled in MapController via snapshot + _rpc_recruit_drop_visual.
+	if multiplayer.is_server():
+		return
+	# Optional: you could pulse UI here if desired.
+	
+@rpc("authority", "reliable")
+func _rpc_coop_loss_begin(msg: String, loss_mode: int, play_surge: bool) -> void:
+	# Host -> clients: play fail surge (optional) then show mission failed panel.
 	if _coop_active() and _coop_host():
 		return
-	if end_panel == null or not is_instance_valid(end_panel):
+	if _game_over_triggered:
 		return
-	end_panel.show_loss(msg, "MAIN MENU")
-	if end_panel.continue_button != null:
-		end_panel.continue_button.text = "MAIN MENU"
-		end_panel.continue_button.disabled = false
-	end_panel._picked = true
-	if end_panel.continue_pressed.is_connected(_on_game_over_retry):
-		end_panel.continue_pressed.disconnect(_on_game_over_retry)
-	if end_panel.continue_pressed.is_connected(_on_game_over_main_menu):
-		end_panel.continue_pressed.disconnect(_on_game_over_main_menu)
-	if end_panel.continue_pressed.is_connected(_on_coop_loss_continue_pressed):
-		end_panel.continue_pressed.disconnect(_on_coop_loss_continue_pressed)
-	end_panel.continue_pressed.connect(_on_coop_loss_continue_pressed)
+	_game_over_triggered = true
 
-@rpc("any_peer", "reliable")
+	_loss_mode = int(loss_mode)
+
+	print(msg)
+	phase = Phase.BUSY
+	_update_end_turn_button()
+	_update_special_buttons()
+	_set_hud_visible(false)
+
+	# --- If enabled, play surge first, then show loss panel ---
+	if play_surge and fail_surge_enabled and _fail_surge != null and is_instance_valid(_fail_surge):
+		_pending_loss_msg = msg
+		_pending_loss_mode = int(_loss_mode)
+		_fail_surge.play()
+		return
+
+	_show_loss_panel(msg)
+
+@rpc("authority", "reliable")
+func _rpc_coop_show_loss(msg: String) -> void:
+	# Back-compat: older hosts call this. Show immediately (no surge).
+	_rpc_coop_loss_begin(msg, int(_loss_mode), false)
+
 func _rpc_coop_request_return_to_overworld() -> void:
 	# Clients -> host: request advancing after mission complete.
 	if not _coop_active() or not _coop_host():
@@ -2209,7 +2268,7 @@ func game_over(msg: String) -> void:
 
 	# CO-OP: broadcast mission failed panel to clients.
 	if _coop_active() and _coop_host():
-		rpc("_rpc_coop_show_loss", msg)
+		rpc("_rpc_coop_loss_begin", msg, int(_loss_mode), bool(fail_surge_enabled))
 
 	print(msg)
 	phase = Phase.BUSY

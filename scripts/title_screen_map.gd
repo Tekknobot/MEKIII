@@ -396,8 +396,13 @@ func spawn_structures() -> void:
 	structure_blocked.clear()
 	_unique_used.clear()
 
+	if structures_root == null or not is_instance_valid(structures_root):
+		structures_root = get_node_or_null("Structures") as Node2D
+
 	if structures_root == null:
-		structures_root = self
+		structures_root = Node2D.new()
+		structures_root.name = "Structures"
+		add_child(structures_root)
 
 	_clear_structures()
 

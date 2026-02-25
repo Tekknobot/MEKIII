@@ -1,8 +1,102 @@
 extends Node
 class_name MapController
 
+
+
+# =========================================================
+# NAV: TOC
+#   NAV: LOG        (structured debug logger + toggles)
+#   NAV: COOP       (snapshot + ownership helpers)
+#   NAV: RECRUIT    (recruit pipeline + visuals)
+#   NAV: BOMBER     (bomber cosmetic / drops / evac)
+#   NAV: NET        (RPC surface + authority gates)
+# =========================================================
+
 # ---------------------------------------------------------
-# Co-op (2-player) helpers
+# NAV: LOG — structured debug logging (high-signal, low-noise)
+# ---------------------------------------------------------
+signal debug_event(subsystem: String, level: String, message: String, ctx)
+
+@export var debug_recruit: bool = true
+@export var debug_bomber: bool = true
+@export var debug_net: bool = false
+@export var debug_trace: bool = false
+@export var log_ctx_pretty: bool = false # JSON pretty-print dictionaries/arrays (slower)
+
+var _log_last_ms: Dictionary = {} # throttle_key -> last_ms
+var mission_rng := RandomNumberGenerator.new()
+
+func _log_now_ms() -> int:
+	return Time.get_ticks_msec()
+
+func _log_line(level: String, subsystem: String, message: String, ctx = null, throttle_key: String = "", throttle_ms: int = 0) -> void:
+	if throttle_key != "" and throttle_ms > 0:
+		var now := _log_now_ms()
+		var last := int(_log_last_ms.get(throttle_key, -999999999))
+		if (now - last) < throttle_ms:
+			return
+		_log_last_ms[throttle_key] = now
+
+	var peer_id := 0
+	if multiplayer != null and multiplayer.has_multiplayer_peer():
+		peer_id = int(multiplayer.get_unique_id())
+
+	var line := str(_log_now_ms()) + " | " + str(name) + " | " + subsystem + " | " + level + " | " + message
+
+	if ctx != null:
+		if log_ctx_pretty and (typeof(ctx) == TYPE_DICTIONARY or typeof(ctx) == TYPE_ARRAY):
+			line += " | " + JSON.stringify(ctx, "  ")
+		else:
+			line += " | " + str(ctx)
+
+	line += " | peer=" + str(peer_id)
+
+	match level:
+		"ERROR":
+			push_error(line)
+		"WARN":
+			push_warning(line)
+		"TRACE":
+			if debug_trace:
+				print_verbose(line)
+		_:
+			print(line)
+
+	if has_signal("debug_event"):
+		emit_signal("debug_event", subsystem, level, message, ctx)
+
+func _dbg_recruit(message: String, ctx = null, throttle_key: String = "", throttle_ms: int = 0) -> void:
+	if debug_recruit:
+		_log_line("DEBUG", "RECRUIT", message, ctx, throttle_key, throttle_ms)
+
+func _warn_recruit(message: String, ctx = null) -> void:
+	_log_line("WARN", "RECRUIT", message, ctx)
+
+func _err_recruit(message: String, ctx = null) -> void:
+	_log_line("ERROR", "RECRUIT", message, ctx)
+
+func _dbg_bomber(message: String, ctx = null, throttle_key: String = "", throttle_ms: int = 0) -> void:
+	if debug_bomber:
+		_log_line("DEBUG", "BOMBER", message, ctx, throttle_key, throttle_ms)
+
+func _warn_bomber(message: String, ctx = null) -> void:
+	_log_line("WARN", "BOMBER", message, ctx)
+
+func _err_bomber(message: String, ctx = null) -> void:
+	_log_line("ERROR", "BOMBER", message, ctx)
+
+func _dbg_net(message: String, ctx = null, throttle_key: String = "", throttle_ms: int = 0) -> void:
+	if debug_net:
+		_log_line("DEBUG", "NET", message, ctx, throttle_key, throttle_ms)
+
+func _warn_net(message: String, ctx = null) -> void:
+	_log_line("WARN", "NET", message, ctx)
+
+func _err_net(message: String, ctx = null) -> void:
+	_log_line("ERROR", "NET", message, ctx)
+
+# ---------------------------------------------------------
+# NAV: COOP — Co-op (2-player) helpers
 # ---------------------------------------------------------
 var _net_units_by_id: Dictionary = {} # int -> Unit
 var _next_net_id: int = 1
@@ -53,6 +147,61 @@ func _sfx_pitch() -> float:
 	if _is_coop():
 		return 1.0
 	return randf_range(0.95, 1.05)
+
+func _rs_take_random_recruit_scene(rs: Node, rng: RandomNumberGenerator, blocked_paths: Array[String]) -> PackedScene:
+	if rs == null or not is_instance_valid(rs):
+		return null
+	if not rs.has_method("take_random_recruit_scene"):
+		return null
+
+	# Inspect arg count of RunState.take_random_recruit_scene at runtime (prevents mismatch crashes)
+	var argc := -1
+	var arg0_type := -1
+	for m in rs.get_method_list():
+		if typeof(m) == TYPE_DICTIONARY and m.get("name", "") == "take_random_recruit_scene":
+			var args: Array = m.get("args", [])
+			argc = args.size()
+			if argc >= 1 and typeof(args[0]) == TYPE_DICTIONARY:
+				arg0_type = int(args[0].get("type", -1))
+			break
+
+	# Godot reports only REQUIRED args in get_method_list(). Optional params don't appear there.
+	# So:
+	# - argc == 0 : old version (no args)
+	# - argc == 1 : either (blocked_paths) OR (rng)
+	# - argc >= 2 : (rng, blocked_paths) version
+
+	if argc >= 2:
+		return rs.call("take_random_recruit_scene", rng, blocked_paths)
+
+	if argc == 1:
+		# If the first arg type is OBJECT, assume it expects RNG; otherwise blocked paths.
+		if arg0_type == TYPE_OBJECT:
+			return rs.call("take_random_recruit_scene", rng)
+		else:
+			return rs.call("take_random_recruit_scene", blocked_paths)
+
+	# argc == 0
+	return rs.call("take_random_recruit_scene")
+	
+# -------------------------------------------------
+# CO-OP: Snapshot broadcast wrapper (MapController -> Game.gd)
+# -------------------------------------------------
+func coop_broadcast_snapshot(reason: String = "") -> void:
+	if not _is_coop() or not _coop_is_host():
+		return
+
+	# Walk up to find the Game node (the one that has _send_snapshot_to_all_peers)
+	var n: Node = self
+	while n != null and is_instance_valid(n) and not n.has_method("_send_snapshot_to_all_peers"):
+		n = n.get_parent()
+
+	if n == null or not is_instance_valid(n):
+		_warn_net("coop_broadcast_snapshot failed: Game node not found", {"reason": reason})
+		return
+
+	n.call("_send_snapshot_to_all_peers")
+	_dbg_net("coop_broadcast_snapshot OK", {"reason": reason})
 
 @export var camera: Camera2D
 @export var terrain_path: NodePath
@@ -230,6 +379,10 @@ func _coop_request_special(u: Unit, sid: String, target_cell: Vector2i) -> void:
 # -------------------------
 # HOST handlers
 # -------------------------
+# ---------------------------------------------------------
+# NAV: NET — RPC surface / authority gates
+# ---------------------------------------------------------
+
 @rpc("any_peer", "reliable")
 func _rpc_request_move(unit_id: String, target: Vector2i) -> void:
 	if not _coop_is_host():
@@ -999,6 +1152,12 @@ func setup(game) -> void:
 	game_ref = game
 	grid = game.grid
 
+	var rs := _rs()
+	if rs != null and ("mission_seed" in rs):
+		mission_rng.seed = int(rs.mission_seed)
+	else:
+		mission_rng.randomize()
+		
 func spawn_units() -> void:
 	if terrain == null or units_root == null or grid == null:
 		return
@@ -1136,6 +1295,8 @@ func spawn_units() -> void:
 		for y in range(h):
 			var c := Vector2i(x, y)
 			if not _is_walkable(c):
+				continue
+			if structure_blocked.has(c):
 				continue
 			if structure_blocked.has(c):
 				continue
@@ -1476,17 +1637,27 @@ func spawn_units() -> void:
 
 	_ensure_beacon_marker()
 
+# ---------------------------------------------------------
+# NAV: BOMBER — bomber cosmetic / drops / evac
+# ---------------------------------------------------------
+
 func _play_bomber_cosmetic(center_cell: Vector2i) -> void:
 	if _bomber_playing:
 		return
 	_bomber_playing = true
+	_dbg_bomber("Bomber cosmetic start", {"center_cell": center_cell})
 		
 	if terrain == null:
+		_warn_bomber("Bomber cosmetic abort: terrain is null", {"center_cell": center_cell})
+		_dbg_bomber("Bomber cosmetic done", {"center_cell": center_cell})
+		_bomber_playing = false
 		return
 	var w := _cell_world(center_cell)
 
 	var bomber := _spawn_bomber(w.x, w.y)
 	if bomber == null:
+		_warn_bomber("Bomber cosmetic abort: bomber spawn failed", {"center_cell": center_cell, "world": w})
+		_bomber_playing = false
 		return
 
 	_sfx(bomber_sfx_in, sfx_volume_world, 1.0, w)
@@ -2000,6 +2171,16 @@ func _pick_enemy_zombie_scene() -> PackedScene:
 func _is_walkable(c: Vector2i) -> bool:
 	var gd := _grid_data()
 	if gd == null or not gd.in_bounds(c):
+		return false
+
+	# ✅ Structures block walkability (important for client overlays + L-path checks)
+	var structure_blocked: Dictionary = {}
+	if game_ref != null and (typeof(game_ref) == TYPE_OBJECT) and ("structure_blocked" in game_ref):
+		structure_blocked = game_ref.structure_blocked
+	if structure_blocked.has(c):
+		return false
+	# Fallback (if structure_blocked wasn't built on this peer)
+	if _structure_at_cell(c) != null:
 		return false
 
 	# If the Terrain tilemap at this cell is water source, treat as blocked
@@ -2624,6 +2805,53 @@ func _rpc_client_request_attack(attacker_net_id: int, target_cell: Vector2i) -> 
 	if TM != null and TM.has_method("notify_player_attacked"):
 		TM.notify_player_attacked(attacker)
 	_coop_push_snapshot("attack")
+
+@rpc("any_peer", "reliable")
+func _rpc_client_request_recruit(struct_cell: Vector2i) -> void:
+	if not multiplayer.is_server():
+		return
+
+	var sender := multiplayer.get_remote_sender_id()
+
+	var s := _structure_at_cell(struct_cell)
+	if s == null or not is_instance_valid(s):
+		rpc_id(sender, "_rpc_action_denied", "recruit", 0)
+		return
+	if not s.has_method("can_recruit") or not bool(s.call("can_recruit")):
+		rpc_id(sender, "_rpc_action_denied", "recruit", 0)
+		return
+
+	var spawn_cell: Vector2i = struct_cell
+	if s.has_method("get_recruit_drop_cell"):
+		spawn_cell = s.call("get_recruit_drop_cell")
+
+	if not _is_walkable(spawn_cell) or units_by_cell.has(spawn_cell):
+		spawn_cell = _find_nearest_free_cell(spawn_cell)
+
+	var rs := _rs()
+	var scene_path := ""
+	if rs != null and rs.has_method("coop_pick_recruit_scene_path"):
+		scene_path = str(rs.call("coop_pick_recruit_scene_path"))
+
+	if scene_path == "" or not ResourceLoader.exists(scene_path):
+		rpc_id(sender, "_rpc_action_denied", "recruit", 0)
+		return
+
+	# ✅ Spawn via the coop-safe path (explicit scene_path; no randomness)
+	_rpc_spawn_recruit(spawn_cell, int(sender), scene_path)
+			
+func _find_nearest_free_cell(start: Vector2i, max_r := 6) -> Vector2i:
+	for r in range(0, max_r + 1):
+		for dx in range(-r, r + 1):
+			for dy in range(-r, r + 1):
+				if abs(dx) != r and abs(dy) != r:
+					continue # only perimeter for speed
+				var c := start + Vector2i(dx, dy)
+				if units_by_cell.has(c):
+					continue
+				if _is_walkable(c):
+					return c
+	return Vector2i(-1, -1)
 
 func _net_on_move_visual(unit_net_id: int, from_cell: Vector2i, target: Vector2i, path: Array) -> void:
 	var M := $MapController   # adjust if your node path differs
@@ -3440,7 +3668,9 @@ func _draw_move_range(u: Unit) -> void:
 
 			if not _is_walkable(c):
 				continue
-				
+			if structure_blocked.has(c):
+				continue
+			
 			# ✅ client-only: hide move tiles under structures
 			if not multiplayer.is_server():
 				if _structure_at_cell(c) != null:
@@ -4075,7 +4305,7 @@ func _move_selected_to(target: Vector2i) -> void:
 
 	# ally extras
 	if u.team == Unit.Team.ALLY:
-		_try_recruit_near_structure(u)
+		await _try_recruit_near_structure_host(u)
 		_set_unit_moved(u, true)
 
 	_apply_turn_indicator(u)
@@ -5678,21 +5908,28 @@ func _node_cell(n: Node) -> Vector2i:
 	return Vector2i(-999, -999)
 
 func _structure_at_cell(cell: Vector2i) -> Node:
-	if structure_group_name != "" and get_tree() != null:
-		for n in get_tree().get_nodes_in_group(structure_group_name):
-			if n == null or not is_instance_valid(n):
-				continue
+	if structure_group_name == "" or get_tree() == null:
+		return null
 
-			# ✅ Preferred: structures report footprint occupancy
-			if n.has_method("occupies_cell") and bool(n.call("occupies_cell", cell)):
+	# 1) Exact origin match by meta (best for your runtime-spawned buildings)
+	for n in get_tree().get_nodes_in_group(structure_group_name):
+		if n == null or not is_instance_valid(n):
+			continue
+		if n.has_meta("origin_cell") and typeof(n.get_meta("origin_cell")) == TYPE_VECTOR2I:
+			if Vector2i(n.get_meta("origin_cell")) == cell:
 				return n
 
-			# ✅ Fallback: single-cell structures (origin only)
-			if _node_cell(n) == cell:
-				return n
+	# 2) If you still want footprint occupancy, keep this as fallback
+	for n in get_tree().get_nodes_in_group(structure_group_name):
+		if n == null or not is_instance_valid(n):
+			continue
+		if n.has_method("occupies_cell") and bool(n.call("occupies_cell", cell)):
+			return n
+		if _node_cell(n) == cell:
+			return n
 
 	return null
-
+	
 func _flash_structure_white(s: Node, t: float) -> void:
 	if s == null or not is_instance_valid(s):
 		return
@@ -6513,6 +6750,19 @@ func _ringout_push_and_die(attacker: Unit, defender: Unit) -> void:
 # - safe: restores original modulate at the end
 # ---------------------------------------------------------
 
+# ---------------------------------------------------------
+# NAV: RECRUIT — recruit pipeline + visuals
+# ---------------------------------------------------------
+
+func _sanitize_scene_path(v) -> String:
+	# Accepts Variant from RunState and returns "" if invalid
+	if v == null:
+		return ""
+	var s := str(v)
+	if s == "" or s == "<null>" or s == "null":
+		return ""
+	return s
+	
 func _on_unique_recruit_pulse(struct_node: Node) -> void:
 	# Find the unique building root (walk up parents)
 	var root: Node = struct_node
@@ -6611,11 +6861,222 @@ func _on_unique_recruit_pulse(struct_node: Node) -> void:
 	)
 
 	await tw.finished
+								
+# -------------------------------------------------------------------
+# CO-OP: host -> clients recruit drop visuals (bomber + drop)
+# Keeps the SAME unit node; we just animate it when it arrives via snapshot.
+# -------------------------------------------------------------------
+@rpc("authority", "reliable")
+func _rpc_recruit_drop_visual(unit_net_id: int, spawn_cell: Vector2i) -> void:
+	# Host -> clients: play bomber/drop visuals only (no gameplay)
+	if multiplayer.is_server():
+		return
 
-# ---------------------------------------------------------
-# Full recruit function (UNIQUE ONLY) with the pulse
-# ---------------------------------------------------------
-func _try_recruit_near_structure(mover: Unit) -> void:
+	_dbg_bomber("Recruit drop visual RPC recv", {"unit_net_id": unit_net_id, "spawn_cell": spawn_cell})
+
+	# Wait for snapshot/spawn to create the unit locally.
+	var u: Unit = null
+	for i in range(0, 60):
+		u = _find_unit_by_net_id(unit_net_id)
+		if u != null and is_instance_valid(u):
+			break
+		await get_tree().process_frame
+
+	if u == null or not is_instance_valid(u):
+		_warn_bomber("Recruit drop mismatch: unit not found after snapshot wait", {"unit_net_id": unit_net_id, "spawn_cell": spawn_cell, "waited_frames": 40})
+		return
+
+	# IMPORTANT: this function is async (it awaits tweens) so we must await it
+	await _play_recruit_drop_visual_existing(u, spawn_cell)
+	
+func _play_recruit_drop_visual_existing(u: Unit, spawn_cell: Vector2i) -> void:
+	if u == null or not is_instance_valid(u):
+		return
+	if terrain == null:
+		_warn_bomber("Recruit drop visual abort: terrain is null", {"spawn_cell": spawn_cell})
+		return
+
+	_dbg_bomber("Recruit drop visual start", {"unit_net_id": int(u.net_id) if u != null else -1, "spawn_cell": spawn_cell})
+
+	# If bomber scene is missing, just ensure the unit is locked to its cell.
+	if bomber_scene == null:
+		_warn_bomber("Recruit drop visual: bomber_scene is null; snapping unit to cell", {"unit_net_id": int(u.net_id), "spawn_cell": spawn_cell})
+		u.set_cell(spawn_cell, terrain)
+		_set_unit_depth_from_world(u, u.global_position)
+		return
+
+	var target_world := _cell_world(spawn_cell)
+
+	# Start the unit "offscreen" so the drop reads correctly.
+	u.global_position = target_world + Vector2(0, -720)
+	_set_unit_depth_from_world(u, u.global_position)
+
+	_sfx(bomber_sfx_in, sfx_volume_world, 1.0, target_world)
+
+	var bomber := _spawn_bomber(target_world.x, target_world.y)
+	if bomber != null:
+		await _tween_node_global_pos(
+			bomber,
+			bomber.global_position,
+			target_world + Vector2(0, -bomber_hover_px),
+			bomber_arrive_time
+		)
+
+	if bomber != null:
+		await _drop_unit_from_bomber(u, bomber, spawn_cell)
+	else:
+		u.set_cell(spawn_cell, terrain)
+		_set_unit_depth_from_world(u, u.global_position)
+
+	if bomber != null and is_instance_valid(bomber):
+		_sfx(bomber_sfx_out, sfx_volume_world, 1.0, bomber.global_position)
+		await _tween_node_global_pos(
+			bomber,
+			bomber.global_position,
+			bomber.global_position + Vector2(0, bomber_y_offscreen),
+			bomber_depart_time
+		)
+		bomber.queue_free()
+		
+# -------------------------------------------------------------------
+# CO-OP: host-only recruit spawn (client calls this via .rpc(...))
+# -------------------------------------------------------------------
+@rpc("authority", "call_local", "reliable")
+func _rpc_spawn_recruit(spawn_cell: Vector2i, owner_peer_id: int, scene_path: String) -> void:
+	# Host is authority; clients ignore spawn and wait for snapshot.
+	if not multiplayer.is_server():
+		_dbg_net("RPC spawn_recruit recv on client (ignored)", {
+			"spawn_cell": spawn_cell,
+			"owner_peer_id": owner_peer_id,
+			"scene_path": scene_path
+		})
+		return
+
+	_dbg_net("RPC spawn_recruit on host", {
+		"spawn_cell": spawn_cell,
+		"owner_peer_id": owner_peer_id,
+		"scene_path": scene_path
+	})
+
+	if scene_path == "" or not ResourceLoader.exists(scene_path):
+		_warn_net("spawn_recruit denied: invalid scene_path", {"scene_path": scene_path})
+		return
+
+	var u: Unit = null
+
+	# ✅ Spawn (and AWAIT) so we can grab the net_id for drop visuals
+	if has_method("_spawn_recruited_ally_fadein_from_scene"):
+		u = await _spawn_recruited_ally_fadein_from_scene(scene_path, spawn_cell, owner_peer_id)
+	elif has_method("spawn_recruited_ally_fadein_from_scene"):
+		u = await spawn_recruited_ally_fadein_from_scene(scene_path, spawn_cell, owner_peer_id)
+	else:
+		_warn_net("spawn_recruit failed: missing spawn helper", {"scene_path": scene_path})
+		return
+
+	if u == null or not is_instance_valid(u):
+		_warn_net("spawn_recruit failed: spawn helper returned null", {"scene_path": scene_path})
+		return
+
+	# ✅ 1) snapshot so the unit exists on clients
+	coop_broadcast_snapshot("recruit_spawn")
+
+	# ✅ 2) then tell clients to play bomber/drop on that existing unit
+	rpc("_rpc_recruit_drop_visual", int(u.net_id), spawn_cell)
+				
+func _spawn_recruited_ally_fadein_with_owner(spawn_cell: Vector2i, owner_peer_id: int) -> void:
+	# If your existing function already handles picking the scene + placing it, reuse it.
+	_spawn_recruited_ally_fadein(spawn_cell)
+
+	# Now grab the unit you just spawned and tag ownership.
+	# ✅ If your spawn function already returns the unit, change it to return Unit and use that instead.
+	# Otherwise, do the simplest robust thing: find the newest ally at that cell.
+	var u := unit_at_cell(spawn_cell) # use your existing "unit at cell" helper if you have one
+	if u != null and is_instance_valid(u):
+		u.set_meta("owner_peer_id", owner_peer_id)
+		if "owner_peer_id" in u:
+			u.owner_peer_id = owner_peer_id
+				
+@rpc("authority", "reliable")
+func _rpc_recruit_pulse_visual(root_ref) -> void:
+	# Host -> clients: pulse the secured unique building.
+	if multiplayer.is_server():
+		return
+
+	var origin: Vector2i = Vector2i(-999, -999)
+
+	# Back-compat (instance_id - NOT stable; last resort)
+	if typeof(root_ref) == TYPE_INT:
+		var n := instance_from_id(int(root_ref))
+		if n != null and is_instance_valid(n):
+			await _on_unique_recruit_pulse(n)
+		else:
+			_warn_net("RPC recruit_pulse_visual failed: instance_id not found", {"root_ref": root_ref})
+		return
+
+	# Preferred: Vector2i = structure ORIGIN cell (stable across snapshot)
+	if typeof(root_ref) == TYPE_VECTOR2I:
+		origin = root_ref
+	else:
+		_warn_net("RPC recruit_pulse_visual failed: unexpected root_ref type", {"type": typeof(root_ref)})
+		return
+
+	_dbg_net("RPC recruit_pulse_visual recv", {"origin": origin})
+
+	# 1) Find by meta origin_cell in Structures group
+	var root: Node = null
+	if get_tree() != null:
+		for n in get_tree().get_nodes_in_group("Structures"):
+			if n == null or not is_instance_valid(n):
+				continue
+			if n.has_meta("origin_cell") and typeof(n.get_meta("origin_cell")) == TYPE_VECTOR2I:
+				if Vector2i(n.get_meta("origin_cell")) == origin:
+					root = n
+					break
+
+	# 2) Fallback: structure resolver
+	if root == null:
+		var s := _structure_at_cell(origin)
+		if s != null and is_instance_valid(s):
+			root = s
+
+	# Walk up to UNIQUE root if needed
+	if root != null and is_instance_valid(root):
+		while root != null and is_instance_valid(root) and not root.is_in_group(UNIQUE_GROUP):
+			root = root.get_parent()
+
+	if root == null or not is_instance_valid(root):
+		_warn_net("RPC recruit_pulse_visual failed: could not resolve root", {"origin": origin})
+		return
+
+	await _on_unique_recruit_pulse(root)
+			
+@rpc("any_peer", "reliable")
+func _rpc_client_request_recruit_attempt(mover_net_id: int) -> void:
+	if not multiplayer.is_server():
+		return
+
+	var sender := multiplayer.get_remote_sender_id()
+	_dbg_net("RPC recruit_attempt recv", {"mover_net_id": mover_net_id, "sender": int(sender)})
+
+	var mover: Unit = _find_unit_by_net_id(mover_net_id)
+	if mover == null or not is_instance_valid(mover):
+		_warn_net("RPC recruit_attempt denied: mover not found", {"mover_net_id": mover_net_id, "sender": int(sender)})
+		return
+
+	# Must be ally and owned by sender
+	if mover.team != Unit.Team.ALLY:
+		return
+
+	# Prefer meta owner, fallback to stored owner
+	var owner := int(mover.get_meta("owner_peer_id", mover.owner_peer_id))
+	if owner != int(sender):
+		_warn_net("RPC recruit_attempt denied: not owner", {"owner": owner, "sender": int(sender)})
+		return
+
+	# Host performs the full attempt, but we force ownership to sender.
+	await _try_recruit_near_structure_host_with_owner(mover, int(sender))
+
+func _try_recruit_near_structure_host_with_owner(mover: Unit, owner_peer_id: int) -> void:
 	if not recruit_enabled:
 		return
 	if mover == null or not is_instance_valid(mover):
@@ -6625,7 +7086,12 @@ func _try_recruit_near_structure(mover: Unit) -> void:
 	if terrain == null or units_root == null or grid == null:
 		return
 
-	# Only block if BOTH sources are empty
+	# Client should never run this logic
+	if _is_coop() and _coop_is_client():
+		rpc_id(1, "_rpc_client_request_recruit_attempt", int(mover.net_id))
+		return
+
+	# Must have some recruit source
 	var rs := _rs()
 	var has_rs_pool := (rs != null and rs.has_method("take_random_recruit_scene"))
 	if not has_rs_pool and ally_scenes.is_empty():
@@ -6639,41 +7105,34 @@ func _try_recruit_near_structure(mover: Unit) -> void:
 	if s == null or not is_instance_valid(s):
 		return
 
-	# -------------------------------------------------
-	# 🚫 DO NOT recruit if structure is being demolished
-	# (AnimatedSprite2D)
-	# -------------------------------------------------
+	# Block demolished animation
 	var asp := s.get_node_or_null("AnimatedSprite2D") as AnimatedSprite2D
-	if asp != null:
-		if asp.is_playing() and asp.animation == &"demolished":
-			return
+	if asp != null and asp.is_playing() and asp.animation == &"demolished":
+		return
 
-	# Walk up to a UNIQUE building root (group-based)
+	# Walk up to unique root
 	var root: Node = s
 	while root != null and is_instance_valid(root) and not root.is_in_group(UNIQUE_GROUP):
 		root = root.get_parent()
 	if root == null or not is_instance_valid(root):
 		return
 
-	# ----------------------------
-	# ✅ NEW: Secure-per-mission gate
-	# ----------------------------
+	# Per-mission gate
 	var rid := int(root.get_instance_id())
 	if _secured_unique_ids.has(rid):
 		return
-
 	_secured_unique_ids[rid] = true
 	_secured_count += 1
 
-	# ✨ Pulse the unique building to confirm capture
+	# Pulse (send ORIGIN cell ideally, but using s_cell is ok if that’s your origin)
+	if _is_coop():
+		rpc("_rpc_recruit_pulse_visual", s_cell)
 	await _on_unique_recruit_pulse(root)
 
-	# Not enough yet → stop (no recruit)
 	if _secured_count < recruit_buildings_needed:
 		push_warning("RECRUIT: secured " + str(_secured_count) + "/" + str(recruit_buildings_needed) + " (pulse only)")
 		return
 
-	# We hit 3/3 → consume and spawn 1 recruit
 	_secured_count -= recruit_buildings_needed
 
 	var spawn_cell := _find_open_adjacent_to_structure(s_cell)
@@ -6681,24 +7140,168 @@ func _try_recruit_near_structure(mover: Unit) -> void:
 		return
 
 	_say(mover, "RECRUIT INBOUND")
-	# CO-OP: the recruiting player's peer controls the recruited unit.
-	if _is_coop():
-		_rpc_spawn_recruit.rpc(spawn_cell, int(mover.get_meta("owner_peer_id", mover.owner_peer_id)))
+
+	# Pick a VALID recruit
+	var blocked_paths: Array[String] = []
+	for u2 in get_all_units():
+		if u2 == null or not is_instance_valid(u2):
+			continue
+		if u2.has_meta("scene_path"):
+			var sp := str(u2.get_meta("scene_path"))
+			if sp != "":
+				blocked_paths.append(sp)
+
+	var scene_path := ""
+
+	# ✅ Use your compatibility helper (supports rng + blocked_paths signature)
+	if rs != null:
+		var ps := _rs_take_random_recruit_scene(rs, mission_rng, blocked_paths)
+		if ps != null:
+			scene_path = ps.resource_path
+
+	# Fallback: pick from ally_scenes, skipping blocked
+	if scene_path == "" and not ally_scenes.is_empty():
+		for i in range(ally_scenes.size()):
+			var pick = ally_scenes.pick_random()
+			var sp2 := ""
+			if pick is PackedScene:
+				sp2 = (pick as PackedScene).resource_path
+			elif typeof(pick) == TYPE_STRING:
+				sp2 = str(pick)
+
+			if sp2 != "" and ResourceLoader.exists(sp2) and not blocked_paths.has(sp2):
+				scene_path = sp2
+				break
+
+	if scene_path == "" or not ResourceLoader.exists(scene_path):
+		_warn_net("RECRUIT failed: invalid or duplicate-only pool", {"scene_path": scene_path, "blocked_count": blocked_paths.size()})
+		return
+		
+func _try_recruit_near_structure_host(mover: Unit) -> void:
+	if not recruit_enabled:
+		return
+	if mover == null or not is_instance_valid(mover):
+		return
+	if mover.team != Unit.Team.ALLY:
+		return
+	if terrain == null or units_root == null or grid == null:
+		return
+
+	# CO-OP: client requests, host runs.
+	if _is_coop() and _coop_is_client():
+		rpc_id(1, "_rpc_client_request_recruit_attempt", int(mover.net_id))
+		return
+
+	var rs := _rs()
+	var has_rs_pool := (rs != null and rs.has_method("take_random_recruit_scene"))
+	if not has_rs_pool and ally_scenes.is_empty():
+		return
+
+	var s_cell := _find_adjacent_structure_cell(mover.cell)
+	if s_cell.x < -100:
+		return
+
+	var s := _structure_at_cell(s_cell)
+	if s == null or not is_instance_valid(s):
+		return
+
+	var asp := s.get_node_or_null("AnimatedSprite2D") as AnimatedSprite2D
+	if asp != null and asp.is_playing() and asp.animation == &"demolished":
+		return
+
+	var root: Node = s
+	while root != null and is_instance_valid(root) and not root.is_in_group(UNIQUE_GROUP):
+		root = root.get_parent()
+	if root == null or not is_instance_valid(root):
+		return
+
+	var stable_key := ""
+	if root.has_meta("origin_cell") and typeof(root.get_meta("origin_cell")) == TYPE_VECTOR2I:
+		var oc: Vector2i = root.get_meta("origin_cell")
+		stable_key = str(oc.x) + "," + str(oc.y)
 	else:
-		_spawn_recruited_ally_fadein(spawn_cell)
+		stable_key = "iid:" + str(int(root.get_instance_id()))
 
-@rpc("any_peer", "call_local", "reliable")
-func _rpc_spawn_recruit(spawn_cell: Vector2i, owner_peer_id: int) -> void:
-	_spawn_recruited_ally_fadein(spawn_cell, owner_peer_id)
-	
+	if _secured_unique_ids.has(stable_key):
+		return
+	_secured_unique_ids[stable_key] = true
+	_secured_count += 1
+
+	var pulse_ref := s_cell
+	if root.has_meta("origin_cell") and typeof(root.get_meta("origin_cell")) == TYPE_VECTOR2I:
+		pulse_ref = Vector2i(root.get_meta("origin_cell"))
+
+	if _is_coop():
+		rpc("_rpc_recruit_pulse_visual", pulse_ref)
+
+	await _on_unique_recruit_pulse(root)
+
+	if recruit_buildings_needed <= 0:
+		recruit_buildings_needed = 1
+
+	if _secured_count < recruit_buildings_needed:
+		return
+
+	_secured_count -= recruit_buildings_needed
+
+	var spawn_cell := _find_open_adjacent_to_structure(s_cell)
+	if spawn_cell.x < 0:
+		return
+
+	_say(mover, "RECRUIT INBOUND")
+
+	# ✅ Build blocked paths from units already on board (prevents duplicates like human/humantwo)
+	var blocked_paths: Array[String] = []
+	for u2 in get_all_units():
+		if u2 == null or not is_instance_valid(u2):
+			continue
+		if u2.has_meta("scene_path"):
+			var sp := str(u2.get_meta("scene_path"))
+			if sp != "":
+				blocked_paths.append(sp)
+
+	var scene_path := ""
+
+	if rs != null:
+		var ps := _rs_take_random_recruit_scene(rs, mission_rng, blocked_paths)
+		if ps != null:
+			scene_path = ps.resource_path
+
+	if scene_path == "" and not ally_scenes.is_empty():
+		for i in range(ally_scenes.size()):
+			var pick = ally_scenes.pick_random()
+			var sp2 := ""
+			if pick is PackedScene:
+				sp2 = (pick as PackedScene).resource_path
+			elif typeof(pick) == TYPE_STRING:
+				sp2 = str(pick)
+			if sp2 != "" and ResourceLoader.exists(sp2) and not blocked_paths.has(sp2):
+				scene_path = sp2
+				break
+
+	if scene_path == "" or not ResourceLoader.exists(scene_path):
+		_warn_net("RECRUIT failed: invalid or duplicate-only pool", {"scene_path": scene_path, "blocked_count": blocked_paths.size()})
+		return
+
+	var owner := int(mover.owner_peer_id)
+	if mover.has_meta("owner_peer_id"):
+		owner = int(mover.get_meta("owner_peer_id"))
+
+	# Spawn via RPC (host executes, clients ignore + wait for snapshot)
+	_rpc_spawn_recruit.rpc(spawn_cell, owner, scene_path)
+		
+func spawn_recruited_ally_fadein_from_scene(scene_path: String, spawn_cell: Vector2i, owner_peer_id: int) -> void:
+	# Back-compat wrapper (some code calls the non-underscore version)
+	_spawn_recruited_ally_fadein_from_scene(scene_path, spawn_cell, owner_peer_id)
+			
 func _find_adjacent_structure_cell(cell: Vector2i) -> Vector2i:
-	# Use the authoritative structure_blocked dictionary (footprint coverage)
-	if game_ref == null or not ("structure_blocked" in game_ref):
-		return Vector2i(-999, -999)
+	# Prefer authoritative footprint dict when it exists,
+	# but FALL BACK to actual structure lookup so non-blocking buildings still count.
 
-	var sb: Dictionary = game_ref.structure_blocked
+	var sb: Dictionary = {}
+	if game_ref != null and ("structure_blocked" in game_ref):
+		sb = game_ref.structure_blocked
 
-	# ✅ 4-neighbors only (no diagonals)
 	var dirs := [
 		Vector2i(1, 0),
 		Vector2i(-1, 0),
@@ -6710,11 +7313,18 @@ func _find_adjacent_structure_cell(cell: Vector2i) -> Vector2i:
 		var c = cell + d
 		if grid != null and grid.has_method("in_bounds") and not grid.in_bounds(c):
 			continue
-		if sb.has(c):
+
+		# 1) If footprint dict says structure occupies it, accept.
+		if sb.size() > 0 and sb.has(c):
+			return c
+
+		# 2) Fallback: if an actual structure node occupies the cell, accept.
+		var s := _structure_at_cell(c)
+		if s != null and is_instance_valid(s):
 			return c
 
 	return Vector2i(-999, -999)
-
+	
 func _find_open_adjacent_to_structure(s_cell: Vector2i) -> Vector2i:
 	# Use structure-blocked dict if you have it
 	var structure_blocked: Dictionary = {} as Dictionary
@@ -6920,6 +7530,133 @@ func _spawn_recruited_ally_fadein(spawn_cell: Vector2i, owner_peer_id := 1) -> v
 		if TM.has_method("_update_special_buttons"):
 			TM._update_special_buttons()
 
+func _spawn_recruited_ally_fadein_from_scene(scene_path: String, spawn_cell: Vector2i, owner_peer_id := 1) -> Unit:
+	if terrain == null or units_root == null or grid == null:
+		return null
+	if units_by_cell.has(spawn_cell):
+		return null
+	if scene_path == "":
+		push_warning("Recruit: empty scene_path.")
+		return null
+	if not ResourceLoader.exists(scene_path):
+		push_warning("Recruit: scene_path not found: %s" % scene_path)
+		return null
+
+	# one recruit per cell ever (but only lock after we know we can spawn)
+	if _recruits_spawned_at.has(spawn_cell):
+		return null
+
+	var scene := load(scene_path) as PackedScene
+	if scene == null:
+		push_warning("Recruit: failed to load PackedScene: %s" % scene_path)
+		return null
+
+	# Block duplicates by unit-key already on board
+	var blocked_keys: Dictionary = {}
+	for u2 in get_all_units():
+		if u2 == null or not is_instance_valid(u2):
+			continue
+		var k2 := _unit_key_from_unit(u2)
+		if k2 != "":
+			blocked_keys[k2] = true
+
+	var k_scene := _unit_key_from_scene(scene)
+	if k_scene != "" and blocked_keys.has(k_scene):
+		push_warning("Recruit: refused duplicate unit key from forced scene_path %s" % scene_path)
+		return null
+
+	# ✅ NOW it’s safe to lock the cell
+	_recruits_spawned_at[spawn_cell] = true
+
+	# RunState bookkeeping
+	var rs2 := _rs()
+	if rs2 != null and rs2.has_method("recruit_spawned_pending"):
+		rs2.call("recruit_spawned_pending", scene_path)
+
+	var u := scene.instantiate() as Unit
+	if u == null:
+		push_warning("Recruit: ally scene root must extend Unit. scene_path=%s" % scene_path)
+		_recruits_spawned_at.erase(spawn_cell)
+		return null
+
+	var u_key := _unit_key_from_unit(u)
+	if u_key != "" and blocked_keys.has(u_key):
+		push_warning("Recruit: refused duplicate unit key \"%s\" (already on board)." % u_key)
+		u.free()
+		_recruits_spawned_at.erase(spawn_cell)
+		return null
+
+	# Stamp scene path
+	u.set_meta("scene_path", scene_path)
+
+	units_root.add_child(u)
+	_wire_unit_signals(u)
+	u.team = Unit.Team.ALLY
+	u.owner_peer_id = int(owner_peer_id)
+	u.set_meta("owner_peer_id", int(owner_peer_id))
+	_net_register_unit(u)
+
+	u.hp = u.max_hp
+	u.global_position.y -= 720
+
+	# Register occupancy BEFORE the drop
+	units_by_cell[spawn_cell] = u
+
+	emit_signal("tutorial_event", &"recruit_spawned", {"cell": spawn_cell})
+
+	# BOMBER DROP (host-side)
+	var target_world := _cell_world(spawn_cell)
+
+	if bomber_scene == null:
+		u.set_cell(spawn_cell, terrain)
+		_set_unit_depth_from_world(u, u.global_position)
+		_say(u, "Recruit incoming!")
+		_apply_turn_indicators_all_allies()
+		if TM != null:
+			if TM.has_method("on_units_spawned"):
+				TM.on_units_spawned()
+			if TM.has_method("_update_special_buttons"):
+				TM._update_special_buttons()
+		return u
+
+	_sfx(bomber_sfx_in, sfx_volume_world, 1.0, target_world)
+
+	var bomber := _spawn_bomber(target_world.x, target_world.y)
+	if bomber != null:
+		await _tween_node_global_pos(
+			bomber,
+			bomber.global_position,
+			target_world + Vector2(0, -bomber_hover_px),
+			bomber_arrive_time
+		)
+
+	if bomber != null:
+		await _drop_unit_from_bomber(u, bomber, spawn_cell)
+	else:
+		u.set_cell(spawn_cell, terrain)
+		_set_unit_depth_from_world(u, u.global_position)
+
+	_say(u, "Recruited!")
+
+	if bomber != null and is_instance_valid(bomber):
+		_sfx(bomber_sfx_out, sfx_volume_world, 1.0, bomber.global_position)
+		await _tween_node_global_pos(
+			bomber,
+			bomber.global_position,
+			bomber.global_position + Vector2(0, bomber_y_offscreen),
+			bomber_depart_time
+		)
+		bomber.queue_free()
+
+	_apply_turn_indicators_all_allies()
+	if TM != null:
+		if TM.has_method("on_units_spawned"):
+			TM.on_units_spawned()
+		if TM.has_method("_update_special_buttons"):
+			TM._update_special_buttons()
+
+	return u
+				
 func get_all_enemies() -> Array[Unit]:
 	var out: Array[Unit] = []
 	for u in get_all_units():
@@ -9012,6 +9749,10 @@ func build_units_snapshot() -> Array:
 	var all := get_all_units()
 	
 	for u in all:
+		# ✅ Never serialize buildings as units
+		if u.is_in_group("Structures") or u.is_in_group("UniqueBuilding"):
+			continue
+		
 		if u == null or not is_instance_valid(u):
 			continue
 		if u.hp <= 0:

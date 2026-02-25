@@ -433,14 +433,8 @@ func _start_mission() -> void:
 		# Host plays cosmetic locally (non-blocking)
 		map_controller.call_deferred("_play_bomber_cosmetic", drop_center)
 
-		# Client plays cosmetic via RPC
+		# Client plays cosmetic via RPC (DO THIS ONCE)
 		_rpc_bomber_start.rpc_id(_net().client_peer_id, drop_center)
-
-		# ✅ NOW start bomber cosmetic on client (client has snapshot + is visible)
-		# Use the same drop cell you used for host deployment
-		if map_controller != null and is_instance_valid(map_controller):
-			drop_center = Vector2i(map_controller.drop_center_cell) if ("drop_center_cell" in map_controller) else Vector2i.ZERO
-			_rpc_bomber_start.rpc_id(_net().client_peer_id, drop_center)
 			
 	if turn_manager != null and is_instance_valid(turn_manager):
 		turn_manager.on_units_spawned()	
@@ -1064,12 +1058,18 @@ func spawn_structures() -> void:
 	_unique_used.clear()
 	_unique_buffer_blocked.clear()
 
+	# ✅ ALWAYS use a dedicated container
+	if structures_root == null or not is_instance_valid(structures_root):
+		structures_root = get_node_or_null("Structures") as Node2D
 	if structures_root == null:
-		structures_root = self
+		structures_root = Node2D.new()
+		structures_root.name = "Structures"
+		add_child(structures_root)
 
-	# Clear old
+	# Clear only structures (NOT the whole Game scene)
 	for ch in structures_root.get_children():
-		ch.queue_free()
+		if ch != null and is_instance_valid(ch):
+			ch.queue_free()
 
 	if building_scenes == null or building_scenes.is_empty():
 		return
@@ -1077,14 +1077,13 @@ func spawn_structures() -> void:
 	var size: Vector2i = building_footprint
 	var candidates: Array[Vector2i] = []
 
-	# Build candidate origins
 	for x in range(map_width - size.x + 1):
 		for y in range(map_height - size.y + 1):
 			var origin := Vector2i(x, y)
 			if _is_structure_origin_ok(origin, size):
 				candidates.append(origin)
 
-	# Deterministic shuffle using Game.rng (NOT global)
+	# Deterministic shuffle using rng
 	for i in range(candidates.size() - 1, 0, -1):
 		var j := rng.randi_range(0, i)
 		var tmp := candidates[i]
@@ -1099,26 +1098,20 @@ func spawn_structures() -> void:
 		tries += 1
 		var origin: Vector2i = candidates.pop_back()
 
-		# must not overlap any already-blocked structure tiles
 		if _is_structure_blocked(origin, size):
 			continue
 
-		# ---------------------------------------------------
-		# Pick a scene that respects "unique once"
-		# ---------------------------------------------------
 		var scene: PackedScene = null
 		var pick_tries := 32
 		while pick_tries > 0:
 			pick_tries -= 1
-
 			var s := building_scenes[rng.randi_range(0, building_scenes.size() - 1)]
 			if s == null:
 				continue
-
 			if _is_unique_scene(s):
 				var key := _scene_key(s)
 				if _unique_used.has(key):
-					continue # already placed once
+					continue
 				scene = s
 				break
 			else:
@@ -1128,30 +1121,25 @@ func spawn_structures() -> void:
 		if scene == null:
 			continue
 
-		# ---------------------------------------------------
-		# Enforce 1-tile separation between UNIQUE buildings
-		# ---------------------------------------------------
 		var is_unique := _is_unique_scene(scene)
 		if is_unique and _is_unique_buffer_blocked(origin, size, 1):
 			continue
 
-		# Instantiate
 		var inst := scene.instantiate()
 		var b := inst as Node2D
 		if b == null:
 			continue
 
-		# Tag / groups
-		if is_unique:
-			b.set_meta("is_unique_building", true)
-			b.add_to_group("UniqueBuilding")
-
+		# ✅ Groups + meta (this is what your client pulse logic depends on)
 		b.add_to_group("Structures")
+		if is_unique:
+			b.add_to_group("UniqueBuilding")
+			b.set_meta("is_unique_building", true)
+
 		structures_root.add_child(b)
 
 		_tint_structure(b, rng)
 
-		# Position / origin
 		if b.has_method("set_origin"):
 			b.call("set_origin", origin, terrain)
 		else:
@@ -1160,16 +1148,14 @@ func spawn_structures() -> void:
 		b.set_meta("scene_path", scene.resource_path)
 		b.set_meta("origin_cell", origin)
 
-		# Block tiles for general structure collision
 		_mark_structure_blocked(origin, size)
 
-		# Mark unique as used + reserve its buffer AFTER successful placement
 		if is_unique:
 			_unique_used[_scene_key(scene)] = true
 			_mark_unique_buffer(origin, size, 1)
 
 		placed += 1
-
+		
 func _apply_snapshot(snap: Dictionary) -> void:
 	# -------------------------
 	# 1) Settings / RNG
@@ -1233,42 +1219,12 @@ func _apply_snapshot(snap: Dictionary) -> void:
 	# -------------------------
 	if structures_root == null or not is_instance_valid(structures_root):
 		structures_root = get_node_or_null("Structures") as Node2D
-
-	# if still missing, create a dedicated container so we NEVER clear the whole Game scene
 	if structures_root == null:
 		structures_root = Node2D.new()
 		structures_root.name = "Structures"
 		add_child(structures_root)
 
-	# clear only structures
-	for ch in structures_root.get_children():
-		if ch != null and is_instance_valid(ch):
-			ch.queue_free()
-			
-	var structs: Array = snap.get("structures", [])
-	for d in structs:
-		var sp := str(d.get("scene", ""))
-		var origin: Vector2i = d.get("origin", Vector2i(-1, -1))
-		if sp == "" or not ResourceLoader.exists(sp):
-			continue
-
-		var ps := load(sp) as PackedScene
-		if ps == null:
-			continue
-
-		var inst := ps.instantiate()
-		var b := inst as Node2D
-		if b == null:
-			continue
-
-		structures_root.add_child(b)
-		b.set_meta("scene_path", sp)
-		b.set_meta("origin_cell", origin)
-
-		if b.has_method("set_origin"):
-			b.call("set_origin", origin, terrain)
-		else:
-			b.global_position = terrain.to_global(terrain.map_to_local(origin))
+	_apply_structures_snapshot(snap.get("structures", []))
 
 	# -------------------------
 	# 5) MapController setup (must exist before beacon/units)
@@ -1319,11 +1275,9 @@ func _apply_snapshot(snap: Dictionary) -> void:
 	# 8) Bomber cosmetic AFTER (non-blocking)
 	# -------------------------
 
-	var dc: Vector2i = snap.get("drop_center_cell", Vector2i.ZERO)
-
 	# ✅ Bomber is now started by host via _rpc_bomber_start().
 	# Snapshot only stores the center; don't re-trigger cinematic here.
-	_last_drop_center = dc
+	_last_drop_center = Vector2i(snap.get("drop_center_cell", Vector2i.ZERO))
 	
 	# ✅ Always reveal pending units; bomber cosmetic is optional
 	if map_controller.has_method("_reveal_pending_drop_units"):
@@ -1526,7 +1480,6 @@ func _ensure_boss_spawned_early() -> void:
 
 	turn_manager.start_boss_battle()
 
-
 func _build_snapshot() -> Dictionary:
 	var snap: Dictionary = {}
 
@@ -1564,17 +1517,30 @@ func _build_snapshot() -> Dictionary:
 		for ch in structures_root.get_children():
 			if ch == null or not is_instance_valid(ch):
 				continue
+
+			# ✅ REAL building scene path (never random recruit scenes)
 			var scene_path := ""
 			if ch.has_meta("scene_path"):
 				scene_path = str(ch.get_meta("scene_path"))
 
-			# We need origin cell to place it
+			# origin cell for placement
 			var origin := Vector2i(-1, -1)
-			if ch.has_meta("origin_cell"):
-				origin = ch.get_meta("origin_cell")
+			if ch.has_meta("origin_cell") and typeof(ch.get_meta("origin_cell")) == TYPE_VECTOR2I:
+				origin = Vector2i(ch.get_meta("origin_cell"))
+
+			var is_unique := false
+			if ch.has_meta("is_unique_building"):
+				is_unique = bool(ch.get_meta("is_unique_building"))
+			else:
+				is_unique = ch.is_in_group("UniqueBuilding")
 
 			if scene_path != "" and origin.x >= 0:
-				structs.append({"scene": scene_path, "origin": origin})
+				structs.append({
+					"scene": scene_path,
+					"origin": origin,
+					"is_unique": is_unique
+				})
+
 	snap["structures"] = structs
 
 	# --- units (allies + zombies) ---
@@ -1585,42 +1551,87 @@ func _build_snapshot() -> Dictionary:
 
 	# cosmetic: where bomber arrived
 	if map_controller != null and is_instance_valid(map_controller):
-		snap["drop_center_cell"] = map_controller.get_meta("drop_center_cell", Vector2i.ZERO)
-		
+		snap["drop_center_cell"] = map_controller.drop_center_cell if ("drop_center_cell" in map_controller) else Vector2i.ZERO
+
 	# --- beacon ---
 	if map_controller != null and is_instance_valid(map_controller):
 		snap["beacon_cell"] = map_controller.beacon_cell
 		snap["beacon_parts_collected"] = map_controller.beacon_parts_collected
 		snap["beacon_ready"] = map_controller.beacon_ready
-		
+
 	snap["biome_index"] = int(biome_index)
 
-	var count_wp := 0
-	for d in snap.get("units", []):
-		if str(d.get("scene","")).to_lower().find("weakpoint") != -1:
-			count_wp += 1
-	print("SNAP weakpoints=", count_wp, " total units=", (snap.get("units",[]) as Array).size())
-
-	# boss visual exists?
-	var boss := _find_boss_controller()
-	snap["boss_present"] = (boss != null) or (count_wp > 0)
-
-	# Count weakpoints in the unit snapshot (NOTE: the key is "scene", not "scene_path")
 	var weakpoints := 0
 	for d in units:
 		var sp := str(d.get("scene", ""))
 		if sp.to_lower().find("weakpoint") != -1:
 			weakpoints += 1
 
-	# ✅ Boss is "present" if:
-	# - BossController exists, OR
-	# - any weakpoints exist (boss mission active)
+	# boss visual exists?
+	var boss := _find_boss_controller()
 	snap["boss_present"] = (boss != null) or (weakpoints > 0)
 
 	print("SNAP weakpoints=", weakpoints, " total units=", units.size())
 
 	return snap
+	
+func _apply_structures_snapshot(structs: Array) -> void:
+	# ✅ Always resolve / create a dedicated Structures container
+	if structures_root == null or not is_instance_valid(structures_root):
+		structures_root = get_node_or_null("Structures") as Node2D
+	if structures_root == null:
+		structures_root = Node2D.new()
+		structures_root.name = "Structures"
+		add_child(structures_root)
 
+	# ✅ Clear FIRST (and do it only here; nowhere else)
+	for ch in structures_root.get_children():
+		if ch != null and is_instance_valid(ch):
+			ch.queue_free()
+
+	for d_any in structs:
+		if typeof(d_any) != TYPE_DICTIONARY:
+			continue
+		var d: Dictionary = d_any
+
+		var sp := str(d.get("scene", ""))
+		if sp == "" or not ResourceLoader.exists(sp):
+			continue
+
+		var ps := load(sp) as PackedScene
+		if ps == null:
+			continue
+
+		var inst := ps.instantiate()
+		var b := inst as Node2D
+		if b == null:
+			continue
+
+		var origin: Vector2i = d.get("origin", Vector2i(-1, -1))
+		if typeof(origin) != TYPE_VECTOR2I:
+			origin = Vector2i(-1, -1)
+
+		var is_unique := bool(d.get("is_unique", false))
+
+		# ✅ Groups + meta MUST match host-side logic
+		b.add_to_group("Structures")
+		if is_unique:
+			b.add_to_group("UniqueBuilding")
+			b.set_meta("is_unique_building", true)
+
+		# Store origin early so pulse can resolve immediately
+		b.set_meta("scene_path", sp)
+		b.set_meta("origin_cell", origin)
+
+		structures_root.add_child(b)
+
+		# Position
+		if origin.x >= 0 and origin.y >= 0:
+			if b.has_method("set_origin"):
+				b.call("set_origin", origin, terrain)
+			else:
+				b.global_position = terrain.to_global(terrain.map_to_local(origin))
+				
 func _find_boss_controller() -> Node:
 	# finds Lunatic anywhere under Game
 	var b := find_child("Lunatic", true, false)
@@ -1649,6 +1660,7 @@ func _send_snapshot_to_peer(peer_id: int) -> void:
 
 	var snap := _build_snapshot()
 	_rpc_receive_snapshot.rpc_id(peer_id, _coop_snapshot_seq, snap)
+	
 func _send_snapshot_to_all_peers() -> void:
 	if not _is_coop() or not _is_host():
 		return
