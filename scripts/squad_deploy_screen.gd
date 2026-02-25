@@ -936,7 +936,7 @@ func _extract_unit_card_data(scene_path: String) -> Dictionary:
 			# Sometimes you can still get something useful here
 			cname = str(u.get_class())
 
-		if cname == "CarBot" or cname == "Roller" or cname == "RecruitBot":
+		if cname == "CarBot" or cname == "Roller" or cname == "RecruitBot" or cname == "Mech":
 			inst.queue_free()
 			return {}
 

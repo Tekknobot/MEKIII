@@ -2857,13 +2857,11 @@ func _rpc_attack_visual(attacker_net_id: int, target_cell: Vector2i) -> void:
 	# Visual-only replay
 	var prev := _coop_visual_only
 	_coop_visual_only = true
-	if attacker.has_method("face_towards_cell"):
-		attacker.call("face_towards_cell", self, target_cell)
-	elif attacker.has_method("face_towards"):
-		attacker.call("face_towards", self, target_cell)
+	# ✅ Face the attacker using MapController’s helper (attacker doesn’t own this method)
+	_face_unit_toward_world(attacker, _cell_world(target_cell))
 
-	if attacker.has_method("perform_basic_attack"):
-		await attacker.call("perform_basic_attack", self, target_cell)
+	_play_attack_anim(attacker)
+		
 	_coop_visual_only = prev
 
 	# Owning client: apply post-attack turn-state + UI
@@ -2889,8 +2887,6 @@ func _rpc_attack_visual(attacker_net_id: int, target_cell: Vector2i) -> void:
 	if _coop_is_client():
 		_is_moving = false
 
-
-
 @rpc("any_peer", "reliable")
 func _rpc_special_visual(unit_net_id: int, sid: String, target_cell: Vector2i) -> void:
 	if not _is_from_host():
@@ -2912,7 +2908,11 @@ func _rpc_special_visual(unit_net_id: int, sid: String, target_cell: Vector2i) -
 	# Visual-only replay
 	var prev := _coop_visual_only
 	_coop_visual_only = true
+	# Guard against rare hangs if a unit dies/frees during a replayed special.
+	# If the perform_*() coroutine never resumes (because a referenced node was freed),
+	# we still want to unlock input and keep the match moving.
 	await _perform_special_visual(u, sid, target_cell)
+
 	_coop_visual_only = prev
 
 	# Owning client: most specials count as "attack" for turn-state
@@ -2931,6 +2931,9 @@ func _rpc_special_visual(unit_net_id: int, sid: String, target_cell: Vector2i) -
 			_select(u)
 		if not _unit_has_moved(u):
 			_set_aim_mode(AimMode.MOVE)
+
+	# ✅ Free any units that died while replaying visuals (deferred to avoid await stalls)
+	_finalize_pending_frees()
 
 	_clear_overlay()
 	_refresh_overlays()
@@ -2976,6 +2979,11 @@ func _finalize_pending_frees() -> void:
 			continue
 		if u.has_meta(&"pending_free") and bool(u.get_meta(&"pending_free")):
 			u.remove_meta(&"pending_free")
+
+			# If a deferred-free unit was selected, clear HUD/selection first.
+			if selected == u:
+				_unselect()
+
 			u.queue_free()
 
 func _mouse_to_cell() -> Vector2i:
@@ -4263,7 +4271,6 @@ func _pick_clear_L_path(from_cell: Vector2i, to_cell: Vector2i) -> Array[Vector2
 func _cell_world(c: Vector2i) -> Vector2:
 	return terrain.to_global(terrain.map_to_local(c))
 
-
 func _duration_for_step() -> float:
 	# One cell move duration based on your cells/sec.
 	return max(0.04, 1.0 / move_speed_cells_per_sec)
@@ -4602,11 +4609,17 @@ func ai_move_free(u: Unit, target: Vector2i) -> void:
 
 	# COOP: after authoritative AI move, push snapshot so occupancy/state stays correct on clients.
 	_coop_push_snapshot("ai_move")
+	
 func ai_attack(attacker: Unit, defender: Unit) -> void:
 	if attacker == null or defender == null:
 		return
 	if not is_instance_valid(attacker) or not is_instance_valid(defender):
 		return
+
+	# ✅ COOP: host AI attack -> broadcast visual replay to clients
+	if _coop_is_active() and _coop_is_host() and multiplayer.has_multiplayer_peer() and multiplayer.is_server():
+		if attacker != null and is_instance_valid(attacker) and ("net_id" in attacker):
+			rpc("_rpc_attack_visual", int(attacker.net_id), defender.cell)
 
 	await _do_attack(attacker, defender)
 
@@ -5068,12 +5081,50 @@ func _remove_unit_from_board_at_cell(cell: Vector2i) -> void:
 		return
 
 	var u := v as Unit
-	if u != null and is_instance_valid(u):
-		u.queue_free()
+	if u == null or not is_instance_valid(u):
+		return
+
+	# If we just removed the selected unit, clear selection/HUD immediately.
+	if selected == u:
+		_unselect()
+
+	# COOP SAFETY: during special visual replay (client) or during a locked special (host/client),
+	# don't queue_free() immediately — it can stall an await chain inside perform_*().
+	var locked := (u.has_meta(&"special_lock") and bool(u.get_meta(&"special_lock")))
+	if _coop_visual_only or _coop_replaying or locked:
+		u.set_meta(&"pending_free", true)
+		# Hide it so it doesn't look alive, but keep node valid until replay ends.
+		u.visible = false
+		return
+
+	u.queue_free()
 
 func _remove_unit_from_board(u: Unit) -> void:
 	if u == null:
 		return
+
+	# remove from units_by_cell safely
+	for k in units_by_cell.keys():
+		if units_by_cell[k] == u:
+			units_by_cell.erase(k)
+			break
+
+	if not is_instance_valid(u):
+		return
+
+	# If we just removed the selected unit, clear selection/HUD immediately.
+	if selected == u:
+		_unselect()
+
+	# COOP SAFETY: during special visual replay (client) or during a locked special (host/client),
+	# don't queue_free() immediately — it can stall an await chain inside perform_*().
+	var locked := (u.has_meta(&"special_lock") and bool(u.get_meta(&"special_lock")))
+	if _coop_visual_only or _coop_replaying or locked:
+		u.set_meta(&"pending_free", true)
+		u.visible = false
+		return
+
+	u.queue_free()
 
 	# remove from units_by_cell safely
 	for k in units_by_cell.keys():
