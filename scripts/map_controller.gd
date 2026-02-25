@@ -2644,6 +2644,105 @@ func _net_on_special_visual(unit_net_id: int, sid: String, target_cell: Vector2i
 func _is_from_host() -> bool:
 	return int(multiplayer.get_remote_sender_id()) == 1
 
+
+# ==================================================
+# CO-OP: hazard tile state replication (fire / rad)
+# ==================================================
+var _coop_applying_hazard := false
+
+func _hazard_encode_cells(d: Dictionary) -> PackedInt32Array:
+	# Encodes {Vector2i -> int} as [x,y,v, x,y,v, ...]
+	var out := PackedInt32Array()
+	for c in d.keys():
+		if typeof(c) != TYPE_VECTOR2I:
+			continue
+		out.append(int(c.x))
+		out.append(int(c.y))
+		out.append(int(d.get(c, 0)))
+	return out
+
+func _hazard_decode_cells(p: PackedInt32Array) -> Dictionary:
+	var d: Dictionary = {}
+	var n := p.size()
+	var i := 0
+	while i + 2 < n:
+		var c := Vector2i(int(p[i]), int(p[i + 1]))
+		d[c] = int(p[i + 2])
+		i += 3
+	return d
+
+func _hazard_refresh_for_key(key: StringName) -> void:
+	if key == &"fire_tiles":
+		if has_method("_fire_refresh_visuals"):
+			_fire_refresh_visuals()
+	elif key == &"rad_contam":
+		if has_method("_rad_refresh_visuals"):
+			_rad_refresh_visuals()
+	else:
+		# Fallback: refresh both (safe, tiny cost)
+		if has_method("_fire_refresh_visuals"):
+			_fire_refresh_visuals()
+		if has_method("_rad_refresh_visuals"):
+			_rad_refresh_visuals()
+
+func _hazard_apply_local(key: StringName, state: Dictionary) -> void:
+	_coop_applying_hazard = true
+	set_meta(key, state)
+	_hazard_refresh_for_key(key)
+	_coop_applying_hazard = false
+
+func coop_hazard_set_state(key: StringName, state: Dictionary) -> void:
+	# Called by FireZombie / RadioactiveZombie helpers.
+	# Goal: everyone sees the same hazard tiles, regardless of who triggered them.
+	if _coop_applying_hazard:
+		_hazard_apply_local(key, state)
+		return
+
+	# Single-player: just apply
+	if not _coop_is_active():
+		_hazard_apply_local(key, state)
+		return
+
+	# Apply immediately on this peer for responsiveness
+	_hazard_apply_local(key, state)
+
+	var payload := _hazard_encode_cells(state)
+
+	if _coop_is_host():
+		# Host is authoritative: broadcast to clients
+		_rpc_hazard_state_apply.rpc(String(key), payload)
+	else:
+		# Client: request host to set + broadcast authoritative result
+		_rpc_client_request_hazard_state.rpc_id(1, String(key), payload)
+
+@rpc("any_peer", "reliable")
+func _rpc_client_request_hazard_state(key: String, payload: PackedInt32Array) -> void:
+	# Client -> Host: request a hazard state update (host rebroadcasts)
+	if not multiplayer.is_server():
+		return
+	var sender := int(multiplayer.get_remote_sender_id())
+	if sender <= 1:
+		return
+
+	var k := StringName(key)
+	var state := _hazard_decode_cells(payload)
+
+	_hazard_apply_local(k, state)
+
+	# Host -> Clients: authoritative apply
+	_rpc_hazard_state_apply.rpc(key, payload)
+
+@rpc("any_peer", "reliable")
+func _rpc_hazard_state_apply(key: String, payload: PackedInt32Array) -> void:
+	# Host -> Clients: apply hazard state and refresh visuals
+	if not _is_from_host():
+		return
+
+	var k := StringName(key)
+	var state := _hazard_decode_cells(payload)
+
+	_hazard_apply_local(k, state)
+
 @rpc("any_peer", "reliable")
 func _rpc_play_move_visual(unit_net_id: int, a = null, b = null, c = null) -> void:
 	if not _is_from_host():
@@ -2758,6 +2857,11 @@ func _rpc_attack_visual(attacker_net_id: int, target_cell: Vector2i) -> void:
 	# Visual-only replay
 	var prev := _coop_visual_only
 	_coop_visual_only = true
+	if attacker.has_method("face_towards_cell"):
+		attacker.call("face_towards_cell", self, target_cell)
+	elif attacker.has_method("face_towards"):
+		attacker.call("face_towards", self, target_cell)
+
 	if attacker.has_method("perform_basic_attack"):
 		await attacker.call("perform_basic_attack", self, target_cell)
 	_coop_visual_only = prev

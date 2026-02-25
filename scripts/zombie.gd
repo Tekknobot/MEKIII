@@ -130,6 +130,29 @@ func _sync_outline_transform() -> void:
 	outline.global_rotation = visual.global_rotation
 	outline.global_scale = visual.global_scale
 
+func face_towards_cell(M: Node, target_cell: Vector2i) -> void:
+	# Used by co-op attack visual replay so zombies turn to face their defender.
+	var anim := get_node_or_null("AnimatedSprite2D") as AnimatedSprite2D
+	var spr := get_node_or_null("Sprite2D") as Sprite2D
+
+	var my_x := global_position.x
+	var target_x := my_x
+
+	if M != null and is_instance_valid(M) and M.has_method("_cell_world"):
+		var w = M.call("_cell_world", target_cell)
+		if w is Vector2:
+			target_x = (w as Vector2).x
+
+	# Flip to face target (left if target is left of us)
+	var flip := target_x < my_x
+
+	if anim != null:
+		anim.flip_h = flip
+	if spr != null:
+		spr.flip_h = flip
+	if outline != null:
+		outline.flip_h = flip
+
 
 func _start_suppress_twitch() -> void:
 	_stop_suppress_twitch() # safety
