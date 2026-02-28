@@ -3265,6 +3265,18 @@ func _select(u: Unit) -> void:
 	selected = u
 	selected.set_selected(true)
 
+	# ✅ If we selected a non-ALLY (zombies / enemies), force HUD out of SPECIAL mode
+	#    so special buttons don’t remain visible from the previous ally selection.
+	if u == null or not is_instance_valid(u) or u.team != Unit.Team.ALLY:
+		aim_mode = AimMode.MOVE
+		special_id = &""
+		valid_special_cells.clear()
+		# clear any lingering special-preview overlay (e.g. range highlights)
+		_clear_overlay()
+		# nudge TurnManager UI to refresh immediately, if it has the helper
+		if TM != null and TM.has_method("_update_special_buttons"):
+			TM._update_special_buttons()
+			
 	_sfx(&"ui_select", sfx_volume_ui, 1.0)
 
 	if u.team == Unit.Team.ALLY and not ally_select_lines.is_empty():
@@ -3311,10 +3323,16 @@ func _unselect() -> void:
 		_sfx(&"ui_deselect", sfx_volume_ui, 1.0)
 		selected.set_selected(false)
 
-	if selected and is_instance_valid(selected):
-		selected.set_selected(false)
 	selected = null
 	_clear_overlay()
+
+	# ✅ Reset aim & specials so HUD clears buttons
+	aim_mode = AimMode.MOVE
+	special_id = &""
+	valid_special_cells.clear()
+
+	# notify HUD immediately
+	emit_signal("aim_changed", int(aim_mode), special_id)
 
 	# ✅ CO-OP client safety: never let input stay locked after deselect
 	if _coop_is_client():
@@ -3322,7 +3340,6 @@ func _unselect() -> void:
 		_coop_replaying = false
 
 	emit_signal("selection_changed", null)
-	emit_signal("aim_changed", int(aim_mode), special_id)
 
 func _in_attack_range(attacker: Unit, target_cell: Vector2i) -> bool:
 	var d = abs(attacker.cell.x - target_cell.x) + abs(attacker.cell.y - target_cell.y)

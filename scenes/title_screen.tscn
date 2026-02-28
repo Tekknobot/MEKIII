@@ -238,7 +238,6 @@ anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
 script = ExtResource("1_fgkus")
-continue_scene = null
 fade_time = 1.25
 sick_color_a = Color(0.4862745, 0, 0, 1)
 sick_color_b = Color(0.7137255, 0, 0, 1)
@@ -392,8 +391,8 @@ alignment = 1
 [node name="CoopAddr" type="LineEdit" parent="Center/PanelContainer/MarginContainer/VBoxContainer/CoopRow"]
 custom_minimum_size = Vector2(340, 0)
 layout_mode = 2
-placeholder_text = "ws://HOST_IP:8910"
 text = "ws://127.0.0.1:8910"
+placeholder_text = "ws://HOST_IP:8910"
 
 [node name="CoopHostButton" type="Button" parent="Center/PanelContainer/MarginContainer/VBoxContainer/CoopRow"]
 custom_minimum_size = Vector2(140, 16)
@@ -413,8 +412,8 @@ text = "CO-OP JOIN"
 layout_mode = 2
 theme_override_fonts/font = ExtResource("2_sa3yf")
 theme_override_font_sizes/font_size = 18
-horizontal_alignment = 1
 text = "CO-OP: off"
+horizontal_alignment = 1
 
 [node name="StoryClip" type="Control" parent="."]
 z_index = 4096
@@ -423,9 +422,9 @@ layout_mode = 1
 anchors_preset = 1
 anchor_left = 1.0
 anchor_right = 1.0
-offset_left = -272.0
+offset_left = -249.0
 offset_top = 21.0
-offset_right = -152.0
+offset_right = -129.0
 offset_bottom = 141.0
 grow_horizontal = 0
 

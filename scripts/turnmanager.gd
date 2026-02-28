@@ -1525,6 +1525,18 @@ func _update_special_buttons() -> void:
 				b.button_pressed = false
 		return
 
+	# -----------------------------------------
+	# ENEMY/ZOMBIE SELECT: hide specials completely
+	# (the reset path sets visible=true by default)
+	# -----------------------------------------
+	if sel.team != Unit.Team.ALLY:
+		for b in [hellfire_button, blade_button, mines_button, overwatch_button, suppress_button, stim_button, sunder_button, pounce_button, volley_button, cannon_button, quake_button, nova_button, web_button, slam_button, laser_grid_button, overcharge_button, barrage_button, railgun_button, malfunction_button, storm_button, artillery_strike_button, laser_sweep_button]:
+			if b != null:
+				b.visible = false
+				b.disabled = true
+				b.button_pressed = false
+		return
+
 	# If input isn't allowed, keep them visible but disabled (no flicker/disappear)
 	if not player_input_allowed():
 		for b in [hellfire_button, blade_button, mines_button, overwatch_button, suppress_button, stim_button, sunder_button, pounce_button, volley_button, cannon_button, quake_button, nova_button, web_button, slam_button, laser_grid_button, overcharge_button, barrage_button, railgun_button, malfunction_button, storm_button, artillery_strike_button, laser_sweep_button]:
