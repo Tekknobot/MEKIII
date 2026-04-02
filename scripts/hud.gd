@@ -74,6 +74,11 @@ var quirks_dock: VBoxContainer
 
 var _quirk_cb: Callable
 
+var _quirk_tooltip_panel: PanelContainer = null
+var _quirk_tooltip_title: Label = null
+var _quirk_tooltip_body: Label = null
+var _quirk_tooltip_pill: Control = null
+
 func _ready() -> void:
 	add_to_group("HUD")
 	
@@ -179,103 +184,9 @@ class QuirkPill extends PanelContainer:
 	# Provide tag colors from HUD (we'll pass them in)
 	var tag_colors: Dictionary = {}
 
-	func _make_custom_tooltip(_for_text: String) -> Object:
-		var panel := PanelContainer.new()
-		panel.set_anchors_and_offsets_preset(Control.PRESET_TOP_LEFT)
-		panel.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
-		panel.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
-		panel.custom_minimum_size = Vector2(320, 0) # <- gives it a sane width so it doesn't look "tiny"
-
-		# Style directly (no theme-variation surprises)
-		var sb := StyleBoxFlat.new()
-		sb.bg_color = Color("0B1F24")
-		# no border here (the tooltip popup already frames it)
-		sb.border_color = Color(0, 0, 0, 0)
-		sb.set_border_width_all(0)
-		sb.set_corner_radius_all(8) # keep subtle rounding
-		sb.content_margin_left = 10
-		sb.content_margin_right = 10
-		sb.content_margin_top = 8
-		sb.content_margin_bottom = 8
-		panel.add_theme_stylebox_override("panel", sb)
-
-		var v := VBoxContainer.new()
-		v.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
-		v.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
-		v.add_theme_constant_override("separation", 6)
-		panel.add_child(v)
-
-		# --- Title label ---
-		var title_lbl := Label.new()
-		title_lbl.text = tooltip_title
-		title_lbl.autowrap_mode = TextServer.AUTOWRAP_OFF
-		title_lbl.modulate = tooltip_text_color
-		title_lbl.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
-
-		if tooltip_font != null:
-			title_lbl.add_theme_font_override("font", tooltip_font)
-			title_lbl.add_theme_font_size_override("font_size", tooltip_font_size)
-
-		# Make title feel bold-ish without requiring a bold font
-		title_lbl.add_theme_color_override("font_outline_color", Color.BLACK)
-		title_lbl.add_theme_constant_override("outline_size", 1)
-
-		v.add_child(title_lbl)
-
-		# --- Desc row: [colored tags] + rest ---
-		var h := HBoxContainer.new()
-		h.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		h.add_theme_constant_override("separation", 6)
-		v.add_child(h)
-
-		# Parse up to 2 tag words at start
-		var desc := tooltip_desc.strip_edges()
-		var words := desc.split(" ", false)
-		var i := 0
-		for _k in range(2):
-			if i >= words.size():
-				break
-			var tag := words[i].to_upper()
-			if tag_colors.has(tag):
-				var tag_lbl := Label.new()
-				tag_lbl.text = tag
-				tag_lbl.modulate = tag_colors[tag]
-				tag_lbl.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
-				if tooltip_font != null:
-					tag_lbl.add_theme_font_override("font", tooltip_font)
-					tag_lbl.add_theme_font_size_override("font_size", tooltip_font_size)
-				h.add_child(tag_lbl)
-				i += 1
-			else:
-				break
-
-		# Rest of description
-		var rest := ""
-		if i < words.size():
-			rest = " ".join(words.slice(i, words.size()))
-
-		var desc_lbl := Label.new()
-		desc_lbl.text = rest
-		desc_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		desc_lbl.modulate = tooltip_text_color
-		desc_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		desc_lbl.custom_minimum_size.x = 260
-
-		if tooltip_font != null:
-			desc_lbl.add_theme_font_override("font", tooltip_font)
-			desc_lbl.add_theme_font_size_override("font_size", tooltip_font_size)
-
-		h.add_child(desc_lbl)
-
-		panel.reset_size()
-		return panel
-
 func _make_quirk_pill(title_text: String, quirk_color: Color, tip_title: String, tip_desc: String) -> Control:
 	var pill := QuirkPill.new()
 	pill.mouse_filter = Control.MOUSE_FILTER_STOP
-
-	# MUST be non-empty so Godot requests the custom tooltip
-	pill.tooltip_text = "x"
 
 	pill.tooltip_title = tip_title
 	pill.tooltip_desc = tip_desc
@@ -298,7 +209,6 @@ func _make_quirk_pill(title_text: String, quirk_color: Color, tip_title: String,
 	sb.content_margin_bottom = quirk_pill_pad_y
 	pill.add_theme_stylebox_override("panel", sb)
 
-	# ✅ pill shows NAME ONLY
 	var lbl := Label.new()
 	lbl.text = title_text
 	lbl.modulate = quirk_pill_text_color
@@ -310,8 +220,149 @@ func _make_quirk_pill(title_text: String, quirk_color: Color, tip_title: String,
 		lbl.add_theme_font_size_override("font_size", quirk_pill_font_size)
 
 	pill.add_child(lbl)
+
+	pill.mouse_entered.connect(func():
+		_show_quirk_tooltip_for_pill(pill)
+	)
+
+	pill.mouse_exited.connect(func():
+		_hide_quirk_tooltip()
+	)
+
 	return pill
 
+func _show_quirk_tooltip_for_pill(pill: QuirkPill) -> void:
+	if pill == null or not is_instance_valid(pill):
+		return
+
+	_ensure_quirk_tooltip_ui()
+
+	_quirk_tooltip_pill = pill
+	_quirk_tooltip_title.text = pill.tooltip_title
+
+	var vb := _quirk_tooltip_panel.get_node("VBox") as VBoxContainer
+	if vb == null:
+		return
+
+	# Remove old body row(s), keep title at index 0
+	for i in range(vb.get_child_count() - 1, 0, -1):
+		var ch := vb.get_child(i)
+		vb.remove_child(ch)
+		ch.queue_free()
+
+	var desc := pill.tooltip_desc.strip_edges()
+	var words := desc.split(" ", false)
+
+	var h := HBoxContainer.new()
+	h.add_theme_constant_override("separation", 6)
+	vb.add_child(h)
+
+	var i := 0
+	for _k in range(2):
+		if i >= words.size():
+			break
+		var tag := words[i].to_upper()
+		if pill.tag_colors.has(tag):
+			var tag_lbl := Label.new()
+			tag_lbl.text = tag
+			tag_lbl.modulate = pill.tag_colors[tag]
+			if pill.tooltip_font != null:
+				tag_lbl.add_theme_font_override("font", pill.tooltip_font)
+				tag_lbl.add_theme_font_size_override("font_size", pill.tooltip_font_size)
+			h.add_child(tag_lbl)
+			i += 1
+		else:
+			break
+
+	var rest := ""
+	if i < words.size():
+		rest = " ".join(words.slice(i, words.size()))
+
+	var desc_lbl := Label.new()
+	desc_lbl.text = rest
+	desc_lbl.modulate = pill.tooltip_text_color
+	desc_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	desc_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	desc_lbl.custom_minimum_size = Vector2(260, 0)
+	if pill.tooltip_font != null:
+		desc_lbl.add_theme_font_override("font", pill.tooltip_font)
+		desc_lbl.add_theme_font_size_override("font_size", pill.tooltip_font_size)
+	h.add_child(desc_lbl)
+
+	_quirk_tooltip_panel.visible = true
+
+	await get_tree().process_frame
+	_position_quirk_tooltip()
+	
+func _hide_quirk_tooltip() -> void:
+	if _quirk_tooltip_panel != null and is_instance_valid(_quirk_tooltip_panel):
+		_quirk_tooltip_panel.visible = false
+	_quirk_tooltip_pill = null
+
+func _position_quirk_tooltip() -> void:
+	if _quirk_tooltip_panel == null or not is_instance_valid(_quirk_tooltip_panel):
+		return
+	if _quirk_tooltip_pill == null or not is_instance_valid(_quirk_tooltip_pill):
+		return
+
+	var rect := _quirk_tooltip_pill.get_global_rect()
+	var vp := get_viewport().get_visible_rect().size
+
+	var size := _quirk_tooltip_panel.size
+	if size.x <= 1.0 or size.y <= 1.0:
+		size = _quirk_tooltip_panel.get_combined_minimum_size()
+
+	var right_offset := 140.0
+	var pos := Vector2(
+		rect.position.x + rect.size.x * 0.5 - size.x * 0.5 + right_offset,
+		rect.position.y - size.y - 32.0
+	)
+
+	if pos.y < 12.0:
+		pos.y = rect.position.y + rect.size.y + 12.0
+
+	pos.x = clampf(pos.x, 12.0, max(12.0, vp.x - size.x - 12.0))
+	pos.y = clampf(pos.y, 12.0, max(12.0, vp.y - size.y - 12.0))
+
+	_quirk_tooltip_panel.global_position = pos
+			
+func _ensure_quirk_tooltip_ui() -> void:
+	if _quirk_tooltip_panel != null and is_instance_valid(_quirk_tooltip_panel):
+		return
+
+	_quirk_tooltip_panel = PanelContainer.new()
+	_quirk_tooltip_panel.name = "QuirkTooltip"
+	_quirk_tooltip_panel.visible = false
+	_quirk_tooltip_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_quirk_tooltip_panel.z_index = 5000
+
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Color("0B1F24")
+	sb.border_color = Color("3CFFB2")
+	sb.set_border_width_all(2)
+	sb.set_corner_radius_all(10)
+	sb.content_margin_left = 10
+	sb.content_margin_right = 10
+	sb.content_margin_top = 8
+	sb.content_margin_bottom = 8
+	_quirk_tooltip_panel.add_theme_stylebox_override("panel", sb)
+
+	var vb := VBoxContainer.new()
+	vb.name = "VBox"
+	vb.add_theme_constant_override("separation", 6)
+	_quirk_tooltip_panel.add_child(vb)
+
+	_quirk_tooltip_title = Label.new()
+	_quirk_tooltip_title.modulate = tooltip_text_color
+	if quirk_pill_font != null:
+		_quirk_tooltip_title.add_theme_font_override("font", quirk_pill_font)
+		_quirk_tooltip_title.add_theme_font_size_override("font_size", quirk_pill_font_size)
+	_quirk_tooltip_title.add_theme_color_override("font_outline_color", Color.BLACK)
+	_quirk_tooltip_title.add_theme_constant_override("outline_size", 1)
+	vb.add_child(_quirk_tooltip_title)
+
+	add_child(_quirk_tooltip_panel)
+	
 func set_unit(u: Unit) -> void:
 	if _unit != null and is_instance_valid(_unit):
 		_unbind_unit_quirk_signal(_unit)

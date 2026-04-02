@@ -15,3 +15,5 @@ res://shaders/text_outline_1px.gdshader
 res://shaders/desaturate.gdshader
 res://shaders/pixel_fire.gdshader
 res://scripts/turnmanager.gd
+res://scripts/hud.gd
+res://scenes/Game.tscn
