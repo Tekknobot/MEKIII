@@ -91,6 +91,37 @@ const _SPAWN_WAIT_MAX_TRIES := 90  # ~1.5s at 60fps
 @onready var artillery_strike_button := get_node_or_null(artillery_strike_button_path)
 @onready var laser_sweep_button := get_node_or_null(laser_sweep_button_path)
 
+const SPECIAL_TOOLTIP_DEFS := {
+	"hellfire": {"title": "HELLFIRE", "desc": "Lob an explosive payload that damages the target area."},
+	"blade": {"title": "BLADE", "desc": "Close-range strike for fast melee pressure."},
+	"mines": {"title": "MINES", "desc": "Place a mine in range. Great for area denial and chokepoints."},
+	"overwatch": {"title": "WATCHER", "desc": "Enter overwatch and fire automatically when enemies move into range."},
+	"suppress": {"title": "SUPPRESS", "desc": "Fire to pin a target and disrupt its next turn."},
+	"stim": {"title": "STIMPACK", "desc": "Inject a combat stim to boost performance for the turn."},
+	"sunder": {"title": "SUNDER", "desc": "Heavy line strike that tears through targets behind the point of impact."},
+	"pounce": {"title": "POUNCE", "desc": "Leap to a target, hit hard, and knock it back."},
+	"volley": {"title": "VOLLEY", "desc": "Unload a multi-shot burst across targets in range."},
+	"cannon": {"title": "CANNON", "desc": "Fire a heavy round with strong single-target impact."},
+	"quake": {"title": "QUAKE", "desc": "Shock the area with a disruptive ground impact."},
+	"nova": {"title": "NOVA", "desc": "Release an energy burst that threatens enemies around the blast zone."},
+	"web": {"title": "WEB", "desc": "Project a snaring field to trap or slow enemy advances."},
+	"slam": {"title": "SLAM", "desc": "Crush the ground to damage and shove enemies in the strike path."},
+	"laser_grid": {"title": "LASER GRID", "desc": "Lay down a piercing laser pattern across the battlefield."},
+	"overcharge": {"title": "OVERCHARGE", "desc": "Push systems beyond safe limits for a stronger burst action."},
+	"barrage": {"title": "BARRAGE", "desc": "Rain repeated explosive shots into the target zone."},
+	"railgun": {"title": "RAILGUN", "desc": "Fire a long-range penetrator with extreme impact."},
+	"malfunction": {"title": "MALFUNCTION", "desc": "Trigger unstable explosive bursts in a chaotic pattern."},
+	"storm": {"title": "STORM", "desc": "Call down repeated explosive impacts over a wide area."},
+	"artillery_strike": {"title": "ARTILLERY STRIKE", "desc": "Target a distant tile and drop artillery on the impact zone."},
+	"laser_sweep": {"title": "LASER SWEEP", "desc": "Sweep a piercing beam through multiple enemies in a line."},
+}
+
+var _special_tooltip_panel: PanelContainer = null
+var _special_tooltip_title: Label = null
+var _special_tooltip_body: Label = null
+var _special_tooltip_button: Button = null
+var _special_tooltip_id: String = ""
+
 enum Phase { PLAYER, ENEMY, BUSY }
 var phase: Phase = Phase.PLAYER
 
@@ -659,7 +690,9 @@ func _ready() -> void:
 		artillery_strike_button.pressed.connect(_on_artillery_strike_pressed)
 	if laser_sweep_button:
 		laser_sweep_button.pressed.connect(_on_laser_sweep_pressed)
-				
+
+	_wire_special_tooltips()
+
 		# COOP: broadcast authoritative state after enemy phase + spawns
 	if M != null and M.game_ref != null and M.game_ref.has_method("_send_snapshot_to_all_peers"):
 		if M.game_ref.has_method("_is_coop") and bool(M.game_ref.call("_is_coop")) and M.game_ref.has_method("_is_host") and bool(M.game_ref.call("_is_host")):
@@ -725,6 +758,201 @@ func _ready() -> void:
 		else:
 			_is_titan_event = false
 			
+
+func _all_special_buttons() -> Array[Button]:
+	return [
+		hellfire_button, blade_button, mines_button, overwatch_button, suppress_button, stim_button,
+		sunder_button, pounce_button, volley_button, cannon_button, quake_button, nova_button,
+		web_button, slam_button, laser_grid_button, overcharge_button, barrage_button, railgun_button,
+		malfunction_button, storm_button, artillery_strike_button, laser_sweep_button
+	]
+
+func _wire_special_tooltips() -> void:
+	var pairs := [
+		{"button": hellfire_button, "id": "hellfire"},
+		{"button": blade_button, "id": "blade"},
+		{"button": mines_button, "id": "mines"},
+		{"button": overwatch_button, "id": "overwatch"},
+		{"button": suppress_button, "id": "suppress"},
+		{"button": stim_button, "id": "stim"},
+		{"button": sunder_button, "id": "sunder"},
+		{"button": pounce_button, "id": "pounce"},
+		{"button": volley_button, "id": "volley"},
+		{"button": cannon_button, "id": "cannon"},
+		{"button": quake_button, "id": "quake"},
+		{"button": nova_button, "id": "nova"},
+		{"button": web_button, "id": "web"},
+		{"button": slam_button, "id": "slam"},
+		{"button": laser_grid_button, "id": "laser_grid"},
+		{"button": overcharge_button, "id": "overcharge"},
+		{"button": barrage_button, "id": "barrage"},
+		{"button": railgun_button, "id": "railgun"},
+		{"button": malfunction_button, "id": "malfunction"},
+		{"button": storm_button, "id": "storm"},
+		{"button": artillery_strike_button, "id": "artillery_strike"},
+		{"button": laser_sweep_button, "id": "laser_sweep"},
+	]
+	for entry in pairs:
+		var b := entry["button"] as Button
+		if b == null or not is_instance_valid(b):
+			continue
+		b.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+		var hover_cb := Callable(self, "_on_special_button_mouse_entered").bind(b, String(entry["id"]))
+		if not b.mouse_entered.is_connected(hover_cb):
+			b.mouse_entered.connect(hover_cb)
+		var exit_cb := Callable(self, "_on_special_button_mouse_exited").bind(b)
+		if not b.mouse_exited.is_connected(exit_cb):
+			b.mouse_exited.connect(exit_cb)
+
+func _ensure_special_tooltip_ui() -> void:
+	if _special_tooltip_panel != null and is_instance_valid(_special_tooltip_panel):
+		return
+
+	var host: Node = _hud()
+	if host == null:
+		host = get_tree().current_scene
+	if host == null:
+		return
+
+	_special_tooltip_panel = PanelContainer.new()
+	_special_tooltip_panel.name = "SpecialButtonTooltip"
+	_special_tooltip_panel.visible = false
+	_special_tooltip_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_special_tooltip_panel.z_index = 5000
+
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Color("111827")
+	sb.border_color = Color("7DD3FC")
+	sb.set_border_width_all(2)
+	sb.set_corner_radius_all(12)
+	sb.shadow_color = Color(0, 0, 0, 0.35)
+	sb.shadow_size = 10
+	sb.content_margin_left = 12
+	sb.content_margin_right = 12
+	sb.content_margin_top = 10
+	sb.content_margin_bottom = 10
+	_special_tooltip_panel.add_theme_stylebox_override("panel", sb)
+
+	var vb := VBoxContainer.new()
+	vb.add_theme_constant_override("separation", 6)
+	_special_tooltip_panel.add_child(vb)
+
+	var title_font := load("res://fonts/magofonts/mago3.ttf") as Font
+	var body_font := load("res://fonts/magofonts/mago1.ttf") as Font
+
+	_special_tooltip_title = Label.new()
+	_special_tooltip_title.modulate = Color("E0F2FE")
+	_special_tooltip_title.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.85))
+	_special_tooltip_title.add_theme_constant_override("outline_size", 1)
+	if title_font != null:
+		_special_tooltip_title.add_theme_font_override("font", title_font)
+	_special_tooltip_title.add_theme_font_size_override("font_size", 15)
+	vb.add_child(_special_tooltip_title)
+
+	_special_tooltip_body = Label.new()
+	_special_tooltip_body.modulate = Color("D1D5DB")
+	_special_tooltip_body.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_special_tooltip_body.custom_minimum_size = Vector2(280, 0)
+	if body_font != null:
+		_special_tooltip_body.add_theme_font_override("font", body_font)
+	_special_tooltip_body.add_theme_font_size_override("font_size", 14)
+	vb.add_child(_special_tooltip_body)
+
+	host.add_child(_special_tooltip_panel)
+	
+func _on_special_button_mouse_entered(b: Button, special_id: String) -> void:
+	_special_tooltip_button = b
+	_special_tooltip_id = special_id
+	_show_special_tooltip()
+
+func _on_special_button_mouse_exited(b: Button) -> void:
+	if b == _special_tooltip_button:
+		_hide_special_tooltip()
+
+func _show_special_tooltip() -> void:
+	if _special_tooltip_button == null or not is_instance_valid(_special_tooltip_button):
+		return
+	_ensure_special_tooltip_ui()
+	if _special_tooltip_panel == null:
+		return
+
+	var info: Dictionary = SPECIAL_TOOLTIP_DEFS.get(_special_tooltip_id, {})
+	var lines: Array[String] = []
+	var u := (M.selected if M != null else null) as Unit
+
+	if not info.is_empty():
+		_special_tooltip_title.text = str(info.get("title", _special_tooltip_id.to_upper().replace("_", " ")))
+		lines.append(str(info.get("desc", "")))
+	else:
+		_special_tooltip_title.text = _special_tooltip_id.to_upper().replace("_", " ")
+
+	if u != null and is_instance_valid(u):
+		var range_text := ""
+		if u.has_method("get_special_range"):
+			var r := int(u.call("get_special_range", _special_tooltip_id))
+			if r > 0:
+				range_text = "Range %d" % r
+
+		var status_text := "Ready"
+		if u.has_method("can_use_special") and not bool(u.call("can_use_special", _special_tooltip_id)):
+			var cd := 0
+			if "special_cd" in u and u.special_cd is Dictionary:
+				cd = int(u.special_cd.get(_special_tooltip_id, 0))
+			status_text = ("Cooldown %d turn%s" % [cd, "" if cd == 1 else "s"]) if cd > 0 else "Unavailable"
+
+		var armed_text := ""
+		if M != null and "special_id" in M and String(M.special_id) == _special_tooltip_id:
+			armed_text = "Click off map to cancel."
+
+		var meta: Array[String] = []
+		if range_text != "":
+			meta.append(range_text)
+		meta.append(status_text)
+		if not meta.is_empty():
+			lines.append("")
+			lines.append(" • ".join(meta))
+		if armed_text != "":
+			lines.append(armed_text)
+
+	_special_tooltip_body.text = "\n".join(lines).strip_edges()
+	_special_tooltip_panel.visible = true
+	_special_tooltip_panel.reset_size()
+	_position_special_tooltip()
+
+func _position_special_tooltip() -> void:
+	if _special_tooltip_panel == null or not is_instance_valid(_special_tooltip_panel):
+		return
+	if _special_tooltip_button == null or not is_instance_valid(_special_tooltip_button):
+		return
+
+	var rect := _special_tooltip_button.get_global_rect()
+	var vp := get_viewport().get_visible_rect().size
+	var size := _special_tooltip_panel.size
+	if size.x <= 1.0 or size.y <= 1.0:
+		size = _special_tooltip_panel.get_combined_minimum_size()
+
+	# --- Horizontal offset (move RIGHT) ---
+	var right_offset := 240.0  # increase this to move further right
+
+	var pos := Vector2(
+		rect.position.x + rect.size.x * 0.5 - size.x * 0.5 + right_offset,
+		rect.position.y - size.y - 12
+	)
+
+	if pos.y < 12:
+		pos.y = rect.position.y + rect.size.y + 12
+
+	pos.x = clampf(pos.x, 12.0, max(12.0, vp.x - size.x - 12.0))
+	pos.y = clampf(pos.y, 12.0, max(12.0, vp.y - size.y - 12.0))
+
+	_special_tooltip_panel.global_position = pos
+
+func _hide_special_tooltip() -> void:
+	_special_tooltip_button = null
+	_special_tooltip_id = ""
+	if _special_tooltip_panel != null and is_instance_valid(_special_tooltip_panel):
+		_special_tooltip_panel.visible = false
+
 func _wait_until_allies_exist(max_frames := 1200) -> bool:
 	# 1200 frames ≈ 20 seconds @ 60fps (deployment/fades can be long)
 	var frames := 0
@@ -1487,6 +1715,10 @@ func _on_laser_sweep_pressed() -> void:
 	_update_special_buttons()
 
 func _update_special_buttons() -> void:
+	# Tooltip should not linger when buttons refresh.
+	if _special_tooltip_button != null and (not is_instance_valid(_special_tooltip_button) or not _special_tooltip_button.visible):
+		_hide_special_tooltip()
+
 	# Toggle visuals (pressed highlight)
 	if hellfire_button: hellfire_button.toggle_mode = true
 	if blade_button: blade_button.toggle_mode = true
@@ -3292,6 +3524,9 @@ func _cinematic_step(u: Unit, _delta_unused: Vector2i = Vector2i.ZERO) -> void:
 	await tw.finished
 
 func _set_hud_visible(v: bool) -> void:
+	if not v:
+		_hide_special_tooltip()
+
 	# ✅ Toggle ALL special buttons correctly (group-based)
 	for n in get_tree().get_nodes_in_group("SpecialButton"):
 		if n == null or not is_instance_valid(n):

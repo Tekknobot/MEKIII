@@ -150,7 +150,7 @@ layout_mode = 2
 
 [node name="Supress" type="Button" parent="UnitCard/Margin/HBoxContainer/SpecialButtons" groups=["SpecialButton"]]
 visible = false
-z_index = 4096
+z_index = 4000
 layout_mode = 1
 offset_right = 120.0
 offset_bottom = 34.0
@@ -160,7 +160,7 @@ text = "Supress"
 
 [node name="Hellfire" type="Button" parent="UnitCard/Margin/HBoxContainer/SpecialButtons" groups=["SpecialButton"]]
 visible = false
-z_index = 4096
+z_index = 4000
 layout_mode = 1
 offset_top = 43.0
 offset_right = 120.0
@@ -171,7 +171,7 @@ text = "Hellfire"
 
 [node name="Blade" type="Button" parent="UnitCard/Margin/HBoxContainer/SpecialButtons" groups=["SpecialButton"]]
 visible = false
-z_index = 4096
+z_index = 4000
 layout_mode = 1
 offset_top = 43.0
 offset_right = 120.0
@@ -182,7 +182,7 @@ text = "Blade"
 
 [node name="Overcharge" type="Button" parent="UnitCard/Margin/HBoxContainer/SpecialButtons" groups=["SpecialButton"]]
 visible = false
-z_index = 4096
+z_index = 4000
 layout_mode = 1
 offset_top = 43.0
 offset_right = 120.0
@@ -193,7 +193,7 @@ text = "Overcharge"
 
 [node name="Mines" type="Button" parent="UnitCard/Margin/HBoxContainer/SpecialButtons" groups=["SpecialButton"]]
 visible = false
-z_index = 4096
+z_index = 4000
 layout_mode = 1
 offset_top = 43.0
 offset_right = 120.0
@@ -205,7 +205,7 @@ text = "Mines
 
 [node name="Stimpack" type="Button" parent="UnitCard/Margin/HBoxContainer/SpecialButtons" groups=["SpecialButton"]]
 visible = false
-z_index = 4096
+z_index = 4000
 layout_mode = 1
 offset_right = 120.0
 offset_bottom = 34.0
@@ -216,7 +216,7 @@ text = "Stimpack
 
 [node name="Sunder" type="Button" parent="UnitCard/Margin/HBoxContainer/SpecialButtons" groups=["SpecialButton"]]
 visible = false
-z_index = 4096
+z_index = 4000
 layout_mode = 1
 offset_top = 44.0
 offset_right = 120.0
@@ -228,7 +228,7 @@ text = "Sunder
 
 [node name="Volley" type="Button" parent="UnitCard/Margin/HBoxContainer/SpecialButtons" groups=["SpecialButton"]]
 visible = false
-z_index = 4096
+z_index = 4000
 layout_mode = 1
 offset_top = 44.0
 offset_right = 120.0
@@ -240,7 +240,7 @@ text = "Volley
 
 [node name="Pounce" type="Button" parent="UnitCard/Margin/HBoxContainer/SpecialButtons" groups=["SpecialButton"]]
 visible = false
-z_index = 4096
+z_index = 4000
 layout_mode = 1
 offset_top = 44.0
 offset_right = 120.0
@@ -252,7 +252,7 @@ text = "Pounce
 
 [node name="Cannon" type="Button" parent="UnitCard/Margin/HBoxContainer/SpecialButtons" groups=["SpecialButton"]]
 visible = false
-z_index = 4096
+z_index = 4000
 layout_mode = 1
 offset_top = 44.0
 offset_right = 120.0
@@ -263,7 +263,7 @@ text = "Cannon"
 
 [node name="Quake" type="Button" parent="UnitCard/Margin/HBoxContainer/SpecialButtons" groups=["SpecialButton"]]
 visible = false
-z_index = 4096
+z_index = 4000
 layout_mode = 1
 offset_top = 44.0
 offset_right = 120.0
@@ -274,7 +274,7 @@ text = "Quake"
 
 [node name="Nova" type="Button" parent="UnitCard/Margin/HBoxContainer/SpecialButtons" groups=["SpecialButton"]]
 visible = false
-z_index = 4096
+z_index = 4000
 layout_mode = 1
 offset_top = 44.0
 offset_right = 120.0
@@ -285,7 +285,7 @@ text = "Nova"
 
 [node name="Sweep" type="Button" parent="UnitCard/Margin/HBoxContainer/SpecialButtons" groups=["SpecialButton"]]
 visible = false
-z_index = 4096
+z_index = 4000
 layout_mode = 1
 offset_top = 44.0
 offset_right = 120.0
@@ -296,7 +296,7 @@ text = "Sweep"
 
 [node name="Malfunction" type="Button" parent="UnitCard/Margin/HBoxContainer/SpecialButtons" groups=["SpecialButton"]]
 visible = false
-z_index = 4096
+z_index = 4000
 layout_mode = 1
 offset_top = 44.0
 offset_right = 120.0
@@ -307,7 +307,7 @@ text = "Malfunction"
 
 [node name="Railgun" type="Button" parent="UnitCard/Margin/HBoxContainer/SpecialButtons" groups=["SpecialButton"]]
 visible = false
-z_index = 4096
+z_index = 4000
 layout_mode = 1
 offset_top = 44.0
 offset_right = 120.0
@@ -318,7 +318,7 @@ text = "Railgun"
 
 [node name="Watcher" type="Button" parent="UnitCard/Margin/HBoxContainer/SpecialButtons" groups=["SpecialButton"]]
 visible = false
-z_index = 4096
+z_index = 4000
 layout_mode = 1
 offset_right = 120.0
 offset_bottom = 34.0
@@ -328,7 +328,7 @@ text = "Watcher"
 
 [node name="Strike" type="Button" parent="UnitCard/Margin/HBoxContainer/SpecialButtons" groups=["SpecialButton"]]
 visible = false
-z_index = 4096
+z_index = 4000
 layout_mode = 1
 offset_right = 120.0
 offset_bottom = 34.0
@@ -338,7 +338,7 @@ text = "Strike"
 
 [node name="Barrage" type="Button" parent="UnitCard/Margin/HBoxContainer/SpecialButtons" groups=["SpecialButton"]]
 visible = false
-z_index = 4096
+z_index = 4000
 layout_mode = 1
 offset_right = 120.0
 offset_bottom = 34.0
@@ -348,7 +348,7 @@ text = "Barrage"
 
 [node name="Storm" type="Button" parent="UnitCard/Margin/HBoxContainer/SpecialButtons" groups=["SpecialButton"]]
 visible = false
-z_index = 4096
+z_index = 4000
 layout_mode = 1
 offset_right = 120.0
 offset_bottom = 34.0
@@ -358,7 +358,7 @@ text = "Storm"
 
 [node name="Grid" type="Button" parent="UnitCard/Margin/HBoxContainer/SpecialButtons" groups=["SpecialButton"]]
 visible = false
-z_index = 4096
+z_index = 4000
 layout_mode = 1
 offset_right = 120.0
 offset_bottom = 34.0
@@ -368,7 +368,7 @@ text = "Grid"
 
 [node name="Slam" type="Button" parent="UnitCard/Margin/HBoxContainer/SpecialButtons" groups=["SpecialButton"]]
 visible = false
-z_index = 4096
+z_index = 4000
 layout_mode = 1
 offset_right = 120.0
 offset_bottom = 34.0
@@ -378,7 +378,7 @@ text = "Slam"
 
 [node name="Web" type="Button" parent="UnitCard/Margin/HBoxContainer/SpecialButtons" groups=["SpecialButton"]]
 visible = false
-z_index = 4096
+z_index = 4000
 layout_mode = 1
 offset_right = 120.0
 offset_bottom = 34.0

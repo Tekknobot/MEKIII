@@ -1,4 +1,4 @@
-res://scenes/title_screen.tscn
+res://scenes/HUD.tscn
 res://shaders/stim_jacked.gdshader
 res://shaders/pixel_dissolve.gdshader
 res://shaders/camera.gdshader
@@ -14,6 +14,4 @@ res://shaders/color_me.gdshader
 res://shaders/text_outline_1px.gdshader
 res://shaders/desaturate.gdshader
 res://shaders/pixel_fire.gdshader
-res://scenes/HUD.tscn
-res://scripts/map_controller.gd
 res://scripts/turnmanager.gd
