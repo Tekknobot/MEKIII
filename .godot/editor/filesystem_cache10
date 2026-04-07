@@ -1,6 +1,6 @@
 72322a848ab928aa5c89f0cb78209805
-::res://::1775159848
-export_presets.cfg::TextFile::-1::1773734686::0::1::::<><><>0<>0<><>::
+::res://::1775329126
+export_presets.cfg::TextFile::-1::1775329126::0::1::::<><><>0<>0<><>::
 icon.svg::CompressedTexture2D::5027532872362595313::1768402530::1768402530::1::::<><><>0<>0<>61364dcc74d2be96e103d75c3b7ed745<>res://.godot/imported/icon.svg-218a8f2b3041327d8a5756f3a245f83b.ctex::
 README.md::TextFile::-1::1768402530::0::1::::<><><>0<>0<><>::
 ::res://audio/::1769655826
@@ -52,7 +52,7 @@ jungle_urban.tres::Resource/BiomeSet::2676192130724792140::1771992465::0::1::::<
 new_urban.tres::Resource/BiomeSet::2524477525691916911::1771992465::0::1::::<><><>0<>0<><>::uid://by1nnygq8fbib::::res://sprites/Terrain/dirt.png<>uid://usc687xtdcac::::res://sprites/Terrain/grass_default.png<>uid://bsdcosxsddrot::::res://sprites/Terrain/ice.png<>uid://bvs7gpxakq282::::res://sprites/Terrain/sandstone.png<>uid://dyy06am5hh6de::::res://scripts/biome_set.gd<>uid://dqnyvmrsprmvf::::res://sprites/Terrain/grass_snow.png
 overgrown_urban.tres::Resource/BiomeSet::6514641220084017996::1771992465::0::1::::<><><>0<>0<><>::uid://dyy06am5hh6de::::res://scripts/biome_set.gd<>uid://bktpplbikmno4::::res://sprites/Terrain/biomes/overgrown_urban/overgrown_aged_dirt2.png<>uid://cckmmg7o7r0od::::res://sprites/Terrain/biomes/overgrown_urban/overgrown_grass_default2.png<>uid://bsdcosxsddrot::::res://sprites/Terrain/ice.png<>uid://dq7r4yda76rh6::::res://sprites/Terrain/biomes/overgrown_urban/aged_sandstone2.png<>uid://hcyi8na3032k::::res://sprites/Terrain/biomes/overgrown_urban/overgrown_grass_snow2.png
 tropical_urban.tres::Resource/BiomeSet::2733763188958114478::1771992465::0::1::::<><><>0<>0<><>::uid://c3ygwnpnc6fvi::::res://sprites/Terrain/biomes/tropical_urban/tropical_dirt.png<>uid://bckf3f1mwg1vo::::res://sprites/Terrain/biomes/tropical_urban/tropical_grass.png<>uid://mgg3450nukoe::::res://sprites/Terrain/biomes/tropical_urban/tropical_beachsand.png<>uid://bj8ryj21tmlpm::::res://sprites/Terrain/biomes/tropical_urban/tropical_sanstone.png<>uid://dyy06am5hh6de::::res://scripts/biome_set.gd<>uid://h0gsydlcm14p::::res://sprites/Terrain/biomes/tropical_urban/tropical_sand_grass.png
-::res://cursor/::1772165839
+::res://cursor/::1775328170
 zombiemecha_cursor.png::CompressedTexture2D::7780281528884665236::1775328159::1775328170::1::::<><><>0<>0<>458448a003ef22577676cf909cd7abe4<>res://.godot/imported/zombiemecha_cursor.png-bd05fe0afad7511ef046a70287ba57b3.ctex::
 ::res://fonts/::1769415801
 ::res://fonts/Boycott/::1769415450
@@ -923,7 +923,7 @@ water.png::CompressedTexture2D::6810768550062530787::1772009756::1772009756::1::
 17.png::CompressedTexture2D::3499973404874022083::1772009756::1772009756::1::::<><><>0<>0<>e60b821822fef15d4c99132c4352cf9b<>res://.godot/imported/17.png-656e8b8ff8ba233fd93a785b10c005b9.ctex::
 18.png::CompressedTexture2D::3092965749736130575::1772009756::1772009756::1::::<><><>0<>0<>0f58c4698a3e2e46fcc207cf7075d258<>res://.godot/imported/18.png-e7e65424e6d37985ef1ed317db347dd1.ctex::
 ::res://sprites/Textures/::1771555260
-fog_gradient.png::CompressedTexture2D::9121352636226878704::1772009756::1772009756::1::::<><><>0<>0<>1fc9ececbed86b75a1a87a8128e4cbdf<>res://.godot/imported/fog_gradient.png-b1195499cf6afb45a2531b2e50884e56.ctex::
+fog_gradient.png::CompressedTexture2D::9121352636226878704::1775525765::1775525768::1::::<><><>0<>0<>1fc9ececbed86b75a1a87a8128e4cbdf<>res://.godot/imported/fog_gradient.png-b1195499cf6afb45a2531b2e50884e56.ctex::
 radioactive_gradient.png::CompressedTexture2D::8066434654354799635::1772009756::1772009756::1::::<><><>0<>0<>6cb94e49814566c2b65d88c1d65abfe7<>res://.godot/imported/radioactive_gradient.png-5a2a3b8f7064dbed3f01c3b441db0ff3.ctex::
 ::res://sprites/Thumbnails/::1769544012
 ::res://sprites/Thumbnails/Allies/::1770615539
