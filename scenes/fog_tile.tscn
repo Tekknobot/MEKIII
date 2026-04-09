@@ -57,6 +57,7 @@ texture = ExtResource("1_fog")
 z_index = 1
 z_as_relative = false
 position = Vector2(0, -15)
+amount = 4
 lifetime = 2.2
 preprocess = 1.4
 randomness = 1.0

@@ -17,3 +17,6 @@ res://shaders/pixel_fire.gdshader
 res://scripts/turnmanager.gd
 res://scripts/hud.gd
 res://scenes/Game.tscn
+res://scenes/fog_tile.tscn
+res://scenes/snow_tile.tscn
+res://scenes/rain_tile.tscn
