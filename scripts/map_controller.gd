@@ -9265,6 +9265,8 @@ func _stop_enemy_threat_outline_by_id(zid: int) -> void:
 		spr.material = null
 
 func _process(delta: float) -> void:
+	_update_chill_shader_local_times(delta)
+
 	if _enemy_outline_state.is_empty():
 		return
 	if not enemy_outline_pulse:
@@ -9665,6 +9667,7 @@ func _refresh_chill_visuals_for_unit(u: Unit) -> void:
 		if inst == null or not is_instance_valid(inst):
 			inst = template.duplicate(true)
 			u.set_meta(&"chill_material_instance", inst)
+			_randomize_chill_shader_for_unit(u, inst)
 
 		ci.material = inst
 	else:
@@ -9672,6 +9675,56 @@ func _refresh_chill_visuals_for_unit(u: Unit) -> void:
 		if u.has_meta(&"chill_material_instance"):
 			u.set_meta(&"chill_material_instance", null)
 		ci.material = null
+
+
+func _randomize_chill_shader_for_unit(u: Unit, mat: Material) -> void:
+	if u == null or not is_instance_valid(u):
+		return
+	if not (mat is ShaderMaterial):
+		return
+
+	var sm := mat as ShaderMaterial
+	var base_seed := float(u.get_instance_id() % 100000)
+	var phase := randf_range(0.0, 1000.0) + base_seed * 0.017
+	var scale := randf_range(0.82, 1.18)
+
+	u.set_meta(&"chill_shader_time", phase)
+	u.set_meta(&"chill_shader_time_scale", scale)
+
+	# Use any of these in the shader instead of raw TIME to desync jitter.
+	sm.set_shader_parameter("instance_seed", base_seed)
+	sm.set_shader_parameter("ice_seed", base_seed)
+	sm.set_shader_parameter("jitter_seed", base_seed)
+	sm.set_shader_parameter("seed", base_seed)
+	sm.set_shader_parameter("phase_offset", phase)
+	sm.set_shader_parameter("time_offset", phase)
+	sm.set_shader_parameter("jitter_phase", phase)
+	sm.set_shader_parameter("ice_phase", phase)
+	sm.set_shader_parameter("time_scale", scale)
+	sm.set_shader_parameter("jitter_time_scale", scale)
+	sm.set_shader_parameter("local_time", phase)
+	sm.set_shader_parameter("ice_time", phase)
+
+func _update_chill_shader_local_times(delta: float) -> void:
+	if not has_method("get_all_units"):
+		return
+	for u in get_all_units():
+		if u == null or not is_instance_valid(u):
+			continue
+		if int(u.get_meta(&"chilled_turns", 0)) <= 0:
+			continue
+		if not u.has_meta(&"chill_material_instance"):
+			continue
+		var mat := u.get_meta(&"chill_material_instance") as Material
+		if not (mat is ShaderMaterial):
+			continue
+		var t := float(u.get_meta(&"chill_shader_time", 0.0))
+		var scale := float(u.get_meta(&"chill_shader_time_scale", 1.0))
+		t += delta * scale
+		u.set_meta(&"chill_shader_time", t)
+		var sm := mat as ShaderMaterial
+		sm.set_shader_parameter("local_time", t)
+		sm.set_shader_parameter("ice_time", t)
 
 func _is_scene_path_already_on_map(scene_path: String) -> bool:
 	for u in get_all_units():

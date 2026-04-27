@@ -20,6 +20,12 @@ class_name IceZombie
 # internal
 var _ice_active := true
 
+# Desync shader-driven ice jitter so every IceZombie does not pulse on the same frame.
+var _ice_shader_time := 0.0
+var _ice_shader_time_offset := 0.0
+var _ice_shader_time_scale := 1.0
+var _ice_shader_mat: ShaderMaterial = null
+
 func _ready() -> void:
 	super._ready()
 
@@ -35,6 +41,47 @@ func _ready() -> void:
 	var ci := _get_render_item()
 	if ci != null:
 		ci.modulate = ci.modulate.lerp(Color(0.55, 0.85, 1.0, 1.0), ice_tint_strength)
+		_make_ice_shader_unique(ci)
+
+func _process(delta: float) -> void:
+	super._process(delta)
+	_update_ice_shader_time(delta)
+
+func _make_ice_shader_unique(ci: CanvasItem) -> void:
+	if ci == null or not is_instance_valid(ci):
+		return
+	if not (ci.material is ShaderMaterial):
+		return
+
+	# Scene materials are often shared. Duplicate first so parameters are per zombie.
+	var sm := (ci.material as ShaderMaterial).duplicate(true) as ShaderMaterial
+	ci.material = sm
+	_ice_shader_mat = sm
+
+	var base_seed := float(get_instance_id() % 100000)
+	_ice_shader_time_offset = randf_range(0.0, 1000.0) + base_seed * 0.013
+	_ice_shader_time_scale = randf_range(0.82, 1.18)
+	_ice_shader_time = _ice_shader_time_offset
+
+	# These names are intentionally broad: use whichever one your ice shader reads.
+	sm.set_shader_parameter("instance_seed", base_seed)
+	sm.set_shader_parameter("ice_seed", base_seed)
+	sm.set_shader_parameter("jitter_seed", base_seed)
+	sm.set_shader_parameter("seed", base_seed)
+	sm.set_shader_parameter("phase_offset", _ice_shader_time_offset)
+	sm.set_shader_parameter("time_offset", _ice_shader_time_offset)
+	sm.set_shader_parameter("jitter_phase", _ice_shader_time_offset)
+	sm.set_shader_parameter("ice_phase", _ice_shader_time_offset)
+	sm.set_shader_parameter("time_scale", _ice_shader_time_scale)
+	sm.set_shader_parameter("jitter_time_scale", _ice_shader_time_scale)
+	sm.set_shader_parameter("local_time", _ice_shader_time)
+
+func _update_ice_shader_time(delta: float) -> void:
+	if _ice_shader_mat == null or not is_instance_valid(_ice_shader_mat):
+		return
+	_ice_shader_time += delta * _ice_shader_time_scale
+	_ice_shader_mat.set_shader_parameter("local_time", _ice_shader_time)
+	_ice_shader_mat.set_shader_parameter("ice_time", _ice_shader_time)
 
 # ---------------------------------------------------------
 # Hooks you call from TurnManager / MapController
