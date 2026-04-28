@@ -363,26 +363,15 @@ func _default_story_bbcode() -> String:
 	var s := ""
 	s += "[b]MISSION: SIGNAL 7 // BEACON FALL[/b]\n\n"
 
-	s += "The uplink cities are silent.\n"
-	s += "Only road relays still broadcast.\n"
-	s += "The infection owns everything else.\n\n"
-
-	s += "You command the last salvage squad.\n"
-	s += "Your job: rebuild the beacon.\n\n"
-
 	s += "How to win:\n"
-	s += "1. Destroy infected to recover disk fragments.\n"
-	s += "2. Collect enough fragments to assemble the beacon.\n"
-	s += "3. Move a squad member onto the beacon to begin upload.\n"
-	s += "4. Hold position until the satellite sweep completes.\n\n"
-
-	s += "[i]When the sweep fires, every infected signal is erased.[/i]\n\n"
+	s += "1. Destroy zombies to recover floppy disks.\n"
+	s += "2. Collect enough floppies to activate the beacon.\n"
+	s += "3. Move a squad member onto the beacon to trigger satellite.\n\n"
 
 	s += "How to lose:\n"
 	s += "1. All squad members are killed.\n"
 	s += "2. The swarm overruns the zone.\n\n"
 
-	s += "[i]Drop window open. Good luck, salvage crew.[/i]\n"
 	return s
 
 func _start_bg_cycle() -> void:

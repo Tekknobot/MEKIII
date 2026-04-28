@@ -386,6 +386,7 @@ theme_override_font_sizes/font_size = 32
 text = "RESTART"
 
 [node name="CoopRow" type="HBoxContainer" parent="Center/PanelContainer/MarginContainer/VBoxContainer" unique_id=137754775]
+visible = false
 layout_mode = 2
 alignment = 1
 
@@ -410,6 +411,7 @@ theme_override_font_sizes/font_size = 20
 text = "CO-OP JOIN"
 
 [node name="CoopStatus" type="Label" parent="Center/PanelContainer/MarginContainer/VBoxContainer" unique_id=666563523]
+visible = false
 layout_mode = 2
 theme_override_fonts/font = ExtResource("2_sa3yf")
 theme_override_font_sizes/font_size = 18
@@ -420,21 +422,21 @@ horizontal_alignment = 1
 z_index = 4096
 custom_minimum_size = Vector2(120, 120)
 layout_mode = 1
-anchors_preset = 1
-anchor_left = 1.0
-anchor_right = 1.0
-offset_left = -249.0
-offset_top = 21.0
-offset_right = -129.0
-offset_bottom = 141.0
-grow_horizontal = 0
+anchors_preset = 5
+anchor_left = 0.5
+anchor_right = 0.5
+offset_left = -576.0
+offset_top = 278.0
+offset_right = 576.0
+offset_bottom = 398.0
+grow_horizontal = 2
 
 [node name="PanelContainer" type="PanelContainer" parent="StoryClip" unique_id=488946169]
 layout_mode = 0
-offset_left = 3.0
-offset_top = -16.0
-offset_right = 244.0
-offset_bottom = 451.0
+offset_left = 382.0
+offset_top = 3.0
+offset_right = 802.0
+offset_bottom = 470.0
 theme_override_styles/panel = SubResource("StyleBoxFlat_12ga3")
 
 [node name="MarginContainer" type="MarginContainer" parent="StoryClip/PanelContainer" unique_id=1924065060]
