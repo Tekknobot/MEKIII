@@ -1,5 +1,9 @@
 extends Control
 
+
+@export var unlock_all_units: bool = false
+
+
 @export var game_scene: PackedScene = preload("res://scenes/squad_deploy_screen.tscn")
 @export var title_scene: PackedScene = preload("res://scenes/title_screen.tscn")
 @export var continue_scene: PackedScene
@@ -148,6 +152,10 @@ func _ready() -> void:
 	
 	_build_reset_prompt()
 	_update_coop_status()
+	
+	# Unlock units
+	if unlock_all_units:
+		rs.unlock_all_roster()	
 
 func _update_coop_status() -> void:
 	if coop_status == null:

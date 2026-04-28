@@ -1,4 +1,4 @@
-[gd_scene load_steps=123 format=3 uid="uid://bmtwqbsx674eo"]
+[gd_scene format=3 uid="uid://bmtwqbsx674eo"]
 
 [ext_resource type="Script" uid="uid://bn08mhcoceqg" path="res://scripts/game.gd" id="1_400sg"]
 [ext_resource type="Texture2D" uid="uid://bktpplbikmno4" path="res://sprites/Terrain/biomes/overgrown_urban/overgrown_aged_dirt2.png" id="2_8cbmg"]
@@ -309,7 +309,7 @@ shader_parameter/vignette_softness = 0.8
 shader_parameter/chromatic_aberration = 0.5
 shader_parameter/shake_amount = 0.0
 
-[node name="Game" type="Node2D" node_paths=PackedStringArray("camera") groups=["GameMap"]]
+[node name="Game" type="Node2D" unique_id=411063447 node_paths=PackedStringArray("camera") groups=["GameMap"]]
 script = ExtResource("1_400sg")
 override_dirt_tex = ExtResource("2_8cbmg")
 override_sandstone_tex = ExtResource("3_il60g")
@@ -334,49 +334,49 @@ rain_tile_scene = ExtResource("6_ltxvx")
 snow_tile_scene = ExtResource("7_pf47n")
 fog_tile_scene = ExtResource("8_nj61y")
 
-[node name="StarryNight" parent="." instance=ExtResource("20_sv1m6")]
+[node name="StarryNight" parent="." unique_id=1811549990 instance=ExtResource("20_sv1m6")]
 z_index = -4096
 position = Vector2(7, 8)
 
-[node name="Structures" type="Node2D" parent="."]
+[node name="Structures" type="Node2D" parent="." unique_id=386319669]
 
-[node name="Overlays" type="Node2D" parent="."]
+[node name="Overlays" type="Node2D" parent="." unique_id=892408718]
 z_as_relative = false
 
-[node name="Cursor" parent="." node_paths=PackedStringArray("tilemap", "map_controller") instance=ExtResource("7_bneo8")]
+[node name="Cursor" parent="." unique_id=191924079 node_paths=PackedStringArray("tilemap", "map_controller") instance=ExtResource("7_bneo8")]
 tilemap = NodePath("../Terrain")
 map_controller = NodePath("..")
 highlight_texture = ExtResource("11_2rd6h")
 mouse_offset = Vector2(0, 8)
 cursor_z_base = -1
 
-[node name="Highlight" type="TileMap" parent="."]
+[node name="Highlight" type="TileMap" parent="." unique_id=31658228]
 tile_set = SubResource("TileSet_3xj3m")
 format = 2
 layer_0/modulate = Color(0.09803922, 0.09803922, 0.09803922, 1)
 
-[node name="RoadsDL" type="TileMap" parent="."]
+[node name="RoadsDL" type="TileMap" parent="." unique_id=1046596857]
 modulate = Color(0.5877506, 0.58775055, 0.5877505, 1)
 tile_set = SubResource("TileSet_pn7ev")
 format = 2
 layer_0/modulate = Color(0.60784316, 0.60784316, 0.60784316, 1)
 layer_1/name = "Layer1"
 
-[node name="RoadsDR" type="TileMap" parent="."]
+[node name="RoadsDR" type="TileMap" parent="." unique_id=161522231]
 modulate = Color(0.5877506, 0.58775055, 0.5877505, 1)
 tile_set = SubResource("TileSet_pn7ev")
 format = 2
 layer_0/modulate = Color(0.60784316, 0.60784316, 0.60784316, 1)
 layer_1/name = "Layer1"
 
-[node name="RoadsX" type="TileMap" parent="."]
+[node name="RoadsX" type="TileMap" parent="." unique_id=2062879113]
 modulate = Color(0.5877506, 0.58775055, 0.5877505, 1)
 tile_set = SubResource("TileSet_pn7ev")
 format = 2
 layer_0/modulate = Color(0.60784316, 0.60784316, 0.60784316, 1)
 layer_1/name = "Layer1"
 
-[node name="Terrain" type="TileMap" parent="."]
+[node name="Terrain" type="TileMap" parent="." unique_id=323173766]
 modulate = Color(0.5877506, 0.58775055, 0.5877505, 1)
 z_index = -1
 z_as_relative = false
@@ -385,31 +385,31 @@ format = 2
 layer_0/modulate = Color(0.60784316, 0.60784316, 0.60784316, 1)
 layer_1/name = "Layer1"
 
-[node name="MoveRange" type="TileMap" parent="."]
+[node name="MoveRange" type="TileMap" parent="." unique_id=1265495567]
 z_index = 1
 z_as_relative = false
 tile_set = SubResource("TileSet_kyk2p")
 format = 2
 
-[node name="AttackRangeSmall" type="TileMap" parent="."]
+[node name="AttackRangeSmall" type="TileMap" parent="." unique_id=883003988]
 z_index = 1
 z_as_relative = false
 tile_set = SubResource("TileSet_bneo8")
 format = 2
 
-[node name="AttackRangeBig" type="TileMap" parent="."]
+[node name="AttackRangeBig" type="TileMap" parent="." unique_id=199052347]
 z_index = 1
 z_as_relative = false
 tile_set = SubResource("TileSet_bneo8")
 format = 2
 
-[node name="MinePreview" type="TileMap" parent="."]
+[node name="MinePreview" type="TileMap" parent="." unique_id=1218071515]
 z_index = 1
 z_as_relative = false
 tile_set = SubResource("TileSet_bneo8")
 format = 2
 
-[node name="Camera2D" type="Camera2D" parent="."]
+[node name="Camera2D" type="Camera2D" parent="." unique_id=1997194255]
 zoom = Vector2(2, 2)
 script = ExtResource("8_400sg")
 follow_enabled = true
@@ -418,9 +418,9 @@ titan_cinematic_enabled = true
 titan_reveal_pan_px = 80.0
 titan_reveal_time = 5.0
 
-[node name="Units" type="Node2D" parent="."]
+[node name="Units" type="Node2D" parent="." unique_id=1102956547]
 
-[node name="TurnManager" type="Node2D" parent="."]
+[node name="TurnManager" type="Node2D" parent="." unique_id=869308012]
 script = ExtResource("24_jai3c")
 map_controller_path = NodePath("../MapController")
 end_turn_button_path = NodePath("../UI/EndTurnButton")
@@ -438,11 +438,11 @@ titan_turns_to_survive = 50
 titan_mech_scene = ExtResource("29_nc8ee")
 titan_explosion_scene = ExtResource("32_426vi")
 
-[node name="Pickups" type="Node2D" parent="."]
+[node name="Pickups" type="Node2D" parent="." unique_id=1006941109]
 z_index = 2
 z_as_relative = false
 
-[node name="MapController" type="Node2D" parent="." node_paths=PackedStringArray("camera") groups=["MapController"]]
+[node name="MapController" type="Node2D" parent="." unique_id=760440773 node_paths=PackedStringArray("camera") groups=["MapController"]]
 script = ExtResource("24_ocgqw")
 debug_net = true
 debug_trace = true
@@ -522,28 +522,28 @@ evac_lift_px = 10.0
 threat_tile_scene = ExtResource("64_8fcgb")
 enemy_outline_shader = ExtResource("73_cf8r5")
 
-[node name="FloatLayer" type="CanvasLayer" parent="MapController"]
+[node name="FloatLayer" type="CanvasLayer" parent="MapController" unique_id=151615120]
 
-[node name="FloatRoot" type="Control" parent="MapController/FloatLayer"]
+[node name="FloatRoot" type="Control" parent="MapController/FloatLayer" unique_id=118126557]
 layout_mode = 3
 anchors_preset = 0
 offset_right = 40.0
 offset_bottom = 40.0
 
-[node name="AudioStreamPlayer2D" type="AudioStreamPlayer2D" parent="MapController"]
+[node name="AudioStreamPlayer2D" type="AudioStreamPlayer2D" parent="MapController" unique_id=729848609]
 
-[node name="TutorialManager" type="Node2D" parent="." groups=["TutorialManager"]]
+[node name="TutorialManager" type="Node2D" parent="." unique_id=1023037354 groups=["TutorialManager"]]
 script = ExtResource("49_0wf52")
 map_controller_path = NodePath("../MapController")
 turn_manager_path = NodePath("../TurnManager")
 toast_path = NodePath("../UI/HUD/TutorialToast")
 end_game_panel_path = NodePath("../UI/EndGamePanelRuntime")
 
-[node name="UI" type="CanvasLayer" parent="."]
+[node name="UI" type="CanvasLayer" parent="." unique_id=405117777]
 
-[node name="FadeLayer" type="CanvasLayer" parent="UI"]
+[node name="FadeLayer" type="CanvasLayer" parent="UI" unique_id=523023685]
 
-[node name="ColorRect" type="ColorRect" parent="UI/FadeLayer"]
+[node name="ColorRect" type="ColorRect" parent="UI/FadeLayer" unique_id=170662023]
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
@@ -552,7 +552,7 @@ grow_vertical = 2
 mouse_filter = 1
 color = Color(0, 0, 0, 1)
 
-[node name="EndGamePanelRuntime" type="CanvasLayer" parent="UI"]
+[node name="EndGamePanelRuntime" type="CanvasLayer" parent="UI" unique_id=1062146250]
 script = ExtResource("51_3ugab")
 title_font = ExtResource("52_px4p2")
 body_font = ExtResource("53_x0rj3")
@@ -562,11 +562,12 @@ body_font_size = 16
 button_font_size = 16
 desc_font = ExtResource("53_x0rj3")
 
-[node name="HUD" parent="UI" groups=["HUD"] instance=ExtResource("55_kg1ax")]
+[node name="HUD" parent="UI" unique_id=1727659357 groups=["HUD"] instance=ExtResource("55_kg1ax")]
 
-[node name="TutorialToast" parent="UI/HUD" instance=ExtResource("50_3pold")]
+[node name="TutorialToast" parent="UI/HUD" unique_id=190929788 instance=ExtResource("50_3pold")]
 
-[node name="ViewportShader" type="ColorRect" parent="UI"]
+[node name="ViewportShader" type="ColorRect" parent="UI" unique_id=425530697]
+visible = false
 material = SubResource("ShaderMaterial_ochta")
 custom_minimum_size = Vector2(1152, 643)
 anchors_preset = 15
@@ -580,7 +581,7 @@ grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 2
 
-[node name="EndTurnButton" type="Button" parent="UI"]
+[node name="EndTurnButton" type="Button" parent="UI" unique_id=186574322]
 anchors_preset = 3
 anchor_left = 1.0
 anchor_top = 1.0
@@ -596,7 +597,7 @@ theme_override_fonts/font = ExtResource("32_1gdd5")
 theme_override_font_sizes/font_size = 32
 text = "End Turn"
 
-[node name="MenuButton" type="Button" parent="UI"]
+[node name="MenuButton" type="Button" parent="UI" unique_id=1416411337]
 anchors_preset = 1
 anchor_left = 1.0
 anchor_right = 1.0
@@ -609,15 +610,15 @@ theme_override_fonts/font = ExtResource("32_1gdd5")
 theme_override_font_sizes/font_size = 32
 text = "Menu"
 
-[node name="Bubbles" type="Control" parent="UI"]
+[node name="Bubbles" type="Control" parent="UI" unique_id=1999365826]
 layout_mode = 3
 anchors_preset = 0
 offset_right = 40.0
 offset_bottom = 40.0
 
-[node name="BubbleVoice" type="AudioStreamPlayer2D" parent="UI/Bubbles"]
+[node name="BubbleVoice" type="AudioStreamPlayer2D" parent="UI/Bubbles" unique_id=1330900482]
 
-[node name="Hellfire" type="Button" parent="." groups=["SpecialButton"]]
+[node name="Hellfire" type="Button" parent="." unique_id=2011095181 groups=["SpecialButton"]]
 visible = false
 z_index = 4096
 anchors_preset = 7
@@ -635,7 +636,7 @@ theme_override_fonts/font = ExtResource("32_1gdd5")
 theme_override_font_sizes/font_size = 32
 text = "Hellfire"
 
-[node name="Blade" type="Button" parent="." groups=["SpecialButton"]]
+[node name="Blade" type="Button" parent="." unique_id=1489960407 groups=["SpecialButton"]]
 visible = false
 z_index = 4096
 anchors_preset = 7
@@ -653,7 +654,7 @@ theme_override_fonts/font = ExtResource("32_1gdd5")
 theme_override_font_sizes/font_size = 32
 text = "Blade"
 
-[node name="Overcharge" type="Button" parent="." groups=["SpecialButton"]]
+[node name="Overcharge" type="Button" parent="." unique_id=1903538804 groups=["SpecialButton"]]
 visible = false
 z_index = 4096
 anchors_preset = 7
@@ -671,7 +672,7 @@ theme_override_fonts/font = ExtResource("32_1gdd5")
 theme_override_font_sizes/font_size = 32
 text = "Overcharge"
 
-[node name="Mines" type="Button" parent="." groups=["SpecialButton"]]
+[node name="Mines" type="Button" parent="." unique_id=1930180928 groups=["SpecialButton"]]
 visible = false
 z_index = 4096
 anchors_preset = 7
@@ -690,7 +691,7 @@ theme_override_font_sizes/font_size = 32
 text = "Mines
 "
 
-[node name="Supress" type="Button" parent="." groups=["SpecialButton"]]
+[node name="Supress" type="Button" parent="." unique_id=785279429 groups=["SpecialButton"]]
 visible = false
 z_index = 4096
 anchors_preset = 7
@@ -708,7 +709,7 @@ theme_override_fonts/font = ExtResource("32_1gdd5")
 theme_override_font_sizes/font_size = 32
 text = "Supress"
 
-[node name="Stimpack" type="Button" parent="." groups=["SpecialButton"]]
+[node name="Stimpack" type="Button" parent="." unique_id=1761396919 groups=["SpecialButton"]]
 visible = false
 z_index = 4096
 anchors_preset = 7
@@ -727,7 +728,7 @@ theme_override_font_sizes/font_size = 32
 text = "Stimpack
 "
 
-[node name="Sunder" type="Button" parent="." groups=["SpecialButton"]]
+[node name="Sunder" type="Button" parent="." unique_id=119098649 groups=["SpecialButton"]]
 visible = false
 z_index = 4096
 anchors_preset = 7
@@ -746,7 +747,7 @@ theme_override_font_sizes/font_size = 32
 text = "Sunder
 "
 
-[node name="Volley" type="Button" parent="." groups=["SpecialButton"]]
+[node name="Volley" type="Button" parent="." unique_id=888394544 groups=["SpecialButton"]]
 visible = false
 z_index = 4096
 anchors_preset = 7
@@ -765,7 +766,7 @@ theme_override_font_sizes/font_size = 32
 text = "Volley
 "
 
-[node name="Pounce" type="Button" parent="." groups=["SpecialButton"]]
+[node name="Pounce" type="Button" parent="." unique_id=1132343301 groups=["SpecialButton"]]
 visible = false
 z_index = 4096
 anchors_preset = 7
@@ -784,7 +785,7 @@ theme_override_font_sizes/font_size = 32
 text = "Pounce
 "
 
-[node name="Cannon" type="Button" parent="." groups=["SpecialButton"]]
+[node name="Cannon" type="Button" parent="." unique_id=502205830 groups=["SpecialButton"]]
 visible = false
 z_index = 4096
 anchors_preset = 7
@@ -802,7 +803,7 @@ theme_override_fonts/font = ExtResource("32_1gdd5")
 theme_override_font_sizes/font_size = 32
 text = "Cannon"
 
-[node name="Quake" type="Button" parent="." groups=["SpecialButton"]]
+[node name="Quake" type="Button" parent="." unique_id=116756645 groups=["SpecialButton"]]
 visible = false
 z_index = 4096
 anchors_preset = 7
@@ -820,7 +821,7 @@ theme_override_fonts/font = ExtResource("32_1gdd5")
 theme_override_font_sizes/font_size = 32
 text = "Quake"
 
-[node name="Nova" type="Button" parent="." groups=["SpecialButton"]]
+[node name="Nova" type="Button" parent="." unique_id=713436159 groups=["SpecialButton"]]
 visible = false
 z_index = 4096
 anchors_preset = 7
@@ -838,7 +839,7 @@ theme_override_fonts/font = ExtResource("32_1gdd5")
 theme_override_font_sizes/font_size = 32
 text = "Nova"
 
-[node name="Sweep" type="Button" parent="." groups=["SpecialButton"]]
+[node name="Sweep" type="Button" parent="." unique_id=1243386783 groups=["SpecialButton"]]
 visible = false
 z_index = 4096
 anchors_preset = 7
@@ -856,7 +857,7 @@ theme_override_fonts/font = ExtResource("32_1gdd5")
 theme_override_font_sizes/font_size = 32
 text = "Sweep"
 
-[node name="Malfunction" type="Button" parent="." groups=["SpecialButton"]]
+[node name="Malfunction" type="Button" parent="." unique_id=896145052 groups=["SpecialButton"]]
 visible = false
 z_index = 4096
 anchors_preset = 7
@@ -874,7 +875,7 @@ theme_override_fonts/font = ExtResource("32_1gdd5")
 theme_override_font_sizes/font_size = 32
 text = "Malfunction"
 
-[node name="Railgun" type="Button" parent="." groups=["SpecialButton"]]
+[node name="Railgun" type="Button" parent="." unique_id=1582747350 groups=["SpecialButton"]]
 visible = false
 z_index = 4096
 anchors_preset = 7
@@ -892,7 +893,7 @@ theme_override_fonts/font = ExtResource("32_1gdd5")
 theme_override_font_sizes/font_size = 32
 text = "Railgun"
 
-[node name="Watcher" type="Button" parent="." groups=["SpecialButton"]]
+[node name="Watcher" type="Button" parent="." unique_id=391788828 groups=["SpecialButton"]]
 visible = false
 z_index = 4096
 anchors_preset = 7
@@ -910,7 +911,7 @@ theme_override_fonts/font = ExtResource("32_1gdd5")
 theme_override_font_sizes/font_size = 32
 text = "Watcher"
 
-[node name="Strike" type="Button" parent="." groups=["SpecialButton"]]
+[node name="Strike" type="Button" parent="." unique_id=174099887 groups=["SpecialButton"]]
 visible = false
 z_index = 4096
 anchors_preset = 7
@@ -928,7 +929,7 @@ theme_override_fonts/font = ExtResource("32_1gdd5")
 theme_override_font_sizes/font_size = 32
 text = "Strike"
 
-[node name="Barrage" type="Button" parent="." groups=["SpecialButton"]]
+[node name="Barrage" type="Button" parent="." unique_id=295951216 groups=["SpecialButton"]]
 visible = false
 z_index = 4096
 anchors_preset = 7
@@ -946,7 +947,7 @@ theme_override_fonts/font = ExtResource("32_1gdd5")
 theme_override_font_sizes/font_size = 32
 text = "Barrage"
 
-[node name="Storm" type="Button" parent="." groups=["SpecialButton"]]
+[node name="Storm" type="Button" parent="." unique_id=820388851 groups=["SpecialButton"]]
 visible = false
 z_index = 4096
 anchors_preset = 7
@@ -964,7 +965,7 @@ theme_override_fonts/font = ExtResource("32_1gdd5")
 theme_override_font_sizes/font_size = 32
 text = "Storm"
 
-[node name="Grid" type="Button" parent="." groups=["SpecialButton"]]
+[node name="Grid" type="Button" parent="." unique_id=379988236 groups=["SpecialButton"]]
 visible = false
 z_index = 4096
 anchors_preset = 7
@@ -982,7 +983,7 @@ theme_override_fonts/font = ExtResource("32_1gdd5")
 theme_override_font_sizes/font_size = 32
 text = "Grid"
 
-[node name="Slam" type="Button" parent="." groups=["SpecialButton"]]
+[node name="Slam" type="Button" parent="." unique_id=1308931255 groups=["SpecialButton"]]
 visible = false
 z_index = 4096
 anchors_preset = 7
@@ -1000,7 +1001,7 @@ theme_override_fonts/font = ExtResource("32_1gdd5")
 theme_override_font_sizes/font_size = 32
 text = "Slam"
 
-[node name="Web" type="Button" parent="." groups=["SpecialButton"]]
+[node name="Web" type="Button" parent="." unique_id=1239420518 groups=["SpecialButton"]]
 visible = false
 z_index = 4096
 anchors_preset = 7

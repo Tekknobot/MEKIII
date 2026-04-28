@@ -1198,3 +1198,36 @@ func apply_coop_snapshot(snap: Dictionary) -> void:
 		squad_scene_paths = snap["squad_scene_paths"].duplicate(true)
 	if snap.has("dead_scene_paths") and ("dead_scene_paths" in self):
 		dead_scene_paths = snap["dead_scene_paths"].duplicate(true)
+
+# -------------------------------------------------
+# UNLOCK ALL ROSTER: Unlocks all playable units
+# -------------------------------------------------
+func unlock_all_roster() -> Array[String]:
+	var unlocked_now: Array[String] = []
+
+	var all: Array[String] = UnitRegistry.ALLY_PATHS.duplicate()
+	all = all.filter(func(p): return ResourceLoader.exists(p))
+	all.sort()
+
+	var rng := RandomNumberGenerator.new()
+	rng.seed = int(Time.get_unix_time_from_system())
+
+	for p in all:
+		var sp := str(p)
+
+		if roster_scene_paths.has(sp):
+			continue
+		if dead_scene_paths.has(sp):
+			continue
+
+		roster_scene_paths.append(sp)
+		unlocked_now.append(sp)
+
+		var qs := _roll_starting_quirks(rng)
+		_add_owned_unit(sp, qs)
+
+	rebuild_recruit_pool()
+	save_to_disk()
+
+	print("[RUNSTATE] Unlocked ALL roster units: ", unlocked_now.size())
+	return unlocked_now

@@ -1,4 +1,4 @@
-[gd_scene load_steps=58 format=3 uid="uid://rriol7fhna81"]
+[gd_scene format=3 uid="uid://rriol7fhna81"]
 
 [ext_resource type="Script" uid="uid://q37bmmrkofy5" path="res://scripts/TitleScreen.gd" id="1_fgkus"]
 [ext_resource type="FontFile" uid="uid://buw362wjb8o8d" path="res://fonts/magofonts/mago2.ttf" id="2_sa3yf"]
@@ -230,7 +230,7 @@ sources/2 = SubResource("TileSetAtlasSource_ik0ly")
 sources/1 = SubResource("TileSetAtlasSource_rj300")
 sources/0 = SubResource("TileSetAtlasSource_vgxrf")
 
-[node name="TitleScreen" type="Control"]
+[node name="TitleScreen" type="Control" unique_id=788742879]
 layout_mode = 3
 anchors_preset = 15
 anchor_right = 1.0
@@ -238,6 +238,7 @@ anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
 script = ExtResource("1_fgkus")
+unlock_all_units = true
 fade_time = 1.25
 sick_color_a = Color(0.4862745, 0, 0, 1)
 sick_color_b = Color(0.7137255, 0, 0, 1)
@@ -254,7 +255,7 @@ clouds_b_path = NodePath("CloudsB")
 cloud_textures = Array[Texture2D]([ExtResource("11_ib7db"), ExtResource("12_frs5l")])
 cloud_swap_every = 2.0
 
-[node name="BG" type="TextureRect" parent="."]
+[node name="BG" type="TextureRect" parent="." unique_id=373236995]
 modulate = Color(0.41215247, 0.41215247, 0.41215247, 1)
 z_index = -4096
 material = SubResource("ShaderMaterial_vnqit")
@@ -275,11 +276,11 @@ expand_mode = 1
 script = ExtResource("15_uapth")
 screen_offset = Vector2(0, 64)
 
-[node name="StarryNight" parent="." instance=ExtResource("10_tklts")]
+[node name="StarryNight" parent="." unique_id=108796278 instance=ExtResource("10_tklts")]
 z_index = -4096
 position = Vector2(665, 297)
 
-[node name="CloudsA" type="TextureRect" parent="."]
+[node name="CloudsA" type="TextureRect" parent="." unique_id=1247474045]
 visible = false
 modulate = Color(0.2508181, 0.25081813, 0.2508181, 1)
 z_index = 4096
@@ -291,7 +292,7 @@ offset_right = 1175.222
 offset_bottom = 663.0
 texture = ExtResource("11_ib7db")
 
-[node name="CloudsB" type="TextureRect" parent="."]
+[node name="CloudsB" type="TextureRect" parent="." unique_id=674798703]
 visible = false
 modulate = Color(0.2508181, 0.25081813, 0.2508181, 1)
 z_index = 4096
@@ -303,7 +304,7 @@ offset_right = 1166.222
 offset_bottom = 661.0
 texture = ExtResource("12_frs5l")
 
-[node name="Copyright" type="Label" parent="."]
+[node name="Copyright" type="Label" parent="." unique_id=185275618]
 z_index = 4096
 layout_mode = 1
 anchors_preset = 2
@@ -317,7 +318,7 @@ grow_vertical = 0
 theme_override_fonts/font = ExtResource("2_sa3yf")
 text = "© 2026 -- All Brains Reserved -- Into the Brains"
 
-[node name="Thumbnail" type="TextureRect" parent="."]
+[node name="Thumbnail" type="TextureRect" parent="." unique_id=366376354]
 visible = false
 z_index = 4096
 layout_mode = 0
@@ -328,7 +329,7 @@ offset_bottom = 552.0
 scale = Vector2(3, 3)
 stretch_mode = 2
 
-[node name="Center" type="VBoxContainer" parent="."]
+[node name="Center" type="VBoxContainer" parent="." unique_id=1581234075]
 z_index = 4096
 layout_mode = 1
 anchors_preset = 8
@@ -343,79 +344,79 @@ offset_bottom = -46.0
 grow_horizontal = 2
 grow_vertical = 2
 
-[node name="PanelContainer" type="PanelContainer" parent="Center"]
+[node name="PanelContainer" type="PanelContainer" parent="Center" unique_id=1600096359]
 layout_mode = 2
 theme_override_styles/panel = SubResource("StyleBoxFlat_12ga3")
 
-[node name="MarginContainer" type="MarginContainer" parent="Center/PanelContainer"]
+[node name="MarginContainer" type="MarginContainer" parent="Center/PanelContainer" unique_id=110699207]
 layout_mode = 2
 
-[node name="VBoxContainer" type="VBoxContainer" parent="Center/PanelContainer/MarginContainer"]
+[node name="VBoxContainer" type="VBoxContainer" parent="Center/PanelContainer/MarginContainer" unique_id=1561486924]
 layout_mode = 2
 
-[node name="Title" type="TextureRect" parent="Center/PanelContainer/MarginContainer/VBoxContainer"]
+[node name="Title" type="TextureRect" parent="Center/PanelContainer/MarginContainer/VBoxContainer" unique_id=1978225462]
 material = SubResource("ShaderMaterial_y8m2v")
 custom_minimum_size = Vector2(120, 73)
 layout_mode = 2
 texture = ExtResource("16_6uh13")
 
-[node name="Buttons" type="HBoxContainer" parent="Center/PanelContainer/MarginContainer/VBoxContainer"]
+[node name="Buttons" type="HBoxContainer" parent="Center/PanelContainer/MarginContainer/VBoxContainer" unique_id=280375505]
 layout_mode = 2
 alignment = 1
 
-[node name="StartButton" type="Button" parent="Center/PanelContainer/MarginContainer/VBoxContainer/Buttons"]
+[node name="StartButton" type="Button" parent="Center/PanelContainer/MarginContainer/VBoxContainer/Buttons" unique_id=874778112]
 custom_minimum_size = Vector2(120, 16)
 layout_mode = 2
 theme_override_fonts/font = ExtResource("2_sa3yf")
 theme_override_font_sizes/font_size = 32
 text = "Start"
 
-[node name="QuitButton" type="Button" parent="Center/PanelContainer/MarginContainer/VBoxContainer/Buttons"]
+[node name="QuitButton" type="Button" parent="Center/PanelContainer/MarginContainer/VBoxContainer/Buttons" unique_id=663428844]
 custom_minimum_size = Vector2(120, 16)
 layout_mode = 2
 theme_override_fonts/font = ExtResource("2_sa3yf")
 theme_override_font_sizes/font_size = 32
 text = "Quit"
 
-[node name="RestartButton" type="Button" parent="Center/PanelContainer/MarginContainer/VBoxContainer/Buttons"]
+[node name="RestartButton" type="Button" parent="Center/PanelContainer/MarginContainer/VBoxContainer/Buttons" unique_id=2121450290]
 custom_minimum_size = Vector2(120, 16)
 layout_mode = 2
 theme_override_fonts/font = ExtResource("2_sa3yf")
 theme_override_font_sizes/font_size = 32
 text = "RESTART"
 
-[node name="CoopRow" type="HBoxContainer" parent="Center/PanelContainer/MarginContainer/VBoxContainer"]
+[node name="CoopRow" type="HBoxContainer" parent="Center/PanelContainer/MarginContainer/VBoxContainer" unique_id=137754775]
 layout_mode = 2
 alignment = 1
 
-[node name="CoopAddr" type="LineEdit" parent="Center/PanelContainer/MarginContainer/VBoxContainer/CoopRow"]
+[node name="CoopAddr" type="LineEdit" parent="Center/PanelContainer/MarginContainer/VBoxContainer/CoopRow" unique_id=832730735]
 custom_minimum_size = Vector2(340, 0)
 layout_mode = 2
 text = "ws://127.0.0.1:8910"
 placeholder_text = "ws://HOST_IP:8910"
 
-[node name="CoopHostButton" type="Button" parent="Center/PanelContainer/MarginContainer/VBoxContainer/CoopRow"]
+[node name="CoopHostButton" type="Button" parent="Center/PanelContainer/MarginContainer/VBoxContainer/CoopRow" unique_id=221280833]
 custom_minimum_size = Vector2(140, 16)
 layout_mode = 2
 theme_override_fonts/font = ExtResource("2_sa3yf")
 theme_override_font_sizes/font_size = 20
 text = "CO-OP HOST"
 
-[node name="CoopJoinButton" type="Button" parent="Center/PanelContainer/MarginContainer/VBoxContainer/CoopRow"]
+[node name="CoopJoinButton" type="Button" parent="Center/PanelContainer/MarginContainer/VBoxContainer/CoopRow" unique_id=993695608]
 custom_minimum_size = Vector2(140, 16)
 layout_mode = 2
 theme_override_fonts/font = ExtResource("2_sa3yf")
 theme_override_font_sizes/font_size = 20
 text = "CO-OP JOIN"
 
-[node name="CoopStatus" type="Label" parent="Center/PanelContainer/MarginContainer/VBoxContainer"]
+[node name="CoopStatus" type="Label" parent="Center/PanelContainer/MarginContainer/VBoxContainer" unique_id=666563523]
 layout_mode = 2
 theme_override_fonts/font = ExtResource("2_sa3yf")
 theme_override_font_sizes/font_size = 18
 text = "CO-OP: off"
 horizontal_alignment = 1
 
-[node name="StoryClip" type="Control" parent="."]
+[node name="StoryClip" type="Control" parent="." unique_id=340836574]
 z_index = 4096
 custom_minimum_size = Vector2(120, 120)
 layout_mode = 1
@@ -428,7 +429,7 @@ offset_right = -129.0
 offset_bottom = 141.0
 grow_horizontal = 0
 
-[node name="PanelContainer" type="PanelContainer" parent="StoryClip"]
+[node name="PanelContainer" type="PanelContainer" parent="StoryClip" unique_id=488946169]
 layout_mode = 0
 offset_left = 3.0
 offset_top = -16.0
@@ -436,10 +437,10 @@ offset_right = 244.0
 offset_bottom = 451.0
 theme_override_styles/panel = SubResource("StyleBoxFlat_12ga3")
 
-[node name="MarginContainer" type="MarginContainer" parent="StoryClip/PanelContainer"]
+[node name="MarginContainer" type="MarginContainer" parent="StoryClip/PanelContainer" unique_id=1924065060]
 layout_mode = 2
 
-[node name="Story" type="RichTextLabel" parent="StoryClip/PanelContainer/MarginContainer"]
+[node name="Story" type="RichTextLabel" parent="StoryClip/PanelContainer/MarginContainer" unique_id=1408327849]
 z_index = 4096
 custom_minimum_size = Vector2(120, 120)
 layout_mode = 2
@@ -447,38 +448,38 @@ theme_override_fonts/normal_font = ExtResource("3_mgrm8")
 theme_override_font_sizes/normal_font_size = 16
 bbcode_enabled = true
 
-[node name="Map" type="Node2D" parent="."]
+[node name="Map" type="Node2D" parent="." unique_id=1229273562]
 visible = false
 position = Vector2(563, 304)
 script = ExtResource("14_jr68i")
 building_scenes = Array[PackedScene]([null, ExtResource("15_htdhw"), ExtResource("16_12ga3"), ExtResource("17_yrrko"), ExtResource("18_aidx5")])
 unique_building_scenes = Array[PackedScene]([ExtResource("16_12ga3"), ExtResource("17_yrrko"), ExtResource("18_aidx5")])
 
-[node name="Structures" type="Node2D" parent="Map"]
+[node name="Structures" type="Node2D" parent="Map" unique_id=623666001]
 modulate = Color(0.33163944, 0.33163944, 0.3316394, 1)
 
-[node name="RoadsDL" type="TileMap" parent="Map"]
+[node name="RoadsDL" type="TileMap" parent="Map" unique_id=1999892259]
 modulate = Color(0.32915837, 0.3291584, 0.3291583, 1)
 tile_set = SubResource("TileSet_fef8d")
 format = 2
 layer_0/modulate = Color(0.60784316, 0.60784316, 0.60784316, 1)
 layer_1/name = "Layer1"
 
-[node name="RoadsDR" type="TileMap" parent="Map"]
+[node name="RoadsDR" type="TileMap" parent="Map" unique_id=1269888606]
 modulate = Color(0.32915837, 0.3291584, 0.3291583, 1)
 tile_set = SubResource("TileSet_fef8d")
 format = 2
 layer_0/modulate = Color(0.60784316, 0.60784316, 0.60784316, 1)
 layer_1/name = "Layer1"
 
-[node name="RoadsX" type="TileMap" parent="Map"]
+[node name="RoadsX" type="TileMap" parent="Map" unique_id=2042426306]
 modulate = Color(0.32915837, 0.3291584, 0.3291583, 1)
 tile_set = SubResource("TileSet_fef8d")
 format = 2
 layer_0/modulate = Color(0.60784316, 0.60784316, 0.60784316, 1)
 layer_1/name = "Layer1"
 
-[node name="Terrain" type="TileMap" parent="Map"]
+[node name="Terrain" type="TileMap" parent="Map" unique_id=1144103314]
 modulate = Color(0.32915837, 0.3291584, 0.3291583, 1)
 z_index = -1
 z_as_relative = false
@@ -487,7 +488,7 @@ format = 2
 layer_0/modulate = Color(0.60784316, 0.60784316, 0.60784316, 1)
 layer_1/name = "Layer1"
 
-[node name="Weather" type="Node2D" parent="."]
+[node name="Weather" type="Node2D" parent="." unique_id=1749544895]
 visible = false
 position = Vector2(3, -312)
 script = ExtResource("13_frs5l")
@@ -496,7 +497,7 @@ intensity = 0.5
 wind = Vector2(35, 0)
 follow_camera = false
 
-[node name="Fade" type="ColorRect" parent="."]
+[node name="Fade" type="ColorRect" parent="." unique_id=1407397925]
 z_index = 4096
 layout_mode = 0
 offset_left = -334.0
