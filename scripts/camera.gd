@@ -95,6 +95,72 @@ func _start_titan_reveal() -> void:
 	tw.set_ease(Tween.EASE_IN_OUT)
 	tw.tween_property(self, "global_position", target, titan_reveal_time)
 
+
+# -----------------------------------
+# Enemy-turn cinematic focus sequence
+# -----------------------------------
+@export var enemy_cinematic_enabled := true
+@export var enemy_focus_zoom := 2.65
+@export var enemy_focus_pan_time := 0.28
+@export var enemy_focus_hold_time := 0.16
+@export var enemy_focus_shake_px := 4.0
+@export var enemy_focus_shake_time := 0.10
+@export var enemy_cinematic_return_time := 0.38
+
+var _enemy_cinematic_active := false
+var _enemy_cinematic_saved_position := Vector2.ZERO
+var _enemy_cinematic_saved_zoom := Vector2.ONE
+
+func begin_enemy_cinematic() -> void:
+	if not enemy_cinematic_enabled or _enemy_cinematic_active:
+		return
+	_enemy_cinematic_active = true
+	_enemy_cinematic_saved_position = global_position
+	_enemy_cinematic_saved_zoom = zoom
+	_dragging = false
+	_recentering = false
+
+func cinematic_focus_on(target: Node2D, spawn_reveal := false) -> void:
+	if not enemy_cinematic_enabled or target == null or not is_instance_valid(target):
+		return
+	if not _enemy_cinematic_active:
+		begin_enemy_cinematic()
+
+	var focus_pos := target.global_position
+	# Frame slightly above the unit so attacks/movement remain visible below it.
+	focus_pos += Vector2(0.0, -18.0)
+	var focus_zoom := Vector2.ONE * enemy_focus_zoom
+
+	var pan := create_tween().set_parallel(true)
+	pan.set_trans(Tween.TRANS_QUAD)
+	pan.set_ease(Tween.EASE_IN_OUT)
+	pan.tween_property(self, "global_position", focus_pos, enemy_focus_pan_time)
+	pan.tween_property(self, "zoom", focus_zoom, enemy_focus_pan_time)
+	await pan.finished
+
+	if spawn_reveal:
+		# A compact impact bump gives newly arrived zombies a stronger reveal.
+		var base := global_position
+		var bump := create_tween()
+		bump.set_trans(Tween.TRANS_SINE)
+		bump.set_ease(Tween.EASE_OUT)
+		bump.tween_property(self, "global_position", base + Vector2(enemy_focus_shake_px, -enemy_focus_shake_px), enemy_focus_shake_time * 0.5)
+		bump.tween_property(self, "global_position", base, enemy_focus_shake_time * 0.5)
+		await bump.finished
+
+	await get_tree().create_timer(enemy_focus_hold_time).timeout
+
+func end_enemy_cinematic() -> void:
+	if not _enemy_cinematic_active:
+		return
+	var back := create_tween().set_parallel(true)
+	back.set_trans(Tween.TRANS_SINE)
+	back.set_ease(Tween.EASE_IN_OUT)
+	back.tween_property(self, "global_position", _enemy_cinematic_saved_position, enemy_cinematic_return_time)
+	back.tween_property(self, "zoom", _enemy_cinematic_saved_zoom, enemy_cinematic_return_time)
+	await back.finished
+	_enemy_cinematic_active = false
+
 func _ready() -> void:
 	_zoom_index = clamp(default_zoom_index, 0, zoom_levels.size() - 1)
 	zoom = Vector2.ONE * float(zoom_levels[_zoom_index])

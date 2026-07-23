@@ -6564,7 +6564,13 @@ func _edge_spawn_ok(c: Vector2i, structure_blocked: Dictionary) -> bool:
 		return false
 	return true
 
+var last_edge_spawned_unit: Unit = null
+
+func get_last_edge_spawned_unit() -> Unit:
+	return last_edge_spawned_unit
+
 func spawn_edge_road_zombie() -> bool:
+	last_edge_spawned_unit = null
 	if units_root == null or terrain == null or grid == null:
 		return false
 
@@ -6643,6 +6649,7 @@ func spawn_edge_road_zombie() -> bool:
 
 	z.set_cell(best_cell, terrain)
 	units_by_cell[best_cell] = z
+	last_edge_spawned_unit = z
 	_set_unit_depth_from_world(z, z.global_position)
 
 	# Optional: tag variant for UI/logic

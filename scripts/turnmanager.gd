@@ -1078,6 +1078,29 @@ func _on_loss_restart_pressed() -> void:
 
 
 
+func _battle_camera() -> Camera2D:
+	var vp := get_viewport()
+	if vp == null:
+		return null
+	return vp.get_camera_2d()
+
+func _camera_begin_enemy_cinematic() -> void:
+	var cam := _battle_camera()
+	if cam != null and cam.has_method("begin_enemy_cinematic"):
+		cam.call("begin_enemy_cinematic")
+
+func _camera_focus_enemy(unit: Unit, spawn_reveal := false) -> void:
+	if unit == null or not is_instance_valid(unit):
+		return
+	var cam := _battle_camera()
+	if cam != null and cam.has_method("cinematic_focus_on"):
+		await cam.call("cinematic_focus_on", unit, spawn_reveal)
+
+func _camera_end_enemy_cinematic() -> void:
+	var cam := _battle_camera()
+	if cam != null and cam.has_method("end_enemy_cinematic"):
+		await cam.call("end_enemy_cinematic")
+
 # -----------------------
 # Phase control
 # -----------------------
@@ -1126,6 +1149,8 @@ func start_enemy_phase() -> void:
 			_update_end_turn_button()
 			_update_special_buttons()
 			return
+
+	_camera_begin_enemy_cinematic()
 
 	M.reset_turn_flags_for_enemies()
 	
@@ -1196,6 +1221,10 @@ func start_enemy_phase() -> void:
 				ok = M.call("spawn_edge_road_zombie")
 			if ok:
 				spawned += 1
+				if M.has_method("get_last_edge_spawned_unit"):
+					var spawned_zombie = M.call("get_last_edge_spawned_unit")
+					if spawned_zombie is Unit:
+						await _camera_focus_enemy(spawned_zombie as Unit, true)
 			else:
 				break # no more valid edge cells
 
@@ -1208,6 +1237,8 @@ func start_enemy_phase() -> void:
 		call_deferred("_refresh_population_and_check")
 		if _game_over_triggered:
 			return
+
+	await _camera_end_enemy_cinematic()
 
 	# Advance round counter NOW (enemy phase finished)
 	round_index += 1
@@ -1404,7 +1435,8 @@ func _run_enemy_turns() -> void:
 		i += 1
 		if h != null:
 			h.show_turn_banner("ENEMY %d / %d" % [i, total], "enemy")
-			
+
+		await _camera_focus_enemy(z, false)
 		await _enemy_take_turn(z)
 
 
