@@ -1090,7 +1090,7 @@ func spawn_structures() -> void:
 		candidates[i] = candidates[j]
 		candidates[j] = tmp
 
-	building_count = rng.randi_range(6, 12)
+	building_count = rng.randi_range(12, building_count)
 
 	var placed := 0
 	var tries := 0
