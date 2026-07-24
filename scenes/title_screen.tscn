@@ -356,7 +356,6 @@ layout_mode = 2
 
 [node name="Title" type="TextureRect" parent="Center/PanelContainer/MarginContainer/VBoxContainer" unique_id=1978225462]
 material = SubResource("ShaderMaterial_y8m2v")
-custom_minimum_size = Vector2(120, 73)
 layout_mode = 2
 texture = ExtResource("16_6uh13")
 
@@ -419,6 +418,7 @@ text = "CO-OP: off"
 horizontal_alignment = 1
 
 [node name="StoryClip" type="Control" parent="." unique_id=340836574]
+visible = false
 z_index = 4096
 custom_minimum_size = Vector2(120, 120)
 layout_mode = 1

@@ -80,3 +80,4 @@ res://scripts/weakpoint.gd
 res://scripts/weather_particles.gd
 res://scripts/zombie.gd
 res://scenes/units/allies/car.tscn
+res://scenes/title_screen.tscn
