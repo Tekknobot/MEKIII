@@ -6,8 +6,8 @@ class_name CarBot
 # -------------------------
 @export var portrait_tex: Texture2D = preload("res://sprites/Portraits/dog_port.png")
 @export var thumbnail: Texture2D
-@export var special: String = "DRIVE"
-@export var special_desc: String = "Automatically drives each round, running over zombies."
+@export var specials: Array[String] = ["LANCE", "BURST"]
+@export var special_desc: String = "Plasma Lance: beam and blast one target.\nCobra Burst: three sequential target blasts."
 
 # -------------------------
 # Drive tuning
@@ -212,7 +212,7 @@ func _crush_enemy_if_present(M: MapController, at_cell: Vector2i) -> void:
 		if car_sfx != null:
 			car_sfx.hit(1.0)
 		if M != null and M.has_method("_sfx"):
-			M.call("_sfx", crush_sfx, 1.0, randf_range(0.95, 1.05), M._cell_world(at_cell))
+			M.call("_sfx", crush_sfx, 1.0, randf_range(0.95, 1.05), M._cell_target_world(at_cell))
 
 # ------------------------------------------------------------
 # Call this the same way you call RecruitBot.auto_support_action(M)
@@ -839,3 +839,125 @@ func _cell_has_avoid_unit(M: MapController, c: Vector2i) -> bool:
 		return _is_avoid_unit(occ)
 
 	return false
+
+
+# ============================================================
+# DEDICATED SPECIALS: COBRUH AI
+# HUD IDs: lance = Plasma Lance, burst = Cobra Burst.
+# All targeting lines descend from the sky instead of firing from the unit.
+# ============================================================
+@export var plasma_lance_range := 7
+@export var plasma_lance_damage := 3
+@export var plasma_lance_charge_time := 0.22
+@export var cobra_burst_range := 6
+@export var cobra_burst_damage := 2
+@export var cobra_burst_delay := 0.12
+@export_range(1, 8, 1) var cobra_burst_hits := 8
+@export var special_sky_height := 280.0
+@export var special_sky_angle_x := 150.0
+
+func get_available_specials() -> Array[String]:
+	return ["LANCE", "BURST"]
+
+func get_special_range(id: String) -> int:
+	var sid := id.to_lower().replace(" ", "_")
+	if sid == "lance":
+		return plasma_lance_range
+	if sid == "burst":
+		return cobra_burst_range
+	return 0
+
+func can_use_special(_id: String) -> bool:
+	return hp > 0 and not _dying and not _driving
+
+func perform_lance(M: MapController, target_cell: Vector2i) -> void:
+	if M == null or not is_instance_valid(M) or not can_use_special("lance"):
+		return
+	if M.grid == null or not M.grid.in_bounds(target_cell):
+		return
+	if abs(target_cell.x - cell.x) + abs(target_cell.y - cell.y) > plasma_lance_range:
+		return
+
+	# LANCE hits every living enemy within range of Cobruh.
+	var victims: Array[Unit] = []
+	var beams: Array[Line2D] = []
+	for enemy in M.get_all_enemies():
+		if enemy == null or not is_instance_valid(enemy) or enemy.hp <= 0:
+			continue
+		if abs(enemy.cell.x - cell.x) + abs(enemy.cell.y - cell.y) > plasma_lance_range:
+			continue
+		victims.append(enemy)
+		beams.append(_special_make_sky_line(M, enemy.cell, Color(1.0, 0.18, 0.08, 0.95), 1.0))
+
+	if victims.is_empty():
+		return
+
+	await get_tree().create_timer(plasma_lance_charge_time).timeout
+	if M == null or not is_instance_valid(M):
+		return
+
+	for victim in victims:
+		if victim == null or not is_instance_valid(victim) or victim.hp <= 0:
+			continue
+		var impact_cell := victim.cell
+		if not M.coop_visual_only():
+			victim.take_damage(plasma_lance_damage + attack_damage)
+		M.spawn_explosion_at_cell(impact_cell)
+		if M.has_method("_apply_structure_splash_damage"):
+			M.call("_apply_structure_splash_damage", impact_cell, 0, 1)
+
+	for beam in beams:
+		_special_fade_line(beam)
+
+func perform_burst(M: MapController, target_cell: Vector2i) -> void:
+	if M == null or not is_instance_valid(M) or not can_use_special("burst"):
+		return
+	if M.grid == null or not M.grid.in_bounds(target_cell):
+		return
+	if abs(target_cell.x - cell.x) + abs(target_cell.y - cell.y) > cobra_burst_range:
+		return
+
+	var offsets: Array[Vector2i] = [
+		Vector2i.ZERO,
+		Vector2i(1, 0), Vector2i(-1, 0),
+		Vector2i(0, 1), Vector2i(0, -1),
+		Vector2i(1, 1), Vector2i(-1, 1), Vector2i(1, -1)
+	]
+	var hit_count := mini(cobra_burst_hits, offsets.size())
+	for i in range(hit_count):
+		var off := offsets[i]
+		var c := target_cell + off
+		if not M.grid.in_bounds(c):
+			continue
+		var warning := _special_make_sky_line(M, c, Color(1.0, 0.55, 0.08, 0.75), 2.0)
+		await get_tree().create_timer(cobra_burst_delay).timeout
+		var victim := M.unit_at_cell(c)
+		if victim != null and is_instance_valid(victim) and victim.team != team and not M.coop_visual_only():
+			victim.take_damage(cobra_burst_damage + attack_damage)
+		M.spawn_explosion_at_cell(c)
+		if M.has_method("_apply_structure_splash_damage"):
+			M.call("_apply_structure_splash_damage", c, 0, 1)
+		_special_fade_line(warning)
+
+func _special_make_sky_line(M: MapController, to_cell: Vector2i, color: Color, width: float) -> Line2D:
+	var impact: Vector2 = M._cell_target_world(to_cell)
+	var side := -1.0 if ((to_cell.x + to_cell.y) % 2 == 0) else 1.0
+	var sky: Vector2 = impact + Vector2(special_sky_angle_x * side, -special_sky_height)
+	var line := Line2D.new()
+	line.width = 1.0
+	line.default_color = color
+	line.antialiased = false
+	line.z_index = 5000
+	line.add_point(sky)
+	line.add_point(impact)
+	M.add_child(line)
+	if M.has_method("_sfx"):
+		M.call("_sfx", &"sat_laser")
+	return line
+
+func _special_fade_line(line: Line2D) -> void:
+	if line == null or not is_instance_valid(line):
+		return
+	var tw := line.create_tween()
+	tw.tween_property(line, "modulate:a", 0.0, 0.16)
+	tw.finished.connect(line.queue_free)

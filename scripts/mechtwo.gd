@@ -6,8 +6,8 @@ class_name RecruitBot
 # -------------------------
 @export var portrait_tex: Texture2D = preload("res://sprites/Portraits/dog_port.png")
 @export var thumbnail: Texture2D
-@export var special: String = "MISSILE"
-@export var special_desc: String = "Fire missiles at enemies after every round if in range."
+@export var specials: Array[String] = ["MORTAR", "ROCKET"]
+@export var special_desc: String = "Mortar Strike: one delayed area blast.\nRocket Barrage: three targeted explosions."
 
 
 @export var missile_range := 8
@@ -254,3 +254,151 @@ func play_death_anim() -> void:
 		await get_tree().create_timer(0.6).timeout
 
 	queue_free()
+
+
+# ============================================================
+# DEDICATED SPECIALS: DESTROYER AI / MECHTWO
+# HUD IDs: mortar = Mortar Strike, rocket = Rocket Barrage.
+# Warning/render lines descend from the sky.
+# ============================================================
+@export var mortar_range := 8
+@export var mortar_damage := 3
+@export var mortar_radius := 1
+@export var mortar_warning_time := 0.35
+@export var rocket_barrage_range := 8
+@export var rocket_barrage_damage := 2
+@export var rocket_barrage_stagger := 0.16
+@export_range(1, 8, 1) var rocket_barrage_hits := 8
+@export var special_sky_height := 300.0
+@export var special_sky_angle_x := 165.0
+
+func get_available_specials() -> Array[String]:
+	return ["MORTAR", "ROCKET"]
+
+func get_special_range(id: String) -> int:
+	var sid := id.to_lower().replace(" ", "_")
+	if sid == "mortar":
+		return mortar_range
+	if sid == "rocket":
+		return rocket_barrage_range
+	return 0
+
+func can_use_special(_id: String) -> bool:
+	return hp > 0 and not _dying
+
+func perform_mortar(M: MapController, target_cell: Vector2i) -> void:
+	if M == null or not is_instance_valid(M) or not can_use_special("mortar"):
+		return
+	if M.grid == null or not M.grid.in_bounds(target_cell):
+		return
+	if abs(target_cell.x - cell.x) + abs(target_cell.y - cell.y) > mortar_range:
+		return
+
+	# The clicked tile only confirms the special. MORTAR strikes every living
+	# enemy currently inside the Destroyer's Manhattan range.
+	var targets: Array[Unit] = []
+	for enemy in M.get_all_enemies():
+		if enemy == null or not is_instance_valid(enemy) or enemy.hp <= 0:
+			continue
+		var distance: int = abs(enemy.cell.x - cell.x) + abs(enemy.cell.y - cell.y)
+		if distance <= mortar_range:
+			targets.append(enemy)
+
+	if targets.is_empty():
+		return
+
+	var lines: Array[Line2D] = []
+	for enemy in targets:
+		lines.append(_destroyer_sky_line(
+			M,
+			enemy.cell,
+			Color(1.0, 0.12, 0.06, 0.82),
+			1.0
+		))
+
+	await get_tree().create_timer(mortar_warning_time).timeout
+	for line in lines:
+		if line != null and is_instance_valid(line):
+			line.queue_free()
+
+	if M == null or not is_instance_valid(M):
+		return
+
+	# Resolve one centered laser hit per target. Radius zero prevents one target
+	# from being damaged repeatedly by overlapping mortar splashes.
+	for enemy in targets:
+		if enemy == null or not is_instance_valid(enemy) or enemy.hp <= 0:
+			continue
+		var hit_cell: Vector2i = enemy.cell
+		M.spawn_explosion_at_cell(hit_cell)
+		await M._apply_splash_damage(hit_cell, 0, mortar_damage + attack_damage)
+		if M.has_method("_apply_structure_splash_damage"):
+			M.call("_apply_structure_splash_damage", hit_cell, 0, 1)
+
+func perform_rocket(M: MapController, target_cell: Vector2i) -> void:
+	if M == null or not is_instance_valid(M) or not can_use_special("rocket"):
+		return
+	if M.grid == null or not M.grid.in_bounds(target_cell):
+		return
+	if abs(target_cell.x - cell.x) + abs(target_cell.y - cell.y) > rocket_barrage_range:
+		return
+
+	var cells: Array[Vector2i] = []
+	var candidates: Array[Vector2i] = [
+		target_cell,
+		target_cell + Vector2i(1, 0), target_cell + Vector2i(-1, 0),
+		target_cell + Vector2i(0, 1), target_cell + Vector2i(0, -1),
+		target_cell + Vector2i(1, 1), target_cell + Vector2i(-1, 1),
+		target_cell + Vector2i(1, -1), target_cell + Vector2i(-1, -1)
+	]
+	for c in candidates:
+		if cells.size() >= rocket_barrage_hits:
+			break
+		if M.grid.in_bounds(c):
+			cells.append(c)
+
+	for c in cells:
+		var line := _destroyer_sky_line(M, c, Color(1.0, 0.42, 0.05, 0.8), 2.0)
+		await get_tree().create_timer(0.18).timeout
+		if line != null and is_instance_valid(line):
+			line.queue_free()
+		M.spawn_explosion_at_cell(c)
+		await M._apply_splash_damage(c, 0, rocket_barrage_damage + attack_damage)
+		if M.has_method("_apply_structure_splash_damage"):
+			M.call("_apply_structure_splash_damage", c, 0, 1)
+		await get_tree().create_timer(rocket_barrage_stagger).timeout
+
+func _destroyer_sky_line(M: MapController, to_cell: Vector2i, color: Color, width: float) -> Line2D:
+	var impact: Vector2 = M._cell_target_world(to_cell)
+	var side := -1.0 if ((to_cell.x + to_cell.y) % 2 == 0) else 1.0
+	var sky: Vector2 = impact + Vector2(special_sky_angle_x * side, -special_sky_height)
+	var line := Line2D.new()
+	line.width = 1.0
+	line.default_color = color
+	line.antialiased = false
+	line.z_index = 5000
+	line.add_point(sky)
+	line.add_point(impact)
+	M.add_child(line)
+	if M.has_method("_sfx"):
+		M.call("_sfx", &"sat_laser")
+	return line
+
+func _destroyer_target_marker(M: MapController, at_cell: Vector2i, color: Color) -> Node2D:
+	var root := Node2D.new()
+	root.global_position = M._cell_target_world(at_cell)
+	root.z_index = 5000
+	var a := Line2D.new()
+	a.width = 1.0
+	a.default_color = color
+	a.add_point(Vector2(-12, -12))
+	a.add_point(Vector2(12, 12))
+	root.add_child(a)
+	var b := Line2D.new()
+	b.width = 1.0
+	b.default_color = color
+	b.add_point(Vector2(-12, 12))
+	b.add_point(Vector2(12, -12))
+	root.add_child(b)
+	M.add_child(root)
+	return root

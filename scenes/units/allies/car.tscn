@@ -1,4 +1,4 @@
-[gd_scene load_steps=28 format=3 uid="uid://i0rdy5x8lv2r"]
+[gd_scene format=3 uid="uid://i0rdy5x8lv2r"]
 
 [ext_resource type="Script" uid="uid://cj8o8f6hsm6a7" path="res://scripts/car.gd" id="1_w1uy7"]
 [ext_resource type="Texture2D" uid="uid://dwt0e7n5ejhtg" path="res://sprites/Portraits/cockpits/bg3.png" id="2_coow6"]
@@ -139,7 +139,7 @@ animations = [{
 "speed": 24.0
 }]
 
-[node name="Car" type="CharacterBody2D"]
+[node name="Car" type="CharacterBody2D" unique_id=141783710]
 script = ExtResource("1_w1uy7")
 portrait_tex = ExtResource("2_coow6")
 thumbnail = ExtResource("3_jeejy")
@@ -156,19 +156,19 @@ max_hp = 5
 hp = 5
 death_fx_offset = Vector2(0, -16)
 
-[node name="CollisionShape2D" type="CollisionShape2D" parent="."]
+[node name="CollisionShape2D" type="CollisionShape2D" parent="." unique_id=1413738560]
 position = Vector2(0, -9)
 shape = SubResource("RectangleShape2D_ke0dx")
 
-[node name="Visual" type="Node2D" parent="."]
+[node name="Visual" type="Node2D" parent="." unique_id=1344099571]
 
-[node name="AnimatedSprite2D" type="AnimatedSprite2D" parent="Visual"]
+[node name="AnimatedSprite2D" type="AnimatedSprite2D" parent="Visual" unique_id=1850456085]
 position = Vector2(0, -20)
 sprite_frames = SubResource("SpriteFrames_eiewe")
 animation = &"turn_left_down"
 autoplay = "default"
 
-[node name="HPLabel" type="Label" parent="."]
+[node name="HPLabel" type="Label" parent="." unique_id=942866986]
 offset_top = -38.0
 offset_right = 40.0
 offset_bottom = -25.0
@@ -179,5 +179,5 @@ unit_path = NodePath("..")
 show_as_fraction = false
 prefix = ""
 
-[node name="CarSFX" type="Node2D" parent="."]
+[node name="CarSFX" type="Node2D" parent="." unique_id=391542278]
 script = ExtResource("25_fxvqs")

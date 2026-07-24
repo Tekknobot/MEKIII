@@ -68,52 +68,166 @@ const _SPAWN_WAIT_MAX_TRIES := 90  # ~1.5s at 60fps
 @export var artillery_strike_button_path: NodePath
 @export var laser_sweep_button_path: NodePath
 
-@onready var suppress_button := get_node_or_null(suppress_button_path)
-@onready var stim_button := get_node_or_null(stim_button_path)
-@onready var overwatch_button := get_node_or_null(overwatch_button_path)
-@onready var hellfire_button := get_node_or_null(hellfire_button_path)
-@onready var blade_button := get_node_or_null(blade_button_path)
-@onready var mines_button := get_node_or_null(mines_button_path)
-@onready var sunder_button := get_node_or_null(sunder_button_path)
-@onready var pounce_button := get_node_or_null(pounce_button_path)
-@onready var volley_button := get_node_or_null(volley_button_path)
-@onready var cannon_button := get_node_or_null(cannon_button_path)
-@onready var quake_button := get_node_or_null(quake_button_path)
-@onready var nova_button := get_node_or_null(nova_button_path)
-@onready var web_button := get_node_or_null(web_button_path)
-@onready var slam_button := get_node_or_null(slam_button_path)
-@onready var laser_grid_button := get_node_or_null(laser_grid_button_path)
-@onready var overcharge_button := get_node_or_null(overcharge_button_path)
-@onready var barrage_button := get_node_or_null(barrage_button_path)
-@onready var railgun_button := get_node_or_null(railgun_button_path)
-@onready var malfunction_button := get_node_or_null(malfunction_button_path) 
-@onready var storm_button := get_node_or_null(storm_button_path) 
-@onready var artillery_strike_button := get_node_or_null(artillery_strike_button_path)
-@onready var laser_sweep_button := get_node_or_null(laser_sweep_button_path)
+# New AI special buttons
+@export var lance_button_path: NodePath
+@export var burst_button_path: NodePath
+@export var charge_button_path: NodePath
+@export var drop_button_path: NodePath
+@export var mortar_button_path: NodePath
+@export var rocket_button_path: NodePath
+
+
+@onready var suppress_button := get_node_or_null(suppress_button_path) as Button
+@onready var stim_button := get_node_or_null(stim_button_path) as Button
+@onready var overwatch_button := get_node_or_null(overwatch_button_path) as Button
+@onready var hellfire_button := get_node_or_null(hellfire_button_path) as Button
+@onready var blade_button := get_node_or_null(blade_button_path) as Button
+@onready var mines_button := get_node_or_null(mines_button_path) as Button
+@onready var sunder_button := get_node_or_null(sunder_button_path) as Button
+@onready var pounce_button := get_node_or_null(pounce_button_path) as Button
+@onready var volley_button := get_node_or_null(volley_button_path) as Button
+@onready var cannon_button := get_node_or_null(cannon_button_path) as Button
+@onready var quake_button := get_node_or_null(quake_button_path) as Button
+@onready var nova_button := get_node_or_null(nova_button_path) as Button
+@onready var web_button := get_node_or_null(web_button_path) as Button
+@onready var slam_button := get_node_or_null(slam_button_path) as Button
+@onready var laser_grid_button := get_node_or_null(laser_grid_button_path) as Button
+@onready var overcharge_button := get_node_or_null(overcharge_button_path) as Button
+@onready var barrage_button := get_node_or_null(barrage_button_path) as Button
+@onready var railgun_button := get_node_or_null(railgun_button_path) as Button
+@onready var malfunction_button := get_node_or_null(malfunction_button_path) as Button
+@onready var storm_button := get_node_or_null(storm_button_path) as Button
+@onready var artillery_strike_button := get_node_or_null(artillery_strike_button_path) as Button
+@onready var laser_sweep_button := get_node_or_null(laser_sweep_button_path) as Button
+
+# New AI special buttons
+@onready var lance_button := get_node_or_null(lance_button_path) as Button
+@onready var burst_button := get_node_or_null(burst_button_path) as Button
+@onready var charge_button := get_node_or_null(charge_button_path) as Button
+@onready var drop_button := get_node_or_null(drop_button_path) as Button
+@onready var mortar_button := get_node_or_null(mortar_button_path) as Button
+@onready var rocket_button := get_node_or_null(rocket_button_path) as Button
+
 
 const SPECIAL_TOOLTIP_DEFS := {
-	"hellfire": {"title": "HELLFIRE", "desc": "Lob an explosive payload that damages the target area."},
-	"blade": {"title": "BLADE", "desc": "Close-range strike for fast melee pressure."},
-	"mines": {"title": "MINES", "desc": "Place a mine in range. Great for area denial and chokepoints."},
-	"overwatch": {"title": "WATCHER", "desc": "Enter overwatch and fire automatically when enemies move into range."},
-	"suppress": {"title": "SUPPRESS", "desc": "Fire to pin a target and disrupt its next turn."},
-	"stim": {"title": "STIMPACK", "desc": "Inject a combat stim to boost performance for the turn."},
-	"sunder": {"title": "SUNDER", "desc": "Heavy line strike that tears through targets behind the point of impact."},
-	"pounce": {"title": "POUNCE", "desc": "Leap to a target, hit hard, and knock it back."},
-	"volley": {"title": "VOLLEY", "desc": "Unload a multi-shot burst across targets in range."},
-	"cannon": {"title": "CANNON", "desc": "Fire a heavy round with strong single-target impact."},
-	"quake": {"title": "QUAKE", "desc": "Shock the area with a disruptive ground impact."},
-	"nova": {"title": "NOVA", "desc": "Release an energy burst that threatens enemies around the blast zone."},
-	"web": {"title": "WEB", "desc": "Project a snaring field to trap or slow enemy advances."},
-	"slam": {"title": "SLAM", "desc": "Crush the ground to damage and shove enemies in the strike path."},
-	"laser_grid": {"title": "LASER GRID", "desc": "Lay down a piercing laser pattern across the battlefield."},
-	"overcharge": {"title": "OVERCHARGE", "desc": "Push systems beyond safe limits for a stronger burst action."},
-	"barrage": {"title": "BARRAGE", "desc": "Rain repeated explosive shots into the target zone."},
-	"railgun": {"title": "RAILGUN", "desc": "Fire a long-range penetrator with extreme impact."},
-	"malfunction": {"title": "MALFUNCTION", "desc": "Trigger unstable explosive bursts in a chaotic pattern."},
-	"storm": {"title": "STORM", "desc": "Call down repeated explosive impacts over a wide area."},
-	"artillery_strike": {"title": "ARTILLERY STRIKE", "desc": "Target a distant tile and drop artillery on the impact zone."},
-	"laser_sweep": {"title": "LASER SWEEP", "desc": "Sweep a piercing beam through multiple enemies in a line."},
+	"hellfire": {
+		"title": "HELLFIRE",
+		"desc": "Lob an explosive payload that damages the target area."
+	},
+	"blade": {
+		"title": "BLADE",
+		"desc": "Close-range strike for fast melee pressure."
+	},
+	"mines": {
+		"title": "MINES",
+		"desc": "Place a mine in range. Great for area denial and chokepoints."
+	},
+	"overwatch": {
+		"title": "WATCHER",
+		"desc": "Enter overwatch and fire automatically when enemies move into range."
+	},
+	"suppress": {
+		"title": "SUPPRESS",
+		"desc": "Fire to pin a target and disrupt its next turn."
+	},
+	"stim": {
+		"title": "STIMPACK",
+		"desc": "Inject a combat stim to boost performance for the turn."
+	},
+	"sunder": {
+		"title": "SUNDER",
+		"desc": "Heavy line strike that tears through targets behind the point of impact."
+	},
+	"pounce": {
+		"title": "POUNCE",
+		"desc": "Leap to a target, hit hard, and knock it back."
+	},
+	"volley": {
+		"title": "VOLLEY",
+		"desc": "Unload a multi-shot burst across targets in range."
+	},
+	"cannon": {
+		"title": "CANNON",
+		"desc": "Fire a heavy round with strong single-target impact."
+	},
+	"quake": {
+		"title": "QUAKE",
+		"desc": "Shock the area with a disruptive ground impact."
+	},
+	"nova": {
+		"title": "NOVA",
+		"desc": "Release an energy burst that threatens enemies around the blast zone."
+	},
+	"web": {
+		"title": "WEB",
+		"desc": "Project a snaring field to trap or slow enemy advances."
+	},
+	"slam": {
+		"title": "SLAM",
+		"desc": "Crush the ground to damage and shove enemies in the strike path."
+	},
+	"laser_grid": {
+		"title": "LASER GRID",
+		"desc": "Lay down a piercing laser pattern across the battlefield."
+	},
+	"overcharge": {
+		"title": "OVERCHARGE",
+		"desc": "Push systems beyond safe limits for a stronger burst action."
+	},
+	"barrage": {
+		"title": "BARRAGE",
+		"desc": "Rain repeated explosive shots into the target zone."
+	},
+	"railgun": {
+		"title": "RAILGUN",
+		"desc": "Fire a long-range penetrator with extreme impact."
+	},
+	"malfunction": {
+		"title": "MALFUNCTION",
+		"desc": "Trigger unstable explosive bursts in a chaotic pattern."
+	},
+	"storm": {
+		"title": "STORM",
+		"desc": "Call down repeated explosive impacts over a wide area."
+	},
+	"artillery_strike": {
+		"title": "ARTILLERY STRIKE",
+		"desc": "Target a distant tile and drop artillery on the impact zone."
+	},
+	"laser_sweep": {
+		"title": "LASER SWEEP",
+		"desc": "Sweep a piercing beam through multiple enemies in a line."
+	},
+
+	# Cobruh AI
+	"lance": {
+		"title": "LANCE",
+		"desc": "Draw a targeting beam to one tile, then detonate the impact point."
+	},
+	"burst": {
+		"title": "BURST",
+		"desc": "Trigger three sequential plasma explosions around the target."
+	},
+
+	# RollerBot AI
+	"charge": {
+		"title": "CHARGE",
+		"desc": "Charge in a straight line and explode on the final impact tile."
+	},
+	"drop": {
+		"title": "DROP",
+		"desc": "Call down an angled laser strike from the sky."
+	},
+
+	# Destroyer AI / MechTwo
+	"mortar": {
+		"title": "MORTAR",
+		"desc": "Mark a distant target tile before delivering an area explosion."
+	},
+	"rocket": {
+		"title": "ROCKET",
+		"desc": "Launch three rockets that explode across the selected target zone."
+	},
 }
 
 var _special_tooltip_panel: PanelContainer = null
@@ -615,29 +729,49 @@ func _ready() -> void:
 
 		add_child(infestation_hud)
 
-		# Re-resolve buttons in case they were moved into HUD.tscn
-		hellfire_button = _resolve_button(hellfire_button_path, "Hellfire")
-		blade_button = _resolve_button(blade_button_path, "Blade")
-		mines_button = _resolve_button(mines_button_path, "Mines")
-		overwatch_button = _resolve_button(overwatch_button_path, "Watcher")
-		suppress_button = _resolve_button(suppress_button_path, "Supress")
-		stim_button = _resolve_button(stim_button_path, "Stimpack")
-		sunder_button = _resolve_button(sunder_button_path, "Sunder")
-		pounce_button = _resolve_button(pounce_button_path, "Pounce")
-		volley_button = _resolve_button(volley_button_path, "Volley")
-		cannon_button = _resolve_button(cannon_button_path, "Cannon")
-		quake_button = _resolve_button(quake_button_path, "Quake")
-		nova_button = _resolve_button(nova_button_path, "Nova")
-		web_button = _resolve_button(web_button_path, "Web")
-		slam_button = _resolve_button(slam_button_path, "Slam")
-		laser_grid_button = _resolve_button(laser_grid_button_path, "Grid")
-		overcharge_button = _resolve_button(overcharge_button_path, "Overcharge")
-		barrage_button = _resolve_button(barrage_button_path, "Barrage")
-		railgun_button = _resolve_button(railgun_button_path, "Railgun")
-		malfunction_button = _resolve_button(malfunction_button_path, "Malfunction")
-		storm_button = _resolve_button(storm_button_path, "Storm")
-		artillery_strike_button = _resolve_button(artillery_strike_button_path, "Strike")
-		laser_sweep_button = _resolve_button(laser_sweep_button_path, "Sweep")
+	# Re-resolve buttons in case they were moved into HUD.tscn
+	hellfire_button = _resolve_button(hellfire_button_path, "Hellfire")
+	blade_button = _resolve_button(blade_button_path, "Blade")
+	mines_button = _resolve_button(mines_button_path, "Mines")
+	overwatch_button = _resolve_button(overwatch_button_path, "Watcher")
+	suppress_button = _resolve_button(suppress_button_path, "Supress")
+	stim_button = _resolve_button(stim_button_path, "Stimpack")
+	sunder_button = _resolve_button(sunder_button_path, "Sunder")
+	pounce_button = _resolve_button(pounce_button_path, "Pounce")
+	volley_button = _resolve_button(volley_button_path, "Volley")
+	cannon_button = _resolve_button(cannon_button_path, "Cannon")
+	quake_button = _resolve_button(quake_button_path, "Quake")
+	nova_button = _resolve_button(nova_button_path, "Nova")
+	web_button = _resolve_button(web_button_path, "Web")
+	slam_button = _resolve_button(slam_button_path, "Slam")
+	laser_grid_button = _resolve_button(laser_grid_button_path, "Grid")
+	overcharge_button = _resolve_button(overcharge_button_path, "Overcharge")
+	barrage_button = _resolve_button(barrage_button_path, "Barrage")
+	railgun_button = _resolve_button(railgun_button_path, "Railgun")
+	malfunction_button = _resolve_button(malfunction_button_path, "Malfunction")
+	storm_button = _resolve_button(storm_button_path, "Storm")
+	artillery_strike_button = _resolve_button(artillery_strike_button_path, "Strike")
+	laser_sweep_button = _resolve_button(laser_sweep_button_path, "Sweep")
+
+	# Cobruh AI
+	lance_button = _resolve_button(lance_button_path, "Lance")
+	burst_button = _resolve_button(burst_button_path, "Burst")
+
+	# RollerBot AI
+	charge_button = _resolve_button(charge_button_path, "Charge")
+	drop_button = _resolve_button(drop_button_path, "Drop")
+
+	# Destroyer AI / MechTwo
+	mortar_button = _resolve_button(mortar_button_path, "Mortar")
+	rocket_button = _resolve_button(rocket_button_path, "Rocket")
+
+	# Dedicated AI-special button labels: keep each label to one word.
+	if lance_button: lance_button.text = "LANCE"
+	if burst_button: burst_button.text = "BURST"
+	if charge_button: charge_button.text = "CHARGE"
+	if drop_button: drop_button.text = "DROP"
+	if mortar_button: mortar_button.text = "MORTAR"
+	if rocket_button: rocket_button.text = "ROCKET"
 
 	if end_turn_button:
 		end_turn_button.pressed.connect(_on_end_turn_pressed)
@@ -691,6 +825,24 @@ func _ready() -> void:
 	if laser_sweep_button:
 		laser_sweep_button.pressed.connect(_on_laser_sweep_pressed)
 
+	if lance_button:
+		lance_button.pressed.connect(_on_lance_pressed)
+
+	if burst_button:
+		burst_button.pressed.connect(_on_burst_pressed)
+
+	if charge_button:
+		charge_button.pressed.connect(_on_charge_pressed)
+
+	if drop_button:
+		drop_button.pressed.connect(_on_drop_pressed)
+
+	if mortar_button:
+		mortar_button.pressed.connect(_on_mortar_pressed)
+
+	if rocket_button:
+		rocket_button.pressed.connect(_on_rocket_pressed)
+		
 	_wire_special_tooltips()
 
 		# COOP: broadcast authoritative state after enemy phase + spawns
@@ -758,14 +910,44 @@ func _ready() -> void:
 		else:
 			_is_titan_event = false
 			
-
 func _all_special_buttons() -> Array[Button]:
 	return [
-		hellfire_button, blade_button, mines_button, overwatch_button, suppress_button, stim_button,
-		sunder_button, pounce_button, volley_button, cannon_button, quake_button, nova_button,
-		web_button, slam_button, laser_grid_button, overcharge_button, barrage_button, railgun_button,
-		malfunction_button, storm_button, artillery_strike_button, laser_sweep_button
+		hellfire_button,
+		blade_button,
+		mines_button,
+		overwatch_button,
+		suppress_button,
+		stim_button,
+		sunder_button,
+		pounce_button,
+		volley_button,
+		cannon_button,
+		quake_button,
+		nova_button,
+		web_button,
+		slam_button,
+		laser_grid_button,
+		overcharge_button,
+		barrage_button,
+		railgun_button,
+		malfunction_button,
+		storm_button,
+		artillery_strike_button,
+		laser_sweep_button,
+
+		# Cobruh
+		lance_button,
+		burst_button,
+
+		# RollerBot
+		charge_button,
+		drop_button,
+
+		# Destroyer / MechTwo
+		mortar_button,
+		rocket_button
 	]
+
 
 func _wire_special_tooltips() -> void:
 	var pairs := [
@@ -791,27 +973,59 @@ func _wire_special_tooltips() -> void:
 		{"button": storm_button, "id": "storm"},
 		{"button": artillery_strike_button, "id": "artillery_strike"},
 		{"button": laser_sweep_button, "id": "laser_sweep"},
+
+		# Cobruh
+		{"button": lance_button, "id": "lance"},
+		{"button": burst_button, "id": "burst"},
+
+		# RollerBot
+		{"button": charge_button, "id": "charge"},
+		{"button": drop_button, "id": "drop"},
+
+		# Destroyer / MechTwo
+		{"button": mortar_button, "id": "mortar"},
+		{"button": rocket_button, "id": "rocket"}
 	]
+
 	for entry in pairs:
 		var b := entry["button"] as Button
 		if b == null or not is_instance_valid(b):
 			continue
+
 		b.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
-		var hover_cb := Callable(self, "_on_special_button_mouse_entered").bind(b, String(entry["id"]))
+
+		var special_id := String(entry["id"])
+
+		var hover_cb := Callable(
+			self,
+			"_on_special_button_mouse_entered"
+		).bind(b, special_id)
+
 		if not b.mouse_entered.is_connected(hover_cb):
 			b.mouse_entered.connect(hover_cb)
-		var exit_cb := Callable(self, "_on_special_button_mouse_exited").bind(b)
+
+		var exit_cb := Callable(
+			self,
+			"_on_special_button_mouse_exited"
+		).bind(b)
+
 		if not b.mouse_exited.is_connected(exit_cb):
 			b.mouse_exited.connect(exit_cb)
 
 func _ensure_special_tooltip_ui() -> void:
-	if _special_tooltip_panel != null and is_instance_valid(_special_tooltip_panel):
+	if (
+		_special_tooltip_panel != null
+		and is_instance_valid(_special_tooltip_panel)
+	):
 		return
 
 	var host: Node = _hud()
+
 	if host == null:
 		host = get_tree().current_scene
+
 	if host == null:
+		push_warning("TurnManager: Could not find a host for special tooltip UI.")
 		return
 
 	_special_tooltip_panel = PanelContainer.new()
@@ -820,46 +1034,77 @@ func _ensure_special_tooltip_ui() -> void:
 	_special_tooltip_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_special_tooltip_panel.z_index = 5000
 
-	var sb := StyleBoxFlat.new()
-	sb.bg_color = Color("111827")
-	sb.border_color = Color("7DD3FC")
-	sb.set_border_width_all(2)
-	sb.set_corner_radius_all(12)
-	sb.shadow_color = Color(0, 0, 0, 0.35)
-	sb.shadow_size = 10
-	sb.content_margin_left = 12
-	sb.content_margin_right = 12
-	sb.content_margin_top = 10
-	sb.content_margin_bottom = 10
-	_special_tooltip_panel.add_theme_stylebox_override("panel", sb)
+	var style := StyleBoxFlat.new()
+	style.bg_color = Color("111827")
+	style.border_color = Color("7DD3FC")
+	style.set_border_width_all(2)
+	style.set_corner_radius_all(12)
+	style.shadow_color = Color(0, 0, 0, 0.35)
+	style.shadow_size = 10
+	style.content_margin_left = 12
+	style.content_margin_right = 12
+	style.content_margin_top = 10
+	style.content_margin_bottom = 10
 
-	var vb := VBoxContainer.new()
-	vb.add_theme_constant_override("separation", 6)
-	_special_tooltip_panel.add_child(vb)
+	_special_tooltip_panel.add_theme_stylebox_override("panel", style)
 
-	var title_font := load("res://fonts/magofonts/mago3.ttf") as Font
-	var body_font := load("res://fonts/magofonts/mago1.ttf") as Font
+	var container := VBoxContainer.new()
+	container.add_theme_constant_override("separation", 6)
+	_special_tooltip_panel.add_child(container)
+
+	var title_font := load(
+		"res://fonts/magofonts/mago3.ttf"
+	) as Font
+
+	var body_font := load(
+		"res://fonts/magofonts/mago1.ttf"
+	) as Font
 
 	_special_tooltip_title = Label.new()
 	_special_tooltip_title.modulate = Color("E0F2FE")
-	_special_tooltip_title.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.85))
-	_special_tooltip_title.add_theme_constant_override("outline_size", 1)
+	_special_tooltip_title.add_theme_color_override(
+		"font_outline_color",
+		Color(0, 0, 0, 0.85)
+	)
+	_special_tooltip_title.add_theme_constant_override(
+		"outline_size",
+		1
+	)
+
 	if title_font != null:
-		_special_tooltip_title.add_theme_font_override("font", title_font)
-	_special_tooltip_title.add_theme_font_size_override("font_size", 15)
-	vb.add_child(_special_tooltip_title)
+		_special_tooltip_title.add_theme_font_override(
+			"font",
+			title_font
+		)
+
+	_special_tooltip_title.add_theme_font_size_override(
+		"font_size",
+		15
+	)
+
+	container.add_child(_special_tooltip_title)
 
 	_special_tooltip_body = Label.new()
 	_special_tooltip_body.modulate = Color("D1D5DB")
-	_special_tooltip_body.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_special_tooltip_body.autowrap_mode = (
+		TextServer.AUTOWRAP_WORD_SMART
+	)
 	_special_tooltip_body.custom_minimum_size = Vector2(280, 0)
-	if body_font != null:
-		_special_tooltip_body.add_theme_font_override("font", body_font)
-	_special_tooltip_body.add_theme_font_size_override("font_size", 14)
-	vb.add_child(_special_tooltip_body)
 
+	if body_font != null:
+		_special_tooltip_body.add_theme_font_override(
+			"font",
+			body_font
+		)
+
+	_special_tooltip_body.add_theme_font_size_override(
+		"font_size",
+		14
+	)
+
+	container.add_child(_special_tooltip_body)
 	host.add_child(_special_tooltip_panel)
-	
+			
 func _on_special_button_mouse_entered(b: Button, special_id: String) -> void:
 	_special_tooltip_button = b
 	_special_tooltip_id = special_id
@@ -1746,174 +1991,189 @@ func _on_laser_sweep_pressed() -> void:
 	M.activate_special("laser_sweep")
 	_update_special_buttons()
 
-func _update_special_buttons() -> void:
-	# Tooltip should not linger when buttons refresh.
-	if _special_tooltip_button != null and (not is_instance_valid(_special_tooltip_button) or not _special_tooltip_button.visible):
-		_hide_special_tooltip()
-
-	# Toggle visuals (pressed highlight)
-	if hellfire_button: hellfire_button.toggle_mode = true
-	if blade_button: blade_button.toggle_mode = true
-	if mines_button: mines_button.toggle_mode = true
-	if overwatch_button: overwatch_button.toggle_mode = true
-	if suppress_button: suppress_button.toggle_mode = true
-	if stim_button: stim_button.toggle_mode = true
-	if sunder_button: sunder_button.toggle_mode = true
-	if pounce_button: pounce_button.toggle_mode = true
-	if volley_button: volley_button.toggle_mode = true
-	if cannon_button: cannon_button.toggle_mode = true
-	if quake_button: quake_button.toggle_mode = true
-	if nova_button: nova_button.toggle_mode = true
-	if web_button: web_button.toggle_mode = true
-	if slam_button: slam_button.toggle_mode = true
-	if laser_grid_button: laser_grid_button.toggle_mode = true     
-	if overcharge_button: overcharge_button.toggle_mode = true  	
-	if barrage_button: barrage_button.toggle_mode = true
-	if railgun_button: railgun_button.toggle_mode = true
-	if malfunction_button: malfunction_button.toggle_mode = true
-	if storm_button: storm_button.toggle_mode = true
-	if artillery_strike_button: artillery_strike_button.toggle_mode = true
-	if laser_sweep_button: laser_sweep_button.toggle_mode = true
-						
-	# -----------------------------------------
-	# TEMP SELECT GUARD (co-op replay safety)
-	# During client move/special replay, MapController.selected can be null for a frame.
-	# Do NOT hide buttons in that case; just disable them until selection returns.
-	# -----------------------------------------
-	var sel := (M.selected if (M != null) else null)
-	if sel == null or not is_instance_valid(sel):
-		# Disable without changing visibility
-		for b in [hellfire_button, blade_button, mines_button, overwatch_button, suppress_button, stim_button, sunder_button, pounce_button, volley_button, cannon_button, quake_button, nova_button, web_button, slam_button, laser_grid_button, overcharge_button, barrage_button, railgun_button, malfunction_button, storm_button, artillery_strike_button, laser_sweep_button]:
-			if b != null:
-				b.disabled = true
-				b.button_pressed = false
-		return
-
-	# -----------------------------------------
-	# ENEMY/ZOMBIE SELECT: hide specials completely
-	# (the reset path sets visible=true by default)
-	# -----------------------------------------
-	if sel.team != Unit.Team.ALLY:
-		for b in [hellfire_button, blade_button, mines_button, overwatch_button, suppress_button, stim_button, sunder_button, pounce_button, volley_button, cannon_button, quake_button, nova_button, web_button, slam_button, laser_grid_button, overcharge_button, barrage_button, railgun_button, malfunction_button, storm_button, artillery_strike_button, laser_sweep_button]:
-			if b != null:
-				b.visible = false
-				b.disabled = true
-				b.button_pressed = false
-		return
-
-	# If input isn't allowed, keep them visible but disabled (no flicker/disappear)
-	if not player_input_allowed():
-		for b in [hellfire_button, blade_button, mines_button, overwatch_button, suppress_button, stim_button, sunder_button, pounce_button, volley_button, cannon_button, quake_button, nova_button, web_button, slam_button, laser_grid_button, overcharge_button, barrage_button, railgun_button, malfunction_button, storm_button, artillery_strike_button, laser_sweep_button]:
-			if b != null:
-				b.disabled = true
-				b.button_pressed = false
-		return
-
-	# Reset
-	if hellfire_button:
-		hellfire_button.disabled = true
-		hellfire_button.button_pressed = false
-		hellfire_button.visible = true
-	if blade_button:
-		blade_button.disabled = true
-		blade_button.button_pressed = false
-		blade_button.visible = true
-	if mines_button:
-		mines_button.disabled = true
-		mines_button.button_pressed = false
-		mines_button.visible = true
-	if overwatch_button:
-		overwatch_button.disabled = true
-		overwatch_button.button_pressed = false
-		overwatch_button.visible = true
-	if suppress_button:
-		suppress_button.disabled = true
-		suppress_button.button_pressed = false
-		suppress_button.visible = true
-	if stim_button:
-		stim_button.disabled = true
-		stim_button.button_pressed = false
-		stim_button.visible = true
-	if sunder_button:
-		sunder_button.disabled = true
-		sunder_button.button_pressed = false
-		sunder_button.visible = true
-	if pounce_button:
-		pounce_button.disabled = true
-		pounce_button.button_pressed = false
-		pounce_button.visible = true
-	if volley_button:
-		volley_button.disabled = true
-		volley_button.button_pressed = false
-		volley_button.visible = true
-	if cannon_button:
-		cannon_button.disabled = true
-		cannon_button.button_pressed = false
-		cannon_button.visible = true
-	if quake_button:
-		quake_button.disabled = true
-		quake_button.button_pressed = false
-		quake_button.visible = true
-	if nova_button:
-		nova_button.disabled = true
-		nova_button.button_pressed = false
-		nova_button.visible = true
-	if web_button:
-		web_button.disabled = true
-		web_button.button_pressed = false
-		web_button.visible = true
-	if slam_button:
-		slam_button.disabled = true
-		slam_button.button_pressed = false
-		slam_button.visible = true
-	if laser_grid_button:                      
-		laser_grid_button.disabled = true       
-		laser_grid_button.button_pressed = false 
-		laser_grid_button.visible = true        
-	if overcharge_button:                      
-		overcharge_button.disabled = true       
-		overcharge_button.button_pressed = false 
-		overcharge_button.visible = true   
-	if barrage_button:
-		barrage_button.disabled = true
-		barrage_button.button_pressed = false
-		barrage_button.visible = true
-	if railgun_button:
-		railgun_button.disabled = true
-		railgun_button.button_pressed = false
-		railgun_button.visible = true			     
-	if malfunction_button:
-		malfunction_button.disabled = true
-		malfunction_button.button_pressed = false
-		malfunction_button.visible = true
-	if storm_button:
-		storm_button.disabled = true
-		storm_button.button_pressed = false
-		storm_button.visible = true		
-	if artillery_strike_button:
-		artillery_strike_button.disabled = true
-		artillery_strike_button.button_pressed = false
-		artillery_strike_button.visible = true
-	if laser_sweep_button:
-		laser_sweep_button.disabled = true
-		laser_sweep_button.button_pressed = false
-		laser_sweep_button.visible = true
-									
-	# Only during player phase
+func _on_lance_pressed() -> void:
 	if phase != Phase.PLAYER:
 		return
+	emit_signal("tutorial_event", &"special_button_pressed", {"id": "lance"})
 
 	var u := M.selected
 	if u == null or not is_instance_valid(u):
 		return
+	if _attacked.get(u, false):
+		return
+	if not u.has_method("perform_lance"):
+		return
+
+	M.activate_special("lance")
+	_update_special_buttons()
+
+
+func _on_burst_pressed() -> void:
+	if phase != Phase.PLAYER:
+		return
+	emit_signal("tutorial_event", &"special_button_pressed", {"id": "burst"})
+
+	var u := M.selected
+	if u == null or not is_instance_valid(u):
+		return
+	if _attacked.get(u, false):
+		return
+	if not u.has_method("perform_burst"):
+		return
+
+	M.activate_special("burst")
+	_update_special_buttons()
+
+
+func _on_charge_pressed() -> void:
+	if phase != Phase.PLAYER:
+		return
+	emit_signal("tutorial_event", &"special_button_pressed", {"id": "charge"})
+
+	var u := M.selected
+	if u == null or not is_instance_valid(u):
+		return
+	if _attacked.get(u, false):
+		return
+	if not u.has_method("perform_charge"):
+		return
+
+	M.activate_special("charge")
+	_update_special_buttons()
+
+
+func _on_drop_pressed() -> void:
+	if phase != Phase.PLAYER:
+		return
+	emit_signal("tutorial_event", &"special_button_pressed", {"id": "drop"})
+
+	var u := M.selected
+	if u == null or not is_instance_valid(u):
+		return
+	if _attacked.get(u, false):
+		return
+	if not u.has_method("perform_drop"):
+		return
+
+	M.activate_special("drop")
+	_update_special_buttons()
+
+
+func _on_mortar_pressed() -> void:
+	if phase != Phase.PLAYER:
+		return
+	emit_signal("tutorial_event", &"special_button_pressed", {"id": "mortar"})
+
+	var u := M.selected
+	if u == null or not is_instance_valid(u):
+		return
+	if _attacked.get(u, false):
+		return
+	if not u.has_method("perform_mortar"):
+		return
+
+	M.activate_special("mortar")
+	_update_special_buttons()
+
+
+func _on_rocket_pressed() -> void:
+	if phase != Phase.PLAYER:
+		return
+	emit_signal("tutorial_event", &"special_button_pressed", {"id": "rocket"})
+
+	var u := M.selected
+	if u == null or not is_instance_valid(u):
+		return
+	if _attacked.get(u, false):
+		return
+	if not u.has_method("perform_rocket"):
+		return
+
+	M.activate_special("rocket")
+	_update_special_buttons()
+	
+	
+func _update_special_buttons() -> void:
+	# Tooltip should not remain visible when its button disappears.
+	if (
+		_special_tooltip_button != null
+		and (
+			not is_instance_valid(_special_tooltip_button)
+			or not _special_tooltip_button.visible
+		)
+	):
+		_hide_special_tooltip()
+
+	var all_buttons: Array[Button] = _all_special_buttons()
+
+	# All special buttons use pressed/toggle highlighting.
+	for button in all_buttons:
+		if button == null or not is_instance_valid(button):
+			continue
+		button.toggle_mode = true
+
+	# During co-op replay, selected may temporarily be null.
+	# Keep existing visibility but disable the buttons.
+	var selected := M.selected if M != null else null
+
+	if selected == null or not is_instance_valid(selected):
+		for button in all_buttons:
+			if button == null or not is_instance_valid(button):
+				continue
+			button.disabled = true
+			button.button_pressed = false
+		return
+
+	var u := selected as Unit
+	if u == null:
+		for button in all_buttons:
+			if button == null or not is_instance_valid(button):
+				continue
+			button.visible = false
+			button.disabled = true
+			button.button_pressed = false
+		return
+
+	# Enemy and zombie units do not display player-special buttons.
 	if u.team != Unit.Team.ALLY:
+		for button in all_buttons:
+			if button == null or not is_instance_valid(button):
+				continue
+			button.visible = false
+			button.disabled = true
+			button.button_pressed = false
+		return
+
+	# During enemy/busy phases, preserve button visibility but disable input.
+	if not player_input_allowed():
+		for button in all_buttons:
+			if button == null or not is_instance_valid(button):
+				continue
+			button.disabled = true
+			button.button_pressed = false
+		return
+
+	# Reset all buttons before evaluating the selected unit.
+	for button in all_buttons:
+		if button == null or not is_instance_valid(button):
+			continue
+		button.disabled = true
+		button.button_pressed = false
+		button.visible = false
+
+	if phase != Phase.PLAYER:
 		return
 
 	_ensure_unit_tracked(u)
 
 	var spent_attack := bool(_attacked.get(u, false))
 
-	# Determine what this unit has
+	if u.has_meta(&"turn_attacked"):
+		spent_attack = bool(u.get_meta(&"turn_attacked", spent_attack))
+
+	# -------------------------------------------------
+	# Determine which methods the selected unit exposes
+	# -------------------------------------------------
 	var has_hellfire := u.has_method("perform_hellfire")
 	var has_blade := u.has_method("perform_blade")
 	var has_mines := u.has_method("perform_place_mine")
@@ -1927,23 +2187,36 @@ func _update_special_buttons() -> void:
 	var has_quake := u.has_method("perform_quake")
 	var has_nova := u.has_method("perform_nova")
 	var has_web := u.has_method("perform_web")
-	var has_slam := u.has_method("perform_slam") 
-	var has_laser_grid := u.has_method("perform_laser_grid")         
-	var has_overcharge := u.has_method("perform_overcharge") 
+	var has_slam := u.has_method("perform_slam")
+	var has_laser_grid := u.has_method("perform_laser_grid")
+	var has_overcharge := u.has_method("perform_overcharge")
 	var has_barrage := u.has_method("perform_barrage")
 	var has_railgun := u.has_method("perform_railgun")
 	var has_malfunction := u.has_method("perform_malfunction")
 	var has_storm := u.has_method("perform_storm")
 	var has_artillery_strike := u.has_method("perform_artillery_strike")
 	var has_laser_sweep := u.has_method("perform_laser_sweep")
-					
-	# Optional filter list
+
+	# New AI-derived ally specials.
+	var has_lance := u.has_method("perform_lance")
+	var has_burst := u.has_method("perform_burst")
+	var has_charge := u.has_method("perform_charge")
+	var has_drop := u.has_method("perform_drop")
+	var has_mortar := u.has_method("perform_mortar")
+	var has_rocket := u.has_method("perform_rocket")
+
+	# -------------------------------------------------
+	# Optional unit-defined special list
+	# -------------------------------------------------
 	if u.has_method("get_available_specials"):
-		var specials: Array[String] = u.get_available_specials()
-		
-		for i in range(specials.size()):
-			specials[i] = String(specials[i]).to_lower().replace(" ", "_")
-			
+		var raw_specials = u.call("get_available_specials")
+		var specials: Array[String] = []
+
+		if raw_specials is Array:
+			for value in raw_specials:
+				var normalized := String(value).to_lower().replace(" ", "_")
+				specials.append(normalized)
+
 		has_hellfire = has_hellfire and specials.has("hellfire")
 		has_blade = has_blade and specials.has("blade")
 		has_mines = has_mines and specials.has("mines")
@@ -1952,48 +2225,101 @@ func _update_special_buttons() -> void:
 		has_stim = has_stim and specials.has("stim")
 		has_sunder = has_sunder and specials.has("sunder")
 		has_pounce = has_pounce and specials.has("pounce")
-		has_volley = has_volley and specials.has("volley") 
-		has_cannon = has_cannon and specials.has("cannon") 
-		has_quake = has_quake and specials.has("quake") 
+		has_volley = has_volley and specials.has("volley")
+		has_cannon = has_cannon and specials.has("cannon")
+		has_quake = has_quake and specials.has("quake")
 		has_nova = has_nova and specials.has("nova")
 		has_web = has_web and specials.has("web")
 		has_slam = has_slam and specials.has("slam")
-		has_laser_grid = has_laser_grid and specials.has("laser_grid")          
-		has_overcharge = has_overcharge and specials.has("overcharge") 		
+		has_laser_grid = has_laser_grid and specials.has("laser_grid")
+		has_overcharge = has_overcharge and specials.has("overcharge")
 		has_barrage = has_barrage and specials.has("barrage")
 		has_railgun = has_railgun and specials.has("railgun")
 		has_malfunction = has_malfunction and specials.has("malfunction")
 		has_storm = has_storm and specials.has("storm")
-		has_artillery_strike = has_artillery_strike and specials.has("artillery_strike")
-		has_laser_sweep = has_laser_sweep and specials.has("laser_sweep")
-									
-	# Show ONLY if unit still has an attack action available
-	var show_specials := (not spent_attack)
+		has_artillery_strike = (
+			has_artillery_strike
+			and specials.has("artillery_strike")
+		)
+		has_laser_sweep = (
+			has_laser_sweep
+			and specials.has("laser_sweep")
+		)
 
-	if hellfire_button: hellfire_button.visible = show_specials and has_hellfire
-	if blade_button: blade_button.visible = show_specials and has_blade
-	if mines_button: mines_button.visible = show_specials and has_mines
-	if overwatch_button: overwatch_button.visible = show_specials and has_overwatch
-	if suppress_button: suppress_button.visible = show_specials and has_suppress
-	if stim_button: stim_button.visible = show_specials and has_stim
-	if sunder_button: sunder_button.visible = show_specials and has_sunder
-	if pounce_button: pounce_button.visible = show_specials and has_pounce
-	if volley_button: volley_button.visible = show_specials and has_volley
-	if cannon_button: cannon_button.visible = show_specials and has_cannon
-	if quake_button: quake_button.visible = show_specials and has_quake
-	if nova_button: nova_button.visible = show_specials and has_nova
-	if web_button: web_button.visible = show_specials and has_web
-	if slam_button: slam_button.visible = show_specials and has_slam
-	if laser_grid_button: laser_grid_button.visible = show_specials and has_laser_grid     
-	if overcharge_button: overcharge_button.visible = show_specials and has_overcharge     
-	if barrage_button: barrage_button.visible = show_specials and has_barrage
-	if railgun_button: railgun_button.visible = show_specials and has_railgun
-	if malfunction_button: malfunction_button.visible = show_specials and has_malfunction
-	if storm_button: storm_button.visible = show_specials and has_storm
-	if artillery_strike_button: artillery_strike_button.visible = show_specials and has_artillery_strike
-	if laser_sweep_button: laser_sweep_button.visible = show_specials and has_laser_sweep
-	
-	# Cooldowns
+		has_lance = has_lance and specials.has("lance")
+		has_burst = has_burst and specials.has("burst")
+		has_charge = has_charge and specials.has("charge")
+		has_drop = has_drop and specials.has("drop")
+		has_mortar = has_mortar and specials.has("mortar")
+		has_rocket = has_rocket and specials.has("rocket")
+
+	# Specials are hidden after the unit spends its attack.
+	var show_specials := not spent_attack
+
+	if hellfire_button:
+		hellfire_button.visible = show_specials and has_hellfire
+	if blade_button:
+		blade_button.visible = show_specials and has_blade
+	if mines_button:
+		mines_button.visible = show_specials and has_mines
+	if overwatch_button:
+		overwatch_button.visible = show_specials and has_overwatch
+	if suppress_button:
+		suppress_button.visible = show_specials and has_suppress
+	if stim_button:
+		stim_button.visible = show_specials and has_stim
+	if sunder_button:
+		sunder_button.visible = show_specials and has_sunder
+	if pounce_button:
+		pounce_button.visible = show_specials and has_pounce
+	if volley_button:
+		volley_button.visible = show_specials and has_volley
+	if cannon_button:
+		cannon_button.visible = show_specials and has_cannon
+	if quake_button:
+		quake_button.visible = show_specials and has_quake
+	if nova_button:
+		nova_button.visible = show_specials and has_nova
+	if web_button:
+		web_button.visible = show_specials and has_web
+	if slam_button:
+		slam_button.visible = show_specials and has_slam
+	if laser_grid_button:
+		laser_grid_button.visible = show_specials and has_laser_grid
+	if overcharge_button:
+		overcharge_button.visible = show_specials and has_overcharge
+	if barrage_button:
+		barrage_button.visible = show_specials and has_barrage
+	if railgun_button:
+		railgun_button.visible = show_specials and has_railgun
+	if malfunction_button:
+		malfunction_button.visible = show_specials and has_malfunction
+	if storm_button:
+		storm_button.visible = show_specials and has_storm
+	if artillery_strike_button:
+		artillery_strike_button.visible = (
+			show_specials
+			and has_artillery_strike
+		)
+	if laser_sweep_button:
+		laser_sweep_button.visible = show_specials and has_laser_sweep
+
+	if lance_button:
+		lance_button.visible = show_specials and has_lance
+	if burst_button:
+		burst_button.visible = show_specials and has_burst
+	if charge_button:
+		charge_button.visible = show_specials and has_charge
+	if drop_button:
+		drop_button.visible = show_specials and has_drop
+	if mortar_button:
+		mortar_button.visible = show_specials and has_mortar
+	if rocket_button:
+		rocket_button.visible = show_specials and has_rocket
+
+	# -------------------------------------------------
+	# Cooldown and availability checks
+	# -------------------------------------------------
 	var ok_hellfire := true
 	var ok_blade := true
 	var ok_mines := true
@@ -2008,147 +2334,232 @@ func _update_special_buttons() -> void:
 	var ok_nova := true
 	var ok_web := true
 	var ok_slam := true
-	var ok_laser_grid := true          
-	var ok_overcharge := true  
+	var ok_laser_grid := true
+	var ok_overcharge := true
 	var ok_barrage := true
 	var ok_railgun := true
 	var ok_malfunction := true
 	var ok_storm := true
 	var ok_artillery_strike := true
 	var ok_laser_sweep := true
-		
-	if u.has_method("can_use_special"):
-		ok_hellfire = u.can_use_special("hellfire")
-		ok_blade = u.can_use_special("blade")
-		ok_mines = u.can_use_special("mines")
-		ok_overwatch = u.can_use_special("overwatch")
-		ok_suppress = u.can_use_special("suppress")
-		ok_stim = u.can_use_special("stim")
-		ok_sunder = u.can_use_special("sunder")
-		ok_pounce = u.can_use_special("pounce")
-		ok_volley = u.can_use_special("volley")
-		ok_cannon = u.can_use_special("cannon")
-		ok_quake = u.can_use_special("quake")
-		ok_nova = u.can_use_special("nova")
-		ok_web = u.can_use_special("web")
-		ok_slam = u.can_use_special("slam")
-		ok_laser_grid = u.can_use_special("laser_grid")          
-		ok_overcharge = u.can_use_special("overcharge")
-		ok_barrage = u.can_use_special("barrage")
-		ok_railgun = u.can_use_special("railgun")
-		ok_malfunction = u.can_use_special("malfunction")
-		ok_storm = u.can_use_special("storm")
-		ok_artillery_strike = u.can_use_special("artillery_strike")
-		ok_laser_sweep = u.can_use_special("laser_sweep")
-		
-	# Enable
-	if hellfire_button: hellfire_button.disabled = spent_attack or (not has_hellfire) or (not ok_hellfire)
-	if blade_button: blade_button.disabled = spent_attack or (not has_blade) or (not ok_blade)
-	if mines_button: mines_button.disabled = spent_attack or (not has_mines) or (not ok_mines)
-	if overwatch_button: overwatch_button.disabled = spent_attack or (not has_overwatch) or (not ok_overwatch)
-	if suppress_button: suppress_button.disabled = spent_attack or (not has_suppress) or (not ok_suppress)
-	if stim_button: stim_button.disabled = spent_attack or (not has_stim) or (not ok_stim)
-	if sunder_button: sunder_button.disabled = spent_attack or (not has_sunder) or (not ok_sunder)
-	if pounce_button: pounce_button.disabled = spent_attack or (not has_pounce) or (not ok_pounce)
-	if volley_button: volley_button.disabled = spent_attack or (not has_volley) or (not ok_volley)
-	if cannon_button: cannon_button.disabled = spent_attack or (not has_cannon) or (not ok_cannon)
-	if quake_button: quake_button.disabled = spent_attack or (not has_quake) or (not ok_quake)
-	if nova_button: nova_button.disabled = spent_attack or (not has_nova) or (not ok_nova)
-	if web_button: web_button.disabled = spent_attack or (not has_web) or (not ok_web)
-	if slam_button: slam_button.disabled = spent_attack or (not has_slam) or (not ok_slam)
-	if laser_grid_button: laser_grid_button.disabled = spent_attack or (not has_laser_grid) or (not ok_laser_grid)     
-	if overcharge_button: overcharge_button.disabled = spent_attack or (not has_overcharge) or (not ok_overcharge)
-	if barrage_button: barrage_button.disabled = spent_attack or (not has_barrage) or (not ok_barrage)
-	if railgun_button: railgun_button.disabled = spent_attack or (not has_railgun) or (not ok_railgun)
-	if malfunction_button: malfunction_button.disabled = spent_attack or (not has_malfunction) or (not ok_malfunction)
-	if storm_button: storm_button.disabled = spent_attack or (not has_storm) or (not ok_storm)
-	if artillery_strike_button: artillery_strike_button.disabled = spent_attack or (not has_artillery_strike) or (not ok_artillery_strike)
-	if laser_sweep_button: laser_sweep_button.disabled = spent_attack or (not has_laser_sweep) or (not ok_laser_sweep)
 
-	# Note: need to handle underscores in special_id comparison
+	var ok_lance := true
+	var ok_burst := true
+	var ok_charge := true
+	var ok_drop := true
+	var ok_mortar := true
+	var ok_rocket := true
+
+	if u.has_method("can_use_special"):
+		ok_hellfire = bool(u.call("can_use_special", "hellfire"))
+		ok_blade = bool(u.call("can_use_special", "blade"))
+		ok_mines = bool(u.call("can_use_special", "mines"))
+		ok_overwatch = bool(u.call("can_use_special", "overwatch"))
+		ok_suppress = bool(u.call("can_use_special", "suppress"))
+		ok_stim = bool(u.call("can_use_special", "stim"))
+		ok_sunder = bool(u.call("can_use_special", "sunder"))
+		ok_pounce = bool(u.call("can_use_special", "pounce"))
+		ok_volley = bool(u.call("can_use_special", "volley"))
+		ok_cannon = bool(u.call("can_use_special", "cannon"))
+		ok_quake = bool(u.call("can_use_special", "quake"))
+		ok_nova = bool(u.call("can_use_special", "nova"))
+		ok_web = bool(u.call("can_use_special", "web"))
+		ok_slam = bool(u.call("can_use_special", "slam"))
+		ok_laser_grid = bool(u.call("can_use_special", "laser_grid"))
+		ok_overcharge = bool(u.call("can_use_special", "overcharge"))
+		ok_barrage = bool(u.call("can_use_special", "barrage"))
+		ok_railgun = bool(u.call("can_use_special", "railgun"))
+		ok_malfunction = bool(u.call("can_use_special", "malfunction"))
+		ok_storm = bool(u.call("can_use_special", "storm"))
+		ok_artillery_strike = bool(u.call("can_use_special", "artillery_strike"))
+		ok_laser_sweep = bool(u.call("can_use_special", "laser_sweep"))
+
+		ok_lance = bool(u.call("can_use_special", "lance"))
+		ok_burst = bool(u.call("can_use_special", "burst"))
+		ok_charge = bool(u.call("can_use_special", "charge"))
+		ok_drop = bool(u.call("can_use_special", "drop"))
+		ok_mortar = bool(u.call("can_use_special", "mortar"))
+		ok_rocket = bool(u.call("can_use_special", "rocket"))
+
+	# -------------------------------------------------
+	# Enable or disable each available special
+	# -------------------------------------------------
+	if hellfire_button:
+		hellfire_button.disabled = (
+			spent_attack or not has_hellfire or not ok_hellfire
+		)
+	if blade_button:
+		blade_button.disabled = spent_attack or not has_blade or not ok_blade
+	if mines_button:
+		mines_button.disabled = spent_attack or not has_mines or not ok_mines
+	if overwatch_button:
+		overwatch_button.disabled = (
+			spent_attack or not has_overwatch or not ok_overwatch
+		)
+	if suppress_button:
+		suppress_button.disabled = (
+			spent_attack or not has_suppress or not ok_suppress
+		)
+	if stim_button:
+		stim_button.disabled = spent_attack or not has_stim or not ok_stim
+	if sunder_button:
+		sunder_button.disabled = spent_attack or not has_sunder or not ok_sunder
+	if pounce_button:
+		pounce_button.disabled = spent_attack or not has_pounce or not ok_pounce
+	if volley_button:
+		volley_button.disabled = spent_attack or not has_volley or not ok_volley
+	if cannon_button:
+		cannon_button.disabled = spent_attack or not has_cannon or not ok_cannon
+	if quake_button:
+		quake_button.disabled = spent_attack or not has_quake or not ok_quake
+	if nova_button:
+		nova_button.disabled = spent_attack or not has_nova or not ok_nova
+	if web_button:
+		web_button.disabled = spent_attack or not has_web or not ok_web
+	if slam_button:
+		slam_button.disabled = spent_attack or not has_slam or not ok_slam
+	if laser_grid_button:
+		laser_grid_button.disabled = (
+			spent_attack or not has_laser_grid or not ok_laser_grid
+		)
+	if overcharge_button:
+		overcharge_button.disabled = (
+			spent_attack or not has_overcharge or not ok_overcharge
+		)
+	if barrage_button:
+		barrage_button.disabled = (
+			spent_attack or not has_barrage or not ok_barrage
+		)
+	if railgun_button:
+		railgun_button.disabled = (
+			spent_attack or not has_railgun or not ok_railgun
+		)
+	if malfunction_button:
+		malfunction_button.disabled = (
+			spent_attack
+			or not has_malfunction
+			or not ok_malfunction
+		)
+	if storm_button:
+		storm_button.disabled = spent_attack or not has_storm or not ok_storm
+	if artillery_strike_button:
+		artillery_strike_button.disabled = (
+			spent_attack
+			or not has_artillery_strike
+			or not ok_artillery_strike
+		)
+	if laser_sweep_button:
+		laser_sweep_button.disabled = (
+			spent_attack
+			or not has_laser_sweep
+			or not ok_laser_sweep
+		)
+
+	if lance_button:
+		lance_button.disabled = spent_attack or not has_lance or not ok_lance
+	if burst_button:
+		burst_button.disabled = spent_attack or not has_burst or not ok_burst
+	if charge_button:
+		charge_button.disabled = spent_attack or not has_charge or not ok_charge
+	if drop_button:
+		drop_button.disabled = spent_attack or not has_drop or not ok_drop
+	if mortar_button:
+		mortar_button.disabled = spent_attack or not has_mortar or not ok_mortar
+	if rocket_button:
+		rocket_button.disabled = spent_attack or not has_rocket or not ok_rocket
+
+	# -------------------------------------------------
+	# Currently armed special
+	# -------------------------------------------------
 	var active := ""
-	if M.aim_mode == MapController.AimMode.SPECIAL:
-		active = String(M.special_id).to_lower().replace(" ", "_")     # MODIFY THIS LINE
+
+	if M != null and M.aim_mode == MapController.AimMode.SPECIAL:
+		active = String(M.special_id).to_lower().replace(" ", "_")
 
 	if hellfire_button and not hellfire_button.disabled:
-		hellfire_button.button_pressed = (active == "hellfire")
+		hellfire_button.button_pressed = active == "hellfire"
 	if blade_button and not blade_button.disabled:
-		blade_button.button_pressed = (active == "blade")
+		blade_button.button_pressed = active == "blade"
 	if mines_button and not mines_button.disabled:
-		mines_button.button_pressed = (active == "mines")
+		mines_button.button_pressed = active == "mines"
+	if overwatch_button and not overwatch_button.disabled:
+		overwatch_button.button_pressed = active == "overwatch"
 	if suppress_button and not suppress_button.disabled:
-		suppress_button.button_pressed = (active == "suppress")
+		suppress_button.button_pressed = active == "suppress"
+	if stim_button and not stim_button.disabled:
+		stim_button.button_pressed = active == "stim"
 	if sunder_button and not sunder_button.disabled:
-		sunder_button.button_pressed = (active == "sunder")
+		sunder_button.button_pressed = active == "sunder"
 	if pounce_button and not pounce_button.disabled:
-		pounce_button.button_pressed = (active == "pounce")
+		pounce_button.button_pressed = active == "pounce"
 	if volley_button and not volley_button.disabled:
-		volley_button.button_pressed = (active == "volley")
+		volley_button.button_pressed = active == "volley"
 	if cannon_button and not cannon_button.disabled:
-		cannon_button.button_pressed = (active == "cannon")
+		cannon_button.button_pressed = active == "cannon"
 	if quake_button and not quake_button.disabled:
-		quake_button.button_pressed = (active == "quake")
+		quake_button.button_pressed = active == "quake"
 	if nova_button and not nova_button.disabled:
-		nova_button.button_pressed = (active == "nova")
+		nova_button.button_pressed = active == "nova"
 	if web_button and not web_button.disabled:
-		web_button.button_pressed = (active == "web")
+		web_button.button_pressed = active == "web"
 	if slam_button and not slam_button.disabled:
-		slam_button.button_pressed = (active == "slam")
-	if laser_grid_button and not laser_grid_button.disabled:                      
-		laser_grid_button.button_pressed = (active == "laser_grid")                
-	if overcharge_button and not overcharge_button.disabled:                      
-		overcharge_button.button_pressed = (active == "overcharge") 
+		slam_button.button_pressed = active == "slam"
+	if laser_grid_button and not laser_grid_button.disabled:
+		laser_grid_button.button_pressed = active == "laser_grid"
+	if overcharge_button and not overcharge_button.disabled:
+		overcharge_button.button_pressed = active == "overcharge"
 	if barrage_button and not barrage_button.disabled:
-		barrage_button.button_pressed = (active == "barrage")
+		barrage_button.button_pressed = active == "barrage"
 	if railgun_button and not railgun_button.disabled:
-		railgun_button.button_pressed = (active == "railgun")
+		railgun_button.button_pressed = active == "railgun"
 	if malfunction_button and not malfunction_button.disabled:
-		malfunction_button.button_pressed = (active == "malfunction")
+		malfunction_button.button_pressed = active == "malfunction"
 	if storm_button and not storm_button.disabled:
-		storm_button.button_pressed = (active == "storm")
+		storm_button.button_pressed = active == "storm"
 	if artillery_strike_button and not artillery_strike_button.disabled:
-		artillery_strike_button.button_pressed = (active == "artillery_strike")
+		artillery_strike_button.button_pressed = (
+			active == "artillery_strike"
+		)
 	if laser_sweep_button and not laser_sweep_button.disabled:
-		laser_sweep_button.button_pressed = (active == "laser_sweep")
+		laser_sweep_button.button_pressed = active == "laser_sweep"
 
-	# --- Apply colors based on pressed state ---
-	_skin_special_button(hellfire_button, hellfire_button.button_pressed if hellfire_button else false)
-	_skin_special_button(blade_button, blade_button.button_pressed if blade_button else false)
-	_skin_special_button(mines_button, mines_button.button_pressed if mines_button else false)
-	_skin_special_button(overwatch_button, overwatch_button.button_pressed if overwatch_button else false)
-	_skin_special_button(suppress_button, suppress_button.button_pressed if suppress_button else false)
-	_skin_special_button(stim_button, stim_button.button_pressed if stim_button else false)
-	_skin_special_button(sunder_button, sunder_button.button_pressed if sunder_button else false)
-	_skin_special_button(pounce_button, pounce_button.button_pressed if pounce_button else false)
-	_skin_special_button(volley_button, volley_button.button_pressed if volley_button else false)
-	_skin_special_button(cannon_button, cannon_button.button_pressed if cannon_button else false)
-	_skin_special_button(quake_button, quake_button.button_pressed if quake_button else false)
-	_skin_special_button(nova_button, nova_button.button_pressed if nova_button else false)
-	_skin_special_button(web_button, web_button.button_pressed if web_button else false)
-	_skin_special_button(slam_button, slam_button.button_pressed if slam_button else false)
-	_skin_special_button(laser_grid_button, laser_grid_button.button_pressed if laser_grid_button else false)          
-	_skin_special_button(overcharge_button, overcharge_button.button_pressed if overcharge_button else false)   
-	_skin_special_button(barrage_button, barrage_button.button_pressed if barrage_button else false)
-	_skin_special_button(railgun_button, railgun_button.button_pressed if railgun_button else false)
-	_skin_special_button(malfunction_button, malfunction_button.button_pressed if malfunction_button else false)
-	_skin_special_button(storm_button,storm_button.button_pressed if storm_button else false)	
-	_skin_special_button(artillery_strike_button, artillery_strike_button.button_pressed if artillery_strike_button else false)
-	_skin_special_button(laser_sweep_button, laser_sweep_button.button_pressed if laser_sweep_button else false)
-						
-	# Overwatch + Stim are instant toggles
+	if lance_button and not lance_button.disabled:
+		lance_button.button_pressed = active == "lance"
+	if burst_button and not burst_button.disabled:
+		burst_button.button_pressed = active == "burst"
+	if charge_button and not charge_button.disabled:
+		charge_button.button_pressed = active == "charge"
+	if drop_button and not drop_button.disabled:
+		drop_button.button_pressed = active == "drop"
+	if mortar_button and not mortar_button.disabled:
+		mortar_button.button_pressed = active == "mortar"
+	if rocket_button and not rocket_button.disabled:
+		rocket_button.button_pressed = active == "rocket"
+
+	# -------------------------------------------------
+	# Instant/toggle special states
+	# -------------------------------------------------
 	if overwatch_button and not overwatch_button.disabled:
 		if M != null and M.has_method("is_overwatching"):
-			overwatch_button.button_pressed = bool(M.call("is_overwatching", u))
-		else:
-			overwatch_button.button_pressed = false
+			overwatch_button.button_pressed = bool(
+				M.call("is_overwatching", u)
+			)
 
-	# --- Stim button pressed state ---
 	if stim_button and not stim_button.disabled:
 		stim_button.button_pressed = (
 			u.has_meta("stim_turns")
 			and int(u.get_meta("stim_turns")) > 0
 		)
 
+	# -------------------------------------------------
+	# Apply the final button appearance
+	# -------------------------------------------------
+	for button in all_buttons:
+		if button == null or not is_instance_valid(button):
+			continue
+
+		_skin_special_button(button, button.button_pressed)
+		
 func _skin_special_button(btn: BaseButton, selected: bool) -> void:
 	if btn == null:
 		return

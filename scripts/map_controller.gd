@@ -2522,6 +2522,24 @@ func _perform_special(u: Unit, id: String, target_cell: Vector2i) -> void:
 	elif id == "laser_sweep" and u.has_method("perform_laser_sweep"):
 		await u.call("perform_laser_sweep", self, target_cell)
 
+	elif id == "lance" and u.has_method("perform_lance"):
+		await u.call("perform_lance", self, target_cell)
+
+	elif id == "burst" and u.has_method("perform_burst"):
+		await u.call("perform_burst", self, target_cell)
+
+	elif id == "charge" and u.has_method("perform_charge"):
+		await u.call("perform_charge", self, target_cell)
+
+	elif id == "drop" and u.has_method("perform_drop"):
+		await u.call("perform_drop", self, target_cell)
+
+	elif id == "mortar" and u.has_method("perform_mortar"):
+		await u.call("perform_mortar", self, target_cell)
+
+	elif id == "rocket" and u.has_method("perform_rocket"):
+		await u.call("perform_rocket", self, target_cell)
+
 	elif id == "roll" and u.has_method("perform_roll"):
 		await u.call("perform_roll", self, target_cell)
 
@@ -2695,6 +2713,24 @@ func _perform_special_visual(u: Unit, id: String, target_cell: Vector2i):
 
 	elif id == "laser_sweep" and u.has_method("perform_laser_sweep"):
 		await u.call("perform_laser_sweep", self, target_cell)
+
+	elif id == "lance" and u.has_method("perform_lance"):
+		await u.call("perform_lance", self, target_cell)
+
+	elif id == "burst" and u.has_method("perform_burst"):
+		await u.call("perform_burst", self, target_cell)
+
+	elif id == "charge" and u.has_method("perform_charge"):
+		await u.call("perform_charge", self, target_cell)
+
+	elif id == "drop" and u.has_method("perform_drop"):
+		await u.call("perform_drop", self, target_cell)
+
+	elif id == "mortar" and u.has_method("perform_mortar"):
+		await u.call("perform_mortar", self, target_cell)
+
+	elif id == "rocket" and u.has_method("perform_rocket"):
+		await u.call("perform_rocket", self, target_cell)
 	
 	elif id == "roll" and u.has_method("perform_roll"):
 		await u.call("perform_roll", self, target_cell)
@@ -4518,6 +4554,12 @@ func _pick_clear_L_path(from_cell: Vector2i, to_cell: Vector2i) -> Array[Vector2
 func _cell_world(c: Vector2i) -> Vector2:
 	return terrain.to_global(terrain.map_to_local(c))
 
+# Visual strike/target center matching the mouse-to-cell isometric offset.
+# Mouse picking adds mouse_offset before local_to_map, so effects subtract it
+# from the raw TileMap cell center to land on the same visible tile center.
+func _cell_target_world(c: Vector2i) -> Vector2:
+	return _cell_world(c) - mouse_offset
+
 func _duration_for_step() -> float:
 	# One cell move duration based on your cells/sec.
 	return max(0.04, 1.0 / move_speed_cells_per_sec)
@@ -5579,6 +5621,18 @@ func _unit_can_use_special(u: Unit, id: String) -> bool:
 			return u.has_method("perform_artillery_strike")
 		"laser_sweep":
 			return u.has_method("perform_laser_sweep")
+		"lance":
+			return u.has_method("perform_lance")
+		"burst":
+			return u.has_method("perform_burst")
+		"charge":
+			return u.has_method("perform_charge")
+		"drop":
+			return u.has_method("perform_drop")
+		"mortar":
+			return u.has_method("perform_mortar")
+		"rocket":
+			return u.has_method("perform_rocket")
 				
 	return false
 

@@ -65,6 +65,7 @@ class_name M3
 @export var sky_strike_radius := 1         # explosion splash radius
 
 @export var sky_beam_height_px := 220.0    # how far “from the sky”
+@export var sky_beam_angle_x_px := 140.0
 @export var sky_beam_width := 10.0
 @export var sky_beam_color := Color.CYAN
 @export var sky_beam_fade_time := 0.18
@@ -338,8 +339,9 @@ func _sky_laser_strike(M: MapController, at_cell: Vector2i) -> void:
 	# ---------------------------------------------------------
 	# Positions
 	# ---------------------------------------------------------
-	var hit_pos := M.terrain.to_global(M.terrain.map_to_local(at_cell)) + Vector2(0, -8)
-	var start_pos := hit_pos + Vector2(0, -sky_beam_height_px)
+	var hit_pos := M._cell_target_world(at_cell)
+	var side := -1.0 if ((at_cell.x + at_cell.y) % 2 == 0) else 1.0
+	var start_pos := hit_pos + Vector2(sky_beam_angle_x_px * side, -sky_beam_height_px)
 	var z := (at_cell.x + at_cell.y) + 600
 
 	# ---------------------------------------------------------
@@ -388,7 +390,8 @@ func _sky_laser_strike(M: MapController, at_cell: Vector2i) -> void:
 
 	for s in range(strand_count):
 		var beam := Line2D.new()
-		beam.width = sky_beam_width
+		beam.width = 1.0
+		beam.antialiased = false
 		beam.default_color = sky_beam_color
 		beam.z_index = 0 + (at_cell.x + at_cell.y)
 		M.add_child(beam)
@@ -399,8 +402,8 @@ func _sky_laser_strike(M: MapController, at_cell: Vector2i) -> void:
 			randf_range(-strand_jitter_px, strand_jitter_px)
 		)
 
-		for p in main_pts:
-			beam.add_point(p + off)
+		beam.add_point(start_pos + off)
+		beam.add_point(hit_pos + off)
 
 		# ✅ SFX once per strand
 		M._sfx("sat_laser")

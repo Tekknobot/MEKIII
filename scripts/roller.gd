@@ -13,8 +13,8 @@ class_name Roller
 # -------------------------
 @export var portrait_tex: Texture2D = preload("res://sprites/Portraits/dog_port.png")
 @export var thumbnail: Texture2D
-@export var specials: Array[String] = ["ROLL"]
-@export var special_desc: String = "Roll along a path and instantly crush enemies you pass through."
+@export var specials: Array[String] = ["CHARGE", "DROP"]
+@export var special_desc: String = "Ram Charge: roll through a target line.\nLaser Drop: call down an angled sky laser."
 
 # -------------------------
 # Roll tuning
@@ -132,8 +132,10 @@ func _process(delta: float) -> void:
 # ---------------------------------------------------------
 func get_special_range(id: String) -> int:
 	var sid := id.to_lower().replace(" ", "_")
-	if sid == "roll":
+	if sid == "charge":
 		return int(roll_move_points)
+	if sid == "drop":
+		return int(laser_drop_range)
 	return 0
 
 # Call this from your special button handler like your other units:
@@ -292,7 +294,7 @@ func _crush_enemy_if_present(M: MapController, at_cell: Vector2i) -> void:
 		if car_sfx != null:
 			car_sfx.hit(1.0)
 		if M != null and M.has_method("_sfx"):
-			M.call("_sfx", crush_sfx, 1.0, randf_range(0.95, 1.05), M._cell_world(at_cell))
+			M.call("_sfx", crush_sfx, 1.0, randf_range(0.95, 1.05), M._cell_target_world(at_cell))
 
 # ---------------------------------------------------------
 # Path building (CarBot-style L-path with roll rules)
@@ -692,3 +694,86 @@ func play_move_step_anim_grid(grid_dir: Vector2i, terrain_tm: TileMap) -> void:
 	# Optional: ensure anim is playing
 	if _anim != null and anim_idle != StringName():
 		_anim.play(anim_idle)
+
+
+# ============================================================
+# DEDICATED SPECIALS: ROLLERBOT
+# HUD IDs: charge = Ram Charge, drop = angled sky-laser drop.
+# ============================================================
+@export var laser_drop_range := 5
+@export var laser_drop_damage := 3
+@export var laser_drop_radius := 0
+@export var laser_drop_warning_time := 0.18
+@export var laser_drop_sky_height := 280.0
+@export var laser_drop_sky_angle_x := 155.0
+
+func get_available_specials() -> Array[String]:
+	return ["CHARGE", "DROP"]
+
+func can_use_special(_id: String) -> bool:
+	return hp > 0 and not _dying and not _rolling
+
+func perform_charge(M: MapController, target_cell: Vector2i) -> void:
+	await perform_roll(M, target_cell)
+
+func perform_drop(M: MapController, target_cell: Vector2i) -> void:
+	if M == null or not is_instance_valid(M) or not can_use_special("drop"):
+		return
+	if M.grid == null or not M.grid.in_bounds(target_cell):
+		return
+	if abs(target_cell.x - cell.x) + abs(target_cell.y - cell.y) > laser_drop_range:
+		return
+
+	# DROP calls one angled sky laser onto every living enemy in range.
+	var victims: Array[Unit] = []
+	var beams: Array[Line2D] = []
+	for enemy in M.get_all_enemies():
+		if enemy == null or not is_instance_valid(enemy) or enemy.hp <= 0:
+			continue
+		if abs(enemy.cell.x - cell.x) + abs(enemy.cell.y - cell.y) > laser_drop_range:
+			continue
+		victims.append(enemy)
+		beams.append(_roller_make_angled_sky_laser(M, enemy.cell))
+
+	if victims.is_empty():
+		return
+
+	await get_tree().create_timer(laser_drop_warning_time).timeout
+	if M == null or not is_instance_valid(M):
+		return
+
+	for victim in victims:
+		if victim == null or not is_instance_valid(victim) or victim.hp <= 0:
+			continue
+		var impact_cell := victim.cell
+		M.spawn_explosion_at_cell(impact_cell)
+		if not M.coop_visual_only():
+			victim.take_damage(laser_drop_damage + attack_damage)
+		if M.has_method("_apply_structure_splash_damage"):
+			M.call("_apply_structure_splash_damage", impact_cell, laser_drop_radius, 1)
+
+	for beam in beams:
+		_roller_fade_sky_laser(beam)
+
+func _roller_make_angled_sky_laser(M: MapController, target_cell: Vector2i) -> Line2D:
+	var impact: Vector2 = M._cell_target_world(target_cell)
+	var side := -1.0 if ((target_cell.x + target_cell.y) % 2 == 0) else 1.0
+	var sky: Vector2 = impact + Vector2(laser_drop_sky_angle_x * side, -laser_drop_sky_height)
+	var beam := Line2D.new()
+	beam.width = 1.0
+	beam.default_color = Color(0.2, 0.9, 1.0, 0.95)
+	beam.antialiased = false
+	beam.z_index = 5000
+	beam.add_point(sky)
+	beam.add_point(impact)
+	M.add_child(beam)
+	if M.has_method("_sfx"):
+		M.call("_sfx", &"sat_laser")
+	return beam
+
+func _roller_fade_sky_laser(beam: Line2D) -> void:
+	if beam == null or not is_instance_valid(beam):
+		return
+	var tween := beam.create_tween()
+	tween.tween_property(beam, "modulate:a", 0.0, 0.18)
+	tween.finished.connect(beam.queue_free)

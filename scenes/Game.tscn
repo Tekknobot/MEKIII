@@ -329,8 +329,11 @@ unique_building_scenes = Array[PackedScene]([ExtResource("23_evnk2"), ExtResourc
 drops_root_path = NodePath("Pickups")
 tutorial_manager_path = NodePath("TutorialManager")
 rain_tile_scene = ExtResource("6_ltxvx")
+rain_density = 0.5
 snow_tile_scene = ExtResource("7_pf47n")
+snow_density = 0.5
 fog_tile_scene = ExtResource("8_nj61y")
+fog_density = 0.5
 
 [node name="StarryNight" parent="." unique_id=1811549990 instance=ExtResource("20_sv1m6")]
 z_index = -4096

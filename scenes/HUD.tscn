@@ -1,4 +1,4 @@
-[gd_scene load_steps=9 format=3 uid="uid://b6wrxn53ynbat"]
+[gd_scene format=3 uid="uid://b6wrxn53ynbat"]
 
 [ext_resource type="Script" uid="uid://vc2m5p8p5r3" path="res://scripts/hud.gd" id="1_qpvh6"]
 [ext_resource type="FontFile" uid="uid://dgugahs6bc7so" path="res://fonts/magofonts/mago3.ttf" id="2_1etfg"]
@@ -26,14 +26,14 @@ bg_color = Color(0, 1, 0, 1)
 default_font = ExtResource("2_fls4u")
 default_font_size = 16
 
-[node name="HUD" type="CanvasLayer"]
+[node name="HUD" type="CanvasLayer" unique_id=1171031293]
 layer = 10
 script = ExtResource("1_qpvh6")
 quirk_pill_font = ExtResource("2_fls4u")
 quirk_pill_font_size = 16
 banner_font = ExtResource("2_1etfg")
 
-[node name="UnitCard" type="PanelContainer" parent="."]
+[node name="UnitCard" type="PanelContainer" parent="." unique_id=615898058]
 anchors_preset = 2
 anchor_top = 1.0
 anchor_bottom = 1.0
@@ -44,53 +44,53 @@ offset_bottom = -14.0
 grow_vertical = 0
 theme_override_styles/panel = SubResource("StyleBoxFlat_1etfg")
 
-[node name="Margin" type="MarginContainer" parent="UnitCard"]
+[node name="Margin" type="MarginContainer" parent="UnitCard" unique_id=1553239029]
 layout_mode = 2
 theme_override_constants/margin_left = 10
 theme_override_constants/margin_top = 10
 theme_override_constants/margin_right = 10
 theme_override_constants/margin_bottom = 10
 
-[node name="HBoxContainer" type="HBoxContainer" parent="UnitCard/Margin"]
+[node name="HBoxContainer" type="HBoxContainer" parent="UnitCard/Margin" unique_id=1124376200]
 layout_mode = 2
 
-[node name="Row" type="HBoxContainer" parent="UnitCard/Margin/HBoxContainer"]
+[node name="Row" type="HBoxContainer" parent="UnitCard/Margin/HBoxContainer" unique_id=1551826554]
 layout_mode = 2
 theme_override_constants/separation = 10
 
-[node name="PortraitFrame" type="PanelContainer" parent="UnitCard/Margin/HBoxContainer/Row"]
+[node name="PortraitFrame" type="PanelContainer" parent="UnitCard/Margin/HBoxContainer/Row" unique_id=1599998798]
 custom_minimum_size = Vector2(91, 64)
 layout_mode = 2
 
-[node name="Portrait" type="TextureRect" parent="UnitCard/Margin/HBoxContainer/Row/PortraitFrame"]
+[node name="Portrait" type="TextureRect" parent="UnitCard/Margin/HBoxContainer/Row/PortraitFrame" unique_id=717657259]
 layout_mode = 2
 expand_mode = 1
 stretch_mode = 5
 
-[node name="Right" type="HBoxContainer" parent="UnitCard/Margin/HBoxContainer/Row"]
+[node name="Right" type="HBoxContainer" parent="UnitCard/Margin/HBoxContainer/Row" unique_id=2039397482]
 layout_mode = 2
 size_flags_horizontal = 3
 theme_override_constants/separation = 6
 
-[node name="LeftInfo" type="VBoxContainer" parent="UnitCard/Margin/HBoxContainer/Row/Right"]
+[node name="LeftInfo" type="VBoxContainer" parent="UnitCard/Margin/HBoxContainer/Row/Right" unique_id=1966100860]
 layout_mode = 2
 
-[node name="Name" type="Label" parent="UnitCard/Margin/HBoxContainer/Row/Right/LeftInfo"]
+[node name="Name" type="Label" parent="UnitCard/Margin/HBoxContainer/Row/Right/LeftInfo" unique_id=1568864924]
 layout_mode = 2
 size_flags_horizontal = 3
 theme_override_fonts/font = ExtResource("2_1etfg")
 text = "—"
 
-[node name="Bars" type="HBoxContainer" parent="UnitCard/Margin/HBoxContainer/Row/Right/LeftInfo"]
+[node name="Bars" type="HBoxContainer" parent="UnitCard/Margin/HBoxContainer/Row/Right/LeftInfo" unique_id=1968738831]
 layout_mode = 2
 theme_override_constants/separation = 8
 
-[node name="HPLabel" type="Label" parent="UnitCard/Margin/HBoxContainer/Row/Right/LeftInfo/Bars"]
+[node name="HPLabel" type="Label" parent="UnitCard/Margin/HBoxContainer/Row/Right/LeftInfo/Bars" unique_id=2012998476]
 layout_mode = 2
 theme_override_fonts/font = ExtResource("2_fls4u")
 text = "HP 0/0"
 
-[node name="HPBar" type="ProgressBar" parent="UnitCard/Margin/HBoxContainer/Row/Right/LeftInfo/Bars"]
+[node name="HPBar" type="ProgressBar" parent="UnitCard/Margin/HBoxContainer/Row/Right/LeftInfo/Bars" unique_id=88065160]
 custom_minimum_size = Vector2(0, 13)
 layout_mode = 2
 size_flags_horizontal = 3
@@ -100,55 +100,55 @@ max_value = 10.0
 value = 10.0
 show_percentage = false
 
-[node name="StatsGrid" type="GridContainer" parent="UnitCard/Margin/HBoxContainer/Row/Right/LeftInfo"]
+[node name="StatsGrid" type="GridContainer" parent="UnitCard/Margin/HBoxContainer/Row/Right/LeftInfo" unique_id=1171368925]
 layout_mode = 2
 theme_override_constants/h_separation = 14
 theme_override_constants/v_separation = 2
 columns = 6
 
-[node name="MoveKey" type="Label" parent="UnitCard/Margin/HBoxContainer/Row/Right/LeftInfo/StatsGrid"]
+[node name="MoveKey" type="Label" parent="UnitCard/Margin/HBoxContainer/Row/Right/LeftInfo/StatsGrid" unique_id=1318854454]
 layout_mode = 2
 theme_override_fonts/font = ExtResource("2_fls4u")
 text = "MOVE"
 
-[node name="MoveVal" type="Label" parent="UnitCard/Margin/HBoxContainer/Row/Right/LeftInfo/StatsGrid"]
+[node name="MoveVal" type="Label" parent="UnitCard/Margin/HBoxContainer/Row/Right/LeftInfo/StatsGrid" unique_id=1738737385]
 layout_mode = 2
 theme_override_fonts/font = ExtResource("2_fls4u")
 text = "-"
 
-[node name="RangeKey" type="Label" parent="UnitCard/Margin/HBoxContainer/Row/Right/LeftInfo/StatsGrid"]
+[node name="RangeKey" type="Label" parent="UnitCard/Margin/HBoxContainer/Row/Right/LeftInfo/StatsGrid" unique_id=711847645]
 layout_mode = 2
 theme_override_fonts/font = ExtResource("2_fls4u")
 text = "RANGE"
 
-[node name="RangeVal" type="Label" parent="UnitCard/Margin/HBoxContainer/Row/Right/LeftInfo/StatsGrid"]
+[node name="RangeVal" type="Label" parent="UnitCard/Margin/HBoxContainer/Row/Right/LeftInfo/StatsGrid" unique_id=796585299]
 layout_mode = 2
 theme_override_fonts/font = ExtResource("2_fls4u")
 text = "-"
 
-[node name="DmgKey" type="Label" parent="UnitCard/Margin/HBoxContainer/Row/Right/LeftInfo/StatsGrid"]
+[node name="DmgKey" type="Label" parent="UnitCard/Margin/HBoxContainer/Row/Right/LeftInfo/StatsGrid" unique_id=666405986]
 layout_mode = 2
 theme_override_fonts/font = ExtResource("2_fls4u")
 text = "DMG"
 
-[node name="DmgVal" type="Label" parent="UnitCard/Margin/HBoxContainer/Row/Right/LeftInfo/StatsGrid"]
+[node name="DmgVal" type="Label" parent="UnitCard/Margin/HBoxContainer/Row/Right/LeftInfo/StatsGrid" unique_id=1832687477]
 layout_mode = 2
 theme_override_fonts/font = ExtResource("2_fls4u")
 text = "-"
 
-[node name="ExtrasBox" type="VBoxContainer" parent="UnitCard/Margin/HBoxContainer/Row/Right/LeftInfo"]
+[node name="ExtrasBox" type="VBoxContainer" parent="UnitCard/Margin/HBoxContainer/Row/Right/LeftInfo" unique_id=776240809]
 layout_mode = 2
 theme = SubResource("Theme_1etfg")
 
-[node name="QuirksDock" type="VBoxContainer" parent="UnitCard/Margin/HBoxContainer/Row/Right"]
+[node name="QuirksDock" type="VBoxContainer" parent="UnitCard/Margin/HBoxContainer/Row/Right" unique_id=850181141]
 custom_minimum_size = Vector2(120, 0)
 layout_mode = 2
 
-[node name="SpecialButtons" type="Control" parent="UnitCard/Margin/HBoxContainer"]
+[node name="SpecialButtons" type="Control" parent="UnitCard/Margin/HBoxContainer" unique_id=776412857]
 custom_minimum_size = Vector2(120, 0)
 layout_mode = 2
 
-[node name="Supress" type="Button" parent="UnitCard/Margin/HBoxContainer/SpecialButtons" groups=["SpecialButton"]]
+[node name="Supress" type="Button" parent="UnitCard/Margin/HBoxContainer/SpecialButtons" unique_id=847516491 groups=["SpecialButton"]]
 visible = false
 z_index = 4000
 layout_mode = 1
@@ -158,7 +158,7 @@ theme_override_fonts/font = ExtResource("4_7hsmw")
 theme_override_font_sizes/font_size = 32
 text = "Supress"
 
-[node name="Hellfire" type="Button" parent="UnitCard/Margin/HBoxContainer/SpecialButtons" groups=["SpecialButton"]]
+[node name="Hellfire" type="Button" parent="UnitCard/Margin/HBoxContainer/SpecialButtons" unique_id=1148147989 groups=["SpecialButton"]]
 visible = false
 z_index = 4000
 layout_mode = 1
@@ -169,7 +169,7 @@ theme_override_fonts/font = ExtResource("4_7hsmw")
 theme_override_font_sizes/font_size = 32
 text = "Hellfire"
 
-[node name="Blade" type="Button" parent="UnitCard/Margin/HBoxContainer/SpecialButtons" groups=["SpecialButton"]]
+[node name="Blade" type="Button" parent="UnitCard/Margin/HBoxContainer/SpecialButtons" unique_id=492009360 groups=["SpecialButton"]]
 visible = false
 z_index = 4000
 layout_mode = 1
@@ -180,7 +180,7 @@ theme_override_fonts/font = ExtResource("4_7hsmw")
 theme_override_font_sizes/font_size = 32
 text = "Blade"
 
-[node name="Overcharge" type="Button" parent="UnitCard/Margin/HBoxContainer/SpecialButtons" groups=["SpecialButton"]]
+[node name="Overcharge" type="Button" parent="UnitCard/Margin/HBoxContainer/SpecialButtons" unique_id=1310784778 groups=["SpecialButton"]]
 visible = false
 z_index = 4000
 layout_mode = 1
@@ -191,7 +191,7 @@ theme_override_fonts/font = ExtResource("4_7hsmw")
 theme_override_font_sizes/font_size = 32
 text = "Overcharge"
 
-[node name="Mines" type="Button" parent="UnitCard/Margin/HBoxContainer/SpecialButtons" groups=["SpecialButton"]]
+[node name="Mines" type="Button" parent="UnitCard/Margin/HBoxContainer/SpecialButtons" unique_id=927830022 groups=["SpecialButton"]]
 visible = false
 z_index = 4000
 layout_mode = 1
@@ -203,7 +203,7 @@ theme_override_font_sizes/font_size = 32
 text = "Mines
 "
 
-[node name="Stimpack" type="Button" parent="UnitCard/Margin/HBoxContainer/SpecialButtons" groups=["SpecialButton"]]
+[node name="Stimpack" type="Button" parent="UnitCard/Margin/HBoxContainer/SpecialButtons" unique_id=1876191679 groups=["SpecialButton"]]
 visible = false
 z_index = 4000
 layout_mode = 1
@@ -214,7 +214,7 @@ theme_override_font_sizes/font_size = 32
 text = "Stimpack
 "
 
-[node name="Sunder" type="Button" parent="UnitCard/Margin/HBoxContainer/SpecialButtons" groups=["SpecialButton"]]
+[node name="Sunder" type="Button" parent="UnitCard/Margin/HBoxContainer/SpecialButtons" unique_id=1211073208 groups=["SpecialButton"]]
 visible = false
 z_index = 4000
 layout_mode = 1
@@ -226,7 +226,7 @@ theme_override_font_sizes/font_size = 32
 text = "Sunder
 "
 
-[node name="Volley" type="Button" parent="UnitCard/Margin/HBoxContainer/SpecialButtons" groups=["SpecialButton"]]
+[node name="Volley" type="Button" parent="UnitCard/Margin/HBoxContainer/SpecialButtons" unique_id=1703922554 groups=["SpecialButton"]]
 visible = false
 z_index = 4000
 layout_mode = 1
@@ -238,7 +238,7 @@ theme_override_font_sizes/font_size = 32
 text = "Volley
 "
 
-[node name="Pounce" type="Button" parent="UnitCard/Margin/HBoxContainer/SpecialButtons" groups=["SpecialButton"]]
+[node name="Pounce" type="Button" parent="UnitCard/Margin/HBoxContainer/SpecialButtons" unique_id=1589800829 groups=["SpecialButton"]]
 visible = false
 z_index = 4000
 layout_mode = 1
@@ -250,7 +250,7 @@ theme_override_font_sizes/font_size = 32
 text = "Pounce
 "
 
-[node name="Cannon" type="Button" parent="UnitCard/Margin/HBoxContainer/SpecialButtons" groups=["SpecialButton"]]
+[node name="Cannon" type="Button" parent="UnitCard/Margin/HBoxContainer/SpecialButtons" unique_id=1843021512 groups=["SpecialButton"]]
 visible = false
 z_index = 4000
 layout_mode = 1
@@ -261,7 +261,7 @@ theme_override_fonts/font = ExtResource("4_7hsmw")
 theme_override_font_sizes/font_size = 32
 text = "Cannon"
 
-[node name="Quake" type="Button" parent="UnitCard/Margin/HBoxContainer/SpecialButtons" groups=["SpecialButton"]]
+[node name="Quake" type="Button" parent="UnitCard/Margin/HBoxContainer/SpecialButtons" unique_id=1582187937 groups=["SpecialButton"]]
 visible = false
 z_index = 4000
 layout_mode = 1
@@ -272,7 +272,7 @@ theme_override_fonts/font = ExtResource("4_7hsmw")
 theme_override_font_sizes/font_size = 32
 text = "Quake"
 
-[node name="Nova" type="Button" parent="UnitCard/Margin/HBoxContainer/SpecialButtons" groups=["SpecialButton"]]
+[node name="Nova" type="Button" parent="UnitCard/Margin/HBoxContainer/SpecialButtons" unique_id=199126996 groups=["SpecialButton"]]
 visible = false
 z_index = 4000
 layout_mode = 1
@@ -283,7 +283,7 @@ theme_override_fonts/font = ExtResource("4_7hsmw")
 theme_override_font_sizes/font_size = 32
 text = "Nova"
 
-[node name="Sweep" type="Button" parent="UnitCard/Margin/HBoxContainer/SpecialButtons" groups=["SpecialButton"]]
+[node name="Sweep" type="Button" parent="UnitCard/Margin/HBoxContainer/SpecialButtons" unique_id=1931763265 groups=["SpecialButton"]]
 visible = false
 z_index = 4000
 layout_mode = 1
@@ -294,7 +294,7 @@ theme_override_fonts/font = ExtResource("4_7hsmw")
 theme_override_font_sizes/font_size = 32
 text = "Sweep"
 
-[node name="Malfunction" type="Button" parent="UnitCard/Margin/HBoxContainer/SpecialButtons" groups=["SpecialButton"]]
+[node name="Malfunction" type="Button" parent="UnitCard/Margin/HBoxContainer/SpecialButtons" unique_id=1364219168 groups=["SpecialButton"]]
 visible = false
 z_index = 4000
 layout_mode = 1
@@ -305,7 +305,7 @@ theme_override_fonts/font = ExtResource("4_7hsmw")
 theme_override_font_sizes/font_size = 32
 text = "Malfunction"
 
-[node name="Railgun" type="Button" parent="UnitCard/Margin/HBoxContainer/SpecialButtons" groups=["SpecialButton"]]
+[node name="Railgun" type="Button" parent="UnitCard/Margin/HBoxContainer/SpecialButtons" unique_id=1908724162 groups=["SpecialButton"]]
 visible = false
 z_index = 4000
 layout_mode = 1
@@ -316,7 +316,7 @@ theme_override_fonts/font = ExtResource("4_7hsmw")
 theme_override_font_sizes/font_size = 32
 text = "Railgun"
 
-[node name="Watcher" type="Button" parent="UnitCard/Margin/HBoxContainer/SpecialButtons" groups=["SpecialButton"]]
+[node name="Watcher" type="Button" parent="UnitCard/Margin/HBoxContainer/SpecialButtons" unique_id=930894637 groups=["SpecialButton"]]
 visible = false
 z_index = 4000
 layout_mode = 1
@@ -326,7 +326,7 @@ theme_override_fonts/font = ExtResource("4_7hsmw")
 theme_override_font_sizes/font_size = 32
 text = "Watcher"
 
-[node name="Strike" type="Button" parent="UnitCard/Margin/HBoxContainer/SpecialButtons" groups=["SpecialButton"]]
+[node name="Strike" type="Button" parent="UnitCard/Margin/HBoxContainer/SpecialButtons" unique_id=1777216068 groups=["SpecialButton"]]
 visible = false
 z_index = 4000
 layout_mode = 1
@@ -336,7 +336,7 @@ theme_override_fonts/font = ExtResource("4_7hsmw")
 theme_override_font_sizes/font_size = 32
 text = "Strike"
 
-[node name="Barrage" type="Button" parent="UnitCard/Margin/HBoxContainer/SpecialButtons" groups=["SpecialButton"]]
+[node name="Barrage" type="Button" parent="UnitCard/Margin/HBoxContainer/SpecialButtons" unique_id=1330689562 groups=["SpecialButton"]]
 visible = false
 z_index = 4000
 layout_mode = 1
@@ -346,7 +346,7 @@ theme_override_fonts/font = ExtResource("4_7hsmw")
 theme_override_font_sizes/font_size = 32
 text = "Barrage"
 
-[node name="Storm" type="Button" parent="UnitCard/Margin/HBoxContainer/SpecialButtons" groups=["SpecialButton"]]
+[node name="Storm" type="Button" parent="UnitCard/Margin/HBoxContainer/SpecialButtons" unique_id=1694205752 groups=["SpecialButton"]]
 visible = false
 z_index = 4000
 layout_mode = 1
@@ -356,7 +356,7 @@ theme_override_fonts/font = ExtResource("4_7hsmw")
 theme_override_font_sizes/font_size = 32
 text = "Storm"
 
-[node name="Grid" type="Button" parent="UnitCard/Margin/HBoxContainer/SpecialButtons" groups=["SpecialButton"]]
+[node name="Grid" type="Button" parent="UnitCard/Margin/HBoxContainer/SpecialButtons" unique_id=572772212 groups=["SpecialButton"]]
 visible = false
 z_index = 4000
 layout_mode = 1
@@ -366,7 +366,7 @@ theme_override_fonts/font = ExtResource("4_7hsmw")
 theme_override_font_sizes/font_size = 32
 text = "Grid"
 
-[node name="Slam" type="Button" parent="UnitCard/Margin/HBoxContainer/SpecialButtons" groups=["SpecialButton"]]
+[node name="Slam" type="Button" parent="UnitCard/Margin/HBoxContainer/SpecialButtons" unique_id=1702793257 groups=["SpecialButton"]]
 visible = false
 z_index = 4000
 layout_mode = 1
@@ -376,7 +376,7 @@ theme_override_fonts/font = ExtResource("4_7hsmw")
 theme_override_font_sizes/font_size = 32
 text = "Slam"
 
-[node name="Web" type="Button" parent="UnitCard/Margin/HBoxContainer/SpecialButtons" groups=["SpecialButton"]]
+[node name="Web" type="Button" parent="UnitCard/Margin/HBoxContainer/SpecialButtons" unique_id=1144600429 groups=["SpecialButton"]]
 visible = false
 z_index = 4000
 layout_mode = 1
@@ -385,3 +385,66 @@ offset_bottom = 34.0
 theme_override_fonts/font = ExtResource("4_7hsmw")
 theme_override_font_sizes/font_size = 32
 text = "Web"
+
+[node name="Lance" type="Button" parent="UnitCard/Margin/HBoxContainer/SpecialButtons" unique_id=1913913104 groups=["SpecialButton"]]
+visible = false
+z_index = 4000
+layout_mode = 1
+offset_right = 120.0
+offset_bottom = 34.0
+theme_override_fonts/font = ExtResource("4_7hsmw")
+theme_override_font_sizes/font_size = 32
+text = "Lance"
+
+[node name="Burst" type="Button" parent="UnitCard/Margin/HBoxContainer/SpecialButtons" unique_id=1112589088 groups=["SpecialButton"]]
+visible = false
+z_index = 4000
+layout_mode = 1
+offset_top = 45.0
+offset_right = 120.0
+offset_bottom = 79.0
+theme_override_fonts/font = ExtResource("4_7hsmw")
+theme_override_font_sizes/font_size = 32
+text = "Burst"
+
+[node name="Charge" type="Button" parent="UnitCard/Margin/HBoxContainer/SpecialButtons" unique_id=1367206637 groups=["SpecialButton"]]
+visible = false
+z_index = 4000
+layout_mode = 1
+offset_right = 120.0
+offset_bottom = 34.0
+theme_override_fonts/font = ExtResource("4_7hsmw")
+theme_override_font_sizes/font_size = 32
+text = "Charge"
+
+[node name="Drop" type="Button" parent="UnitCard/Margin/HBoxContainer/SpecialButtons" unique_id=1604521358 groups=["SpecialButton"]]
+visible = false
+z_index = 4000
+layout_mode = 1
+offset_top = 45.0
+offset_right = 120.0
+offset_bottom = 79.0
+theme_override_fonts/font = ExtResource("4_7hsmw")
+theme_override_font_sizes/font_size = 32
+text = "Drop"
+
+[node name="Mortar" type="Button" parent="UnitCard/Margin/HBoxContainer/SpecialButtons" unique_id=316979093 groups=["SpecialButton"]]
+visible = false
+z_index = 4000
+layout_mode = 1
+offset_right = 120.0
+offset_bottom = 34.0
+theme_override_fonts/font = ExtResource("4_7hsmw")
+theme_override_font_sizes/font_size = 32
+text = "Mortar"
+
+[node name="Rocket" type="Button" parent="UnitCard/Margin/HBoxContainer/SpecialButtons" unique_id=124956050 groups=["SpecialButton"]]
+visible = false
+z_index = 4000
+layout_mode = 1
+offset_top = 45.0
+offset_right = 120.0
+offset_bottom = 79.0
+theme_override_fonts/font = ExtResource("4_7hsmw")
+theme_override_font_sizes/font_size = 32
+text = "Rocket"
