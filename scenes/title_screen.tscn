@@ -370,6 +370,13 @@ theme_override_fonts/font = ExtResource("2_sa3yf")
 theme_override_font_sizes/font_size = 32
 text = "Start"
 
+[node name="StoryModeButton" type="Button" parent="Center/PanelContainer/MarginContainer/VBoxContainer/Buttons"]
+custom_minimum_size = Vector2(140, 16)
+layout_mode = 2
+theme_override_fonts/font = ExtResource("2_sa3yf")
+theme_override_font_sizes/font_size = 32
+text = "STORY"
+
 [node name="QuitButton" type="Button" parent="Center/PanelContainer/MarginContainer/VBoxContainer/Buttons" unique_id=663428844]
 custom_minimum_size = Vector2(120, 16)
 layout_mode = 2

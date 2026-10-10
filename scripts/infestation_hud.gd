@@ -30,6 +30,7 @@ var _bar: ProgressBar
 var _count: Label
 var _floppy: Label
 var _floppy_count: Label
+var _story_mode_ui := false
 
 func _ready() -> void:
 	_build_ui()
@@ -169,6 +170,17 @@ func _build_ui() -> void:
 	bg.corner_radius_bottom_right = 4
 	_bar.add_theme_stylebox_override("background", bg)
 
+func set_story_mode_ui(enabled: bool) -> void:
+	_story_mode_ui = enabled
+	if _bar != null:
+		_bar.visible = not enabled
+	if _floppy != null:
+		_floppy.visible = not enabled
+	if _floppy_count != null:
+		_floppy_count.visible = not enabled
+	if _count != null and enabled:
+		_count.text = "ZOMBIES 0"
+
 func set_floppy_count(got: int, need: int) -> void:
 	if _floppy_count == null:
 		return
@@ -190,7 +202,7 @@ func set_counts(zombies: int, limit: int) -> void:
 
 	_bar.max_value = zombie_limit
 	_bar.value = clamp(zombies, 0, zombie_limit)
-	_count.text = "ZOMBIES: %d / %d" % [zombies, zombie_limit]
+	_count.text = "ZOMBIES %d" % zombies if _story_mode_ui else "ZOMBIES: %d / %d" % [zombies, zombie_limit]
 
 	var ratio := float(zombies) / float(zombie_limit)
 

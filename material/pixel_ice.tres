@@ -1,4 +1,4 @@
-[gd_resource type="ShaderMaterial" load_steps=2 format=3 uid="uid://bfup18wpuk1qq"]
+[gd_resource type="ShaderMaterial" format=3 uid="uid://bfup18wpuk1qq"]
 
 [ext_resource type="Shader" uid="uid://dv8unlylnvpnh" path="res://shaders/pixel_ice.gdshader" id="1_l6hdt"]
 

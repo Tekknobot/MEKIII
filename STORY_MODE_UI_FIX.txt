@@ -1,0 +1,12 @@
+Signal 7 Story Mode HUD and floating structure fix
+
+- Story-specific text now lives in one compact top right card beneath MENU.
+- The card uses plain letters, digits and spaces, with no decorative separators.
+- Removed the redundant permanent control instructions on the top left.
+- Story Mode hides the campaign floppy counters, infection bar and campaign tutorial toasts; zombie count remains.
+- Structure anchors are unchanged from the normal campaign.
+- Buildings stay invisible until their supporting isometric terrain tiles and one neighboring ring have completely finished landing.
+- A short building fade follows completed terrain rather than a premature move that could make it float over unexplored space.
+- The regular campaign and its HUD are unaffected.
+
+Testing: No Godot binary was available in the environment. Please check a new Story Mode session in Godot.

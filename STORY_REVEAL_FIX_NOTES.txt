@@ -1,0 +1,9 @@
+STORY MODE - ROAD SUPPORT AND ISOMETRIC TILE DROP FIX
+
+- Road segments are now deferred until every isometric terrain cell under the road texture's actual opaque footprint has finished dropping in. Their visible shape is sampled once from the existing atlas source, not approximated from the road tile anchor.
+- Roads that would extend past the physical map boundary are not rendered in Story Mode. The regular campaign road generation is unchanged.
+- Terrain/road drop sprites use stationary landing anchors with Y sorting, so moving sprite positions cannot scramble isometric draw order.
+- Existing landed TileMap cells render in front of falling sprites within their respective layers. Each drop is replaced by the original TileMap cell once it lands.
+- Existing HUD, free camera pan, combat overlays, buildings and turn mechanics are preserved.
+
+The archive has been checked for ZIP integrity but not tested inside Godot.

@@ -138,3 +138,6 @@ res://shaders/stim_jacked.gdshader
 res://shaders/text_outline_1px.gdshader
 res://shaders/titan_cinematic.gdshader
 res://shaders/wobble_shimmer.gdshader
+res://scripts/story_mode.gd
+res://scripts/story_director.gd
+res://scenes/story_mode.tscn

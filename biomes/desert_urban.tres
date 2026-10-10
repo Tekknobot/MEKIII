@@ -1,4 +1,4 @@
-[gd_resource type="Resource" script_class="BiomeSet" load_steps=7 format=3 uid="uid://cpcjag16ny5xv"]
+[gd_resource type="Resource" script_class="BiomeSet" format=3 uid="uid://cpcjag16ny5xv"]
 
 [ext_resource type="Texture2D" uid="uid://cvijuygwhrsdt" path="res://sprites/Terrain/biomes/desert_urban/desert_dirt.png" id="1_2ik2j"]
 [ext_resource type="Script" uid="uid://dyy06am5hh6de" path="res://scripts/biome_set.gd" id="1_n0jlt"]

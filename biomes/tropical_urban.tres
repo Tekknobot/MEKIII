@@ -1,4 +1,4 @@
-[gd_resource type="Resource" script_class="BiomeSet" load_steps=7 format=3 uid="uid://be7ixepcsqfle"]
+[gd_resource type="Resource" script_class="BiomeSet" format=3 uid="uid://be7ixepcsqfle"]
 
 [ext_resource type="Texture2D" uid="uid://c3ygwnpnc6fvi" path="res://sprites/Terrain/biomes/tropical_urban/tropical_dirt.png" id="1_oj7o4"]
 [ext_resource type="Texture2D" uid="uid://bckf3f1mwg1vo" path="res://sprites/Terrain/biomes/tropical_urban/tropical_grass.png" id="2_bcegw"]

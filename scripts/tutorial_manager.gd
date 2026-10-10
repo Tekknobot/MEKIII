@@ -66,6 +66,9 @@ func _ready() -> void:
 	call_deferred("_show_step")
 
 func _show_step() -> void:
+	if not enabled:
+		_hide_toast()
+		return
 	match step:
 		Step.INTRO_SELECT:
 			_toast(

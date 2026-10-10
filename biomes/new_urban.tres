@@ -1,4 +1,4 @@
-[gd_resource type="Resource" script_class="BiomeSet" load_steps=7 format=3 uid="uid://bb741nct667ix"]
+[gd_resource type="Resource" script_class="BiomeSet" format=3 uid="uid://bb741nct667ix"]
 
 [ext_resource type="Texture2D" uid="uid://by1nnygq8fbib" path="res://sprites/Terrain/dirt.png" id="1_uco8g"]
 [ext_resource type="Texture2D" uid="uid://usc687xtdcac" path="res://sprites/Terrain/grass_default.png" id="2_2mto7"]

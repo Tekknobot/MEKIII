@@ -25,6 +25,10 @@ var _coop_client_ready: bool = false
 
 var _last_drop_center: Vector2i = Vector2i.ZERO
 
+# Story uses the actual isometric battle map, never the old square-tile shooter.
+@export var story_mode_enabled := false
+
+
 func _net() -> Node:
 	var t := get_tree()
 	if t == null:
@@ -215,6 +219,13 @@ const ROAD_SIZE := 2
 
 @export var enable_roads := true
 
+@export_group("Story Mode Roads")
+# Whole-map road lanes. These are used ONLY when story_mode_enabled is true.
+# 0 disables the corresponding direction. Counts are clamped to the map size.
+@export_range(0, 64, 1, "or_greater") var story_vertical_roads: int = 1
+@export_range(0, 64, 1, "or_greater") var story_horizontal_roads: int = 1
+@export_group("")
+
 # Water blobs (simple)
 @export var water_patch_count := 2
 @export var water_patch_radius_min := 2
@@ -299,6 +310,9 @@ func _ready() -> void:
 	await _start_mission()
 
 func _start_mission() -> void:
+	if story_mode_enabled:
+		await _start_story_mission()
+		return
 	if _is_coop() and not _is_host():
 		# ✅ Client does NOT generate anything
 		_coop_snapshot_pending = true
@@ -440,6 +454,64 @@ func _start_mission() -> void:
 		turn_manager.on_units_spawned()	
 
 		
+# Uses the very same TileMaps, structure placement, squad units and turn manager
+# as the campaign. StoryDirector only changes WHEN existing tiles/units appear.
+func _start_story_mission() -> void:
+	if tutorial_manager != null and is_instance_valid(tutorial_manager):
+		tutorial_manager.set("enabled", false)
+		tutorial_manager.call("_hide_toast")
+	if _is_coop():
+		push_warning("Story Mode is currently single-player only.")
+		return
+	rng.seed = 873201
+	season = Season.GRASS
+	weather = Weather.CLEAR
+	randomize_biome_each_generation = false
+	biome_index = 0
+	if grid == null:
+		grid = GridData.new()
+	grid.setup(map_width, map_height, T_DIRT)
+	generate_map()
+	spawn_structures()
+	map_controller.setup(self)
+	map_controller.clear_all()
+
+	var director := get_node_or_null("StoryDirector")
+	if director == null:
+		push_error("Story Mode: missing StoryDirector")
+		return
+	# Hide fully generated geometry before the fade clears: no map pop-in.
+	director.call("prepare_world")
+	# No campaign beacon deadline, Titan event, or edge-spawn pressure in Story.
+	if turn_manager != null:
+		turn_manager._is_titan_event = false
+		turn_manager.titan_event_enabled = false
+		turn_manager.boss_mode_enabled = false
+		turn_manager.beacon_deadline_round = 9999
+		turn_manager.zombie_limit = 999
+
+	var soldier: PackedScene = preload("res://scenes/units/allies/human.tscn")
+	var start_cell := map_controller._find_nearest_open_walkable(Vector2i(map_width / 2, map_height / 2), {}, 32)
+	if start_cell.x < 0:
+		push_error("Story Mode: no walkable entry cell")
+		return
+	map_controller._spawn_specific_ally(start_cell, soldier)
+	var leader: Unit = map_controller.units_by_cell.get(start_cell) as Unit
+	if leader == null:
+		push_error("Story Mode: unable to spawn leader")
+		return
+	map_controller.set_meta("drop_center_cell", start_cell)
+	if camera != null:
+		if camera.has_method("set_follow_enabled"):
+			camera.call("set_follow_enabled", false)
+		camera.global_position = leader.global_position
+	map_controller.select_unit(leader)
+	director.call("start_story", leader)
+	await _fade_to(0.0, 0.40)
+	if turn_manager != null and is_instance_valid(turn_manager):
+		turn_manager.start_player_phase()
+		turn_manager.on_units_spawned()
+
 func _pick_weather_for_generation() -> void:
 	if not randomize_weather_each_generation:
 		return
@@ -956,6 +1028,12 @@ func _add_roads() -> void:
 
 	_sync_roads_transform()
 
+	# Story Mode uses exact, inspector-controlled road counts. The regular
+	# campaign continues using its original randomized 1 + optional 1 roads.
+	if story_mode_enabled:
+		_add_story_roads()
+		return
+
 	var cols := int(map_width / ROAD_SIZE) * 2 - 1
 	var rows := int(map_height / ROAD_SIZE) * 2 - 1
 	if cols <= 0 or rows <= 0:
@@ -1018,6 +1096,72 @@ func _add_roads() -> void:
 		elif mask == 2:
 			roads_dr.set_cell(0, rc, ROAD_DOWN_RIGHT, ROAD_ATLAS, 0)
 
+	_rebuild_road_blocked()
+
+func _story_road_positions(length: int, requested_count: int) -> Array[int]:
+	# Choose precisely N distinct lanes, distributing them evenly across the
+	# available road grid. Randomize only leftover gaps for map-to-map variety.
+	var positions: Array[int] = []
+	var count := clampi(requested_count, 0, length)
+	if count == 0:
+		return positions
+
+	var unused := length - count
+	var gap_count := count + 1
+	var base_gap := int(unused / gap_count)
+	var remainder := unused % gap_count
+	var gaps: Array[int] = []
+	for i in range(gap_count):
+		gaps.append(base_gap)
+	# Shuffle which gaps get an additional empty lane (no duplicates).
+	var gap_order: Array[int] = []
+	for i in range(gap_count):
+		gap_order.append(i)
+	for i in range(gap_count - 1, 0, -1):
+		var j := rng.randi_range(0, i)
+		var tmp := gap_order[i]
+		gap_order[i] = gap_order[j]
+		gap_order[j] = tmp
+	for i in range(remainder):
+		gaps[gap_order[i]] += 1
+
+	var current := gaps[0]
+	for i in range(count):
+		positions.append(current)
+		current += 1 + gaps[i + 1]
+	return positions
+
+func _add_story_roads() -> void:
+	var cols := maxi(0, int(map_width / ROAD_SIZE) * 2 - 1)
+	var rows := maxi(0, int(map_height / ROAD_SIZE) * 2 - 1)
+	if cols == 0 or rows == 0:
+		return
+
+	var vertical_lanes := _story_road_positions(cols, story_vertical_roads)
+	var horizontal_lanes := _story_road_positions(rows, story_horizontal_roads)
+	var conn: Dictionary = {}
+
+	# Vertical lane = fixed road-grid column, traversing all rows.
+	for col in vertical_lanes:
+		for row in range(rows):
+			var c := Vector2i(col, row)
+			conn[c] = int(conn.get(c, 0)) | 1
+
+	# Horizontal lane = fixed road-grid row, traversing all columns.
+	for row in horizontal_lanes:
+		for col in range(cols):
+			var c := Vector2i(col, row)
+			conn[c] = int(conn.get(c, 0)) | 2
+
+	# Use the exact same road TileMaps and intersection tiles as Campaign.
+	for c in conn.keys():
+		match int(conn[c]):
+			3:
+				roads_x.set_cell(0, c, ROAD_INTERSECTION, ROAD_ATLAS, 0)
+			1:
+				roads_dl.set_cell(0, c, ROAD_DOWN_LEFT, ROAD_ATLAS, 0)
+			2:
+				roads_dr.set_cell(0, c, ROAD_DOWN_RIGHT, ROAD_ATLAS, 0)
 	_rebuild_road_blocked()
 
 func _rebuild_road_blocked() -> void:

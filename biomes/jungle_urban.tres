@@ -1,4 +1,4 @@
-[gd_resource type="Resource" script_class="BiomeSet" load_steps=7 format=3 uid="uid://beemq1mpp8ofs"]
+[gd_resource type="Resource" script_class="BiomeSet" format=3 uid="uid://beemq1mpp8ofs"]
 
 [ext_resource type="Texture2D" uid="uid://bvwr3k03hbabx" path="res://sprites/Terrain/biomes/jungle_urban/jungle_dirt.png" id="1_14lx6"]
 [ext_resource type="Texture2D" uid="uid://buhpneiq87lot" path="res://sprites/Terrain/biomes/jungle_urban/jungle_grass.png" id="2_c8ij7"]

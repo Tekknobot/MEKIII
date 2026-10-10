@@ -3678,6 +3678,16 @@ func apply_damage_delayed(u: Node, dmg: int, delay: float = 0.08, flash_time: fl
 # --------------------------
 # Overlay helpers
 # --------------------------
+func _story_overlay_cell_visible(c: Vector2i) -> bool:
+	if game_ref == null or not bool(game_ref.get("story_mode_enabled")):
+		return true
+	var director := game_ref.get_node_or_null("StoryDirector")
+	if director == null or not is_instance_valid(director):
+		return true
+	if director.has_method("is_cell_overlay_visible"):
+		return bool(director.call("is_cell_overlay_visible", c))
+	return true
+
 func _clear_overlay() -> void:
 	if overlay_root == null or not is_instance_valid(overlay_root):
 		return
@@ -3735,6 +3745,8 @@ func _draw_move_range(u: Unit) -> void:
 			# Only consider it valid if an L path exists
 			if _pick_clear_L_path(origin, c).is_empty():
 				continue
+			if not _story_overlay_cell_visible(c):
+				continue
 
 			valid_move_cells[c] = true
 
@@ -3773,6 +3785,8 @@ func _draw_attack_range(u: Unit) -> void:
 			if structure_blocked.has(c):
 				continue
 			if not _has_clear_attack_path(origin, c):
+				continue
+			if not _story_overlay_cell_visible(c):
 				continue
 
 			var t := attack_tile_scene.instantiate() as Node2D
@@ -3882,6 +3896,10 @@ func _draw_special_range(u: Unit, special: String) -> void:
 			var c = origin + dir
 
 			while (grid == null or (grid.has_method("in_bounds") and grid.in_bounds(c))) and (not structure_blocked.has(c)):
+				if not _story_overlay_cell_visible(c):
+					step += 1
+					c += dir
+					continue
 				# draw tile once
 				if not seen.has(c):
 					seen[c] = true
@@ -3906,6 +3924,9 @@ func _draw_special_range(u: Unit, special: String) -> void:
 
 			# bounds
 			if grid != null and grid.has_method("in_bounds") and not grid.in_bounds(c):
+				continue
+
+			if not _story_overlay_cell_visible(c):
 				continue
 
 			# -------------------------------------------------
@@ -4136,6 +4157,8 @@ func _draw_special_range(u: Unit, special: String) -> void:
 			var set_for_dir := _slam_affected_cells_for_dir(origin, ddir, start_sl, slam_side_len, slam_depth, slam_layers_inward)
 			for k in set_for_dir.keys():
 				if grid != null and grid.has_method("in_bounds") and not grid.in_bounds(k):
+					continue
+				if not _story_overlay_cell_visible(k):
 					continue
 				affected[k] = true
 
@@ -9275,6 +9298,8 @@ func _draw_zombie_threat_overlay() -> void:
 
 	# 3) Draw the union once using your packed scene
 	for c in valid_zombie_threat_cells.keys():
+		if not _story_overlay_cell_visible(c):
+			continue
 		var t := threat_tile_scene.instantiate() as Node2D
 		overlay_threat_tiles_root.add_child(t)
 

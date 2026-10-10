@@ -1,6 +1,7 @@
 extends Camera2D
 
 signal map_centered
+signal story_manual_pan_started
 
 @export var map_width := 16
 @export var map_height := 16
@@ -329,6 +330,9 @@ func _input(event: InputEvent) -> void:
 		if event.pressed:
 			_dragging = true
 			_last_mouse_pos = event.position
+			var parent_game := get_parent()
+			if parent_game != null and bool(parent_game.get("story_mode_enabled")):
+				story_manual_pan_started.emit()
 		else:
 			_dragging = false
 		get_viewport().set_input_as_handled()

@@ -11,6 +11,7 @@ extends Control
 
 @onready var fade: ColorRect = $Fade
 @onready var start_button: Button = $Center/PanelContainer/MarginContainer/VBoxContainer/Buttons/StartButton
+@onready var story_mode_button: Button = $Center/PanelContainer/MarginContainer/VBoxContainer/Buttons/StoryModeButton
 @onready var quit_button: Button = $Center/PanelContainer/MarginContainer/VBoxContainer/Buttons/QuitButton
 @onready var restart_button: Button = $Center/PanelContainer/MarginContainer/VBoxContainer/Buttons/RestartButton
 @onready var title: TextureRect = $Center/PanelContainer/MarginContainer/VBoxContainer/Title
@@ -120,6 +121,7 @@ func _ready() -> void:
 
 	# Hook buttons
 	start_button.pressed.connect(_on_start_pressed)
+	story_mode_button.pressed.connect(_on_story_mode_pressed)
 	quit_button.pressed.connect(_on_quit_pressed)
 	restart_button.pressed.connect(_on_restart_pressed)
 	if coop_host_button != null:
@@ -255,6 +257,14 @@ func _on_start_pressed() -> void:
 		# no save OR no squad selected -> go pick squad
 		get_tree().change_scene_to_packed(game_scene)
 
+func _on_story_mode_pressed() -> void:
+	if _busy:
+		return
+	_busy = true
+	_type_running = false
+	await _fade_out()
+	get_tree().change_scene_to_file("res://scenes/story_mode.tscn")
+
 func _on_quit_pressed() -> void:
 	if _busy:
 		return
@@ -346,6 +356,7 @@ func _apply_fonts() -> void:
 
 	# Buttons
 	_apply_button_font(start_button)
+	_apply_button_font(story_mode_button)
 	_apply_button_font(quit_button)
 
 func _apply_button_font(b: Button) -> void:

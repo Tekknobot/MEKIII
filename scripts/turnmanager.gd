@@ -1270,7 +1270,7 @@ func _refresh_population_and_check() -> void:
 	# Loss checks are host-authoritative in co-op
 	if loss_checks_enabled and (not coop_active or coop_host):
 		# Loss #1: too many zombies (allowed as soon as checks are enabled)
-		if zombie_limit > 0 and zombies >= zombie_limit:
+		if not (M.game_ref != null and bool(M.game_ref.get("story_mode_enabled"))) and zombie_limit > 0 and zombies >= zombie_limit:
 			_loss_mode = LossMode.RESTART_MISSION
 			game_over("SYSTEM OVERRUN\n\nInfestation exceeded containment limits.\nZombies: %d / %d" % [zombies, zombie_limit])
 			return
@@ -1460,8 +1460,9 @@ func start_enemy_phase() -> void:
 	if _game_over_triggered:
 		return
 
-	# spawn wave for next round (standard curve)
-	if M != null and M.has_method("spawn_edge_road_zombie"):
+	# Story enemies are placed by exploration; never by campaign edge waves.
+	var story_exploration := M != null and M.game_ref != null and bool(M.game_ref.get("story_mode_enabled"))
+	if not story_exploration and M != null and M.has_method("spawn_edge_road_zombie"):
 		var to_spawn := _calc_spawn_count_for_round(round_index)
 		var spawned := 0
 
@@ -1499,7 +1500,7 @@ func start_enemy_phase() -> void:
 
 	# deadline check (tune for 6 parts)
 	if M != null and M.has_meta("beacon_ready"):
-		if round_index > beacon_deadline_round and (not M.beacon_ready):
+		if not story_exploration and round_index > beacon_deadline_round and (not M.beacon_ready):
 			game_over("Beacon not completed by end of Round %d!" % beacon_deadline_round)
 			return
 
@@ -1662,6 +1663,9 @@ func _run_enemy_turns() -> void:
 		if u.hp <= 0:
 			continue
 		if u.team == Unit.Team.ENEMY:
+			# In Story Mode, a newly revealed zombie cannot act while invisible.
+			if bool(u.get_meta("story_revealing", false)):
+				continue
 			enemies.append(u)
 		elif u.team == Unit.Team.ALLY:
 			allies.append(u)

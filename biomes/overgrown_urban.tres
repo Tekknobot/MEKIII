@@ -1,4 +1,4 @@
-[gd_resource type="Resource" script_class="BiomeSet" load_steps=7 format=3 uid="uid://cy20goue3rn7q"]
+[gd_resource type="Resource" script_class="BiomeSet" format=3 uid="uid://cy20goue3rn7q"]
 
 [ext_resource type="Script" uid="uid://dyy06am5hh6de" path="res://scripts/biome_set.gd" id="1_15875"]
 [ext_resource type="Texture2D" uid="uid://bktpplbikmno4" path="res://sprites/Terrain/biomes/overgrown_urban/overgrown_aged_dirt2.png" id="1_urnm0"]
