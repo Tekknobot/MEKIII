@@ -124,7 +124,7 @@ const SPECIAL_TOOLTIP_DEFS := {
 	},
 	"overwatch": {
 		"title": "WATCHER",
-		"desc": "Enter overwatch and fire automatically when enemies move into range."
+		"desc": "Fire sequential explosive projectiles at up to 8 enemies in range when triggered."
 	},
 	"suppress": {
 		"title": "SUPPRESS",
@@ -1338,8 +1338,14 @@ func _camera_focus_enemy(unit: Unit, spawn_reveal := false) -> void:
 	if unit == null or not is_instance_valid(unit):
 		return
 	var cam := _battle_camera()
-	if cam != null and cam.has_method("cinematic_focus_on"):
+	if cam != null and cam.has_method("cinematic_focus_on") and cam.enemy_cinematic_enabled:
 		await cam.call("cinematic_focus_on", unit, spawn_reveal)
+	elif spawn_reveal:
+		# No cinematic camera? Never leave a zombie permanently invisible.
+		var reveal_tw: Tween = unit.get_meta("edge_spawn_fade_tween", null)
+		if reveal_tw != null and reveal_tw.is_valid():
+			reveal_tw.play()
+			await reveal_tw.finished
 
 func _camera_end_enemy_cinematic() -> void:
 	var cam := _battle_camera()
@@ -1469,7 +1475,10 @@ func start_enemy_phase() -> void:
 				if M.has_method("get_last_edge_spawned_unit"):
 					var spawned_zombie = M.call("get_last_edge_spawned_unit")
 					if spawned_zombie is Unit:
-						await _camera_focus_enemy(spawned_zombie as Unit, true)
+						# The spawn fade remains paused until the camera arrives.
+						# Await the COMPLETE camera/reveal sequence before spawning another.
+						if is_instance_valid(spawned_zombie):
+							await _camera_focus_enemy(spawned_zombie as Unit, true)
 			else:
 				break # no more valid edge cells
 

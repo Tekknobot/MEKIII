@@ -139,6 +139,14 @@ func cinematic_focus_on(target: Node2D, spawn_reveal := false) -> void:
 	await pan.finished
 
 	if spawn_reveal:
+		# Camera must be in position BEFORE the new zombie starts becoming visible.
+		if is_instance_valid(target):
+			var reveal_tw: Tween = target.get_meta("edge_spawn_fade_tween", null)
+			if reveal_tw != null and reveal_tw.is_valid():
+				reveal_tw.play()
+				await reveal_tw.finished
+		if not is_instance_valid(target):
+			return
 		# A compact impact bump gives newly arrived zombies a stronger reveal.
 		var base := global_position
 		var bump := create_tween()

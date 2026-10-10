@@ -6311,33 +6311,65 @@ func _check_overwatch_trigger(_mover: Unit, _entered_cell: Vector2i) -> void:
 		return (a.cell.x + a.cell.y) < (b.cell.x + b.cell.y)
 	)
 
-	# Fire: each watcher takes ONE overwatch shot, but can pick ANY enemy in range.
+	# Watcher fires a deliberate sequence of distinct explosive projectiles.
+	# Capture targets per trigger; no target can be selected twice in the volley.
 	for w in watchers:
-		if w == null or not is_instance_valid(w):
+		if w == null or not is_instance_valid(w) or w.hp <= 0:
 			continue
 		if not overwatch_by_unit.has(w):
 			continue
+		var targets: Array[Unit] = _enemies_in_overwatch_range(w)
+		var shot_limit: int = mini(8, targets.size())
+		for i in range(shot_limit):
+			if not is_instance_valid(w) or w.hp <= 0 or not overwatch_by_unit.has(w):
+				break
+			var t: Unit = targets[i]
+			if t == null or not is_instance_valid(t) or t.hp <= 0:
+				continue
+			await _fire_watcher_projectile(w, t)
+			if is_inside_tree() and i + 1 < shot_limit:
+				await get_tree().create_timer(0.12).timeout
 
-		var targets := _enemies_in_overwatch_range(w)
-		if targets.is_empty():
-			continue
+# Uses the existing animated bullet prefab and explosion prefab, not lasers.
+const WATCHER_BULLET_SCENE: PackedScene = preload("res://scenes/bullet.tscn")
 
-		# Pick a target (closest)
-		var t := targets[0]
-		if t == null or not is_instance_valid(t) or t.hp <= 0:
-			continue
-
-		_face_unit_toward_world(w, t.global_position)
-		_sync_ghost_facing(w)
-
-		_say(w, "Contact!")
-		_sfx(sfx_overwatch_shot, sfx_volume_world, _sfx_pitch(), w.global_position)
-
-		await _do_attack(w, t)
-		
-		# ✅ If overwatch killed it, force the unit to fully die + free
+func _fire_watcher_projectile(w: Unit, t: Unit) -> void:
+	if not is_instance_valid(w) or not is_instance_valid(t) or t.hp <= 0:
+		return
+	var impact_cell: Vector2i = t.cell
+	var launch: Vector2 = w.global_position + Vector2(0, -16)
+	var impact: Vector2 = t.global_position + Vector2(0, -12)
+	_face_unit_toward_world(w, impact)
+	_sync_ghost_facing(w)
+	_play_attack_anim(w)
+	_sfx(sfx_overwatch_shot, sfx_volume_world, _sfx_pitch(), launch)
+	var projectile := WATCHER_BULLET_SCENE.instantiate() as Node2D
+	if projectile != null:
+		add_child(projectile)
+		projectile.global_position = launch
+		projectile.z_index = 4095
+		projectile.z_as_relative = false
+		var direction: Vector2 = impact - launch
+		projectile.rotation = direction.angle()
+		var travel_time: float = clampf(direction.length() / 750.0, 0.16, 0.38)
+		var motion := create_tween()
+		motion.tween_property(projectile, "global_position", impact, travel_time)
+		await motion.finished
+		if is_instance_valid(projectile):
+			projectile.queue_free()
+	if not is_inside_tree():
+		return
+	# Explosions happen only at projectile contact, with the existing FX and SFX.
+	vfx_explosion_at_cell(impact_cell)
+	if not _coop_is_client() and is_instance_valid(t) and t.hp > 0:
+		var damage: int = w.get_attack_damage() if is_instance_valid(w) and w.has_method("get_attack_damage") else 1
+		if is_instance_valid(w):
+			t.set_meta(&"last_attacker_id", w.get_instance_id())
+		t.take_damage(damage)
 		if is_instance_valid(t) and t.hp <= 0:
-			t.await_die()  # fire-and-forget (do NOT await)	
+			t.await_die()
+	if is_instance_valid(w):
+		_play_idle_anim(w)
 
 func _get_unit_render_node(u: Unit) -> CanvasItem:
 	if u == null or not is_instance_valid(u):
@@ -6723,6 +6755,10 @@ func spawn_edge_road_zombie() -> bool:
 	tw.set_trans(Tween.TRANS_SINE)
 	tw.set_ease(Tween.EASE_OUT)
 	tw.tween_property(z, "modulate:a", 1.0, enemy_fade_time)
+	# Spawn hidden and keep the fade paused until the camera reaches this zombie.
+	# The turn manager will release each reveal in sequence.
+	tw.pause()
+	z.set_meta("edge_spawn_fade_tween", tw)
 
 	return true
 

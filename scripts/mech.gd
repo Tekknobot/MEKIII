@@ -11,7 +11,7 @@ class_name Mech
 # Specials UI info
 # -------------------------
 @export var specials: Array[String] = ["MINES", "WATCHER"]
-@export var special_desc: String = "Place mines in range.\nWatcher attacks in range every turn."
+@export var special_desc: String = "Place mines in range.\nWatcher fires up to 8 explosive projectiles sequentially when triggered."
 
 @export var mine_place_range := 5
 @export var mine_damage := 2
