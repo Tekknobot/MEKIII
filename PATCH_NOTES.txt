@@ -1,0 +1,41 @@
+ZombieMECHA: explicit attack selection patch
+
+UPDATED SCRIPTS
+  scripts/map_controller.gd
+  scripts/turnmanager.gd
+  scripts/tutorial_manager.gd
+
+INSTALL
+  Back up your Godot project, then merge the supplied scripts/ folder
+  into res://scripts/ (replacing the three changed .gd files).
+  The other script files and .uid files are unchanged.
+
+BEHAVIOR
+  - Moving no longer auto-arms BASIC (solo, host or co-op client).
+  - Spending movement does not auto-switch into basic attack targeting.
+  - STIM no longer auto-arms BASIC after execution.
+  - Right-click cancels armed BASIC/SPECIAL targeting; it does not arm BASIC.
+  - BASIC is a visible, toggleable action button beside existing special
+    buttons. In a managed action container it appears after the specials.
+  - Choosing BASIC draws existing basic attack targeting tiles; choosing a
+    special continues to use that special's original targeting and execution.
+  - Spent attacks disable BASIC. Existing special cooldowns and availability
+    logic are unchanged.
+  - Tutorial teaches explicit BASIC/SPECIAL choice and accepts a successful
+    consuming special attack for its first combat step.
+
+UNCHANGED
+  Damage and special effect code, cooldown timers, per-turn action rules,
+  host/client RPC names, packet contents, replay and snapshot logic.
+
+VERIFICATION
+  Static change and packaging checks completed. Only the scripts ZIP was
+  provided, without game scenes/assets or a runnable Godot project;
+  in-engine and two-player co-op runtime testing is still required.
+
+FOLLOW-UP: SINGLE TOOLTIP FIX (2026-10-11)
+  - turnmanager.gd: removed the native Godot BASIC tooltip.
+  - Custom-tooltip wiring clears native tooltip_text on BASIC and all special
+    action buttons, preventing the secondary green tooltip overlay.
+  - The original blue action tooltip remains active for hover descriptions.
+  - No changes to action selection, damage, effects, cooldowns, or multiplayer.

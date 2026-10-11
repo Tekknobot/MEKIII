@@ -110,6 +110,10 @@ const _SPAWN_WAIT_MAX_TRIES := 90  # ~1.5s at 60fps
 
 
 const SPECIAL_TOOLTIP_DEFS := {
+	"basic": {
+		"title": "BASIC ATTACK",
+		"desc": "Standard single-target attack. Choose this instead of a special when you need a precise hit. Consumes your normal attack action."
+	},
 	"hellfire": {
 		"title": "HELLFIRE",
 		"desc": "Lob an explosive payload that damages the target area."
@@ -229,6 +233,10 @@ const SPECIAL_TOOLTIP_DEFS := {
 		"desc": "Launch three rockets that explode across the selected target zone."
 	},
 }
+
+# Explicit basic-attack selector. Created beside the existing specials at runtime,
+# because the uploaded patch contains scripts, not the HUD scene.
+var basic_attack_button: Button = null
 
 var _special_tooltip_panel: PanelContainer = null
 var _special_tooltip_title: Label = null
@@ -843,6 +851,7 @@ func _ready() -> void:
 	if rocket_button:
 		rocket_button.pressed.connect(_on_rocket_pressed)
 		
+	_ensure_basic_attack_button()
 	_wire_special_tooltips()
 
 		# COOP: broadcast authoritative state after enemy phase + spawns
@@ -949,8 +958,105 @@ func _all_special_buttons() -> Array[Button]:
 	]
 
 
+# The scene is not in the scripts ZIP, so create BASIC using a live special
+# button as a style/layout reference. It lives in the same HUD action strip.
+func _ensure_basic_attack_button() -> void:
+	if basic_attack_button != null and is_instance_valid(basic_attack_button):
+		return
+
+	var sample: Button = null
+	for candidate in _all_special_buttons():
+		if candidate != null and is_instance_valid(candidate):
+			sample = candidate
+			break
+
+	var host: Node = sample.get_parent() if sample != null else _hud()
+	if host == null:
+		push_warning("TurnManager: No HUD parent found for BASIC attack button.")
+		return
+
+	basic_attack_button = Button.new()
+	basic_attack_button.name = "BasicAttack"
+	basic_attack_button.text = "BASIC"
+	# A custom blue panel handles action descriptions; avoid a second native tooltip.
+	basic_attack_button.tooltip_text = ""
+	basic_attack_button.toggle_mode = true
+	basic_attack_button.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+	basic_attack_button.visible = false
+	basic_attack_button.disabled = true
+	basic_attack_button.add_to_group("SpecialButton")
+
+	if sample != null:
+		# Borrow the existing button's theme and sizing without copying its signals.
+		basic_attack_button.theme = sample.theme
+		basic_attack_button.theme_type_variation = sample.theme_type_variation
+		basic_attack_button.custom_minimum_size = sample.custom_minimum_size
+		basic_attack_button.size_flags_horizontal = sample.size_flags_horizontal
+		basic_attack_button.size_flags_vertical = sample.size_flags_vertical
+		for state in ["normal", "hover", "pressed", "disabled", "focus", "hover_pressed"]:
+			if sample.has_theme_stylebox(state):
+				basic_attack_button.add_theme_stylebox_override(state, sample.get_theme_stylebox(state))
+		if sample.has_theme_font("font"):
+			basic_attack_button.add_theme_font_override("font", sample.get_theme_font("font"))
+		if sample.has_theme_font_size("font_size"):
+			basic_attack_button.add_theme_font_size_override("font_size", sample.get_theme_font_size("font_size"))
+		for state in ["font_color", "font_hover_color", "font_pressed_color", "font_disabled_color", "font_focus_color"]:
+			if sample.has_theme_color(state):
+				basic_attack_button.add_theme_color_override(state, sample.get_theme_color(state))
+
+	host.add_child(basic_attack_button)
+	# In a Container the appended BASIC button follows the visible specials.
+	# Hand-positioned HUDs need an explicit, non-overlapping location.
+	if sample != null and host is Control and not (host is Container):
+		# Fallback for hand-positioned HUD buttons: place BASIC beside the
+		# action cluster rather than overlapping the existing special buttons.
+		var top := sample.position.y
+		var left := sample.position.x
+		var bottom := sample.position.y + maxf(sample.size.y, 32.0)
+		for b in _all_special_buttons():
+			if b == null or not is_instance_valid(b) or b.get_parent() != host:
+				continue
+			top = minf(top, b.position.y)
+			left = minf(left, b.position.x)
+			bottom = maxf(bottom, b.position.y + maxf(b.size.y, 32.0))
+		basic_attack_button.size = Vector2(maxf(sample.size.x, 72.0), maxf(sample.size.y, 32.0))
+		var button_y := top - basic_attack_button.size.y - 8.0
+		if button_y < 0.0:
+			button_y = bottom + 8.0
+		basic_attack_button.position = Vector2(left, button_y)
+	elif not (host is Container):
+		# Last-resort HUD layout when the scene has no managed action strip.
+		basic_attack_button.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_LEFT)
+		basic_attack_button.position = Vector2(24.0, 0.0)
+		basic_attack_button.size = Vector2(100.0, 36.0)
+
+	basic_attack_button.pressed.connect(_on_basic_attack_pressed)
+
+func _on_basic_attack_pressed() -> void:
+	if M == null or not player_input_allowed():
+		return
+	M.activate_basic_attack()
+	_update_special_buttons()
+
+func _sync_basic_attack_button() -> void:
+	if basic_attack_button == null or not is_instance_valid(basic_attack_button):
+		return
+	var u: Unit = M.selected if M != null else null
+	var is_ally := u != null and is_instance_valid(u) and u.team == Unit.Team.ALLY
+	basic_attack_button.visible = is_ally
+	if not is_ally:
+		basic_attack_button.disabled = true
+		basic_attack_button.button_pressed = false
+		return
+	var already_attacked := bool(_attacked.get(u, false))
+	if u.has_meta(&"turn_attacked"):
+		already_attacked = bool(u.get_meta(&"turn_attacked", already_attacked))
+	basic_attack_button.disabled = (not player_input_allowed() or already_attacked or not can_attack(u) or M._is_moving)
+	basic_attack_button.button_pressed = (not basic_attack_button.disabled and M.aim_mode == MapController.AimMode.ATTACK)
+
 func _wire_special_tooltips() -> void:
 	var pairs := [
+		{"button": basic_attack_button, "id": "basic"},
 		{"button": hellfire_button, "id": "hellfire"},
 		{"button": blade_button, "id": "blade"},
 		{"button": mines_button, "id": "mines"},
@@ -993,6 +1099,9 @@ func _wire_special_tooltips() -> void:
 			continue
 
 		b.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+		# Godot native tooltips can coexist with the custom blue tooltip.
+		# Suppress them for every action button wired to the blue panel.
+		b.tooltip_text = ""
 
 		var special_id := String(entry["id"])
 
@@ -1133,13 +1242,18 @@ func _show_special_tooltip() -> void:
 
 	if u != null and is_instance_valid(u):
 		var range_text := ""
-		if u.has_method("get_special_range"):
+		if _special_tooltip_id == "basic":
+			range_text = "Range %d, Damage %d" % [u.attack_range, u.get_attack_damage()]
+		elif u.has_method("get_special_range"):
 			var r := int(u.call("get_special_range", _special_tooltip_id))
 			if r > 0:
 				range_text = "Range %d" % r
 
 		var status_text := "Ready"
-		if u.has_method("can_use_special") and not bool(u.call("can_use_special", _special_tooltip_id)):
+		if _special_tooltip_id == "basic":
+			if not can_attack(u):
+				status_text = "Attack spent"
+		elif u.has_method("can_use_special") and not bool(u.call("can_use_special", _special_tooltip_id)):
 			var cd := 0
 			if "special_cd" in u and u.special_cd is Dictionary:
 				cd = int(u.special_cd.get(_special_tooltip_id, 0))
@@ -2107,6 +2221,7 @@ func _on_rocket_pressed() -> void:
 	
 	
 func _update_special_buttons() -> void:
+	_sync_basic_attack_button()
 	# Tooltip should not remain visible when its button disappears.
 	if (
 		_special_tooltip_button != null

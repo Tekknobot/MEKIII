@@ -72,7 +72,7 @@ func _show_step() -> void:
 	match step:
 		Step.INTRO_SELECT:
 			_toast(
-				"Click an ally to select them.\n\nLeft-click selects. Right-click arms attack mode.",
+				"Click an ally to select them.\n\nLeft-click selects. Choose an action using the visible BASIC or special buttons.",
 				"FIELD OPS"
 			)
 		Step.INTRO_MOVE:
@@ -82,7 +82,7 @@ func _show_step() -> void:
 			)
 		Step.INTRO_ATTACK:
 			_toast(
-				"Attack a zombie.\n\nATTACK automatically arms after move. If zombie isn't in range end turn.\nRapid click for multi-damage",
+				"Choose an attack.\n\nUse a mech SPECIAL button to preview its unique attack, or BASIC for a normal single-target shot. Click a highlighted target. Right-click cancels. If nothing is in range, End Turn.",
 				"FIELD OPS"
 			)
 		Step.FIRST_KILL:
@@ -178,13 +178,13 @@ func _on_tutorial_event(id: StringName, payload: Dictionary) -> void:
 		"attack_mode_armed":
 			# don't auto-advance, just reinforce if they're stuck
 			if step == Step.INTRO_ATTACK:
-				_hint_once(&"hint_attack_armed", "Attack mode auto armed.\n\nLeft-click again to dis-arm.\nIf zombie isn't in range end turn.")
+				_hint_once(&"hint_attack_armed", "BASIC armed.\n\nClick a highlighted enemy to attack. Right-click or click BASIC again to cancel.")
 				#await M._extract_allies_with_bomber()
 				#M.emit_signal("tutorial_event", &"extraction_finished", {})				
 
 		"attack_mode_disarmed":
 			if step == Step.INTRO_ATTACK:
-				_hint_once(&"hint_attack_disarmed", "Attack mode armed.\n\nNow left-click a zombie in range.\nIf zombie isn't in range end turn.")
+				_hint_once(&"hint_attack_disarmed", "BASIC cancelled.\n\nChoose a special button for an ability or BASIC for a standard attack.")
 
 		"ally_attacked":
 			if step == Step.INTRO_ATTACK:
@@ -239,7 +239,7 @@ func _on_tutorial_event(id: StringName, payload: Dictionary) -> void:
 		# Special mode hints (optional)
 		# -------------------------
 		"special_mode_armed":
-			_hint_once(&"hint_special_armed", "Special mode armed.\n\nClick a valid highlighted tile to use it.")
+			_hint_once(&"hint_special_armed", "Special selected.\n\nClick a highlighted target tile to use the ability. Right-click to cancel.")
 
 		"special_mode_disarmed":
 			_hint_once(&"hint_special_off", "Special mode off.")

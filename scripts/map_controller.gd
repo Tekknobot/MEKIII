@@ -2231,19 +2231,16 @@ func _unhandled_input(event: InputEvent) -> void:
 		return
 		
 	if event is InputEventMouseButton and event.pressed:
-		# Right click = ATTACK mode (arm)
+		# Right click only CANCELS a deliberate choice; it never arms BASIC.
+		# Attacks must start at the visible BASIC or special action button.
 		if event.button_index == MOUSE_BUTTON_RIGHT:
-			# Toggle attack preview on/off
-			if aim_mode == AimMode.ATTACK:
+			if aim_mode == AimMode.ATTACK or aim_mode == AimMode.SPECIAL:
+				var was_basic := aim_mode == AimMode.ATTACK
 				_set_aim_mode(AimMode.MOVE)
-				_refresh_overlays()
-				emit_signal("tutorial_event", &"attack_mode_disarmed", {})
-			else:
-				_set_aim_mode(AimMode.ATTACK)
-				_refresh_overlays()
-				_sfx(&"ui_arm_attack", sfx_volume_ui, 1.0)
-				# --- Tutorial hook ---
-				emit_signal("tutorial_event", &"attack_mode_armed", {"cell": (selected.cell if (selected != null and is_instance_valid(selected)) else Vector2i(-1, -1))})
+				if was_basic:
+					emit_signal("tutorial_event", &"attack_mode_disarmed", {})
+				else:
+					emit_signal("tutorial_event", &"special_mode_disarmed", {})
 			return
 
 
@@ -2387,6 +2384,7 @@ func _unhandled_input(event: InputEvent) -> void:
 					_apply_turn_indicator(u)
 					if TM != null and TM.has_method("notify_player_attacked"):
 						TM.notify_player_attacked(u)
+					emit_signal("tutorial_event", &"ally_attacked", {"special": "slam"})
 
 					_set_aim_mode(AimMode.MOVE)
 					return
@@ -2399,6 +2397,7 @@ func _unhandled_input(event: InputEvent) -> void:
 				_apply_turn_indicator(u)
 				if TM != null and TM.has_method("notify_player_attacked"):
 					TM.notify_player_attacked(u)
+				emit_signal("tutorial_event", &"ally_attacked", {"special": sid})
 
 			# ✅ Exit special mode on left-click for non-mines (or invalid cell)
 			_set_aim_mode(AimMode.MOVE)
@@ -3090,13 +3089,13 @@ func _rpc_play_move_visual(unit_net_id: int, a = null, b = null, c = null) -> vo
 		if TM != null and TM.has_method("notify_player_moved"):
 			TM.notify_player_moved(u)
 
-	# If this was our requested move, reselect + auto-arm attack (even if ownership check flickers)
+	# If this was our requested move, reselect with NO action armed.
 	if _coop_is_client() and int(unit_net_id) == int(_coop_last_move_req_net_id):
 		_coop_last_move_req_net_id = 0
 		if selected != u:
 			_select(u)
-		if not _unit_has_attacked(u):
-			_set_aim_mode(AimMode.ATTACK)
+		# The owning client also returns to unarmed action selection.
+		_set_aim_mode(AimMode.MOVE)
 		_refresh_overlays()
 
 	_coop_replaying = false
@@ -3838,10 +3837,8 @@ func _refresh_overlays() -> void:
 	elif aim_mode == AimMode.MOVE:
 		if can_show_move:
 			_draw_move_range(selected)
-		elif can_show_attack:
-			# ✅ auto-switch only when move is no longer possible
-			aim_mode = AimMode.ATTACK
-			_draw_attack_range(selected)
+		# After movement is spent we remain in MOVE / ACTION READY.
+		# Do not automatically arm BASIC or draw its targeting tiles.
 
 	emit_signal("aim_changed", int(aim_mode), special_id)
 
@@ -4425,10 +4422,8 @@ func _move_selected_to(target: Vector2i) -> void:
 
 	if u.team == Unit.Team.ALLY:
 		emit_signal("tutorial_event", &"ally_moved", {"from": from_cell, "to": target})
-		if not _unit_has_attacked(u):
-			aim_mode = AimMode.ATTACK
-		else:
-			aim_mode = AimMode.MOVE
+		# Movement never arms a default/basic attack automatically.
+		aim_mode = AimMode.MOVE
 
 	# ✅ QUIRK TRIGGER: move (BOOST) when using full move
 	if u != null and is_instance_valid(u) and u.team == Unit.Team.ALLY:
@@ -5447,6 +5442,27 @@ func _remove_unit_from_board(u: Unit) -> void:
 	if is_instance_valid(u):
 		u.queue_free()
 
+# BASIC is an opt-in action, exactly like choosing a special button.
+# It uses the existing ATTACK mode, damage, animation and network request path.
+func activate_basic_attack() -> void:
+	if selected == null or not is_instance_valid(selected):
+		return
+	if selected.team != Unit.Team.ALLY or not _can_local_control(selected):
+		return
+	if _is_moving or _unit_has_attacked(selected):
+		return
+	if TM != null and (not TM.player_input_allowed() or not TM.can_attack(selected)):
+		return
+
+	if aim_mode == AimMode.ATTACK:
+		_set_aim_mode(AimMode.MOVE)
+		emit_signal("tutorial_event", &"attack_mode_disarmed", {})
+		return
+
+	_set_aim_mode(AimMode.ATTACK)
+	_sfx(&"ui_arm_attack", sfx_volume_ui, 1.0)
+	emit_signal("tutorial_event", &"attack_mode_armed", {"cell": selected.cell})
+
 func activate_special(id: String) -> void:
 	if selected == null or not is_instance_valid(selected):
 		return
@@ -5503,6 +5519,7 @@ func activate_special(id: String) -> void:
 				
 		if TM != null and TM.has_method("notify_player_attacked"):
 			TM.notify_player_attacked(u)
+		emit_signal("tutorial_event", &"ally_attacked", {"special": "overwatch"})
 		
 		_refresh_overlays()
 		emit_signal("aim_changed", int(aim_mode), special_id)
@@ -5552,12 +5569,8 @@ func activate_special(id: String) -> void:
 		# Turn indicator stays based on move/attack flags (unchanged)
 
 		# After stim, keep whatever aim makes sense:
-		# - if they still have attack, default to ATTACK so you can immediately click a zombie
-		# - otherwise MOVE
-		if not _unit_has_attacked(u):
-			aim_mode = AimMode.ATTACK
-		else:
-			aim_mode = AimMode.MOVE
+		# STIM does not choose the player's next attack action.
+		aim_mode = AimMode.MOVE
 
 		_refresh_overlays()
 		emit_signal("aim_changed", int(aim_mode), special_id)
@@ -10513,7 +10526,7 @@ func rpc_move_commit(net_id: int, target: Vector2i, path: Array) -> void:
 	await _move_unit_visual_along_path(u, target, path)
 	_coop_replaying = false
 
-	# ✅ owning client: mark moved + update indicator + auto-arm
+	# Owning client: update move state and return to explicit action choice.
 	if _coop_is_client() and u.team == Unit.Team.ALLY and _can_local_control(u):
 		_set_unit_moved(u, true)
 		_apply_turn_indicator(u)
@@ -10522,8 +10535,8 @@ func rpc_move_commit(net_id: int, target: Vector2i, path: Array) -> void:
 			_coop_last_move_req_net_id = 0
 			if selected != u:
 				_select(u)
-			if not _unit_has_attacked(u):
-				_set_aim_mode(AimMode.ATTACK)
+			# Co-op move commits also leave attack selection unarmed.
+			_set_aim_mode(AimMode.MOVE)
 
 		_refresh_overlays()
 
